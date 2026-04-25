@@ -5,7 +5,7 @@
   "nativeName": "English",
   "version": "1.0.0",
   "aliases": ["en", "english"],
-  "keywords": ["default", "built-in"],
+  "keywords": ["template", "sample"],
   "strings": {
     "title": "YumeShelf",
     "settings": "Settings",

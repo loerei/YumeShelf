@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let allGames = [];
     let currentSort = localStorage.getItem('yumeshelf_sort_pref') || 'date';
+    if (currentSort === 'rj') currentSort = 'date';
     let currentLang = localStorage.getItem('yumeshelf_lang') || 'en';
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
 
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "No game here, zaako~", open_btn: "Open Games Folder",
             rename: "✏️ Rename", reveal: "📁 Reveal", delete: "🗑️ Delete", confirm: "Delete into Recycle Bin?",
             status_never: "Never played", status_recent: "Just now", status_mins: " mins ago", status_hours: " hours ago",
-            sort_date: "Newest", sort_played: "Recently Played", sort_az: "Name A-Z", sort_rj: "RJ Code", sort_custom: "Custom Order",
+            sort_date: "Newest", sort_played: "Recently Played", sort_az: "Name A-Z", sort_custom: "Custom Order",
             no_results: "Nobody here but us chickens!",
             placeholders: [
                 "Can't even find a game? Zaako~",
@@ -53,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "Không có game ở đây, zaako~", open_btn: "Mở thư mục Game",
             rename: "✏️ Đổi tên", reveal: "📁 Mở thư mục", delete: "🗑️ Xóa game", confirm: "Xóa vào Thùng rác?",
             status_never: "Chưa chơi lần nào", status_recent: "Vừa mới chơi", status_mins: " phút trước", status_hours: " giờ trước",
-            sort_date: "Mới tải về", sort_played: "Chơi gần nhất", sort_az: "Tên A-Z", sort_rj: "Theo mã RJ", sort_custom: "Tùy chỉnh",
+            sort_date: "Mới tải về", sort_played: "Chơi gần nhất", sort_az: "Tên A-Z", sort_custom: "Tùy chỉnh",
             no_results: "Chẳng ai lạc vào đây ngoài mấy con gà chúng ta cả!",
             placeholders: [
                 "Có cái game cũng tìm không ra, Zaako~",
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "ここにはゲームがないよ、ざぁ～こ♡", open_btn: "ゲームフォルダを開く",
             rename: "✏️ 名前変更", reveal: "📁 フォルダを開く", delete: "🗑️ 削除", confirm: "ゴミ箱に移動しますか？",
             status_never: "未プレイ", status_recent: "たった今", status_mins: " 分前", status_hours: " 時間前",
-            sort_date: "追加日", sort_played: "最近プレイ", sort_az: "名前順 A-Z", sort_rj: "RJコード順", sort_custom: "カスタム順",
+            sort_date: "追加日", sort_played: "最近プレイ", sort_az: "名前順 A-Z", sort_custom: "カスタム順",
             no_results: "ここにはニワトリ以外だーれもいないわよ！",
             placeholders: [
                 "ゲーム一つも見つけられないの？ざぁ～こ♡",
@@ -95,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "这里没有游戏哦，杂~鱼~", open_btn: "打开游戏文件夹",
             rename: "✏️ 重命名", reveal: "📁 打开文件夹", delete: "🗑️ 删除", confirm: "确定要删除吗？",
             status_never: "从未运行", status_recent: "刚刚", status_mins: " 分钟前", status_hours: " 小时前",
-            sort_date: "最新添加", sort_played: "最近游玩", sort_az: "名称 A-Z", sort_rj: "RJ号", sort_custom: "自定义排序",
+            sort_date: "最新添加", sort_played: "最近游玩", sort_az: "名称 A-Z", sort_custom: "自定义排序",
             no_results: "除了我们这些弱鸡，谁也不在哦！",
             placeholders: [
                 "连个游戏都找不到吗？杂~鱼~♡",
@@ -187,7 +188,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('ui-sort-date').innerText = d.sort_date;
             document.getElementById('ui-sort-played').innerText = d.sort_played;
             document.getElementById('ui-sort-az').innerText = d.sort_az;
-            document.getElementById('ui-sort-rj').innerText = d.sort_rj;
             document.getElementById('ui-sort-custom').innerText = d.sort_custom;
             
             // Highlight current sort
@@ -412,7 +412,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if(type === 'az') return a.name.localeCompare(b.name);
                     if(type === 'date') return (b.dateAdded || 0) - (a.dateAdded || 0);
                     if(type === 'played') return (b.lastPlayed || 0) - (a.lastPlayed || 0);
-                    if(type === 'rj') { const ah = a.name.includes('[RJ'), bh = b.name.includes('[RJ'); return (ah === bh) ? a.name.localeCompare(b.name) : ah ? -1 : 1; }
                     return 0;
                 });
             };

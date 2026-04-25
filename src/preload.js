@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     revealGame: (path) => ipcRenderer.send('reveal-game', path),
     deleteGame: (path) => ipcRenderer.invoke('delete-game', path),
     toggleFavorite: (folderName) => ipcRenderer.invoke('toggle-favorite', folderName),
-    openFolder: (),
-    getDefaultPath: () => ipcRenderer.invoke('get-default-path') => ipcRenderer.send('open-folder')
+    openFolder: () => ipcRenderer.send('open-folder'),
+    getDefaultPath: () => ipcRenderer.invoke('get-default-path')
 });
 

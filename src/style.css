@@ -134,13 +134,23 @@ body {
 .dropdown-item.danger:hover { background-color: rgba(255, 74, 74, 0.15); }
 /* SORTING UI */
 .sort-container { position: relative; }
-.sort-btn {
-    width: 35px; height: 35px; border-radius: 50%;
-    background: rgba(255,255,255,0.05); cursor: pointer;
-    display: flex; justify-content: center; align-items: center;
-    transition: background 0.2s;
+.header-icon-btn {
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+    opacity: 0.6;
+    color: var(--text-main);
+    user-select: none;
+    width: 32px;
+    height: 32px;
 }
-.sort-btn:hover { background: rgba(255,255,255,0.15); }
+.header-icon-btn:hover { 
+    opacity: 1;
+    transform: scale(1.1);
+}
+.sort-btn { position: relative; }
  /* Icon 3 gạch */
 
 .sort-menu {
@@ -288,15 +298,10 @@ body {
 }
 
 .settings-icon-btn {
-    font-size: 22px;
-    cursor: pointer;
-    opacity: 0.6;
-    transition: all 0.3s;
-    user-select: none;
+    /* Specific settings button styles */
 }
 .settings-icon-btn:hover {
-    opacity: 1;
-    transform: rotate(45deg);
+    transform: rotate(45deg) scale(1.1) !important;
 }
 
 /* SETTINGS PANEL (GLASSMORPHISM) */
@@ -466,13 +471,7 @@ body.light-theme {
 }
 .zaako-btn:hover { background: var(--accent); color: white; }
 
-.quick-action-btn {
-    position: absolute; top: 75px; right: 40px; /* Dưới nút settings */
-    width: 32px; height: 32px; background: rgba(255,255,255,0.05);
-    border-radius: 50%; display: flex; justify-content: center; align-items: center;
-    cursor: pointer; color: var(--text-sub); z-index: 10;
-}
-.quick-action-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+
 
 .small-btn { background: #333; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
 .welcome-icon svg {

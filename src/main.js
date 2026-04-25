@@ -64,31 +64,57 @@ app.whenReady().then(() => {
     win.loadFile(path.join(__dirname, 'index.html'));
 
     ipcMain.handle('check-config', async () => {
-        if (process.argv.includes('--welcome')) return null;
-        const db = await loadDB();
+        if (process.argv.some(arg => arg.toLowerCase() === '--welcome' || arg.toLowerCase() === '-w')) return null;
+        let db = await loadDB();
+        
+        // Auto-detect YumeShelf folder if it exists next to the app
+        if (!db.config && require('fs').existsSync(DEFAULT_GAMES_DIR)) {
+            db.config = { libraryPath: DEFAULT_GAMES_DIR };
+            await saveDB(db);
+        }
+
+        if (db.config && !require('fs').existsSync(db.config.libraryPath)) {
+            if (require('fs').existsSync(DEFAULT_GAMES_DIR)) {
+                db.config.libraryPath = DEFAULT_GAMES_DIR;
+                await saveDB(db);
+            }
+        }
         return db.config || null;
     });
 
     ipcMain.handle('get-default-path', () => DEFAULT_GAMES_DIR);
 
     ipcMain.handle('setup-library', async (e, type) => {
-        let db = await loadDB();
-        let finalPath = '';
-        if (type === 'default') {
-            finalPath = DEFAULT_GAMES_DIR;
-            if (!require('fs').existsSync(finalPath)) require('fs').mkdirSync(finalPath, { recursive: true });
-        } else {
-            const res = await dialog.showOpenDialog({ properties: ['openDirectory'] });
-            if (res.canceled) return null;
-            finalPath = res.filePaths[0];
+        try {
+            let db = await loadDB();
+            let finalPath = '';
+            if (type === 'default') {
+                finalPath = DEFAULT_GAMES_DIR;
+                if (!require('fs').existsSync(finalPath)) {
+                    require('fs').mkdirSync(finalPath, { recursive: true });
+                }
+            } else {
+                const res = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+                if (res.canceled) return null;
+                finalPath = res.filePaths[0];
+            }
+            db.config = { libraryPath: finalPath };
+            await saveDB(db);
+            return finalPath;
+        } catch (err) {
+            console.error('Setup library failed:', err);
+            return null;
         }
-        db.config = { libraryPath: finalPath };
-        await saveDB(db);
-        return finalPath;
     });
 
     ipcMain.handle('get-games', async () => {
-        const db = await loadDB();
+        let db = await loadDB();
+        if (db.config && !require('fs').existsSync(db.config.libraryPath)) {
+            if (require('fs').existsSync(DEFAULT_GAMES_DIR)) {
+                db.config.libraryPath = DEFAULT_GAMES_DIR;
+                await saveDB(db);
+            }
+        }
         return db.config ? await scan(db.config.libraryPath) : [];
     });
 
@@ -99,8 +125,16 @@ app.whenReady().then(() => {
     });
 
     ipcMain.on('open-folder', async () => {
-        const db = await loadDB();
-        if (db.config) shell.openPath(db.config.libraryPath);
+        let db = await loadDB();
+        if (db.config) {
+            let p = db.config.libraryPath;
+            if (!require('fs').existsSync(p) && require('fs').existsSync(DEFAULT_GAMES_DIR)) {
+                p = DEFAULT_GAMES_DIR;
+                db.config.libraryPath = p;
+                await saveDB(db);
+            }
+            shell.openPath(p);
+        }
     });
 
     ipcMain.handle('rename-game', async (e, { folderName, newName }) => {

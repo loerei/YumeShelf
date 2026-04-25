@@ -27,5 +27,8 @@
   "devDependencies": {
     "electron": "^29.0.0",
     "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "extract-file-icon": "^0.3.2"
   }
 }

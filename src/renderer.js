@@ -232,6 +232,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="game-title">${game.name}</div>
             <div class="game-status">${timeSince(game.lastPlayed)}</div>
         `;
+
+        // Async load real icon
+        window.electronAPI.getIcon(game.exePath).then(iconData => {
+            if (iconData) {
+                const iconDiv = card.querySelector('.game-icon');
+                iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+            }
+        });
         card.querySelector('.fav-btn').onclick = async (e) => { e.stopPropagation(); game.favorite = await window.electronAPI.toggleFavorite(game.folderName); sortGames(currentSort); };
         card.querySelector('.menu-btn').onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.dropdown-menu').forEach(m => m !== card.querySelector('.dropdown-menu') && m.classList.remove('show')); card.querySelector('.dropdown-menu').classList.toggle('show'); };
         card.querySelector('.action-rename').onclick = (e) => {
@@ -252,6 +260,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             draggedGameFolder = game.folderName;
             e.dataTransfer.setData('folderName', game.folderName);
             e.dataTransfer.effectAllowed = 'move';
+            
+            // Match placeholder height to the actual card being dragged to prevent grid collapse
+            const rect = card.getBoundingClientRect();
+            dragPlaceholder.style.minHeight = `${rect.height}px`;
+            
             setTimeout(() => { 
                 card.style.display = 'none';
                 card.parentNode.insertBefore(dragPlaceholder, card.nextSibling);
@@ -291,12 +304,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             let nextSibling;
             if (!targetCard) {
-                // If hovering over empty space, keep current position to prevent chaotic jumping to the end
-                if (zone.querySelectorAll('.game-card:not(.drag-placeholder)').length === 0) {
-                    nextSibling = null;
-                } else {
-                    return; 
-                }
+                // When hovering over the zone but not a specific card, append to the end
+                nextSibling = null;
             } else {
                 const rect = targetCard.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2;
@@ -464,7 +473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             item.draggable = true;
             item.innerHTML = `
                 <div class="search-item-info">
-                    <span class="search-item-icon">🎮</span>
+                    <div class="search-item-icon">🎮</div>
                     <div class="search-item-title-container">
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
@@ -476,6 +485,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </svg>
                 </div>
             `;
+
+            // Async load icon for search item
+            window.electronAPI.getIcon(game.exePath).then(iconData => {
+                if (iconData) {
+                    const iconSpan = item.querySelector('.search-item-icon');
+                    iconSpan.innerHTML = `<img src="${iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain;">`;
+                }
+            });
 
             item.ondragstart = (e) => { 
                 draggedGameFolder = game.folderName;

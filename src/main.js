@@ -149,4 +149,31 @@ app.whenReady().then(() => {
     });
     ipcMain.on('reveal-game', (e, p) => shell.showItemInFolder(p));
     ipcMain.handle('delete-game', async (e, p) => await shell.trashItem(p));
+    ipcMain.handle('get-icon', async (e, p) => {
+        try {
+            const dir = path.dirname(p);
+            const exts = ['png', 'jpg', 'jpeg', 'webp'];
+            const names = ['icon', 'cover', 'folder'];
+            for (const name of names) {
+                for (const ext of exts) {
+                    const imgPath = path.join(dir, `${name}.${ext}`);
+                    if (require('fs').existsSync(imgPath)) {
+                        return `file:///${imgPath.replace(/\\/g, '/')}`;
+                    }
+                }
+            }
+
+            // Native High-Res Extract
+            try {
+                const iconExtractor = require('extract-file-icon');
+                const buffer = iconExtractor(p, 256);
+                if (buffer && buffer.length > 0) {
+                    return `data:image/png;base64,${buffer.toString('base64')}`;
+                }
+            } catch (e) { console.error('extract-file-icon error:', e); }
+
+            const icon = await app.getFileIcon(p, { size: 'large' });
+            return icon.toDataURL();
+        } catch { return null; }
+    });
 });

@@ -6,7 +6,7 @@ This guide is intentionally short. The goal is to let translators ship a pack wi
 
 ## Quick Path
 
-1. Copy [`language-packs/packs/vi.json`](language-packs/packs/vi.json) into a new file named after your language code.
+1. Copy [`language-packs/templates/en.sample.json`](language-packs/templates/en.sample.json) into a new file named after your language code.
 2. Edit:
    - `code`
    - `englishName`

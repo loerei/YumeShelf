@@ -176,11 +176,24 @@ body {
 .dropdown-menu.show { display: block; }
 
 .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     padding: 10px 15px;
     font-size: 13px;
     color: var(--text-main);
     cursor: pointer;
     transition: background 0.2s;
+}
+
+.dropdown-item-icon {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+
+.dropdown-item span {
+    display: inline-block;
 }
 
 .dropdown-item:hover { background-color: #3a3a3a; }

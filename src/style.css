@@ -21,7 +21,18 @@ body {
     align-items: center;
     margin-bottom: 30px;
     padding-bottom: 15px;
-    border-bottom: 1px solid #333;
+    position: relative;
+}
+
+.header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: var(--border-color);
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
 }
 
 .game-grid {
@@ -237,10 +248,11 @@ body {
     margin: 15px 0;
 }
 .favorites-separator {
-    width: 40%; /* Ngắn hơn đường line header */
+    width: 60%;
     height: 1px;
-    background: rgba(255, 255, 255, 0.06); /* Cực kỳ mờ */
-    border-radius: 50%;
+    background: var(--text-sub);
+    opacity: 0.2;
+    mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
 }
 
 /* HIỆU ỨNG ACTIVE CHO SORT ITEM */
@@ -297,9 +309,155 @@ body {
     align-items: center;
 }
 
-.settings-icon-btn {
-    /* Specific settings button styles */
+/* SEARCH SYSTEM */
+.search-container {
+    position: relative;
+    flex: 0 1 400px;
+    margin: 0 20px;
+    z-index: 1500;
 }
+
+.search-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.search-placeholder {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-sub);
+    opacity: 0.5;
+    pointer-events: none;
+    font-size: 13px;
+    transition: opacity 2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 85%;
+}
+
+.search-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 8px 15px;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.search-input:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(0, 120, 212, 0.2);
+}
+
+.search-dropdown {
+    position: absolute;
+    top: 45px;
+    left: 0;
+    width: 100%;
+    background: #1e1e1e;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    padding: 8px;
+}
+
+.search-dropdown.show { display: block; }
+
+.search-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 2px;
+    position: relative;
+}
+
+.search-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.search-item-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0; /* Important for ellipsis */
+}
+
+.search-item-icon {
+    font-size: 18px;
+    opacity: 0.7;
+}
+
+.search-item-title-container {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+
+.search-item-title {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+.search-match {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.search-launch-icon {
+    width: 24px;
+    height: 24px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+}
+
+.search-item:hover .search-launch-icon {
+    opacity: 1;
+}
+
+.empty-search {
+    justify-content: center;
+    color: var(--text-sub);
+    font-style: italic;
+    font-size: 12px;
+    text-align: center;
+    padding: 20px;
+    opacity: 0.8;
+}
+
+/* POP-OUT TOOLTIP */
+.search-tooltip {
+    position: fixed;
+    background: #2d2d2d;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 10000;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    pointer-events: none;
+    display: none;
+    border: 1px solid #444;
+}
+
 .settings-icon-btn:hover {
     transform: rotate(45deg) scale(1.1) !important;
 }

@@ -6,6 +6,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const settingsOverlay = document.getElementById('settings-overlay');
     const langSelect = document.getElementById('lang-select');
     const themeSelect = document.getElementById('theme-select');
+    const searchInput = document.getElementById('search-input');
+    const searchDropdown = document.getElementById('search-dropdown');
+    const searchPlaceholder = document.getElementById('search-placeholder');
+    
+    // Custom Tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'search-tooltip';
+    document.body.appendChild(tooltip);
 
     let allGames = [];
     let currentSort = localStorage.getItem('yumeshelf_sort_pref') || 'date';
@@ -20,7 +28,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             opt_lazy: "I'm lazy!", opt_lazy_desc_prefix: "Create",
             zaako: "No game here, zaako~", open_btn: "Open Games Folder",
             rename: "✏️ Rename", reveal: "📁 Reveal", delete: "🗑️ Delete", confirm: "Delete into Recycle Bin?",
-            status_never: "Never played", status_recent: "Just now", status_mins: " mins ago", status_hours: " hours ago"
+            status_never: "Never played", status_recent: "Just now", status_mins: " mins ago", status_hours: " hours ago",
+            no_results: "Nobody here but us chickens!",
+            placeholders: [
+                "Can't even find a game? Zaako~",
+                "Hurry up and type!",
+                "Got lost already?",
+                "Is your brain too small for this?",
+                "Stop staring and type something!",
+                "What are you looking for, Dummy?",
+                "Your memory is terrible, isn't it?",
+                "I'm bored... hurry it up!"
+            ]
         },
         vi: { 
             title: "YumeShelf", settings: "Cài đặt", lang: "Ngôn ngữ", theme: "Chế độ nền", path: "Đường dẫn", change: "Thay đổi",
@@ -29,7 +48,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             opt_lazy: "Tôi lười quá!", opt_lazy_desc_prefix: "Tạo",
             zaako: "Không có game ở đây, zaako~", open_btn: "Mở thư mục Game",
             rename: "✏️ Đổi tên", reveal: "📁 Mở thư mục", delete: "🗑️ Xóa game", confirm: "Xóa vào Thùng rác?",
-            status_never: "Chưa chơi lần nào", status_recent: "Vừa mới chơi", status_mins: " phút trước", status_hours: " giờ trước"
+            status_never: "Chưa chơi lần nào", status_recent: "Vừa mới chơi", status_mins: " phút trước", status_hours: " giờ trước",
+            no_results: "Chẳng ai lạc vào đây ngoài mấy con gà chúng ta cả!",
+            placeholders: [
+                "Có cái game cũng tìm không ra, Zaako~",
+                "Gõ nhanh cái tay lên!",
+                "Hửm? Lạc rồi chứ gì~",
+                "Bộ não cậu không chứa hết chỗ này hay sao?",
+                "Nhìn cái gì, gõ gì đi chứ!",
+                "Tìm cái gì thế hả dummy?",
+                "Trí nhớ tệ thật đấy.",
+                "Tớ thấy chán rồi đấy... nhanh lên coi!"
+            ]
         },
         ja: { 
             title: "ユメシェルフ", settings: "設定", lang: "言語", theme: "テーマ", path: "ライブラリパス", change: "変更",
@@ -38,7 +68,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             opt_lazy: "面倒くさい！", opt_lazy_desc_prefix: "作成",
             zaako: "ここにはゲームがないよ、ざぁ～こ♡", open_btn: "ゲームフォルダを開く",
             rename: "✏️ 名前変更", reveal: "📁 フォルダを開く", delete: "🗑️ 削除", confirm: "ゴミ箱に移動しますか？",
-            status_never: "未プレイ", status_recent: "たった今", status_mins: " 分前", status_hours: " 時間前"
+            status_never: "未プレイ", status_recent: "たった今", status_mins: " 分前", status_hours: " 時間前",
+            no_results: "ここにはニワトリ以外だーれもいないわよ！",
+            placeholders: [
+                "ゲーム一つも見つけられないの？ざぁ～こ♡",
+                "もたもたしないで、早く打ちなさいよ！",
+                "あれ、もう迷子になっちゃったの？",
+                "この程度で容量不足？バカね。",
+                "ジロジロ見ないで、何か入力して！",
+                "何探してるのよ、ばぁ～か。",
+                "忘れっぽいのね、鳥頭さん。",
+                "退屈なんだけど…早くしてよ！"
+            ]
         },
         zh: { 
             title: "梦之架", settings: "设置", lang: "语言", theme: "主题模式", path: "库路径", change: "更改",
@@ -47,9 +88,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             opt_lazy: "我太懒了！", opt_lazy_desc_prefix: "在此创建",
             zaako: "这里没有游戏哦，杂~鱼~", open_btn: "打开游戏文件夹",
             rename: "✏️ 重命名", reveal: "📁 打开文件夹", delete: "🗑️ 删除", confirm: "确定要删除吗？",
-            status_never: "从未运行", status_recent: "刚刚", status_mins: " 分钟前", status_hours: " 小时前"
+            status_never: "从未运行", status_recent: "刚刚", status_mins: " 分钟前", status_hours: " 小时前",
+            no_results: "除了我们这些弱鸡，谁也不在哦！",
+            placeholders: [
+                "连个游戏都找不到吗？杂~鱼~♡",
+                "别磨蹭了，快点打字！",
+                "哎呀，这就迷路了吗？",
+                "这种程度就内存不足了吗？笨蛋。",
+                "别盯着看了，快输入点什么吧！",
+                "你在找什么呢，笨~蛋。",
+                "记性真差呢，你是金鱼吗？",
+                "好无聊啊……快一点啦！"
+            ]
         }
     };
+
+    let placeholderIndex = Math.floor(Math.random() * i18n[currentLang].placeholders.length);
 
     async function applyUIStrings() {
         const d = i18n[currentLang];
@@ -66,6 +120,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('ui-theme-label').innerText = d.theme;
         document.getElementById('ui-path-label').innerText = d.path;
         document.getElementById('btn-change-path').innerText = d.change;
+
+        // Update search placeholder and dropdown
+        if (!searchInput.value.trim()) {
+            searchPlaceholder.innerText = d.placeholders[placeholderIndex % d.placeholders.length];
+        } else {
+            updateSearch(searchInput.value);
+        }
     }
 
     function timeSince(date) {
@@ -136,6 +197,101 @@ document.addEventListener('DOMContentLoaded', async () => {
         loading.style.display = 'none';
         applyUIStrings();
     }
+
+    // SEARCH LOGIC
+    function highlightMatch(text, query) {
+        if (!query) return text;
+        const parts = text.split(new RegExp(`(${query})`, 'gi'));
+        return parts.map(p => p.toLowerCase() === query.toLowerCase() ? `<span class="search-match">${p}</span>` : p).join('');
+    }
+
+    function updateSearch(query) {
+        if (!query.trim()) {
+            searchDropdown.classList.remove('show');
+            searchPlaceholder.style.display = 'block';
+            return;
+        }
+
+        searchPlaceholder.style.display = 'none';
+        const filtered = allGames.filter(g => 
+            g.name.toLowerCase().includes(query.toLowerCase()) || 
+            g.folderName.toLowerCase().includes(query.toLowerCase())
+        );
+
+        searchDropdown.innerHTML = '';
+        if (filtered.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'search-item empty-search';
+            empty.innerText = i18n[currentLang].no_results;
+            searchDropdown.appendChild(empty);
+            searchDropdown.classList.add('show');
+            return;
+        }
+
+        filtered.forEach(game => {
+            const item = document.createElement('div');
+            item.className = 'search-item';
+            item.innerHTML = `
+                <div class="search-item-info">
+                    <span class="search-item-icon">🎮</span>
+                    <div class="search-item-title-container">
+                        <div class="search-item-title">${highlightMatch(game.name, query)}</div>
+                    </div>
+                </div>
+                <svg class="search-launch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 10l5 5-5 5"></path>
+                    <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
+                </svg>
+            `;
+
+            item.onmouseenter = (e) => {
+                tooltip.innerText = game.name;
+                tooltip.style.display = 'block';
+                const rect = item.getBoundingClientRect();
+                tooltip.style.left = `${rect.left}px`;
+                tooltip.style.top = `${rect.bottom + 5}px`;
+            };
+            item.onmouseleave = () => tooltip.style.display = 'none';
+            item.ondblclick = (e) => {
+                e.stopPropagation();
+                window.electronAPI.launchYume({folderName: game.folderName, exePath: game.exePath});
+                searchDropdown.classList.remove('show');
+                searchInput.value = '';
+            };
+            
+            searchDropdown.appendChild(item);
+        });
+
+        searchDropdown.classList.add('show');
+    }
+
+    searchInput.oninput = (e) => updateSearch(e.target.value);
+    searchInput.onfocus = (e) => updateSearch(e.target.value);
+    
+    // Close dropdown on click outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+            searchDropdown.classList.remove('show');
+        }
+    });
+
+    // Placeholder Rotation Logic
+    function rotatePlaceholder() {
+        if (searchInput.value.trim()) return; // Don't rotate if user is typing
+
+        searchPlaceholder.style.opacity = '0';
+        setTimeout(() => {
+            const list = i18n[currentLang].placeholders;
+            placeholderIndex = (placeholderIndex + 1) % list.length;
+            searchPlaceholder.innerText = list[placeholderIndex];
+            searchPlaceholder.style.opacity = '0.5';
+        }, 2000);
+    }
+
+    setInterval(rotatePlaceholder, 60000);
+    
+    // Initial placeholder
+    searchPlaceholder.innerText = i18n[currentLang].placeholders[placeholderIndex];
 
     async function initApp() {
         const config = await window.electronAPI.checkConfig();

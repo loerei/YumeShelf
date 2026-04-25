@@ -149,6 +149,28 @@ app.whenReady().then(() => {
     });
     ipcMain.on('reveal-game', (e, p) => shell.showItemInFolder(p));
     ipcMain.handle('delete-game', async (e, p) => await shell.trashItem(p));
+    let activeIconRequests = 0;
+    const iconQueue = [];
+
+    async function processIconQueue() {
+        if (activeIconRequests >= 3 || iconQueue.length === 0) return;
+        activeIconRequests++;
+        const { task, resolve } = iconQueue.shift();
+        try {
+            resolve(await task());
+        } finally {
+            activeIconRequests--;
+            processIconQueue();
+        }
+    }
+
+    function queueIconTask(task) {
+        return new Promise(resolve => {
+            iconQueue.push({ task, resolve });
+            processIconQueue();
+        });
+    }
+
     ipcMain.handle('get-icon', async (e, p) => {
         try {
             const dir = path.dirname(p);
@@ -163,9 +185,9 @@ app.whenReady().then(() => {
                 }
             }
 
-            // Native High-Res Extract (Bypass Electron restriction via child process)
+            // Native High-Res Extract (Bypass Electron restriction via child process with concurrency limit)
             try {
-                const b64 = await new Promise((resolve) => {
+                const b64 = await queueIconTask(() => new Promise((resolve) => {
                     const appPath = app.getAppPath();
                     const extPath = require('path').join(appPath, 'node_modules', 'extract-file-icon')
                                       .replace('app.asar', 'app.asar.unpacked')
@@ -177,7 +199,7 @@ app.whenReady().then(() => {
                     let out = '';
                     cp.stdout.on('data', d => out += d.toString());
                     cp.on('close', () => resolve(out.trim()));
-                });
+                }));
                 
                 if (b64 && b64.length > 0) {
                     return `data:image/png;base64,${b64}`;

@@ -228,18 +228,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="dropdown-item action-reveal">${d.reveal}</div>
                 <div class="dropdown-item danger action-delete">${d.delete}</div>
             </div>
-            <div class="game-icon">🎮</div>
+            <div class="game-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
             <div class="game-title">${game.name}</div>
             <div class="game-status">${timeSince(game.lastPlayed)}</div>
         `;
 
         // Async load real icon
-        window.electronAPI.getIcon(game.exePath).then(iconData => {
-            if (iconData) {
-                const iconDiv = card.querySelector('.game-icon');
-                iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
-            }
-        });
+        if (!game.iconData) {
+            window.electronAPI.getIcon(game.exePath).then(iconData => {
+                if (iconData) {
+                    game.iconData = iconData;
+                    const iconDiv = card.querySelector('.game-icon');
+                    iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+                }
+            });
+        }
         card.querySelector('.fav-btn').onclick = async (e) => { e.stopPropagation(); game.favorite = await window.electronAPI.toggleFavorite(game.folderName); sortGames(currentSort); };
         card.querySelector('.menu-btn').onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.dropdown-menu').forEach(m => m !== card.querySelector('.dropdown-menu') && m.classList.remove('show')); card.querySelector('.dropdown-menu').classList.toggle('show'); };
         card.querySelector('.action-rename').onclick = (e) => {
@@ -478,7 +481,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             item.draggable = true;
             item.innerHTML = `
                 <div class="search-item-info">
-                    <div class="search-item-icon">🎮</div>
+                    <div class="search-item-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">` : '🎮'}</div>
                     <div class="search-item-title-container">
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
@@ -492,12 +495,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
 
             // Async load icon for search item
-            window.electronAPI.getIcon(game.exePath).then(iconData => {
-                if (iconData) {
-                    const iconSpan = item.querySelector('.search-item-icon');
-                    iconSpan.innerHTML = `<img src="${iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
-                }
-            });
+            if (!game.iconData) {
+                window.electronAPI.getIcon(game.exePath).then(iconData => {
+                    if (iconData) {
+                        game.iconData = iconData;
+                        const iconSpan = item.querySelector('.search-item-icon');
+                        iconSpan.innerHTML = `<img src="${iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
+                    }
+                });
+            }
 
             item.ondragstart = (e) => { 
                 draggedGameFolder = game.folderName;

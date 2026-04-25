@@ -163,14 +163,26 @@ app.whenReady().then(() => {
                 }
             }
 
-            // Native High-Res Extract
+            // Native High-Res Extract (Bypass Electron restriction via child process)
             try {
-                const iconExtractor = require('extract-file-icon');
-                const buffer = iconExtractor(p, 256);
-                if (buffer && buffer.length > 0) {
-                    return `data:image/png;base64,${buffer.toString('base64')}`;
+                const b64 = await new Promise((resolve) => {
+                    const appPath = app.getAppPath();
+                    const extPath = require('path').join(appPath, 'node_modules', 'extract-file-icon')
+                                      .replace('app.asar', 'app.asar.unpacked')
+                                      .replace(/\\/g, '\\\\');
+                    const script = `try { const b = require('${extPath}')('${p.replace(/\\/g, '\\\\')}', 256); console.log(b.toString('base64')); } catch(e) { console.log(''); }`;
+                    const cp = require('child_process').spawn(process.execPath, ['-e', script], {
+                        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+                    });
+                    let out = '';
+                    cp.stdout.on('data', d => out += d.toString());
+                    cp.on('close', () => resolve(out.trim()));
+                });
+                
+                if (b64 && b64.length > 0) {
+                    return `data:image/png;base64,${b64}`;
                 }
-            } catch (e) { console.error('extract-file-icon error:', e); }
+            } catch (e) { console.error('extract-file-icon child_process error:', e); }
 
             const icon = await app.getFileIcon(p, { size: 'large' });
             return icon.toDataURL();

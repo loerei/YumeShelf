@@ -265,10 +265,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const rect = card.getBoundingClientRect();
             dragPlaceholder.style.minHeight = `${rect.height}px`;
             
-            setTimeout(() => { 
+            requestAnimationFrame(() => { 
                 card.style.display = 'none';
                 card.parentNode.insertBefore(dragPlaceholder, card.nextSibling);
-            }, 0);
+            });
         };
         card.ondragend = () => {
             if (dragPlaceholder.parentNode) {
@@ -296,9 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault();
             zone.classList.add('drag-over');
             
-            if (currentSort !== 'custom' && dragPlaceholder.parentNode === zone) {
-                return; // Only allow custom drag within the same zone
-            }
+            // Removed sort restriction to allow visual drag anywhere
             
             const targetCard = e.target.closest('.game-card:not(.drag-placeholder)');
             
@@ -352,7 +350,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 needsSave = true;
             }
 
-            if (currentSort === 'custom' && draggedGame.favorite === isFavZone && zone !== separator) {
+            if (draggedGame.favorite === isFavZone && zone !== separator) {
+                if (currentSort !== 'custom') {
+                    currentSort = 'custom';
+                    document.querySelectorAll('.sort-item').forEach(el => el.style.color = '#ccc');
+                    document.getElementById('ui-sort-custom').style.color = 'var(--accent)';
+                    document.getElementById('current-sort-label').innerText = document.getElementById('ui-sort-custom').innerText;
+                }
+
                 let customOrder = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
                 if (customOrder.length === 0) customOrder = allGames.map(g => g.folderName);
                 allGames.forEach(g => { if(!customOrder.includes(g.folderName)) customOrder.push(g.folderName); });

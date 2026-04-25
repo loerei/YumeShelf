@@ -54,6 +54,7 @@ body {
 }
 
 .game-card {
+    box-sizing: border-box;
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;

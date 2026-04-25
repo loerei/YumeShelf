@@ -112,8 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     let draggedGameFolder = null;
-    let dragPlaceholder = document.createElement('div');
-    dragPlaceholder.className = 'game-card drag-placeholder';
+    let dragTargetInfo = null;
 
     function flipAnimateDOMUpdate(callback, isDrop = false) {
         const getItems = () => [...document.querySelectorAll('.game-card')];
@@ -122,8 +121,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         getItems().forEach(item => {
             if(item.dataset.folder) {
                 firstRects.set(item.dataset.folder, item.getBoundingClientRect());
-            } else if (item.classList.contains('drag-placeholder') && draggedGameFolder) {
-                firstRects.set(draggedGameFolder, item.getBoundingClientRect());
             }
             item.style.transition = 'none';
             item.style.transform = 'none';
@@ -263,27 +260,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             draggedGameFolder = game.folderName;
             e.dataTransfer.setData('folderName', game.folderName);
             e.dataTransfer.effectAllowed = 'move';
-            
-            // Match placeholder height to the actual card being dragged to prevent grid collapse
-            const rect = card.getBoundingClientRect();
-            dragPlaceholder.style.minHeight = `${rect.height}px`;
+            dragTargetInfo = null;
             
             requestAnimationFrame(() => { 
-                card.style.display = 'none';
-                card.parentNode.insertBefore(dragPlaceholder, card.nextSibling);
+                card.style.opacity = '0.01'; 
             });
         };
         card.ondragend = () => {
-            if (dragPlaceholder.parentNode) {
-                flipAnimateDOMUpdate(() => {
-                    dragPlaceholder.parentNode.removeChild(dragPlaceholder);
-                    card.style.display = 'flex';
-                });
-            } else {
-                card.style.display = 'flex';
-            }
+            card.style.opacity = '1';
             draggedGameFolder = null;
-            document.querySelectorAll('.game-card').forEach(c => { c.classList.remove('drag-over'); });
+            dragTargetInfo = null;
+            document.querySelectorAll('.game-card').forEach(c => { 
+                c.style.transform = 'none';
+                c.classList.remove('drag-over'); 
+            });
         };
         card.ondragenter = (e) => { e.preventDefault(); };
         card.ondragleave = (e) => { e.preventDefault(); };
@@ -298,37 +288,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         zone.ondragover = (e) => {
             e.preventDefault();
             zone.classList.add('drag-over');
-            
-            // Removed sort restriction to allow visual drag anywhere
-            
-            const targetCard = e.target.closest('.game-card:not(.drag-placeholder)');
-            
-            let nextSibling;
-            if (!targetCard) {
-                // When hovering over the zone but not a specific card, append to the end
-                nextSibling = null;
-            } else {
-                const rect = targetCard.getBoundingClientRect();
-                const midX = rect.left + rect.width / 2;
-                const midY = rect.top + rect.height / 2;
-                
-                // Hysteresis deadzone to prevent flickering when mouse is on the boundary
-                // Increased threshold to 30% of card width for better stability
-                const thresholdX = rect.width * 0.3;
-                
-                if (Math.abs(e.clientX - midX) < thresholdX) {
-                    return; // In deadzone, don't swap
-                }
-                
-                nextSibling = (e.clientX > midX) ? targetCard.nextElementSibling : targetCard;
-            }
+            if (zone === separator) return;
 
-            if (dragPlaceholder.parentNode !== zone || dragPlaceholder.nextElementSibling !== nextSibling) {
-                flipAnimateDOMUpdate(() => {
-                    if (zone !== separator) {
-                        zone.insertBefore(dragPlaceholder, nextSibling);
-                    }
-                });
+            const cards = [...zone.querySelectorAll('.game-card')];
+            let closestCard = null;
+            let minDist = Infinity;
+            
+            cards.forEach(c => {
+                if (c.dataset.folder === draggedGameFolder) return;
+                const rect = c.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestCard = c;
+                }
+            });
+            
+            cards.forEach(c => c.style.transform = 'none');
+            
+            if (closestCard) {
+                const rect = closestCard.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                if (minDist < rect.width * 0.55) {
+                    const isLeft = e.clientX < cx;
+                    dragTargetInfo = { 
+                        folder: closestCard.dataset.folder, 
+                        insertAfter: !isLeft
+                    };
+                    
+                    const rowTop = rect.top;
+                    cards.forEach(c => {
+                        if (c.dataset.folder === draggedGameFolder) return;
+                        const cRect = c.getBoundingClientRect();
+                        if (Math.abs(cRect.top - rowTop) < 15) {
+                            if (!isLeft && cRect.left >= rect.left) {
+                                c.style.transform = 'translateX(25px)';
+                            } else if (isLeft && cRect.left <= rect.left) {
+                                c.style.transform = 'translateX(-25px)';
+                            }
+                        }
+                    });
+                }
+            } else {
+                dragTargetInfo = { folder: null, insertAfter: true };
             }
         };
 
@@ -373,13 +377,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     customOrder.splice(draggedIdx, 1);
                     
                     let insertIdx = customOrder.length;
-                    let nextCard = dragPlaceholder.nextElementSibling;
-                    while (nextCard && !nextCard.dataset.folder) {
-                        nextCard = nextCard.nextElementSibling;
-                    }
-                    if (nextCard && nextCard.dataset.folder) {
-                        const targetIdx = customOrder.indexOf(nextCard.dataset.folder);
-                        if (targetIdx > -1) insertIdx = targetIdx;
+                    if (dragTargetInfo && dragTargetInfo.folder) {
+                        const targetIdx = customOrder.indexOf(dragTargetInfo.folder);
+                        if (targetIdx > -1) {
+                            insertIdx = dragTargetInfo.insertAfter ? targetIdx + 1 : targetIdx;
+                        }
                     }
 
                     customOrder.splice(insertIdx, 0, draggedFolder);
@@ -390,7 +392,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Trigger the animation for the drop sorting (synchronously)
             flipAnimateDOMUpdate(() => {
-                if (dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
+                document.querySelectorAll('.game-card').forEach(c => c.style.transform = 'none');
                 if (needsSave || doToggle) {
                     sortGames(currentSort);
                 } else {

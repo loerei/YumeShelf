@@ -6,32 +6,7 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 
 const isDev = !app.isPackaged;
-
-function resolveRuntimeBaseDir() {
-    if (isDev) {
-        return path.resolve(__dirname, '..');
-    }
-
-    const portableExecutableDir = process.env.PORTABLE_EXECUTABLE_DIR;
-    if (portableExecutableDir && fsSync.existsSync(portableExecutableDir)) {
-        return portableExecutableDir;
-    }
-
-    const exeDir = path.dirname(process.execPath);
-    if (exeDir && fsSync.existsSync(exeDir)) {
-        return exeDir;
-    }
-
-    const cwd = process.cwd();
-    if (cwd && fsSync.existsSync(cwd)) {
-        return cwd;
-    }
-
-    return path.dirname(app.getPath('exe'));
-}
-
-const RUNTIME_BASE_DIR = resolveRuntimeBaseDir();
-const DEFAULT_GAMES_DIR = path.join(RUNTIME_BASE_DIR, 'YumeShelf');
+const DEFAULT_GAMES_DIR = isDev ? path.join(__dirname, '..', 'YumeShelf') : path.join(path.dirname(app.getPath('exe')), 'YumeShelf');
 const DB_FILE = path.join(app.getPath('userData'), 'library_db.json');
 
 function safeGetPath(name) {
@@ -50,8 +25,6 @@ function logBootDiagnostics() {
         isPackaged: app.isPackaged,
         appName: app.name,
         appGetName: typeof app.getName === 'function' ? app.getName() : null,
-        runtimeBaseDir: RUNTIME_BASE_DIR,
-        portableExecutableDir: process.env.PORTABLE_EXECUTABLE_DIR || null,
         appData: safeGetPath('appData'),
         userData: safeGetPath('userData'),
         sessionData: safeGetPath('sessionData'),
@@ -69,8 +42,6 @@ function startupPathSummary() {
         pid: process.pid,
         cwd: process.cwd(),
         isPackaged: app.isPackaged,
-        runtimeBaseDir: RUNTIME_BASE_DIR,
-        portableExecutableDir: process.env.PORTABLE_EXECUTABLE_DIR || null,
         appPath: app.getAppPath(),
         exe: app.getPath('exe'),
         userData: app.getPath('userData'),
@@ -486,7 +457,6 @@ app.whenReady().then(() => {
         const workerPath = path.join(__dirname, 'icon-extractor.js');
         const worker = require('child_process').fork(workerPath, [], {
             execPath: nodeExecPath,
-            cwd: RUNTIME_BASE_DIR,
             stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
             windowsHide: true
         });

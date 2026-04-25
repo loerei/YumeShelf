@@ -597,10 +597,29 @@ body {
 
 .setting-item label { font-weight: 600; font-size: 16px; }
 
+.setting-control-zone {
+    width: 390px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
 .setting-field-group {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.setting-field-group #lang-select {
+    width: 196px;
+    min-width: 196px;
+}
+
+.setting-control-zone #theme-select,
+.wide-setting-btn {
+    width: 196px;
+    min-width: 196px;
+    margin-left: auto;
 }
 
 .secondary-btn {
@@ -704,6 +723,10 @@ body.light-theme {
 }
 #lang-select:hover, #theme-select:hover {
     border-color: var(--text-sub);
+}
+
+.wide-setting-btn {
+    text-align: center;
 }
 
 .language-pack-panel {
@@ -885,10 +908,21 @@ body.light-theme {
         align-items: stretch;
     }
 
+    .setting-control-zone {
+        width: 100%;
+    }
+
     .setting-field-group,
     .language-pack-actions {
         width: 100%;
         flex-direction: column;
+    }
+
+    .setting-field-group #lang-select,
+    .setting-control-zone #theme-select,
+    .wide-setting-btn {
+        width: 100%;
+        min-width: 0;
     }
 }
 

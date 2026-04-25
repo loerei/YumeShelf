@@ -102,22 +102,26 @@
             <div class="settings-body">
                 <div class="setting-item">
                     <label id="ui-lang-label">Language</label>
-                    <div class="setting-field-group">
-                        <select id="lang-select"></select>
+                    <div class="setting-control-zone setting-field-group">
                         <button class="small-btn secondary-btn" id="more-languages-btn">More languages...</button>
+                        <select id="lang-select"></select>
                     </div>
                 </div>
                 <div class="setting-item">
                     <label id="ui-theme-label">Theme Mode</label>
-                    <select id="theme-select">
-                        <option value="system" id="ui-theme-system">System</option>
-                        <option value="dark" id="ui-theme-dark">Dark</option>
-                        <option value="light" id="ui-theme-light">Light</option>
-                    </select>
+                    <div class="setting-control-zone">
+                        <select id="theme-select">
+                            <option value="system" id="ui-theme-system">System</option>
+                            <option value="dark" id="ui-theme-dark">Dark</option>
+                            <option value="light" id="ui-theme-light">Light</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="setting-item">
                     <label id="ui-path-label">Library Path</label>
-                    <button class="small-btn" id="btn-change-path">Change</button>
+                    <div class="setting-control-zone">
+                        <button class="small-btn wide-setting-btn" id="btn-change-path">Change</button>
+                    </div>
                 </div>
                 <div class="settings-info">
                     <p id="ui-app-version">YumeShelf</p>

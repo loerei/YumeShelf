@@ -3,7 +3,8 @@
   "code": "ja",
   "englishName": "Japanese",
   "nativeName": "日本語",
-  "version": "1.0.0",
+  "packVersion": "1.0.0",
+  "reviewedForAppVersion": "1.3.0",
   "aliases": ["ja", "japanese", "nihongo"],
   "keywords": ["built-in"],
   "strings": {
@@ -12,6 +13,8 @@
     "lang": "言語",
     "theme": "テーマ",
     "path": "ライブラリパス",
+    "app_updates_label": "アプリ更新",
+    "language_pack_updates_label": "言語パック更新",
     "change": "変更",
     "welcome": "ユメシェルフへようこそ",
     "welcome_desc": "夢の管理方法を選択してください。",
@@ -45,6 +48,11 @@
       "退屈なんだけど…早くしてよ！"
     ],
     "footer_desc": "あなたの夢を、きれいに整理。",
+    "update_mode_automatic": "自動",
+    "update_mode_notify": "通知する",
+    "update_mode_off": "オフ",
+    "pack_chip_version_prefix": "パック",
+    "pack_chip_reviewed_for_prefix": "確認済み",
     "lang_builtin_source": "内蔵",
     "lang_downloaded_source": "ダウンロード済み"
   }

@@ -3,7 +3,8 @@
   "code": "en",
   "englishName": "English",
   "nativeName": "English",
-  "version": "1.0.0",
+  "packVersion": "1.0.0",
+  "reviewedForAppVersion": "1.3.0",
   "aliases": ["en", "english"],
   "keywords": ["default", "built-in"],
   "strings": {
@@ -12,6 +13,8 @@
     "lang": "Language",
     "theme": "Theme Mode",
     "path": "Library Path",
+    "app_updates_label": "App Updates",
+    "language_pack_updates_label": "Language Pack Updates",
     "change": "Change",
     "welcome": "Welcome to YumeShelf",
     "welcome_desc": "Choose how you want to manage your dreams.",
@@ -48,6 +51,9 @@
     "theme_system": "System",
     "theme_dark": "Dark",
     "theme_light": "Light",
+    "update_mode_automatic": "Automatic",
+    "update_mode_notify": "Notify me",
+    "update_mode_off": "Off",
     "settings_more_languages": "More languages...",
     "lang_modal_title": "Language packs",
     "lang_modal_search_placeholder": "Search by code, language, or alias",
@@ -70,6 +76,8 @@
     "lang_modal_checksum_failed": "Checksum verification failed.",
     "lang_modal_schema_failed": "Language pack schema is invalid.",
     "lang_modal_not_compatible": "This language pack needs a newer version of YumeShelf.",
+    "pack_chip_version_prefix": "Pack",
+    "pack_chip_reviewed_for_prefix": "Reviewed for",
     "lang_builtin_source": "Built-in",
     "lang_downloaded_source": "Downloaded pack"
   }

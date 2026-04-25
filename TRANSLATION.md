@@ -32,7 +32,8 @@ Required top-level fields:
 - `code`
 - `englishName`
 - `nativeName`
-- `version`
+- `packVersion`
+- `reviewedForAppVersion`
 - `aliases`
 - `keywords`
 - `strings`
@@ -68,8 +69,9 @@ Add one entry to [`language-packs/manifest.json`](language-packs/manifest.json):
 - `code`
 - `englishName`
 - `nativeName`
-- `version`
+- `packVersion`
 - `minAppVersion`
+- `reviewedForAppVersion`
 - `aliases`
 - `keywords`
 - `downloadUrl`

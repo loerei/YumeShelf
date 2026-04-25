@@ -616,6 +616,8 @@ body {
 }
 
 .setting-control-zone #theme-select,
+.setting-control-zone #app-updates-select,
+.setting-control-zone #language-pack-updates-select,
 .wide-setting-btn {
     width: 196px;
     min-width: 196px;
@@ -710,7 +712,7 @@ body.light-theme {
 .settings-panel { background: var(--card-bg); border-color: var(--border-color); }
 
 
-#lang-select, #theme-select {
+#lang-select, #theme-select, #app-updates-select, #language-pack-updates-select {
     background: var(--bg-color);
     color: var(--text-main);
     border: 1px solid var(--border-color);
@@ -721,7 +723,7 @@ body.light-theme {
     cursor: pointer;
     min-width: 120px;
 }
-#lang-select:hover, #theme-select:hover {
+#lang-select:hover, #theme-select:hover, #app-updates-select:hover, #language-pack-updates-select:hover {
     border-color: var(--text-sub);
 }
 
@@ -920,6 +922,8 @@ body.light-theme {
 
     .setting-field-group #lang-select,
     .setting-control-zone #theme-select,
+    .setting-control-zone #app-updates-select,
+    .setting-control-zone #language-pack-updates-select,
     .wide-setting-btn {
         width: 100%;
         min-width: 0;

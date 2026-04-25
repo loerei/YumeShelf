@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const settingsOverlay = document.getElementById('settings-overlay');
     const langSelect = document.getElementById('lang-select');
     const themeSelect = document.getElementById('theme-select');
+    const appUpdatesSelect = document.getElementById('app-updates-select');
+    const languagePackUpdatesSelect = document.getElementById('language-pack-updates-select');
     const searchInput = document.getElementById('search-input');
     const searchDropdown = document.getElementById('search-dropdown');
     const searchPlaceholder = document.getElementById('search-placeholder');
@@ -41,6 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentSort === 'rj') currentSort = 'date';
     let currentLang = localStorage.getItem('yumeshelf_lang') || 'en';
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
+    let currentAppUpdates = localStorage.getItem('yumeshelf_app_updates_pref') || 'notify';
+    let currentLanguagePackUpdates = localStorage.getItem('yumeshelf_language_pack_updates_pref') || 'automatic';
     let placeholderIndex = 0;
     let localeState = {
         builtIn: [],
@@ -312,7 +316,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <h3>${title}</h3>
                     <p>${pack.code.toUpperCase()} • ${sourceText}</p>
                     <div class="language-pack-card-meta">
-                        <span class="language-pack-chip">v${pack.version}</span>
+                        <span class="language-pack-chip">${d.pack_chip_version_prefix || getEnglishStrings().pack_chip_version_prefix} v${pack.packVersion}</span>
+                        ${pack.reviewedForAppVersion ? `<span class="language-pack-chip">${d.pack_chip_reviewed_for_prefix || getEnglishStrings().pack_chip_reviewed_for_prefix} ${pack.reviewedForAppVersion}</span>` : ''}
                         ${(pack.aliases || []).slice(0, 3).map(alias => `<span class="language-pack-chip">${alias}</span>`).join('')}
                     </div>
                 </div>
@@ -406,12 +411,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('ui-lang-label').innerText = d.lang;
         document.getElementById('ui-theme-label').innerText = d.theme;
         document.getElementById('ui-path-label').innerText = d.path;
+        document.getElementById('ui-app-updates-label').innerText = d.app_updates_label || getEnglishStrings().app_updates_label;
+        document.getElementById('ui-language-pack-updates-label').innerText = d.language_pack_updates_label || getEnglishStrings().language_pack_updates_label;
         document.getElementById('btn-change-path').innerText = d.change;
         document.getElementById('ui-footer-desc').innerText = d.footer_desc || getEnglishStrings().footer_desc;
         document.getElementById('ui-app-version').innerText = `YumeShelf v${localeState.appVersion || ''}`.trim();
         document.getElementById('ui-theme-system').innerText = d.theme_system || getEnglishStrings().theme_system;
         document.getElementById('ui-theme-dark').innerText = d.theme_dark || getEnglishStrings().theme_dark;
         document.getElementById('ui-theme-light').innerText = d.theme_light || getEnglishStrings().theme_light;
+        document.getElementById('ui-update-automatic').innerText = d.update_mode_automatic || getEnglishStrings().update_mode_automatic;
+        document.getElementById('ui-update-notify').innerText = d.update_mode_notify || getEnglishStrings().update_mode_notify;
+        document.getElementById('ui-update-off').innerText = d.update_mode_off || getEnglishStrings().update_mode_off;
+        document.getElementById('ui-pack-update-automatic').innerText = d.update_mode_automatic || getEnglishStrings().update_mode_automatic;
+        document.getElementById('ui-pack-update-notify').innerText = d.update_mode_notify || getEnglishStrings().update_mode_notify;
+        document.getElementById('ui-pack-update-off').innerText = d.update_mode_off || getEnglishStrings().update_mode_off;
         moreLanguagesBtn.innerText = d.settings_more_languages || getEnglishStrings().settings_more_languages;
         document.getElementById('ui-language-pack-title').innerText = d.lang_modal_title || getEnglishStrings().lang_modal_title;
 
@@ -922,6 +935,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.className = `${event.target.value}-theme`;
         localStorage.setItem('yumeshelf_theme', event.target.value);
     };
+    appUpdatesSelect.onchange = (event) => {
+        currentAppUpdates = event.target.value;
+        localStorage.setItem('yumeshelf_app_updates_pref', currentAppUpdates);
+    };
+    languagePackUpdatesSelect.onchange = (event) => {
+        currentLanguagePackUpdates = event.target.value;
+        localStorage.setItem('yumeshelf_language_pack_updates_pref', currentLanguagePackUpdates);
+    };
     langSelect.onchange = (event) => {
         setCurrentLanguage(event.target.value);
     };
@@ -949,6 +970,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.body.className = `${currentTheme}-theme`;
     themeSelect.value = currentTheme;
+    appUpdatesSelect.value = currentAppUpdates;
+    languagePackUpdatesSelect.value = currentLanguagePackUpdates;
 
     await loadLanguageState();
     searchPlaceholder.innerText = getStrings().placeholders[placeholderIndex];

@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentSort === 'rj') currentSort = 'date';
     let currentLang = localStorage.getItem('yumeshelf_lang') || 'en';
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
+    const DRAG_ROW_TOLERANCE = 15;
+    const DRAG_POINTER_SLOP = 18;
 
     const i18n = {
         en: { 
@@ -113,6 +115,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     let draggedGameFolder = null;
     let dragTargetInfo = null;
+
+    function getPointerDistanceToRect(pointerX, pointerY, rect, slop = DRAG_POINTER_SLOP) {
+        const left = rect.left - slop;
+        const right = rect.right + slop;
+        const top = rect.top - slop;
+        const bottom = rect.bottom + slop;
+        const dx = pointerX < left ? left - pointerX : pointerX > right ? pointerX - right : 0;
+        const dy = pointerY < top ? top - pointerY : pointerY > bottom ? pointerY - bottom : 0;
+        return Math.hypot(dx, dy);
+    }
+
+    function isSameDragRow(aRect, bRect) {
+        return Math.abs(aRect.top - bRect.top) < DRAG_ROW_TOLERANCE;
+    }
 
     function flipAnimateDOMUpdate(callback, isDrop = false) {
         const getItems = () => [...document.querySelectorAll('.game-card')];
@@ -291,49 +307,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (zone === separator) return;
 
             const cards = [...zone.querySelectorAll('.game-card')];
-            let closestCard = null;
+            const cardsWithRects = cards
+                .filter(c => c.dataset.folder !== draggedGameFolder)
+                .map(card => ({ card, rect: card.getBoundingClientRect() }));
+
+            cards.forEach(c => c.style.transform = 'none');
+
+            if (cardsWithRects.length === 0) {
+                dragTargetInfo = { folder: null, insertAfter: true };
+                return;
+            }
+
+            const maxBottom = Math.max(...cardsWithRects.map(({ rect }) => rect.bottom));
+            if (e.clientY > maxBottom + DRAG_POINTER_SLOP) {
+                dragTargetInfo = { folder: null, insertAfter: true };
+                return;
+            }
+
+            let closest = null;
             let minDist = Infinity;
-            
-            cards.forEach(c => {
-                if (c.dataset.folder === draggedGameFolder) return;
-                const rect = c.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
+            cardsWithRects.forEach(item => {
+                const dist = getPointerDistanceToRect(e.clientX, e.clientY, item.rect);
                 if (dist < minDist) {
                     minDist = dist;
-                    closestCard = c;
+                    closest = item;
                 }
             });
-            
-            cards.forEach(c => c.style.transform = 'none');
-            
-            if (closestCard) {
-                const rect = closestCard.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                if (minDist < rect.width * 0.55) {
-                    const isLeft = e.clientX < cx;
-                    dragTargetInfo = { 
-                        folder: closestCard.dataset.folder, 
-                        insertAfter: !isLeft
-                    };
-                    
-                    const rowTop = rect.top;
-                    cards.forEach(c => {
-                        if (c.dataset.folder === draggedGameFolder) return;
-                        const cRect = c.getBoundingClientRect();
-                        if (Math.abs(cRect.top - rowTop) < 15) {
-                            if (!isLeft && cRect.left >= rect.left) {
-                                c.style.transform = 'translateX(25px)';
-                            } else if (isLeft && cRect.left <= rect.left) {
-                                c.style.transform = 'translateX(-25px)';
-                            }
-                        }
-                    });
-                }
-            } else {
+
+            if (!closest) {
                 dragTargetInfo = { folder: null, insertAfter: true };
+                return;
             }
+
+            const { card: closestCard, rect } = closest;
+            const rowCards = cardsWithRects.filter(item => isSameDragRow(item.rect, rect));
+            const rowRight = Math.max(...rowCards.map(item => item.rect.right));
+            const isAppendAfterLastCard =
+                closestCard === cardsWithRects[cardsWithRects.length - 1].card &&
+                e.clientX > rowRight + rect.width * 0.15 &&
+                e.clientY >= rect.top - DRAG_POINTER_SLOP &&
+                e.clientY <= rect.bottom + rect.height * 0.6;
+
+            if (isAppendAfterLastCard) {
+                dragTargetInfo = { folder: null, insertAfter: true };
+                return;
+            }
+
+            const isLeft = e.clientX < rect.left + rect.width / 2;
+            dragTargetInfo = {
+                folder: closestCard.dataset.folder,
+                insertAfter: !isLeft
+            };
+
+            rowCards.forEach(({ card, rect: rowRect }) => {
+                if (!isLeft && rowRect.left >= rect.left) {
+                    card.style.transform = 'translateX(25px)';
+                } else if (isLeft && rowRect.left <= rect.left) {
+                    card.style.transform = 'translateX(-25px)';
+                }
+            });
         };
 
         zone.ondragleave = (e) => { 

@@ -1,6 +1,6 @@
 {
   "name": "h-game-launcher",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "Smart Game Library Launcher",
   "main": "src/main.js",
   "scripts": {

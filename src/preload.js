@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     toggleFavorite: (folderName) => ipcRenderer.invoke('toggle-favorite', folderName),
     openFolder: () => ipcRenderer.send('open-folder'),
     getDefaultPath: () => ipcRenderer.invoke('get-default-path'),
-    getIcon: (path) => ipcRenderer.invoke('get-icon', path)
+    getIcon: (path) => ipcRenderer.invoke('get-icon', path),
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    getLanguageState: () => ipcRenderer.invoke('get-language-state'),
+    getLanguagePackManifest: () => ipcRenderer.invoke('get-language-pack-manifest'),
+    installLanguagePack: (code) => ipcRenderer.invoke('install-language-pack', code)
 });
-

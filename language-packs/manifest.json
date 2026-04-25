@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-26T00:00:00Z",
+  "packs": [
+    {
+      "code": "vi",
+      "englishName": "Vietnamese",
+      "nativeName": "Tiếng Việt",
+      "version": "1.0.0",
+      "minAppVersion": "1.2.2",
+      "aliases": ["vi", "viet", "vietnamese", "tieng viet", "tiếng việt"],
+      "keywords": ["community", "southeast asia"],
+      "downloadUrl": "https://raw.githubusercontent.com/loerei/YumeShelf/main/language-packs/packs/vi.json",
+      "sha256": "42e72e4fdcc2da31ad1f6d18dbf3b3178a0bf8e9bce2f16bc0c11202c9f3fd69"
+    }
+  ]
+}

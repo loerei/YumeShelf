@@ -118,7 +118,7 @@ app.whenReady().then(() => {
         return db.config ? await scan(db.config.libraryPath) : [];
     });
 
-    ipcMain.on('launch-game', async (e, {folderName, exePath}) => {
+    ipcMain.on('launch-yume', async (e, {folderName, exePath}) => {
         let db = await loadDB();
         if(db[folderName]) { db[folderName].lastPlayed = Date.now(); await saveDB(db); }
         execFile(exePath, { cwd: path.dirname(exePath) });

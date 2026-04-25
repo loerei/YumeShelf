@@ -3,7 +3,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     checkConfig: () => ipcRenderer.invoke('check-config'),
     setupLibrary: (type) => ipcRenderer.invoke('setup-library', type),
     getGames: () => ipcRenderer.invoke('get-games'),
-    launchGame: (data) => ipcRenderer.send('launch-game', data),
+    launchYume: (data) => ipcRenderer.send('launch-yume', data),
     renameGame: (data) => ipcRenderer.invoke('rename-game', data),
     revealGame: (path) => ipcRenderer.send('reveal-game', path),
     deleteGame: (path) => ipcRenderer.invoke('delete-game', path),

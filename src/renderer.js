@@ -8,9 +8,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const themeSelect = document.getElementById('theme-select');
 
     let allGames = [];
-    let currentSort = localStorage.getItem('launcher_sort_pref') || 'date';
-    let currentLang = localStorage.getItem('launcher_lang') || 'en';
-    let currentTheme = localStorage.getItem('launcher_theme') || 'system';
+    let currentSort = localStorage.getItem('yumeshelf_sort_pref') || 'date';
+    let currentLang = localStorage.getItem('yumeshelf_lang') || 'en';
+    let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
 
     const i18n = {
         en: { 
@@ -107,12 +107,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         card.querySelector('.action-reveal').onclick = () => window.electronAPI.revealGame(game.exePath);
         card.querySelector('.action-delete').onclick = async () => { if(confirm(d.confirm)) { await window.electronAPI.deleteGame(game.folderPath); allGames = allGames.filter(g => g.folderName !== game.folderName); sortGames(currentSort); } };
-        card.ondblclick = () => { card.style.opacity = '0.5'; window.electronAPI.launchGame({folderName: game.folderName, exePath: game.exePath}); game.lastPlayed = Date.now(); setTimeout(() => sortGames(currentSort), 1000); };
+        card.ondblclick = () => { card.style.opacity = '0.5'; window.electronAPI.launchYume({folderName: game.folderName, exePath: game.exePath}); game.lastPlayed = Date.now(); setTimeout(() => sortGames(currentSort), 1000); };
         return card;
     }
 
     function sortGames(type) {
-        currentSort = type; localStorage.setItem('launcher_sort_pref', type);
+        currentSort = type; localStorage.setItem('yumeshelf_sort_pref', type);
         grid.innerHTML = '';
         const d = i18n[currentLang];
         if (allGames.length === 0) {
@@ -157,8 +157,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('settings-open-btn').onclick = () => settingsOverlay.style.display = 'flex';
     document.getElementById('settings-close-btn').onclick = () => settingsOverlay.style.display = 'none';
     quickFolder.onclick = () => window.electronAPI.openFolder();
-    themeSelect.onchange = (e) => { document.body.className = `${e.target.value}-theme`; localStorage.setItem('launcher_theme', e.target.value); };
-    langSelect.onchange = (e) => { currentLang = e.target.value; localStorage.setItem('launcher_lang', currentLang); sortGames(currentSort); };
+    themeSelect.onchange = (e) => { document.body.className = `${e.target.value}-theme`; localStorage.setItem('yumeshelf_theme', e.target.value); };
+    langSelect.onchange = (e) => { currentLang = e.target.value; localStorage.setItem('yumeshelf_lang', currentLang); sortGames(currentSort); };
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') settingsOverlay.style.display = 'none'; });
     document.onclick = () => { document.querySelectorAll('.dropdown-menu, .sort-menu').forEach(m => m.classList.remove('show')); };
     

@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.electronAPI.getIcon(game.exePath).then(iconData => {
                 if (iconData) {
                     const iconSpan = item.querySelector('.search-item-icon');
-                    iconSpan.innerHTML = `<img src="${iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain;">`;
+                    iconSpan.innerHTML = `<img src="${iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
                 }
             });
 

@@ -149,30 +149,55 @@ app.whenReady().then(() => {
     });
     ipcMain.on('reveal-game', (e, p) => shell.showItemInFolder(p));
     ipcMain.handle('delete-game', async (e, p) => await shell.trashItem(p));
-    let activeIconRequests = 0;
-    const iconQueue = [];
+    // --- ICON EXTRACTION WORKER POOL ---
+    const ICON_WORKER_COUNT = 1;
+    const iconWorkers = [];
+    const pendingIconRequests = new Map();
+    let iconReqIdCounter = 0;
+    let workerRoundRobin = 0;
 
-    async function processIconQueue() {
-        if (activeIconRequests >= 3 || iconQueue.length === 0) return;
-        activeIconRequests++;
-        const { task, resolve } = iconQueue.shift();
-        try {
-            resolve(await task());
-        } finally {
-            activeIconRequests--;
-            processIconQueue();
+    function getIconWorker() {
+        if (iconWorkers.length < ICON_WORKER_COUNT) {
+            const workerId = iconWorkers.length + 1;
+            console.log(`[MAIN] Forking new icon worker #${workerId}`);
+            const workerPath = path.join(__dirname, 'icon-extractor.js');
+            const worker = require('child_process').fork(workerPath, [], {
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+                stdio: ['pipe', 'pipe', 'pipe', 'ipc']
+            });
+            worker.stdout.on('data', (d) => process.stdout.write(`[W${workerId} STDOUT] ${d}`));
+            worker.stderr.on('data', (d) => process.stderr.write(`[W${workerId} STDERR] ${d}`));
+
+            worker.on('message', (msg) => {
+                if (msg && msg.id !== undefined) {
+                    if (pendingIconRequests.has(msg.id)) {
+                        const req = pendingIconRequests.get(msg.id);
+                        clearTimeout(req.timeout);
+                        if (msg.base64 && msg.base64.length > 0) {
+                            req.resolve(`data:image/png;base64,${msg.base64}`);
+                        } else {
+                            req.resolve(null);
+                        }
+                        pendingIconRequests.delete(msg.id);
+                    }
+                }
+            });
+            worker.on('exit', (code, signal) => { 
+                console.error(`[MAIN] Worker #${workerId} exited with code ${code} signal ${signal}`);
+                const idx = iconWorkers.indexOf(worker);
+                if (idx > -1) iconWorkers.splice(idx, 1);
+            });
+            iconWorkers.push(worker);
+            return worker;
         }
-    }
-
-    function queueIconTask(task) {
-        return new Promise(resolve => {
-            iconQueue.push({ task, resolve });
-            processIconQueue();
-        });
+        const worker = iconWorkers[workerRoundRobin];
+        workerRoundRobin = (workerRoundRobin + 1) % ICON_WORKER_COUNT;
+        return worker;
     }
 
     ipcMain.handle('get-icon', async (e, p) => {
         try {
+            console.log(`[MAIN] IPC get-icon called for path: ${p}`);
             const dir = path.dirname(p);
             const exts = ['png', 'jpg', 'jpeg', 'webp'];
             const names = ['icon', 'cover', 'folder'];
@@ -185,30 +210,29 @@ app.whenReady().then(() => {
                 }
             }
 
-            // Native High-Res Extract (Bypass Electron restriction via child process with concurrency limit)
             try {
-                const b64 = await queueIconTask(() => new Promise((resolve) => {
+                const res = await new Promise((resolve) => {
+                    const id = ++iconReqIdCounter;
+                    const timeout = setTimeout(() => {
+                        if (pendingIconRequests.has(id)) {
+                            pendingIconRequests.delete(id);
+                            resolve(null);
+                        }
+                    }, 10000);
+                    pendingIconRequests.set(id, { resolve, path: p, timeout });
+                    
                     const appPath = app.getAppPath();
                     const extPath = require('path').join(appPath, 'node_modules', 'extract-file-icon')
-                                      .replace('app.asar', 'app.asar.unpacked')
-                                      .replace(/\\/g, '\\\\');
-                    const escapedPath = p.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-                    const script = `try { const b = require('${extPath}')('${escapedPath}', 256); console.log(b.toString('base64')); } catch(e) { console.log(''); }`;
-                    const cp = require('child_process').spawn(process.execPath, ['-e', script], {
-                        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-                    });
-                    let out = '';
-                    cp.stdout.on('data', d => out += d.toString());
-                    cp.on('close', () => resolve(out.trim()));
-                }));
-                
-                if (b64 && b64.length > 0) {
-                    return `data:image/png;base64,${b64}`;
-                }
-            } catch (e) { console.error('extract-file-icon child_process error:', e); }
+                                      .replace('app.asar', 'app.asar.unpacked');
+                                      
+                    const worker = getIconWorker();
+                    worker.send({ type: 'extract', id, path: p, extPath });
+                });
+                if (res) return res;
+            } catch (e) { console.error('[MAIN] extract-file-icon fork error:', e); }
 
             const icon = await app.getFileIcon(p, { size: 'large' });
             return icon.toDataURL();
-        } catch { return null; }
+        } catch (e) { console.error(`[MAIN] get-icon top-level error for ${p}:`, e); return null; }
     });
 });

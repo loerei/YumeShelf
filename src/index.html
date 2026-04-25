@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YumeShelf</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="system-theme">
+    <div id="welcome-screen" class="overlay-full" style="display: none;">
+        <div class="welcome-box">
+            <h1 id="ui-welcome-title">Welcome to YumeShelf</h1>
+            <p id="ui-welcome-desc">Choose how you want to manage your dreams.</p>
+            
+            <div class="welcome-options">
+                <div class="welcome-card" id="btn-choose-custom">
+                    <div class="welcome-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            <line x1="12" y1="11" x2="12" y2="17"></line>
+                            <line x1="9" y1="14" x2="15" y2="14"></line>
+                        </svg>
+                    </div>
+                    <h3 id="ui-opt-choose">Choose Folder</h3>
+                    <p id="ui-opt-choose-desc">Select an existing game directory</p>
+                </div>
+                <div class="welcome-card primary" id="btn-setup-default">
+                    <div class="welcome-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                        </svg>
+                    </div>
+                    <h3 id="ui-opt-lazy">I'm lazy!</h3>
+                    <p id="ui-opt-lazy-desc">Create /YumeShelf/ folder here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="header">
+        <h1 id="ui-title">YumeShelf</h1>
+        
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <input type="text" class="search-input" id="search-input">
+                <div id="search-placeholder" class="search-placeholder"></div>
+            </div>
+            <div class="search-dropdown" id="search-dropdown"></div>
+        </div>
+
+        <div class="controls">
+            <div class="sort-container">
+                <div class="sort-btn header-icon-btn" id="sort-btn" title="Sort Games">
+                    <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="6" x2="20" y2="6"></line>
+                        <line x1="7" y1="12" x2="17" y2="12"></line>
+                        <line x1="10" y1="18" x2="14" y2="18"></line>
+                    </svg>
+                </div>
+                <div class="sort-menu" id="sort-menu">
+                    <div class="sort-item" data-sort="date" id="ui-sort-date">Mới tải về</div>
+                    <div class="sort-item" data-sort="played" id="ui-sort-played">Chơi gần nhất</div>
+                    <div class="sort-item" data-sort="az" id="ui-sort-az">Tên A-Z</div>
+                    <div class="sort-item" data-sort="rj" id="ui-sort-rj">Theo mã RJ</div>
+                </div>
+            </div>
+            
+            <div class="header-icon-btn" id="quick-folder-btn" title="Open Games Folder" style="display: none;">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </div>
+
+            <div class="settings-container">
+                <div class="settings-icon-btn header-icon-btn" id="settings-open-btn" title="Settings">
+                    <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">...</div>
+    <div class="game-grid" id="game-grid"></div>
+
+    <div class="settings-overlay" id="settings-overlay">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h2 id="ui-settings-title">Settings</h2>
+                <div class="close-settings" id="settings-close-btn">×</div>
+            </div>
+            <div class="settings-body">
+                <div class="setting-item">
+                    <label id="ui-lang-label">Language</label>
+                    <select id="lang-select">
+                        <option value="en">English</option>
+                        <option value="vi">Tiếng Việt</option>
+                        <option value="ja">日本語</option>
+                        <option value="zh">梦之架</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label id="ui-theme-label">Theme Mode</label>
+                    <select id="theme-select">
+                        <option value="system">System</option>
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label id="ui-path-label">Library Path</label>
+                    <button class="small-btn" id="btn-change-path">Change</button>
+                </div>
+                <div class="settings-info">
+                    <p>YumeShelf v1.0.6</p>
+                    <p id="ui-footer-desc">Your dreams, organized perfectly.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

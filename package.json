@@ -1,0 +1,31 @@
+{
+  "name": "yumeshelf",
+  "version": "1.1.0",
+  "author": "loerei",
+  "description": "YumeShelf Game Library Launcher",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.loerei.yumeshelf",
+    "productName": "YumeShelf",
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!YumeShelf/**/*",
+      "!build_output/**/*"
+    ],
+    "directories": {
+      "output": "build_output"
+    },
+    "win": {
+      "target": "portable"
+    }
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^26.8.1"
+  }
+}

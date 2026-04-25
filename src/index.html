@@ -102,19 +102,17 @@
             <div class="settings-body">
                 <div class="setting-item">
                     <label id="ui-lang-label">Language</label>
-                    <select id="lang-select">
-                        <option value="en">English</option>
-                        <option value="vi">Tiếng Việt</option>
-                        <option value="ja">日本語</option>
-                        <option value="zh">梦之架</option>
-                    </select>
+                    <div class="setting-field-group">
+                        <select id="lang-select"></select>
+                        <button class="small-btn secondary-btn" id="more-languages-btn">More languages...</button>
+                    </div>
                 </div>
                 <div class="setting-item">
                     <label id="ui-theme-label">Theme Mode</label>
                     <select id="theme-select">
-                        <option value="system">System</option>
-                        <option value="dark">Dark</option>
-                        <option value="light">Light</option>
+                        <option value="system" id="ui-theme-system">System</option>
+                        <option value="dark" id="ui-theme-dark">Dark</option>
+                        <option value="light" id="ui-theme-light">Light</option>
                     </select>
                 </div>
                 <div class="setting-item">
@@ -122,8 +120,35 @@
                     <button class="small-btn" id="btn-change-path">Change</button>
                 </div>
                 <div class="settings-info">
-                    <p>YumeShelf v1.0.6</p>
+                    <p id="ui-app-version">YumeShelf</p>
                     <p id="ui-footer-desc">Your dreams, organized perfectly.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-overlay" id="language-pack-overlay">
+        <div class="settings-panel language-pack-panel">
+            <div class="settings-header">
+                <h2 id="ui-language-pack-title">Language packs</h2>
+                <div class="close-settings" id="language-pack-close-btn">×</div>
+            </div>
+            <div class="settings-body language-pack-body">
+                <div class="language-pack-banner" id="language-pack-banner" style="display: none;"></div>
+                <div class="language-pack-toolbar">
+                    <input type="text" id="language-pack-search" class="language-pack-search" placeholder="Search by code, language, or alias">
+                    <div class="language-pack-actions">
+                        <button class="small-btn secondary-btn" id="language-pack-list-btn">See available language packs</button>
+                        <button class="small-btn secondary-btn" id="language-pack-refresh-btn">Refresh</button>
+                    </div>
+                </div>
+                <p class="language-pack-hint" id="language-pack-hint">Search for a language pack or browse what is available.</p>
+                <div class="language-pack-source" id="language-pack-source"></div>
+                <div class="language-pack-results" id="language-pack-results"></div>
+                <div class="language-pack-empty" id="language-pack-empty" style="display: none;">
+                    <h3 id="language-pack-empty-title">We don't have your language pack :(</h3>
+                    <p id="language-pack-empty-desc">Want to contribute? You can always submit your own pack!</p>
+                    <a id="language-pack-repo-link" href="https://github.com/loerei/YumeShelf/blob/main/TRANSLATION.md" target="_blank" rel="noreferrer">Open translation guide</a>
                 </div>
             </div>
         </div>

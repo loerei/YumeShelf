@@ -12,176 +12,388 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchInput = document.getElementById('search-input');
     const searchDropdown = document.getElementById('search-dropdown');
     const searchPlaceholder = document.getElementById('search-placeholder');
-    
-    // Custom Tooltip
+    const moreLanguagesBtn = document.getElementById('more-languages-btn');
+    const languagePackOverlay = document.getElementById('language-pack-overlay');
+    const languagePackSearch = document.getElementById('language-pack-search');
+    const languagePackBanner = document.getElementById('language-pack-banner');
+    const languagePackSource = document.getElementById('language-pack-source');
+    const languagePackResults = document.getElementById('language-pack-results');
+    const languagePackEmpty = document.getElementById('language-pack-empty');
+    const languagePackEmptyTitle = document.getElementById('language-pack-empty-title');
+    const languagePackEmptyDesc = document.getElementById('language-pack-empty-desc');
+    const languagePackRepoLink = document.getElementById('language-pack-repo-link');
+    const languagePackHint = document.getElementById('language-pack-hint');
+    const languagePackListBtn = document.getElementById('language-pack-list-btn');
+    const languagePackRefreshBtn = document.getElementById('language-pack-refresh-btn');
+
     const tooltip = document.createElement('div');
     tooltip.className = 'search-tooltip';
     document.body.appendChild(tooltip);
 
+    const BUILTIN_LANGUAGE_ORDER = ['en', 'ja', 'zh'];
+    const DRAG_ROW_TOLERANCE = 15;
+    const DRAG_POINTER_SLOP = 18;
+
     let allGames = [];
+    let draggedGameFolder = null;
+    let dragTargetInfo = null;
     let currentSort = localStorage.getItem('yumeshelf_sort_pref') || 'date';
     if (currentSort === 'rj') currentSort = 'date';
     let currentLang = localStorage.getItem('yumeshelf_lang') || 'en';
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
-    const DRAG_ROW_TOLERANCE = 15;
-    const DRAG_POINTER_SLOP = 18;
-
-    const i18n = {
-        en: { 
-            title: "YumeShelf", settings: "Settings", lang: "Language", theme: "Theme Mode", path: "Library Path", change: "Change",
-            welcome: "Welcome to YumeShelf", welcome_desc: "Choose how you want to manage your dreams.",
-            opt_choose: "Choose Folder", opt_choose_desc: "Select an existing directory",
-            opt_lazy: "I'm lazy!", opt_lazy_desc_prefix: "Create",
-            zaako: "No game here, zaako~", open_btn: "Open Games Folder",
-            rename: "✏️ Rename", reveal: "📁 Reveal", delete: "🗑️ Delete", confirm: "Delete into Recycle Bin?",
-            status_never: "Never played", status_recent: "Just now", status_mins: " mins ago", status_hours: " hours ago",
-            sort_date: "Newest", sort_played: "Recently Played", sort_az: "Name A-Z", sort_custom: "Custom Order",
-            no_results: "Nobody here but us chickens!",
-            placeholders: [
-                "Can't even find a game? Zaako~",
-                "Hurry up and type!",
-                "Got lost already?",
-                "Is your brain too small for this?",
-                "Stop staring and type something!",
-                "What are you looking for, Dummy?",
-                "Your memory is terrible, isn't it?",
-                "I'm bored... hurry it up!"
-            ]
-        },
-        vi: { 
-            title: "YumeShelf", settings: "Cài đặt", lang: "Ngôn ngữ", theme: "Chế độ nền", path: "Đường dẫn", change: "Thay đổi",
-            welcome: "Chào mừng tới YumeShelf", welcome_desc: "Chọn cách bạn muốn quản lý giấc mơ.",
-            opt_choose: "Chọn thư mục", opt_choose_desc: "Trỏ tới thư viện game có sẵn",
-            opt_lazy: "Tôi lười quá!", opt_lazy_desc_prefix: "Tạo",
-            zaako: "Không có game ở đây, zaako~", open_btn: "Mở thư mục Game",
-            rename: "✏️ Đổi tên", reveal: "📁 Mở thư mục", delete: "🗑️ Xóa game", confirm: "Xóa vào Thùng rác?",
-            status_never: "Chưa chơi lần nào", status_recent: "Vừa mới chơi", status_mins: " phút trước", status_hours: " giờ trước",
-            sort_date: "Mới tải về", sort_played: "Chơi gần nhất", sort_az: "Tên A-Z", sort_custom: "Tùy chỉnh",
-            no_results: "Chẳng ai lạc vào đây ngoài mấy con gà chúng ta cả!",
-            placeholders: [
-                "Có cái game cũng tìm không ra, Zaako~",
-                "Gõ nhanh cái tay lên!",
-                "Hửm? Lạc rồi chứ gì~",
-                "Bộ não cậu không chứa hết chỗ này hay sao?",
-                "Nhìn cái gì, gõ gì đi chứ!",
-                "Tìm cái gì thế hả dummy?",
-                "Trí nhớ tệ thật đấy.",
-                "Tớ thấy chán rồi đấy... nhanh lên coi!"
-            ]
-        },
-        ja: { 
-            title: "ユメシェルフ", settings: "設定", lang: "言語", theme: "テーマ", path: "ライブラリパス", change: "変更",
-            welcome: "ユメシェルフへようこそ", welcome_desc: "夢の管理方法を選択してください。",
-            opt_choose: "フォルダを選択", opt_choose_desc: "既存のディレクトリを指定",
-            opt_lazy: "面倒くさい！", opt_lazy_desc_prefix: "作成",
-            zaako: "ここにはゲームがないよ、ざぁ～こ♡", open_btn: "ゲームフォルダを開く",
-            rename: "✏️ 名前変更", reveal: "📁 フォルダを開く", delete: "🗑️ 削除", confirm: "ゴミ箱に移動しますか？",
-            status_never: "未プレイ", status_recent: "たった今", status_mins: " 分前", status_hours: " 時間前",
-            sort_date: "追加日", sort_played: "最近プレイ", sort_az: "名前順 A-Z", sort_custom: "カスタム順",
-            no_results: "ここにはニワトリ以外だーれもいないわよ！",
-            placeholders: [
-                "ゲーム一つも見つけられないの？ざぁ～こ♡",
-                "もたもたしないで、早く打ちなさいよ！",
-                "あれ、もう迷子になっちゃったの？",
-                "この程度で容量不足？バカね。",
-                "ジロジロ見ないで、何か入力して！",
-                "何探してるのよ、ばぁ～か。",
-                "忘れっぽいのね、鳥頭さん。",
-                "退屈なんだけど…早くしてよ！"
-            ]
-        },
-        zh: { 
-            title: "梦之架", settings: "设置", lang: "语言", theme: "主题模式", path: "库路径", change: "更改",
-            welcome: "欢迎来到梦之架", welcome_desc: "选择您管理梦想的方式。",
-            opt_choose: "选择文件夹", opt_choose_desc: "选择现有的游戏目录",
-            opt_lazy: "我太懒了！", opt_lazy_desc_prefix: "在此创建",
-            zaako: "这里没有游戏哦，杂~鱼~", open_btn: "打开游戏文件夹",
-            rename: "✏️ 重命名", reveal: "📁 打开文件夹", delete: "🗑️ 删除", confirm: "确定要删除吗？",
-            status_never: "从未运行", status_recent: "刚刚", status_mins: " 分钟前", status_hours: " 小时前",
-            sort_date: "最新添加", sort_played: "最近游玩", sort_az: "名称 A-Z", sort_custom: "自定义排序",
-            no_results: "除了我们这些弱鸡，谁也不在哦！",
-            placeholders: [
-                "连个游戏都找不到吗？杂~鱼~♡",
-                "别磨蹭了，快点打字！",
-                "哎呀，这就迷路了吗？",
-                "这种程度就内存不足了吗？笨蛋。",
-                "别盯着看，快输入点什么！",
-                "你在找什么呢，笨~蛋。",
-                "记性真差呢，你是金鱼吗？",
-                "好无聊啊……快一点啦！"
-            ]
-        }
+    let placeholderIndex = 0;
+    let localeState = {
+        builtIn: [],
+        installed: [],
+        locales: {},
+        repoUrl: 'https://github.com/loerei/YumeShelf/blob/main/TRANSLATION.md',
+        manifestUrl: '',
+        appVersion: ''
     };
+    let remoteManifestState = {
+        loaded: false,
+        loading: false,
+        offline: false,
+        source: 'none',
+        error: null,
+        packs: []
+    };
+    let showAllLanguagePacks = false;
+    let downloadingLanguageCode = null;
 
-    let draggedGameFolder = null;
-    let dragTargetInfo = null;
+    function getEnglishStrings() {
+        return localeState.locales.en || {};
+    }
+
+    function getLocaleStrings(code = currentLang) {
+        const normalizedCode = String(code || '').toLowerCase();
+        return {
+            ...getEnglishStrings(),
+            ...(localeState.locales[normalizedCode] || {})
+        };
+    }
+
+    function getStrings() {
+        return getLocaleStrings(currentLang);
+    }
+
+    function getAvailableLanguages() {
+        return [...localeState.builtIn, ...localeState.installed];
+    }
+
+    function isLanguageAvailable(code) {
+        const normalizedCode = String(code || '').toLowerCase();
+        return getAvailableLanguages().some(language => language.code === normalizedCode);
+    }
+
+    function getLanguageMeta(code) {
+        const normalizedCode = String(code || '').toLowerCase();
+        return getAvailableLanguages().find(language => language.code === normalizedCode) || null;
+    }
+
+    function formatLanguageLabel(meta) {
+        if (!meta) return '';
+        if (!meta.englishName || meta.englishName === meta.nativeName) return meta.nativeName || meta.code;
+        return `${meta.nativeName} (${meta.englishName})`;
+    }
+
+    function sortLanguageOptions(languages) {
+        return [...languages].sort((left, right) => {
+            if (left.source !== right.source) {
+                return left.source === 'built-in' ? -1 : 1;
+            }
+            if (left.source === 'built-in' && right.source === 'built-in') {
+                return BUILTIN_LANGUAGE_ORDER.indexOf(left.code) - BUILTIN_LANGUAGE_ORDER.indexOf(right.code);
+            }
+            return formatLanguageLabel(left).localeCompare(formatLanguageLabel(right));
+        });
+    }
+
+    async function loadLanguageState() {
+        localeState.appVersion = await window.electronAPI.getAppVersion();
+        const nextState = await window.electronAPI.getLanguageState();
+        if (nextState && nextState.locales && nextState.locales.en) {
+            localeState = nextState;
+        }
+        if (!isLanguageAvailable(currentLang)) {
+            currentLang = 'en';
+            localStorage.setItem('yumeshelf_lang', currentLang);
+        }
+        refreshLanguageDropdown();
+        const placeholders = getStrings().placeholders || getEnglishStrings().placeholders || ['Search...'];
+        placeholderIndex = Math.floor(Math.random() * placeholders.length);
+    }
+
+    function refreshLanguageDropdown() {
+        const languages = sortLanguageOptions(getAvailableLanguages());
+        langSelect.innerHTML = '';
+        languages.forEach((language) => {
+            const option = document.createElement('option');
+            option.value = language.code;
+            option.textContent = formatLanguageLabel(language);
+            langSelect.appendChild(option);
+        });
+        langSelect.value = isLanguageAvailable(currentLang) ? currentLang : 'en';
+    }
+
+    function setCurrentLanguage(nextCode, options = {}) {
+        const { persist = true } = options;
+        currentLang = isLanguageAvailable(nextCode) ? String(nextCode).toLowerCase() : 'en';
+        if (persist) {
+            localStorage.setItem('yumeshelf_lang', currentLang);
+        }
+        refreshLanguageDropdown();
+        if (allGames.length > 0) {
+            sortGames(currentSort);
+        } else {
+            applyUIStrings();
+        }
+    }
+
+    function setLanguagePackBanner(message = '', visible = false) {
+        languagePackBanner.textContent = message;
+        languagePackBanner.style.display = visible && message ? 'block' : 'none';
+    }
+
+    function updateLanguagePackSourceText() {
+        const d = getStrings();
+        if (remoteManifestState.source === 'remote' || remoteManifestState.source === 'local') {
+            languagePackSource.textContent = d.lang_modal_source_remote || '';
+        } else if (remoteManifestState.source === 'cache') {
+            languagePackSource.textContent = d.lang_modal_source_cache || '';
+        } else {
+            languagePackSource.textContent = '';
+        }
+    }
+
+    function filterLanguagePacks(query) {
+        const normalized = query.trim().toLowerCase();
+        const manifestPacks = remoteManifestState.packs || [];
+        if (!normalized) return manifestPacks;
+        return manifestPacks.filter((pack) => {
+            const haystack = [
+                pack.code,
+                pack.englishName,
+                pack.nativeName,
+                ...(pack.aliases || []),
+                ...(pack.keywords || [])
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(normalized);
+        });
+    }
+
+    async function fetchLanguagePackManifest() {
+        remoteManifestState.loading = true;
+        renderLanguagePackResults();
+
+        const response = await window.electronAPI.getLanguagePackManifest();
+        remoteManifestState = {
+            loaded: true,
+            loading: false,
+            offline: !!response.offline,
+            source: response.source || 'none',
+            error: response.error || null,
+            packs: response.packs || []
+        };
+
+        if (response.repoUrl) {
+            localeState.repoUrl = response.repoUrl;
+        }
+
+        if (remoteManifestState.offline) {
+            setLanguagePackBanner(getStrings().lang_modal_offline, true);
+        } else {
+            setLanguagePackBanner('', false);
+        }
+        renderLanguagePackResults();
+    }
+
+    async function openLanguagePackModal() {
+        languagePackOverlay.style.display = 'flex';
+        languagePackSearch.value = '';
+        showAllLanguagePacks = false;
+        setLanguagePackBanner(navigator.onLine === false ? getStrings().lang_modal_offline : '', navigator.onLine === false);
+        renderLanguagePackResults();
+        await fetchLanguagePackManifest();
+    }
+
+    function closeLanguagePackModal() {
+        languagePackOverlay.style.display = 'none';
+    }
+
+    async function downloadLanguagePack(code) {
+        downloadingLanguageCode = code;
+        renderLanguagePackResults();
+        const result = await window.electronAPI.installLanguagePack(code);
+        downloadingLanguageCode = null;
+
+        if (!result || !result.ok) {
+            const d = getStrings();
+            if (result && result.reason === 'checksum') {
+                setLanguagePackBanner(d.lang_modal_checksum_failed, true);
+            } else if (result && result.reason === 'schema') {
+                setLanguagePackBanner(d.lang_modal_schema_failed, true);
+            } else if (result && result.reason === 'not-compatible') {
+                setLanguagePackBanner(d.lang_modal_not_compatible, true);
+            } else if (result && result.reason === 'offline') {
+                setLanguagePackBanner(d.lang_modal_offline, true);
+            } else {
+                setLanguagePackBanner(d.lang_modal_install_error, true);
+            }
+            renderLanguagePackResults();
+            return;
+        }
+
+        localeState = result.state || localeState;
+        setCurrentLanguage(code);
+        closeLanguagePackModal();
+    }
+
+    function renderLanguagePackResults() {
+        const d = getStrings();
+        updateLanguagePackSourceText();
+        languagePackSearch.placeholder = d.lang_modal_search_placeholder;
+        languagePackListBtn.textContent = d.lang_modal_list_button;
+        languagePackRefreshBtn.textContent = d.lang_modal_refresh_button;
+        languagePackHint.textContent = d.lang_modal_hint;
+        languagePackEmptyTitle.textContent = d.lang_modal_empty_title;
+        languagePackEmptyDesc.textContent = d.lang_modal_empty_desc;
+        languagePackRepoLink.textContent = d.lang_modal_contribute;
+        languagePackRepoLink.href = localeState.repoUrl || languagePackRepoLink.href;
+
+        languagePackResults.innerHTML = '';
+        languagePackEmpty.style.display = 'none';
+
+        if (remoteManifestState.loading) {
+            languagePackResults.innerHTML = `<div class="language-pack-placeholder">${d.lang_modal_loading}</div>`;
+            return;
+        }
+
+        const query = languagePackSearch.value.trim();
+        if (!showAllLanguagePacks && !query) {
+            languagePackResults.innerHTML = `<div class="language-pack-placeholder">${d.lang_modal_hint}</div>`;
+            return;
+        }
+
+        const matches = filterLanguagePacks(query);
+        if (matches.length === 0) {
+            if (remoteManifestState.offline && (!remoteManifestState.packs || remoteManifestState.packs.length === 0)) {
+                languagePackResults.innerHTML = `<div class="language-pack-placeholder">${d.lang_modal_offline}</div>`;
+                return;
+            }
+            if (remoteManifestState.error && (!remoteManifestState.packs || remoteManifestState.packs.length === 0)) {
+                languagePackResults.innerHTML = `<div class="language-pack-placeholder">${remoteManifestState.error}</div>`;
+                return;
+            }
+            languagePackEmpty.style.display = 'block';
+            return;
+        }
+
+        matches.forEach((pack) => {
+            const installed = isLanguageAvailable(pack.code);
+            const card = document.createElement('div');
+            card.className = 'language-pack-card';
+
+            const title = formatLanguageLabel(pack);
+            const sourceText = installed
+                ? (getLanguageMeta(pack.code)?.source === 'built-in' ? d.lang_builtin_source : d.lang_downloaded_source)
+                : d.lang_modal_available_title;
+
+            const actionDisabled = installed || downloadingLanguageCode !== null;
+            const actionLabel = installed
+                ? d.lang_modal_installed
+                : (downloadingLanguageCode === pack.code ? d.lang_modal_downloading : d.lang_modal_download);
+
+            card.innerHTML = `
+                <div class="language-pack-card-copy">
+                    <h3>${title}</h3>
+                    <p>${pack.code.toUpperCase()} • ${sourceText}</p>
+                    <div class="language-pack-card-meta">
+                        <span class="language-pack-chip">v${pack.version}</span>
+                        ${(pack.aliases || []).slice(0, 3).map(alias => `<span class="language-pack-chip">${alias}</span>`).join('')}
+                    </div>
+                </div>
+                <button class="small-btn ${installed ? '' : 'secondary-btn'}" ${actionDisabled ? 'disabled' : ''}>${actionLabel}</button>
+            `;
+
+            const button = card.querySelector('button');
+            button.onclick = async (event) => {
+                event.stopPropagation();
+                if (installed) return;
+                await downloadLanguagePack(pack.code);
+            };
+
+            if (installed) {
+                card.style.cursor = 'pointer';
+                card.onclick = () => {
+                    setCurrentLanguage(pack.code);
+                    closeLanguagePackModal();
+                };
+            }
+
+            languagePackResults.appendChild(card);
+        });
+    }
 
     function getPointerDistanceToRect(pointerX, pointerY, rect, slop = DRAG_POINTER_SLOP) {
         const left = rect.left - slop;
         const right = rect.right + slop;
         const top = rect.top - slop;
         const bottom = rect.bottom + slop;
-        const dx = pointerX < left ? left - pointerX : pointerX > right ? pointerX - right : 0;
-        const dy = pointerY < top ? top - pointerY : pointerY > bottom ? pointerY - bottom : 0;
+        const dx = pointerX < left ? left - pointerX : (pointerX > right ? pointerX - right : 0);
+        const dy = pointerY < top ? top - pointerY : (pointerY > bottom ? pointerY - bottom : 0);
         return Math.hypot(dx, dy);
     }
 
-    function isSameDragRow(aRect, bRect) {
-        return Math.abs(aRect.top - bRect.top) < DRAG_ROW_TOLERANCE;
+    function isSameDragRow(leftRect, rightRect) {
+        return Math.abs(leftRect.top - rightRect.top) <= DRAG_ROW_TOLERANCE;
     }
 
-    function flipAnimateDOMUpdate(callback, isDrop = false) {
-        const getItems = () => [...document.querySelectorAll('.game-card')];
-        
+    function flipAnimateDOMUpdate(mutator, isDrop = false) {
+        const cards = [...document.querySelectorAll('.game-card')];
         const firstRects = new Map();
-        getItems().forEach(item => {
-            if(item.dataset.folder) {
-                firstRects.set(item.dataset.folder, item.getBoundingClientRect());
-            }
-            item.style.transition = 'none';
-            item.style.transform = 'none';
+        cards.forEach((card) => {
+            firstRects.set(card.dataset.folder, card.getBoundingClientRect());
         });
-        
-        callback();
-        
-        const newItems = getItems();
-        newItems.forEach(item => {
-            const first = firstRects.get(item.dataset.folder);
-            if (first) {
-                const last = item.getBoundingClientRect();
-                const dx = first.left - last.left;
-                const dy = first.top - last.top;
-                if (dx !== 0 || dy !== 0) {
-                    item.style.transform = `translate(${dx}px, ${dy}px)`;
-                }
+
+        mutator();
+
+        [...document.querySelectorAll('.game-card')].forEach((card) => {
+            const first = firstRects.get(card.dataset.folder);
+            const last = card.getBoundingClientRect();
+            if (!first) return;
+
+            const deltaX = first.left - last.left;
+            const deltaY = first.top - last.top;
+
+            if (!deltaX && !deltaY) {
+                card.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                card.style.transform = '';
+                return;
             }
-        });
-        
-        document.body.offsetHeight; // Force reflow
-        
-        requestAnimationFrame(() => {
-            newItems.forEach(item => {
-                if (item.dataset.folder) {
-                    const first = firstRects.get(item.dataset.folder);
-                    const last = item.getBoundingClientRect();
-                    
-                    // If dragging (not drop) and card wrapped to a new row, skip animation to avoid diagonal flying chaos
-                    if (!isDrop && first && Math.abs(first.top - last.top) > 20) {
-                        item.style.transition = 'none';
-                    } else {
-                        item.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
-                    }
-                    
-                    item.style.transform = '';
-                }
+
+            card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+            // When a drag reorder causes CSS grid wrapping, skipping the animation
+            // avoids cards flying diagonally across the whole screen.
+            if (!isDrop && Math.abs(first.top - last.top) > 20) {
+                card.style.transition = 'none';
+                card.style.transform = '';
+                return;
+            }
+
+            requestAnimationFrame(() => {
+                card.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                card.style.transform = '';
             });
         });
     }
 
-    let placeholderIndex = Math.floor(Math.random() * i18n[currentLang].placeholders.length);
-
     async function applyUIStrings() {
-        const d = i18n[currentLang];
+        const d = getStrings();
         const defPath = await window.electronAPI.getDefaultPath();
         document.getElementById('ui-title').innerText = d.title;
         document.getElementById('ui-welcome-title').innerText = d.welcome;
@@ -195,45 +407,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('ui-theme-label').innerText = d.theme;
         document.getElementById('ui-path-label').innerText = d.path;
         document.getElementById('btn-change-path').innerText = d.change;
-        
+        document.getElementById('ui-footer-desc').innerText = d.footer_desc || getEnglishStrings().footer_desc;
+        document.getElementById('ui-app-version').innerText = `YumeShelf v${localeState.appVersion || ''}`.trim();
+        document.getElementById('ui-theme-system').innerText = d.theme_system || getEnglishStrings().theme_system;
+        document.getElementById('ui-theme-dark').innerText = d.theme_dark || getEnglishStrings().theme_dark;
+        document.getElementById('ui-theme-light').innerText = d.theme_light || getEnglishStrings().theme_light;
+        moreLanguagesBtn.innerText = d.settings_more_languages || getEnglishStrings().settings_more_languages;
+        document.getElementById('ui-language-pack-title').innerText = d.lang_modal_title || getEnglishStrings().lang_modal_title;
+
         const sortMenu = document.getElementById('sort-menu');
-        if(sortMenu) {
+        if (sortMenu) {
             document.getElementById('ui-sort-date').innerText = d.sort_date;
             document.getElementById('ui-sort-played').innerText = d.sort_played;
             document.getElementById('ui-sort-az').innerText = d.sort_az;
             document.getElementById('ui-sort-custom').innerText = d.sort_custom;
-            
-            // Highlight current sort
-            sortMenu.querySelectorAll('.sort-item').forEach(el => el.classList.remove('active'));
+            sortMenu.querySelectorAll('.sort-item').forEach((el) => el.classList.remove('active'));
             const activeSort = sortMenu.querySelector(`[data-sort="${currentSort}"]`);
             if (activeSort) activeSort.classList.add('active');
         }
 
-        // Update search placeholder and dropdown
         if (!searchInput.value.trim()) {
-            searchPlaceholder.innerText = d.placeholders[placeholderIndex % d.placeholders.length];
+            const placeholders = d.placeholders || getEnglishStrings().placeholders;
+            searchPlaceholder.innerText = placeholders[placeholderIndex % placeholders.length];
         } else {
             updateSearch(searchInput.value);
         }
+
+        renderLanguagePackResults();
     }
 
     function timeSince(date) {
-        const d = i18n[currentLang];
+        const d = getStrings();
         if (!date || date === 0) return d.status_never;
-        const s = Math.floor((new Date() - date) / 1000);
-        if (s < 60) return d.status_recent;
-        let i = s / 3600; if (i > 1) return Math.floor(i) + d.status_hours;
-        i = s / 60; if (i > 1) return Math.floor(i) + d.status_mins;
+        const seconds = Math.floor((new Date() - date) / 1000);
+        if (seconds < 60) return d.status_recent;
+        let interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + d.status_hours;
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + d.status_mins;
         return d.status_recent;
     }
 
     function createCard(game) {
-        const d = i18n[currentLang];
+        const d = getStrings();
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
         card.dataset.folder = game.folderName;
         card.draggable = true;
-        card.innerHTML = `
+            card.innerHTML = `
             <div class="fav-btn ${game.favorite ? 'active' : ''}">★</div>
             <div class="menu-btn"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
             <div class="dropdown-menu">
@@ -246,9 +467,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="game-status">${timeSince(game.lastPlayed)}</div>
         `;
 
-        // Async load real icon
         if (!game.iconData) {
-            window.electronAPI.getIcon(game.exePath).then(iconData => {
+            window.electronAPI.getIcon(game.exePath).then((iconData) => {
                 if (iconData) {
                     game.iconData = iconData;
                     const iconDiv = card.querySelector('.game-icon');
@@ -256,62 +476,97 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         }
-        card.querySelector('.fav-btn').onclick = async (e) => { e.stopPropagation(); game.favorite = await window.electronAPI.toggleFavorite(game.folderName); sortGames(currentSort); };
-        card.querySelector('.menu-btn').onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.dropdown-menu').forEach(m => m !== card.querySelector('.dropdown-menu') && m.classList.remove('show')); card.querySelector('.dropdown-menu').classList.toggle('show'); };
-        card.querySelector('.action-rename').onclick = (e) => {
-            e.stopPropagation(); card.querySelector('.dropdown-menu').classList.remove('show');
-            const titleDiv = card.querySelector('.game-title'); const input = document.createElement('input');
-            input.type = 'text'; input.value = game.name; input.className = 'rename-input';
-            titleDiv.replaceWith(input); input.focus(); input.select();
-            const save = async () => { if (input.value.trim() && input.value.trim() !== game.name) { game.name = input.value.trim(); await window.electronAPI.renameGame({folderName: game.folderName, newName: game.name}); } if (input.parentNode) input.replaceWith(titleDiv); titleDiv.innerText = game.name; };
-            input.onkeydown = (ev) => { if (ev.key === 'Enter') save(); if (ev.key === 'Escape') input.replaceWith(titleDiv); };
+
+        card.querySelector('.fav-btn').onclick = async (event) => {
+            event.stopPropagation();
+            game.favorite = await window.electronAPI.toggleFavorite(game.folderName);
+            sortGames(currentSort);
+        };
+        card.querySelector('.menu-btn').onclick = (event) => {
+            event.stopPropagation();
+            document.querySelectorAll('.dropdown-menu').forEach(menu => menu !== card.querySelector('.dropdown-menu') && menu.classList.remove('show'));
+            card.querySelector('.dropdown-menu').classList.toggle('show');
+        };
+        card.querySelector('.action-rename').onclick = (event) => {
+            event.stopPropagation();
+            card.querySelector('.dropdown-menu').classList.remove('show');
+            const titleDiv = card.querySelector('.game-title');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = game.name;
+            input.className = 'rename-input';
+            titleDiv.replaceWith(input);
+            input.focus();
+            input.select();
+
+            const save = async () => {
+                if (input.value.trim() && input.value.trim() !== game.name) {
+                    game.name = input.value.trim();
+                    await window.electronAPI.renameGame({ folderName: game.folderName, newName: game.name });
+                }
+                if (input.parentNode) input.replaceWith(titleDiv);
+                titleDiv.innerText = game.name;
+            };
+
+            input.onkeydown = (ev) => {
+                if (ev.key === 'Enter') save();
+                if (ev.key === 'Escape') input.replaceWith(titleDiv);
+            };
             input.onblur = save;
         };
         card.querySelector('.action-reveal').onclick = () => window.electronAPI.revealGame(game.exePath);
-        card.querySelector('.action-delete').onclick = async () => { if(confirm(d.confirm)) { await window.electronAPI.deleteGame(game.folderPath); allGames = allGames.filter(g => g.folderName !== game.folderName); sortGames(currentSort); } };
-        card.ondblclick = () => { card.style.opacity = '0.5'; window.electronAPI.launchYume({folderName: game.folderName, exePath: game.exePath}); game.lastPlayed = Date.now(); setTimeout(() => sortGames(currentSort), 1000); };
-        
-        // Drag and Drop
-        card.ondragstart = (e) => {
+        card.querySelector('.action-delete').onclick = async () => {
+            if (confirm(d.confirm)) {
+                await window.electronAPI.deleteGame(game.folderPath);
+                allGames = allGames.filter(g => g.folderName !== game.folderName);
+                sortGames(currentSort);
+            }
+        };
+        card.ondblclick = () => {
+            card.style.opacity = '0.5';
+            window.electronAPI.launchYume({ folderName: game.folderName, exePath: game.exePath });
+            game.lastPlayed = Date.now();
+            setTimeout(() => sortGames(currentSort), 1000);
+        };
+
+        card.ondragstart = (event) => {
             draggedGameFolder = game.folderName;
-            e.dataTransfer.setData('folderName', game.folderName);
-            e.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('folderName', game.folderName);
+            event.dataTransfer.effectAllowed = 'move';
             dragTargetInfo = null;
-            
-            requestAnimationFrame(() => { 
-                card.style.opacity = '0.01'; 
+            requestAnimationFrame(() => {
+                card.style.opacity = '0.01';
             });
         };
         card.ondragend = () => {
             card.style.opacity = '1';
             draggedGameFolder = null;
             dragTargetInfo = null;
-            document.querySelectorAll('.game-card').forEach(c => { 
+            document.querySelectorAll('.game-card').forEach((c) => {
                 c.style.transform = 'none';
-                c.classList.remove('drag-over'); 
+                c.classList.remove('drag-over');
             });
         };
-        card.ondragenter = (e) => { e.preventDefault(); };
-        card.ondragleave = (e) => { e.preventDefault(); };
-        card.ondragover = (e) => { e.preventDefault(); };
-        card.ondrop = async (e) => { e.preventDefault(); }; // Handled by zone
-        
+        card.ondragenter = (event) => { event.preventDefault(); };
+        card.ondragleave = (event) => { event.preventDefault(); };
+        card.ondragover = (event) => { event.preventDefault(); };
+        card.ondrop = (event) => { event.preventDefault(); };
+
         return card;
     }
 
-    // Zone Drop Handlers
-    [favGrid, unfavGrid, separator].forEach(zone => {
-        zone.ondragover = (e) => {
-            e.preventDefault();
+    [favGrid, unfavGrid, separator].forEach((zone) => {
+        zone.ondragover = (event) => {
+            event.preventDefault();
             zone.classList.add('drag-over');
             if (zone === separator) return;
 
             const cards = [...zone.querySelectorAll('.game-card')];
             const cardsWithRects = cards
-                .filter(c => c.dataset.folder !== draggedGameFolder)
+                .filter(card => card.dataset.folder !== draggedGameFolder)
                 .map(card => ({ card, rect: card.getBoundingClientRect() }));
 
-            cards.forEach(c => c.style.transform = 'none');
+            cards.forEach(card => { card.style.transform = 'none'; });
 
             if (cardsWithRects.length === 0) {
                 dragTargetInfo = { folder: null, insertAfter: true };
@@ -319,15 +574,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const maxBottom = Math.max(...cardsWithRects.map(({ rect }) => rect.bottom));
-            if (e.clientY > maxBottom + DRAG_POINTER_SLOP) {
+            if (event.clientY > maxBottom + DRAG_POINTER_SLOP) {
                 dragTargetInfo = { folder: null, insertAfter: true };
                 return;
             }
 
             let closest = null;
             let minDist = Infinity;
-            cardsWithRects.forEach(item => {
-                const dist = getPointerDistanceToRect(e.clientX, e.clientY, item.rect);
+            cardsWithRects.forEach((item) => {
+                const dist = getPointerDistanceToRect(event.clientX, event.clientY, item.rect);
                 if (dist < minDist) {
                     minDist = dist;
                     closest = item;
@@ -344,16 +599,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             const rowRight = Math.max(...rowCards.map(item => item.rect.right));
             const isAppendAfterLastCard =
                 closestCard === cardsWithRects[cardsWithRects.length - 1].card &&
-                e.clientX > rowRight + rect.width * 0.15 &&
-                e.clientY >= rect.top - DRAG_POINTER_SLOP &&
-                e.clientY <= rect.bottom + rect.height * 0.6;
+                event.clientX > rowRight + rect.width * 0.15 &&
+                event.clientY >= rect.top - DRAG_POINTER_SLOP &&
+                event.clientY <= rect.bottom + rect.height * 0.6;
 
             if (isAppendAfterLastCard) {
                 dragTargetInfo = { folder: null, insertAfter: true };
                 return;
             }
 
-            const isLeft = e.clientX < rect.left + rect.width / 2;
+            const isLeft = event.clientX < rect.left + rect.width / 2;
             dragTargetInfo = {
                 folder: closestCard.dataset.folder,
                 insertAfter: !isLeft
@@ -368,18 +623,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         };
 
-        zone.ondragleave = (e) => { 
-            if (!zone.contains(e.relatedTarget)) {
-                zone.classList.remove('drag-over'); 
+        zone.ondragleave = (event) => {
+            if (!zone.contains(event.relatedTarget)) {
+                zone.classList.remove('drag-over');
             }
         };
-        
-        zone.ondrop = (e) => {
-            e.preventDefault();
+
+        zone.ondrop = (event) => {
+            event.preventDefault();
             zone.classList.remove('drag-over');
-            const draggedFolder = e.dataTransfer.getData('folderName');
+            const draggedFolder = event.dataTransfer.getData('folderName');
             if (!draggedFolder) return;
-            const draggedGame = allGames.find(g => g.folderName === draggedFolder);
+            const draggedGame = allGames.find(game => game.folderName === draggedFolder);
             if (!draggedGame) return;
 
             const isFavZone = zone === favGrid || zone === separator;
@@ -395,19 +650,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (draggedGame.favorite === isFavZone && zone !== separator) {
                 if (currentSort !== 'custom') {
                     currentSort = 'custom';
-                    document.querySelectorAll('.sort-item').forEach(el => el.style.color = '#ccc');
-                    document.getElementById('ui-sort-custom').style.color = 'var(--accent)';
-                    document.getElementById('current-sort-label').innerText = document.getElementById('ui-sort-custom').innerText;
                 }
 
                 let customOrder = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
-                if (customOrder.length === 0) customOrder = allGames.map(g => g.folderName);
-                allGames.forEach(g => { if(!customOrder.includes(g.folderName)) customOrder.push(g.folderName); });
+                if (customOrder.length === 0) customOrder = allGames.map(game => game.folderName);
+                allGames.forEach((game) => { if (!customOrder.includes(game.folderName)) customOrder.push(game.folderName); });
 
                 const draggedIdx = customOrder.indexOf(draggedFolder);
                 if (draggedIdx > -1) {
                     customOrder.splice(draggedIdx, 1);
-                    
                     let insertIdx = customOrder.length;
                     if (dragTargetInfo && dragTargetInfo.folder) {
                         const targetIdx = customOrder.indexOf(dragTargetInfo.folder);
@@ -422,30 +673,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-            // Trigger the animation for the drop sorting (synchronously)
             flipAnimateDOMUpdate(() => {
-                document.querySelectorAll('.game-card').forEach(c => c.style.transform = 'none');
-                if (needsSave || doToggle) {
-                    sortGames(currentSort);
-                } else {
-                    sortGames(currentSort); // Ensure it snaps back to original place
-                }
+                document.querySelectorAll('.game-card').forEach(card => { card.style.transform = 'none'; });
+                sortGames(currentSort);
             }, true);
 
-            // Async API calls afterwards!
             if (doToggle) {
                 window.electronAPI.toggleFavorite(draggedFolder);
+            }
+            if (!needsSave) {
+                sortGames(currentSort);
             }
         };
     });
 
     function sortGames(type) {
-        currentSort = type; localStorage.setItem('yumeshelf_sort_pref', type);
+        currentSort = type;
+        localStorage.setItem('yumeshelf_sort_pref', type);
         favGrid.innerHTML = '';
         unfavGrid.innerHTML = '';
         emptyContainer.innerHTML = '';
-        
-        const d = i18n[currentLang];
+
+        const d = getStrings();
         if (allGames.length === 0) {
             emptyContainer.innerHTML = `<div class="empty-zaako"><p>${d.zaako}</p><button class="zaako-btn" id="zaako-open-btn">${d.open_btn}</button></div>`;
             document.getElementById('zaako-open-btn').onclick = () => window.electronAPI.openFolder();
@@ -455,38 +704,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             quickFolder.style.display = 'flex';
             const sortFn = (arr) => {
                 if (type === 'custom') {
-                    let order = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
-                    return [...arr].sort((a,b) => {
-                        const iA = order.indexOf(a.folderName);
-                        const iB = order.indexOf(b.folderName);
-                        return (iA > -1 ? iA : 99999) - (iB > -1 ? iB : 99999);
+                    const order = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
+                    return [...arr].sort((a, b) => {
+                        const indexA = order.indexOf(a.folderName);
+                        const indexB = order.indexOf(b.folderName);
+                        return (indexA > -1 ? indexA : 99999) - (indexB > -1 ? indexB : 99999);
                     });
                 }
-                return [...arr].sort((a,b) => {
-                    if(type === 'az') return a.name.localeCompare(b.name);
-                    if(type === 'date') return (b.dateAdded || 0) - (a.dateAdded || 0);
-                    if(type === 'played') return (b.lastPlayed || 0) - (a.lastPlayed || 0);
+                return [...arr].sort((a, b) => {
+                    if (type === 'az') return a.name.localeCompare(b.name);
+                    if (type === 'date') return (b.dateAdded || 0) - (a.dateAdded || 0);
+                    if (type === 'played') return (b.lastPlayed || 0) - (a.lastPlayed || 0);
                     return 0;
                 });
             };
-            
-            const favs = allGames.filter(g => g.favorite);
-            const unfavs = allGames.filter(g => !g.favorite);
-            
-            sortFn(favs).forEach(g => favGrid.appendChild(createCard(g)));
-            sortFn(unfavs).forEach(g => unfavGrid.appendChild(createCard(g)));
-            
+
+            const favs = allGames.filter(game => game.favorite);
+            const unfavs = allGames.filter(game => !game.favorite);
+
+            sortFn(favs).forEach(game => favGrid.appendChild(createCard(game)));
+            sortFn(unfavs).forEach(game => unfavGrid.appendChild(createCard(game)));
             separator.style.display = (favs.length > 0 && unfavs.length > 0) ? 'flex' : 'none';
         }
+
         loading.style.display = 'none';
         applyUIStrings();
     }
 
-    // SEARCH LOGIC
     function highlightMatch(text, query) {
         if (!query) return text;
         const parts = text.split(new RegExp(`(${query})`, 'gi'));
-        return parts.map(p => p.toLowerCase() === query.toLowerCase() ? `<span class="search-match">${p}</span>` : p).join('');
+        return parts.map(part => part.toLowerCase() === query.toLowerCase() ? `<span class="search-match">${part}</span>` : part).join('');
     }
 
     function updateSearch(query) {
@@ -497,22 +745,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         searchPlaceholder.style.display = 'none';
-        const filtered = allGames.filter(g => 
-            g.name.toLowerCase().includes(query.toLowerCase()) || 
-            g.folderName.toLowerCase().includes(query.toLowerCase())
+        const filtered = allGames.filter(game =>
+            game.name.toLowerCase().includes(query.toLowerCase()) ||
+            game.folderName.toLowerCase().includes(query.toLowerCase())
         );
 
         searchDropdown.innerHTML = '';
         if (filtered.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'search-item empty-search';
-            empty.innerText = i18n[currentLang].no_results;
+            empty.innerText = getStrings().no_results;
             searchDropdown.appendChild(empty);
             searchDropdown.classList.add('show');
             return;
         }
 
-        filtered.forEach(game => {
+        filtered.forEach((game) => {
             const item = document.createElement('div');
             item.className = 'search-item';
             item.draggable = true;
@@ -531,9 +779,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
             `;
 
-            // Async load icon for search item
             if (!game.iconData) {
-                window.electronAPI.getIcon(game.exePath).then(iconData => {
+                window.electronAPI.getIcon(game.exePath).then((iconData) => {
                     if (iconData) {
                         game.iconData = iconData;
                         const iconSpan = item.querySelector('.search-item-icon');
@@ -542,15 +789,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
-            item.ondragstart = (e) => { 
+            item.ondragstart = (event) => {
                 draggedGameFolder = game.folderName;
-                e.dataTransfer.setData('folderName', game.folderName); 
+                event.dataTransfer.setData('folderName', game.folderName);
             };
             item.ondragend = () => { draggedGameFolder = null; };
 
             const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
-            launchIconWrapper.onclick = (e) => {
-                e.stopPropagation();
+            launchIconWrapper.onclick = (event) => {
+                event.stopPropagation();
                 const card = document.querySelector(`.game-card[data-folder="${game.folderName}"]`);
                 if (card) {
                     searchDropdown.classList.remove('show');
@@ -561,54 +808,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             };
 
-            item.onmouseenter = (e) => {
+            item.onmouseenter = () => {
                 tooltip.innerText = game.name;
                 tooltip.style.display = 'block';
                 const rect = item.getBoundingClientRect();
                 tooltip.style.left = `${rect.left}px`;
                 tooltip.style.top = `${rect.bottom + 5}px`;
             };
-            item.onmouseleave = () => tooltip.style.display = 'none';
-            item.ondblclick = (e) => {
-                e.stopPropagation();
-                window.electronAPI.launchYume({folderName: game.folderName, exePath: game.exePath});
+            item.onmouseleave = () => { tooltip.style.display = 'none'; };
+            item.ondblclick = (event) => {
+                event.stopPropagation();
+                window.electronAPI.launchYume({ folderName: game.folderName, exePath: game.exePath });
                 searchDropdown.classList.remove('show');
                 searchInput.value = '';
             };
-            
+
             searchDropdown.appendChild(item);
         });
 
         searchDropdown.classList.add('show');
     }
 
-    searchInput.oninput = (e) => updateSearch(e.target.value);
-    searchInput.onfocus = (e) => updateSearch(e.target.value);
-    
-    // Close dropdown on click outside
-    document.addEventListener('click', (e) => {
-        if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
-            searchDropdown.classList.remove('show');
-        }
-    });
-
-    // Placeholder Rotation Logic
     function rotatePlaceholder() {
-        if (searchInput.value.trim()) return; // Don't rotate if user is typing
-
+        if (searchInput.value.trim()) return;
+        const placeholders = getStrings().placeholders || getEnglishStrings().placeholders || ['Search...'];
         searchPlaceholder.style.opacity = '0';
         setTimeout(() => {
-            const list = i18n[currentLang].placeholders;
-            placeholderIndex = (placeholderIndex + 1) % list.length;
-            searchPlaceholder.innerText = list[placeholderIndex];
+            placeholderIndex = (placeholderIndex + 1) % placeholders.length;
+            searchPlaceholder.innerText = placeholders[placeholderIndex];
             searchPlaceholder.style.opacity = '0.5';
         }, 2000);
     }
-
-    setInterval(rotatePlaceholder, 60000);
-    
-    // Initial placeholder
-    searchPlaceholder.innerText = i18n[currentLang].placeholders[placeholderIndex];
 
     async function initApp() {
         const config = await window.electronAPI.checkConfig();
@@ -627,28 +857,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-setup-default').onclick = async () => { if (await window.electronAPI.setupLibrary('default')) initApp(); };
     document.getElementById('btn-choose-custom').onclick = async () => { if (await window.electronAPI.setupLibrary('custom')) initApp(); };
     document.getElementById('btn-change-path').onclick = async () => { if (await window.electronAPI.setupLibrary('custom')) location.reload(); };
-    document.getElementById('settings-open-btn').onclick = () => settingsOverlay.style.display = 'flex';
-    document.getElementById('settings-close-btn').onclick = () => settingsOverlay.style.display = 'none';
+    document.getElementById('settings-open-btn').onclick = () => { settingsOverlay.style.display = 'flex'; };
+    document.getElementById('settings-close-btn').onclick = () => { settingsOverlay.style.display = 'none'; };
+    document.getElementById('language-pack-close-btn').onclick = closeLanguagePackModal;
     quickFolder.onclick = () => window.electronAPI.openFolder();
-    
-    // Sort logic
+    moreLanguagesBtn.onclick = openLanguagePackModal;
+    languagePackListBtn.onclick = () => {
+        showAllLanguagePacks = true;
+        languagePackSearch.value = '';
+        renderLanguagePackResults();
+    };
+    languagePackRefreshBtn.onclick = async () => {
+        showAllLanguagePacks = true;
+        await fetchLanguagePackManifest();
+    };
+    languagePackSearch.oninput = () => {
+        showAllLanguagePacks = true;
+        renderLanguagePackResults();
+    };
+
     const sortBtn = document.getElementById('sort-btn');
     const sortMenu = document.getElementById('sort-menu');
-    sortBtn.onclick = (e) => { e.stopPropagation(); sortMenu.classList.toggle('show'); };
-    document.querySelectorAll('.sort-item').forEach(item => {
-        item.onclick = (e) => {
-            e.stopPropagation();
+    sortBtn.onclick = (event) => { event.stopPropagation(); sortMenu.classList.toggle('show'); };
+    document.querySelectorAll('.sort-item').forEach((item) => {
+        item.onclick = (event) => {
+            event.stopPropagation();
             sortGames(item.dataset.sort);
             sortMenu.classList.remove('show');
         };
     });
 
-    themeSelect.onchange = (e) => { document.body.className = `${e.target.value}-theme`; localStorage.setItem('yumeshelf_theme', e.target.value); };
-    langSelect.onchange = (e) => { currentLang = e.target.value; localStorage.setItem('yumeshelf_lang', currentLang); sortGames(currentSort); };
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') settingsOverlay.style.display = 'none'; });
-    document.onclick = () => { document.querySelectorAll('.dropdown-menu, .sort-menu').forEach(m => m.classList.remove('show')); };
-    
-    document.body.className = `${currentTheme}-theme`; themeSelect.value = currentTheme;
-    langSelect.value = currentLang;
+    themeSelect.onchange = (event) => {
+        document.body.className = `${event.target.value}-theme`;
+        localStorage.setItem('yumeshelf_theme', event.target.value);
+    };
+    langSelect.onchange = (event) => {
+        setCurrentLanguage(event.target.value);
+    };
+    searchInput.oninput = (event) => updateSearch(event.target.value);
+    searchInput.onfocus = (event) => updateSearch(event.target.value);
+
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            if (languagePackOverlay.style.display === 'flex') closeLanguagePackModal();
+            else settingsOverlay.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!searchInput.contains(event.target) && !searchDropdown.contains(event.target)) {
+            searchDropdown.classList.remove('show');
+        }
+        if (!event.target.closest('.dropdown-menu') && !event.target.closest('.menu-btn')) {
+            document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.remove('show'));
+        }
+        if (!event.target.closest('.sort-container')) {
+            document.querySelectorAll('.sort-menu').forEach(menu => menu.classList.remove('show'));
+        }
+    });
+
+    document.body.className = `${currentTheme}-theme`;
+    themeSelect.value = currentTheme;
+
+    await loadLanguageState();
+    searchPlaceholder.innerText = getStrings().placeholders[placeholderIndex];
+    setCurrentLanguage(currentLang, { persist: false });
+    setInterval(rotatePlaceholder, 60000);
     initApp();
 });

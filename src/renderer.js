@@ -310,11 +310,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 const rect = targetCard.getBoundingClientRect();
                 const midX = rect.left + rect.width / 2;
+                const midY = rect.top + rect.height / 2;
                 
                 // Hysteresis deadzone to prevent flickering when mouse is on the boundary
-                const threshold = rect.width * 0.15;
-                if (Math.abs(e.clientX - midX) < threshold) {
-                    return;
+                // Increased threshold to 30% of card width for better stability
+                const thresholdX = rect.width * 0.3;
+                
+                if (Math.abs(e.clientX - midX) < thresholdX) {
+                    return; // In deadzone, don't swap
                 }
                 
                 nextSibling = (e.clientX > midX) ? targetCard.nextElementSibling : targetCard;

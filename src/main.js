@@ -192,7 +192,8 @@ app.whenReady().then(() => {
                     const extPath = require('path').join(appPath, 'node_modules', 'extract-file-icon')
                                       .replace('app.asar', 'app.asar.unpacked')
                                       .replace(/\\/g, '\\\\');
-                    const script = `try { const b = require('${extPath}')('${p.replace(/\\/g, '\\\\')}', 256); console.log(b.toString('base64')); } catch(e) { console.log(''); }`;
+                    const escapedPath = p.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    const script = `try { const b = require('${extPath}')('${escapedPath}', 256); console.log(b.toString('base64')); } catch(e) { console.log(''); }`;
                     const cp = require('child_process').spawn(process.execPath, ['-e', script], {
                         env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
                     });

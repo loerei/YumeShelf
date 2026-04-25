@@ -41,16 +41,50 @@ body {
     gap: 20px;
 }
 
+.drop-zone {
+    min-height: 40px;
+    border: 2px dashed transparent;
+    border-radius: 12px;
+    transition: all 0.3s;
+}
+
+.drop-zone.drag-over {
+    background: rgba(0, 255, 255, 0.03);
+    border-color: var(--accent);
+}
+
 .game-card {
     background-color: var(--card-bg);
-    border-radius: 8px;
-    padding: 30px 20px 20px 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
+    position: relative;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.3s ease;
     cursor: pointer;
-    transition: transform 0.2s, background-color 0.2s;
-    user-select: none;
-    border: 1px solid transparent;
-    position: relative; /* Cần thiết để chứa nút Menu absolute */
+    overflow: hidden;
+}
+
+.game-card.drag-over {
+    border: 2px dashed var(--accent);
+    transform: scale(1.02);
+    opacity: 0.8;
+}
+
+.game-card.drag-placeholder {
+    border: 2px dashed var(--accent);
+    background: rgba(0, 255, 255, 0.05);
+    opacity: 0.8;
+    pointer-events: none;
+    min-height: 120px;
+}
+
+.game-card.glow {
+    box-shadow: 0 0 20px var(--accent) !important;
+    border-color: var(--accent) !important;
 }
 
 .game-card:hover {
@@ -422,15 +456,30 @@ body {
     font-weight: bold;
 }
 
-.search-launch-icon {
+.search-launch-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 24px;
     height: 24px;
-    opacity: 0.4;
-    transition: opacity 0.2s;
+    border-radius: 4px;
+    transition: background 0.2s;
 }
 
-.search-item:hover .search-launch-icon {
+.search-launch-icon-wrapper:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.search-launch-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.5;
+    transition: opacity 0.2s, stroke 0.2s;
+}
+
+.search-launch-icon-wrapper:hover .search-launch-icon {
     opacity: 1;
+    stroke: var(--accent);
 }
 
 .empty-search {

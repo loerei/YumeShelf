@@ -62,6 +62,7 @@
                     <div class="sort-item" data-sort="played" id="ui-sort-played">Chơi gần nhất</div>
                     <div class="sort-item" data-sort="az" id="ui-sort-az">Tên A-Z</div>
                     <div class="sort-item" data-sort="rj" id="ui-sort-rj">Theo mã RJ</div>
+                    <div class="sort-item" data-sort="custom" id="ui-sort-custom">Tùy chỉnh</div>
                 </div>
             </div>
             
@@ -83,7 +84,15 @@
     </div>
 
     <div class="loading" id="loading">...</div>
-    <div class="game-grid" id="game-grid"></div>
+    
+    <div id="game-grid-wrapper">
+        <div class="game-grid drop-zone" id="fav-grid"></div>
+        <div class="favorites-separator-container" id="favorites-separator" style="display: none;">
+            <div class="favorites-separator"></div>
+        </div>
+        <div class="game-grid drop-zone" id="unfav-grid"></div>
+        <div id="empty-state-container"></div>
+    </div>
 
     <div class="settings-overlay" id="settings-overlay">
         <div class="settings-panel">

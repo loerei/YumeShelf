@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    const grid = document.getElementById('game-grid');
+    const favGrid = document.getElementById('fav-grid');
+    const unfavGrid = document.getElementById('unfav-grid');
+    const separator = document.getElementById('favorites-separator');
+    const emptyContainer = document.getElementById('empty-state-container');
     const loading = document.getElementById('loading');
     const welcome = document.getElementById('welcome-screen');
     const quickFolder = document.getElementById('quick-folder-btn');
@@ -29,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "No game here, zaako~", open_btn: "Open Games Folder",
             rename: "✏️ Rename", reveal: "📁 Reveal", delete: "🗑️ Delete", confirm: "Delete into Recycle Bin?",
             status_never: "Never played", status_recent: "Just now", status_mins: " mins ago", status_hours: " hours ago",
+            sort_date: "Newest", sort_played: "Recently Played", sort_az: "Name A-Z", sort_rj: "RJ Code", sort_custom: "Custom Order",
             no_results: "Nobody here but us chickens!",
             placeholders: [
                 "Can't even find a game? Zaako~",
@@ -49,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "Không có game ở đây, zaako~", open_btn: "Mở thư mục Game",
             rename: "✏️ Đổi tên", reveal: "📁 Mở thư mục", delete: "🗑️ Xóa game", confirm: "Xóa vào Thùng rác?",
             status_never: "Chưa chơi lần nào", status_recent: "Vừa mới chơi", status_mins: " phút trước", status_hours: " giờ trước",
+            sort_date: "Mới tải về", sort_played: "Chơi gần nhất", sort_az: "Tên A-Z", sort_rj: "Theo mã RJ", sort_custom: "Tùy chỉnh",
             no_results: "Chẳng ai lạc vào đây ngoài mấy con gà chúng ta cả!",
             placeholders: [
                 "Có cái game cũng tìm không ra, Zaako~",
@@ -69,6 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "ここにはゲームがないよ、ざぁ～こ♡", open_btn: "ゲームフォルダを開く",
             rename: "✏️ 名前変更", reveal: "📁 フォルダを開く", delete: "🗑️ 削除", confirm: "ゴミ箱に移動しますか？",
             status_never: "未プレイ", status_recent: "たった今", status_mins: " 分前", status_hours: " 時間前",
+            sort_date: "追加日", sort_played: "最近プレイ", sort_az: "名前順 A-Z", sort_rj: "RJコード順", sort_custom: "カスタム順",
             no_results: "ここにはニワトリ以外だーれもいないわよ！",
             placeholders: [
                 "ゲーム一つも見つけられないの？ざぁ～こ♡",
@@ -89,19 +95,74 @@ document.addEventListener('DOMContentLoaded', async () => {
             zaako: "这里没有游戏哦，杂~鱼~", open_btn: "打开游戏文件夹",
             rename: "✏️ 重命名", reveal: "📁 打开文件夹", delete: "🗑️ 删除", confirm: "确定要删除吗？",
             status_never: "从未运行", status_recent: "刚刚", status_mins: " 分钟前", status_hours: " 小时前",
+            sort_date: "最新添加", sort_played: "最近游玩", sort_az: "名称 A-Z", sort_rj: "RJ号", sort_custom: "自定义排序",
             no_results: "除了我们这些弱鸡，谁也不在哦！",
             placeholders: [
                 "连个游戏都找不到吗？杂~鱼~♡",
                 "别磨蹭了，快点打字！",
                 "哎呀，这就迷路了吗？",
                 "这种程度就内存不足了吗？笨蛋。",
-                "别盯着看了，快输入点什么吧！",
+                "别盯着看，快输入点什么！",
                 "你在找什么呢，笨~蛋。",
                 "记性真差呢，你是金鱼吗？",
                 "好无聊啊……快一点啦！"
             ]
         }
     };
+
+    let draggedGameFolder = null;
+    let dragPlaceholder = document.createElement('div');
+    dragPlaceholder.className = 'game-card drag-placeholder';
+
+    function flipAnimateDOMUpdate(callback, isDrop = false) {
+        const getItems = () => [...document.querySelectorAll('.game-card')];
+        
+        const firstRects = new Map();
+        getItems().forEach(item => {
+            if(item.dataset.folder) {
+                firstRects.set(item.dataset.folder, item.getBoundingClientRect());
+            } else if (item.classList.contains('drag-placeholder') && draggedGameFolder) {
+                firstRects.set(draggedGameFolder, item.getBoundingClientRect());
+            }
+            item.style.transition = 'none';
+            item.style.transform = 'none';
+        });
+        
+        callback();
+        
+        const newItems = getItems();
+        newItems.forEach(item => {
+            const first = firstRects.get(item.dataset.folder);
+            if (first) {
+                const last = item.getBoundingClientRect();
+                const dx = first.left - last.left;
+                const dy = first.top - last.top;
+                if (dx !== 0 || dy !== 0) {
+                    item.style.transform = `translate(${dx}px, ${dy}px)`;
+                }
+            }
+        });
+        
+        document.body.offsetHeight; // Force reflow
+        
+        requestAnimationFrame(() => {
+            newItems.forEach(item => {
+                if (item.dataset.folder) {
+                    const first = firstRects.get(item.dataset.folder);
+                    const last = item.getBoundingClientRect();
+                    
+                    // If dragging (not drop) and card wrapped to a new row, skip animation to avoid diagonal flying chaos
+                    if (!isDrop && first && Math.abs(first.top - last.top) > 20) {
+                        item.style.transition = 'none';
+                    } else {
+                        item.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                    }
+                    
+                    item.style.transform = '';
+                }
+            });
+        });
+    }
 
     let placeholderIndex = Math.floor(Math.random() * i18n[currentLang].placeholders.length);
 
@@ -120,6 +181,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('ui-theme-label').innerText = d.theme;
         document.getElementById('ui-path-label').innerText = d.path;
         document.getElementById('btn-change-path').innerText = d.change;
+        
+        const sortMenu = document.getElementById('sort-menu');
+        if(sortMenu) {
+            document.getElementById('ui-sort-date').innerText = d.sort_date;
+            document.getElementById('ui-sort-played').innerText = d.sort_played;
+            document.getElementById('ui-sort-az').innerText = d.sort_az;
+            document.getElementById('ui-sort-rj').innerText = d.sort_rj;
+            document.getElementById('ui-sort-custom').innerText = d.sort_custom;
+            
+            // Highlight current sort
+            sortMenu.querySelectorAll('.sort-item').forEach(el => el.classList.remove('active'));
+            const activeSort = sortMenu.querySelector(`[data-sort="${currentSort}"]`);
+            if (activeSort) activeSort.classList.add('active');
+        }
 
         // Update search placeholder and dropdown
         if (!searchInput.value.trim()) {
@@ -143,6 +218,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const d = i18n[currentLang];
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
+        card.dataset.folder = game.folderName;
+        card.draggable = true;
         card.innerHTML = `
             <div class="fav-btn ${game.favorite ? 'active' : ''}">★</div>
             <div class="menu-btn"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
@@ -169,30 +246,184 @@ document.addEventListener('DOMContentLoaded', async () => {
         card.querySelector('.action-reveal').onclick = () => window.electronAPI.revealGame(game.exePath);
         card.querySelector('.action-delete').onclick = async () => { if(confirm(d.confirm)) { await window.electronAPI.deleteGame(game.folderPath); allGames = allGames.filter(g => g.folderName !== game.folderName); sortGames(currentSort); } };
         card.ondblclick = () => { card.style.opacity = '0.5'; window.electronAPI.launchYume({folderName: game.folderName, exePath: game.exePath}); game.lastPlayed = Date.now(); setTimeout(() => sortGames(currentSort), 1000); };
+        
+        // Drag and Drop
+        card.ondragstart = (e) => {
+            draggedGameFolder = game.folderName;
+            e.dataTransfer.setData('folderName', game.folderName);
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => { 
+                card.style.display = 'none';
+                card.parentNode.insertBefore(dragPlaceholder, card.nextSibling);
+            }, 0);
+        };
+        card.ondragend = () => {
+            if (dragPlaceholder.parentNode) {
+                flipAnimateDOMUpdate(() => {
+                    dragPlaceholder.parentNode.removeChild(dragPlaceholder);
+                    card.style.display = 'flex';
+                });
+            } else {
+                card.style.display = 'flex';
+            }
+            draggedGameFolder = null;
+            document.querySelectorAll('.game-card').forEach(c => { c.classList.remove('drag-over'); });
+        };
+        card.ondragenter = (e) => { e.preventDefault(); };
+        card.ondragleave = (e) => { e.preventDefault(); };
+        card.ondragover = (e) => { e.preventDefault(); };
+        card.ondrop = async (e) => { e.preventDefault(); }; // Handled by zone
+        
         return card;
     }
 
+    // Zone Drop Handlers
+    [favGrid, unfavGrid, separator].forEach(zone => {
+        zone.ondragover = (e) => {
+            e.preventDefault();
+            zone.classList.add('drag-over');
+            
+            if (currentSort !== 'custom' && dragPlaceholder.parentNode === zone) {
+                return; // Only allow custom drag within the same zone
+            }
+            
+            const targetCard = e.target.closest('.game-card:not(.drag-placeholder)');
+            
+            let nextSibling;
+            if (!targetCard) {
+                // If hovering over empty space, keep current position to prevent chaotic jumping to the end
+                if (zone.querySelectorAll('.game-card:not(.drag-placeholder)').length === 0) {
+                    nextSibling = null;
+                } else {
+                    return; 
+                }
+            } else {
+                const rect = targetCard.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                
+                // Hysteresis deadzone to prevent flickering when mouse is on the boundary
+                const threshold = rect.width * 0.15;
+                if (Math.abs(e.clientX - midX) < threshold) {
+                    return;
+                }
+                
+                nextSibling = (e.clientX > midX) ? targetCard.nextElementSibling : targetCard;
+            }
+
+            if (dragPlaceholder.parentNode !== zone || dragPlaceholder.nextElementSibling !== nextSibling) {
+                flipAnimateDOMUpdate(() => {
+                    if (zone !== separator) {
+                        zone.insertBefore(dragPlaceholder, nextSibling);
+                    }
+                });
+            }
+        };
+
+        zone.ondragleave = (e) => { 
+            if (!zone.contains(e.relatedTarget)) {
+                zone.classList.remove('drag-over'); 
+            }
+        };
+        
+        zone.ondrop = (e) => {
+            e.preventDefault();
+            zone.classList.remove('drag-over');
+            const draggedFolder = e.dataTransfer.getData('folderName');
+            if (!draggedFolder) return;
+            const draggedGame = allGames.find(g => g.folderName === draggedFolder);
+            if (!draggedGame) return;
+
+            const isFavZone = zone === favGrid || zone === separator;
+            let needsSave = false;
+            let doToggle = false;
+
+            if (draggedGame.favorite !== isFavZone) {
+                draggedGame.favorite = isFavZone;
+                doToggle = true;
+                needsSave = true;
+            }
+
+            if (currentSort === 'custom' && draggedGame.favorite === isFavZone && zone !== separator) {
+                let customOrder = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
+                if (customOrder.length === 0) customOrder = allGames.map(g => g.folderName);
+                allGames.forEach(g => { if(!customOrder.includes(g.folderName)) customOrder.push(g.folderName); });
+
+                const draggedIdx = customOrder.indexOf(draggedFolder);
+                if (draggedIdx > -1) {
+                    customOrder.splice(draggedIdx, 1);
+                    
+                    let insertIdx = customOrder.length;
+                    let nextCard = dragPlaceholder.nextElementSibling;
+                    while (nextCard && !nextCard.dataset.folder) {
+                        nextCard = nextCard.nextElementSibling;
+                    }
+                    if (nextCard && nextCard.dataset.folder) {
+                        const targetIdx = customOrder.indexOf(nextCard.dataset.folder);
+                        if (targetIdx > -1) insertIdx = targetIdx;
+                    }
+
+                    customOrder.splice(insertIdx, 0, draggedFolder);
+                    localStorage.setItem('yumeshelf_custom_order', JSON.stringify(customOrder));
+                    needsSave = true;
+                }
+            }
+
+            // Trigger the animation for the drop sorting (synchronously)
+            flipAnimateDOMUpdate(() => {
+                if (dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
+                if (needsSave || doToggle) {
+                    sortGames(currentSort);
+                } else {
+                    sortGames(currentSort); // Ensure it snaps back to original place
+                }
+            }, true);
+
+            // Async API calls afterwards!
+            if (doToggle) {
+                window.electronAPI.toggleFavorite(draggedFolder);
+            }
+        };
+    });
+
     function sortGames(type) {
         currentSort = type; localStorage.setItem('yumeshelf_sort_pref', type);
-        grid.innerHTML = '';
+        favGrid.innerHTML = '';
+        unfavGrid.innerHTML = '';
+        emptyContainer.innerHTML = '';
+        
         const d = i18n[currentLang];
         if (allGames.length === 0) {
-            grid.innerHTML = `<div class="empty-zaako"><p>${d.zaako}</p><button class="zaako-btn" id="zaako-open-btn">${d.open_btn}</button></div>`;
+            emptyContainer.innerHTML = `<div class="empty-zaako"><p>${d.zaako}</p><button class="zaako-btn" id="zaako-open-btn">${d.open_btn}</button></div>`;
             document.getElementById('zaako-open-btn').onclick = () => window.electronAPI.openFolder();
             quickFolder.style.display = 'none';
+            separator.style.display = 'none';
         } else {
             quickFolder.style.display = 'flex';
-            const sortFn = (arr) => [...arr].sort((a,b) => {
-                if(type === 'az') return a.name.localeCompare(b.name);
-                if(type === 'date') return (b.dateAdded || 0) - (a.dateAdded || 0);
-                if(type === 'played') return (b.lastPlayed || 0) - (a.lastPlayed || 0);
-                if(type === 'rj') { const ah = a.name.includes('[RJ'), bh = b.name.includes('[RJ'); return (ah === bh) ? a.name.localeCompare(b.name) : ah ? -1 : 1; }
-            });
-            sortFn(allGames.filter(g => g.favorite)).forEach(g => grid.appendChild(createCard(g)));
-            if (allGames.some(g => g.favorite) && allGames.some(g => !g.favorite)) {
-                const sep = document.createElement('div'); sep.className = 'favorites-separator-container'; sep.innerHTML = '<div class="favorites-separator"></div>'; grid.appendChild(sep);
-            }
-            sortFn(allGames.filter(g => !g.favorite)).forEach(g => grid.appendChild(createCard(g)));
+            const sortFn = (arr) => {
+                if (type === 'custom') {
+                    let order = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
+                    return [...arr].sort((a,b) => {
+                        const iA = order.indexOf(a.folderName);
+                        const iB = order.indexOf(b.folderName);
+                        return (iA > -1 ? iA : 99999) - (iB > -1 ? iB : 99999);
+                    });
+                }
+                return [...arr].sort((a,b) => {
+                    if(type === 'az') return a.name.localeCompare(b.name);
+                    if(type === 'date') return (b.dateAdded || 0) - (a.dateAdded || 0);
+                    if(type === 'played') return (b.lastPlayed || 0) - (a.lastPlayed || 0);
+                    if(type === 'rj') { const ah = a.name.includes('[RJ'), bh = b.name.includes('[RJ'); return (ah === bh) ? a.name.localeCompare(b.name) : ah ? -1 : 1; }
+                    return 0;
+                });
+            };
+            
+            const favs = allGames.filter(g => g.favorite);
+            const unfavs = allGames.filter(g => !g.favorite);
+            
+            sortFn(favs).forEach(g => favGrid.appendChild(createCard(g)));
+            sortFn(unfavs).forEach(g => unfavGrid.appendChild(createCard(g)));
+            
+            separator.style.display = (favs.length > 0 && unfavs.length > 0) ? 'flex' : 'none';
         }
         loading.style.display = 'none';
         applyUIStrings();
@@ -231,6 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         filtered.forEach(game => {
             const item = document.createElement('div');
             item.className = 'search-item';
+            item.draggable = true;
             item.innerHTML = `
                 <div class="search-item-info">
                     <span class="search-item-icon">🎮</span>
@@ -238,11 +470,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
                 </div>
-                <svg class="search-launch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M15 10l5 5-5 5"></path>
-                    <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
-                </svg>
+                <div class="search-launch-icon-wrapper">
+                    <svg class="search-launch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 10l5 5-5 5"></path>
+                        <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
+                    </svg>
+                </div>
             `;
+
+            item.ondragstart = (e) => { 
+                draggedGameFolder = game.folderName;
+                e.dataTransfer.setData('folderName', game.folderName); 
+            };
+            item.ondragend = () => { draggedGameFolder = null; };
+
+            const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
+            launchIconWrapper.onclick = (e) => {
+                e.stopPropagation();
+                const card = document.querySelector(`.game-card[data-folder="${game.folderName}"]`);
+                if (card) {
+                    searchDropdown.classList.remove('show');
+                    searchInput.value = '';
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.classList.add('glow');
+                    setTimeout(() => card.classList.remove('glow'), 2000);
+                }
+            };
 
             item.onmouseenter = (e) => {
                 tooltip.innerText = game.name;
@@ -313,6 +566,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('settings-open-btn').onclick = () => settingsOverlay.style.display = 'flex';
     document.getElementById('settings-close-btn').onclick = () => settingsOverlay.style.display = 'none';
     quickFolder.onclick = () => window.electronAPI.openFolder();
+    
+    // Sort logic
+    const sortBtn = document.getElementById('sort-btn');
+    const sortMenu = document.getElementById('sort-menu');
+    sortBtn.onclick = (e) => { e.stopPropagation(); sortMenu.classList.toggle('show'); };
+    document.querySelectorAll('.sort-item').forEach(item => {
+        item.onclick = (e) => {
+            e.stopPropagation();
+            sortGames(item.dataset.sort);
+            sortMenu.classList.remove('show');
+        };
+    });
+
     themeSelect.onchange = (e) => { document.body.className = `${e.target.value}-theme`; localStorage.setItem('yumeshelf_theme', e.target.value); };
     langSelect.onchange = (e) => { currentLang = e.target.value; localStorage.setItem('yumeshelf_lang', currentLang); sortGames(currentSort); };
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') settingsOverlay.style.display = 'none'; });

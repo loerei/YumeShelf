@@ -1,6 +1,7 @@
 export function createLanguagePackController({
     electronAPI,
     localeController,
+    onPackInstalled,
     refs
 }) {
     let remoteManifestState = {
@@ -142,6 +143,9 @@ export function createLanguagePackController({
         localeController.setLocaleState(result.state || localeController.getLocaleState());
         if (activateAfterInstall || localeController.getCurrentLang() === code) {
             localeController.setCurrentLanguage(code);
+        }
+        if (typeof onPackInstalled === 'function') {
+            onPackInstalled(result);
         }
         closeLanguagePackModal();
     }

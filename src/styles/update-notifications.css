@@ -1,0 +1,205 @@
+.update-notification-host {
+    position: fixed;
+    right: 28px;
+    bottom: 28px;
+    z-index: 1600;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.update-notification-card,
+.update-notification-handle {
+    pointer-events: auto;
+}
+
+.update-notification-card {
+    width: min(352px, calc(100vw - 32px));
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px 18px 18px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    position: relative;
+}
+
+.update-notification-card:hover {
+    border-color: var(--text-sub);
+}
+
+.update-notification-dismiss {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    border: 0;
+    background: transparent;
+    color: var(--text-sub);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.update-notification-dismiss:hover {
+    color: var(--text-main);
+    opacity: 1;
+}
+
+.update-notification-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-sub);
+    margin-right: 28px;
+}
+
+.update-notification-eyebrow::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    opacity: 0.9;
+}
+
+.update-notification-title {
+    margin: 0;
+    margin-right: 28px;
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.update-notification-message {
+    margin: 0;
+    color: var(--text-sub);
+    line-height: 1.45;
+    font-size: 14px;
+}
+
+.update-notification-summary {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.update-notification-summary:empty {
+    display: none;
+}
+
+.update-notification-summary li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.update-notification-summary li::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    flex: 0 0 auto;
+    opacity: 0.95;
+}
+
+.update-notification-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.update-notification-actions .small-btn {
+    min-width: 112px;
+    padding: 8px 14px;
+    border-radius: 8px;
+}
+
+.update-notification-actions .secondary-btn {
+    border-color: var(--border-color);
+}
+
+.update-notification-actions .secondary-btn:hover {
+    border-color: var(--text-sub);
+}
+
+#update-notification-primary-btn {
+    background: var(--accent);
+    color: white;
+}
+
+#update-notification-primary-btn:hover {
+    filter: brightness(1.05);
+}
+
+.update-notification-handle {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--card-bg);
+    color: var(--text-main);
+    padding: 9px 14px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.update-notification-handle:hover {
+    border-color: var(--text-sub);
+    transform: translateY(-1px);
+}
+
+.update-notification-handle::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: none;
+}
+
+@media (max-width: 900px) {
+    .update-notification-host {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        align-items: stretch;
+    }
+
+    .update-notification-card,
+    .update-notification-handle {
+        width: 100%;
+    }
+
+    .update-notification-actions {
+        flex-direction: column-reverse;
+    }
+
+    .update-notification-actions .small-btn {
+        width: 100%;
+    }
+}

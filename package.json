@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
@@ -9,7 +9,8 @@
     "build": "electron-builder --win",
     "build:fast": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js",
     "build:dir": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir --config.win.signAndEditExecutable=false",
-    "build:dir:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:dir"
+    "build:dir:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:dir",
+    "sync:release-metadata": "node .\\scripts\\sync-release-metadata.js"
   },
   "build": {
     "appId": "com.loerei.yumeshelf",

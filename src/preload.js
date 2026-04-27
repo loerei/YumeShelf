@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
+    bootstrapApp: (options) => ipcRenderer.invoke('bootstrap-app', options),
     checkConfig: () => ipcRenderer.invoke('check-config'),
     setupLibrary: (type) => ipcRenderer.invoke('setup-library', type),
     getGames: () => ipcRenderer.invoke('get-games'),
@@ -14,5 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     getLanguageState: () => ipcRenderer.invoke('get-language-state'),
     getLanguagePackManifest: () => ipcRenderer.invoke('get-language-pack-manifest'),
-    installLanguagePack: (code) => ipcRenderer.invoke('install-language-pack', code)
+    installLanguagePack: (code) => ipcRenderer.invoke('install-language-pack', code),
+    onBootStatus: (callback) => {
+        ipcRenderer.on('boot-status', (_event, payload) => callback(payload));
+    }
 });

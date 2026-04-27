@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 const { execFile } = require('child_process');
+const { createStartupServices } = require('./main/startup');
 
 const isDev = !app.isPackaged;
 const DEFAULT_GAMES_DIR = isDev ? path.join(__dirname, '..', 'YumeShelf') : path.join(path.dirname(app.getPath('exe')), 'YumeShelf');
@@ -20,6 +21,7 @@ const LOCAL_LANGUAGE_PACKS_DIR = path.join(LOCAL_LANGUAGE_PACK_ROOT, 'packs');
 const LANGUAGE_PACK_REPO_URL = 'https://github.com/loerei/YumeShelf/blob/main/TRANSLATION.md';
 const LANGUAGE_PACK_MANIFEST_URL = 'https://raw.githubusercontent.com/loerei/YumeShelf/main/language-packs/manifest.json';
 const LANGUAGE_PACK_TIMEOUT_MS = 8000;
+const STARTUP_NETWORK_TIMEOUT_MS = 3500;
 const LOCALE_REQUIRED_STRING_KEYS = ['title', 'settings', 'lang', 'welcome', 'welcome_desc', 'placeholders'];
 
 function safeGetPath(name) {
@@ -410,6 +412,19 @@ async function installLanguagePack(code) {
     }
 }
 
+const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createStartupServices({
+    app,
+    buildLanguageState,
+    defaultGamesDir: DEFAULT_GAMES_DIR,
+    fetchLanguageManifest,
+    fsSync,
+    isNetworkLikeError,
+    loadDB,
+    saveDB,
+    scan,
+    startupNetworkTimeoutMs: STARTUP_NETWORK_TIMEOUT_MS
+});
+
 function startupPathSummary() {
     return {
         pid: process.pid,
@@ -534,6 +549,7 @@ app.whenReady().then(() => {
 
     ipcMain.handle('get-app-version', async () => app.getVersion());
     ipcMain.handle('get-language-state', async () => buildLanguageState());
+    ipcMain.handle('bootstrap-app', async (event, options = {}) => bootstrapAppState(event.sender, options));
     ipcMain.handle('get-language-pack-manifest', async () => {
         const result = await fetchLanguageManifest();
         return {
@@ -547,24 +563,7 @@ app.whenReady().then(() => {
     });
     ipcMain.handle('install-language-pack', async (e, code) => installLanguagePack(code));
 
-    ipcMain.handle('check-config', async () => {
-        if (process.argv.some(arg => arg.toLowerCase() === '--welcome' || arg.toLowerCase() === '-w')) return null;
-        let db = await loadDB();
-        
-        // Auto-detect YumeShelf folder if it exists next to the app
-        if (!db.config && require('fs').existsSync(DEFAULT_GAMES_DIR)) {
-            db.config = { libraryPath: DEFAULT_GAMES_DIR };
-            await saveDB(db);
-        }
-
-        if (db.config && !require('fs').existsSync(db.config.libraryPath)) {
-            if (require('fs').existsSync(DEFAULT_GAMES_DIR)) {
-                db.config.libraryPath = DEFAULT_GAMES_DIR;
-                await saveDB(db);
-            }
-        }
-        return db.config || null;
-    });
+    ipcMain.handle('check-config', async () => resolveLibraryConfig());
 
     ipcMain.handle('get-default-path', () => DEFAULT_GAMES_DIR);
 
@@ -591,16 +590,7 @@ app.whenReady().then(() => {
         }
     });
 
-    ipcMain.handle('get-games', async () => {
-        let db = await loadDB();
-        if (db.config && !require('fs').existsSync(db.config.libraryPath)) {
-            if (require('fs').existsSync(DEFAULT_GAMES_DIR)) {
-                db.config.libraryPath = DEFAULT_GAMES_DIR;
-                await saveDB(db);
-            }
-        }
-        return db.config ? await scan(db.config.libraryPath) : [];
-    });
+    ipcMain.handle('get-games', async () => loadGamesForConfig(await resolveLibraryConfig()));
 
     ipcMain.on('launch-yume', async (e, {folderName, exePath}) => {
         let db = await loadDB();

@@ -273,8 +273,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         await languagePackController.fetchLanguagePackManifest();
     }
 
-    async function openLanguagePackModal() {
-        await languagePackController.openLanguagePackModal();
+    async function openLanguagePackModal(options = {}) {
+        await languagePackController.openLanguagePackModal(options);
     }
 
     function closeLanguagePackModal() {
@@ -392,5 +392,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchPlaceholder.innerText = localeController.getPlaceholders()[localeController.getPlaceholderIndex()];
     setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
     setInterval(rotatePlaceholder, 60000);
-    initApp(bootstrapData);
+    await initApp(bootstrapData);
+
+    const languagePackCheck = bootstrapData && bootstrapData.bootChecks ? bootstrapData.bootChecks.languagePackCheck : null;
+    if (
+        bootstrapData
+        && bootstrapData.bootChecks
+        && bootstrapData.bootChecks.languagePackUpdatesMode === 'notify'
+        && languagePackCheck
+        && Array.isArray(languagePackCheck.availableUpdates)
+        && languagePackCheck.availableUpdates.length > 0
+    ) {
+        await openLanguagePackModal({
+            bannerMessage: getStrings().lang_modal_updates_available_banner
+                || getEnglishStrings().lang_modal_updates_available_banner
+                || 'Language pack updates are available for your installed languages.',
+            showAll: true
+        });
+    }
 });

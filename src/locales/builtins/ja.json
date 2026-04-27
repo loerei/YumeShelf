@@ -30,6 +30,8 @@
     "boot_checking_library_config": "ライブラリ設定を確認しています",
     "boot_waiting_for_library_setup": "ライブラリはまだ設定されていません",
     "boot_checking_language_pack_source": "言語パックの取得元を確認しています",
+    "boot_checking_language_pack_updates": "インストール済みの言語パック更新を確認しています",
+    "boot_installing_language_pack_updates": "言語パック更新をインストールしています",
     "boot_language_pack_source_ready": "言語パックの取得元を確認できました",
     "boot_language_pack_source_cached": "キャッシュ済みの言語パック情報を使います",
     "boot_language_pack_source_offline": "オフラインのため言語パック確認をスキップします",
@@ -73,6 +75,9 @@
     "pack_chip_version_prefix": "パック",
     "pack_chip_reviewed_for_prefix": "確認済み",
     "lang_builtin_source": "内蔵",
-    "lang_downloaded_source": "ダウンロード済み"
+    "lang_downloaded_source": "ダウンロード済み",
+    "lang_modal_update": "更新",
+    "lang_modal_update_available": "更新があります",
+    "lang_modal_updates_available_banner": "インストール済みの言語パックに更新があります。"
   }
 }

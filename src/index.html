@@ -186,6 +186,21 @@
         </div>
     </div>
 
+    <div class="update-notification-host" id="update-notification-host">
+        <section class="update-notification-card" id="update-notification-card" aria-live="polite">
+            <button class="update-notification-dismiss" id="update-notification-dismiss-btn" aria-label="Dismiss update notification">×</button>
+            <div class="update-notification-eyebrow" id="update-notification-eyebrow">Update ready</div>
+            <h2 class="update-notification-title" id="update-notification-title">Updates are ready</h2>
+            <ul class="update-notification-summary" id="update-notification-summary"></ul>
+            <p class="update-notification-message" id="update-notification-message"></p>
+            <div class="update-notification-actions">
+                <button class="small-btn secondary-btn" id="update-notification-later-btn">Remind later</button>
+                <button class="small-btn" id="update-notification-primary-btn">Review updates</button>
+            </div>
+        </section>
+        <button class="update-notification-handle" id="update-notification-handle">Updates</button>
+    </div>
+
     <script type="module" src="renderer.js"></script>
 </body>
 </html>

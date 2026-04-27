@@ -4,7 +4,7 @@
   "englishName": "English",
   "nativeName": "English",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.3.1",
+  "reviewedForAppVersion": "1.3.2",
   "aliases": [
     "en",
     "english"
@@ -103,6 +103,32 @@
     "pack_chip_version_prefix": "Pack",
     "pack_chip_reviewed_for_prefix": "Reviewed for",
     "lang_builtin_source": "Built-in",
-    "lang_downloaded_source": "Downloaded pack"
+    "lang_downloaded_source": "Downloaded pack",
+    "update_notification_label_available": "Update available",
+    "update_notification_label_installed": "Updated automatically",
+    "update_notification_review": "Review updates",
+    "update_notification_view": "View updates",
+    "update_notification_later": "Remind later",
+    "update_notification_handle": "Updates",
+    "update_notification_title_available_one": "{count} update is ready",
+    "update_notification_title_available_many": "{count} updates are ready",
+    "update_notification_title_installed_one": "{count} update finished automatically",
+    "update_notification_title_installed_many": "{count} updates finished automatically",
+    "update_notification_message_available": "Review them without interrupting your library.",
+    "update_notification_message_installed": "YumeShelf finished applying new updates during startup.",
+    "update_notification_summary_language_pack_available_one": "1 language pack update",
+    "update_notification_summary_language_pack_available_many": "{count} language pack updates",
+    "update_notification_summary_language_pack_installed_one": "1 language pack updated",
+    "update_notification_summary_language_pack_installed_many": "{count} language pack updates installed",
+    "update_notification_summary_app_available_one": "1 app update available",
+    "update_notification_summary_app_available_many": "{count} app updates available",
+    "update_notification_language_pack_available_title_one": "{name} update is ready",
+    "update_notification_language_pack_available_title_many": "{count} language pack updates are ready",
+    "update_notification_language_pack_available_message_one": "Version {version} is ready to install.",
+    "update_notification_language_pack_available_message_many": "Open language packs to review and install them when you are ready.",
+    "update_notification_language_pack_installed_title_one": "{name} updated automatically",
+    "update_notification_language_pack_installed_title_many": "{count} language packs updated automatically",
+    "update_notification_language_pack_installed_message_one": "YumeShelf installed version {version} during startup.",
+    "update_notification_language_pack_installed_message_many": "YumeShelf finished installing the latest language packs during startup."
   }
 }

@@ -7,6 +7,7 @@ import { createLibraryGridController } from './renderer/library-grid.js';
 import { createSearchController } from './renderer/search.js';
 import { createSettingsController } from './renderer/settings.js';
 import { createStartupController } from './renderer/startup.js';
+import { createUpdateNotificationFeature } from './renderer/update-notification-feature.js';
 import { createUITextController } from './renderer/ui-text.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -67,24 +68,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         langSelect,
         sortGames: () => sortGames(currentSort)
     });
-    const languagePackController = createLanguagePackController({
-        electronAPI: window.electronAPI,
-        localeController,
-        refs: {
-            languagePackBanner,
-            languagePackEmpty,
-            languagePackEmptyDesc,
-            languagePackEmptyTitle,
-            languagePackHint,
-            languagePackListBtn,
-            languagePackOverlay,
-            languagePackRefreshBtn,
-            languagePackRepoLink,
-            languagePackResults,
-            languagePackSearch,
-            languagePackSource
-        }
-    });
     const searchController = createSearchController({
         advancePlaceholderIndex: () => localeController.advancePlaceholderIndex(),
         electronAPI: window.electronAPI,
@@ -108,6 +91,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             languagePackUpdatesSelect,
             settingsOverlay,
             themeSelect
+        }
+    });
+    let languagePackController = null;
+    const updateNotificationFeature = createUpdateNotificationFeature({
+        getText,
+        openLanguagePackModal: async (options = {}) => {
+            await languagePackController.openLanguagePackModal(options);
+        },
+        openSettings: () => settingsController.openSettings()
+    });
+    languagePackController = createLanguagePackController({
+        electronAPI: window.electronAPI,
+        localeController,
+        onPackInstalled: () => {
+            updateNotificationFeature.clear();
+        },
+        refs: {
+            languagePackBanner,
+            languagePackEmpty,
+            languagePackEmptyDesc,
+            languagePackEmptyTitle,
+            languagePackHint,
+            languagePackListBtn,
+            languagePackOverlay,
+            languagePackRefreshBtn,
+            languagePackRepoLink,
+            languagePackResults,
+            languagePackSearch,
+            languagePackSource
         }
     });
     const sortMenu = document.getElementById('sort-menu');
@@ -239,6 +251,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function getStrings() {
         return localeController.getStrings();
+    }
+
+    function getText(key, fallback = '') {
+        return getStrings()[key] || getEnglishStrings()[key] || fallback;
     }
 
     function getAvailableLanguages() {
@@ -393,21 +409,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
     setInterval(rotatePlaceholder, 60000);
     await initApp(bootstrapData);
-
-    const languagePackCheck = bootstrapData && bootstrapData.bootChecks ? bootstrapData.bootChecks.languagePackCheck : null;
-    if (
-        bootstrapData
-        && bootstrapData.bootChecks
-        && bootstrapData.bootChecks.languagePackUpdatesMode === 'notify'
-        && languagePackCheck
-        && Array.isArray(languagePackCheck.availableUpdates)
-        && languagePackCheck.availableUpdates.length > 0
-    ) {
-        await openLanguagePackModal({
-            bannerMessage: getStrings().lang_modal_updates_available_banner
-                || getEnglishStrings().lang_modal_updates_available_banner
-                || 'Language pack updates are available for your installed languages.',
-            showAll: true
-        });
-    }
+    updateNotificationFeature.presentBootNotifications(bootstrapData);
 });

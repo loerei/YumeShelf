@@ -42,6 +42,7 @@ export function createLanguagePackController({
     onPackInstalled,
     performAppUpdateAction,
     refs,
+    suppressPostUpdateReview,
     subscribeAppUpdateState
 }) {
     let remoteManifestState = {
@@ -55,6 +56,7 @@ export function createLanguagePackController({
     let showAllLanguagePacks = false;
     let downloadingLanguageCode = null;
     let reviewMode = 'language-packs';
+    let appSectionMode = 'auto';
 
     function getText(key, fallback = '') {
         const d = localeController.getStrings();
@@ -119,16 +121,24 @@ export function createLanguagePackController({
 
     function renderAppUpdateReview() {
         const reviewOpen = reviewMode === 'updates-review';
-        const appUpdate = typeof getAppUpdateState === 'function' ? getAppUpdateState() : null;
-        refs.appUpdateReviewSection.style.display = reviewOpen && appUpdate?.available ? 'flex' : 'none';
-        if (!reviewOpen || !appUpdate?.available) return;
+        const appUpdate = typeof getAppUpdateState === 'function' ? getAppUpdateState(appSectionMode) : null;
+        const installedMode = !!appUpdate?.installed || appUpdate?.actionState === 'installed';
+        refs.appUpdateReviewSection.style.display = reviewOpen && appUpdate ? 'flex' : 'none';
+        if (!reviewOpen || !appUpdate) return;
 
-        const releaseLabel = appUpdate.releaseName || formatTemplate(
+        const releaseLabel = installedMode
+            ? formatTemplate(
+                getText('post_update_notification_title', 'YumeShelf Updated to v{version}'),
+                { version: appUpdate.version || '' }
+            )
+            : appUpdate.releaseName || formatTemplate(
             getText('app_update_review_title', 'YumeShelf {version}'),
             { version: appUpdate.version || '' }
         );
         const currentVersion = localeController.getLocaleState().appVersion || '';
-        const statusText = appUpdate.actionState === 'downloading'
+        const statusText = installedMode
+            ? getText('app_update_review_status_installed', 'YumeShelf was updated successfully. Review the release notes below.')
+            : appUpdate.actionState === 'downloading'
             ? getText('app_update_review_status_downloading', 'Downloading and verifying the new build...')
             : appUpdate.actionState === 'installing'
             ? getText('app_update_review_status_installing', 'Closing YumeShelf and applying the update...')
@@ -137,7 +147,9 @@ export function createLanguagePackController({
             : appUpdate.downloadReady
             ? getText('app_update_review_status_ready', 'The verified update is ready. Press Update to restart and apply it.')
             : getText('app_update_review_status_available', 'Review the latest release notes, then press Update when you are ready.');
-        const primaryLabel = appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing'
+        const primaryLabel = installedMode
+            ? ''
+            : appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing'
             ? getText('lang_modal_downloading', 'Downloading...')
             : !appUpdate.downloadable
             ? getText('update_notification_open_download_page', 'Open download page')
@@ -147,9 +159,21 @@ export function createLanguagePackController({
         refs.appUpdateReviewTitle.textContent = releaseLabel;
         refs.appUpdateReviewStatus.textContent = statusText;
         refs.appUpdateReviewMeta.innerHTML = `
-            <span class="language-pack-chip">${formatTemplate(getText('app_update_review_current_version', 'Current v{version}'), { version: currentVersion || '-' })}</span>
-            <span class="language-pack-chip">${formatTemplate(getText('app_update_review_next_version', 'New v{version}'), { version: appUpdate.version || '-' })}</span>
-            ${appUpdate.downloadReady ? `<span class="language-pack-chip">${getText('update_notification_label_ready', 'Ready to install')}</span>` : ''}
+            <span class="language-pack-chip">${formatTemplate(
+                getText(
+                    installedMode ? 'app_update_review_previous_version' : 'app_update_review_current_version',
+                    installedMode ? 'From v{version}' : 'Current v{version}'
+                ),
+                { version: (installedMode ? appUpdate.fromVersion : currentVersion) || '-' }
+            )}</span>
+            <span class="language-pack-chip">${formatTemplate(
+                getText(
+                    installedMode ? 'app_update_review_installed_version' : 'app_update_review_next_version',
+                    installedMode ? 'Now v{version}' : 'New v{version}'
+                ),
+                { version: appUpdate.version || '-' }
+            )}</span>
+            ${(!installedMode && appUpdate.downloadReady) ? `<span class="language-pack-chip">${getText('update_notification_label_ready', 'Ready to install')}</span>` : ''}
         `;
         refs.appUpdateReviewNotes.innerHTML = renderMarkdownLite(
             appUpdate.releaseNotes || getText('app_update_review_notes_unavailable', 'Release notes are unavailable right now.')
@@ -167,8 +191,11 @@ export function createLanguagePackController({
             refs.appUpdateProgressContainer.style.display = 'none';
         }
 
+        refs.appUpdateReviewActionBtn.style.display = installedMode ? 'none' : 'inline-flex';
         refs.appUpdateReviewActionBtn.textContent = primaryLabel;
         refs.appUpdateReviewActionBtn.disabled = appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing';
+        refs.appUpdateReviewOptOutBtn.style.display = installedMode ? 'inline-flex' : 'none';
+        refs.appUpdateReviewOptOutBtn.textContent = getText('post_update_notification_opt_out', "Don't show again");
     }
 
     function formatDataSize(bytes) {
@@ -215,6 +242,7 @@ export function createLanguagePackController({
     async function openLanguagePackModal(options = {}) {
         const { bannerMessage = '', showAll = false } = options;
         reviewMode = 'language-packs';
+        appSectionMode = 'auto';
         refs.languagePackOverlay.style.display = 'flex';
         refs.languagePackSearch.value = '';
         showAllLanguagePacks = !!showAll;
@@ -231,6 +259,7 @@ export function createLanguagePackController({
     async function openUpdatesReviewModal(options = {}) {
         const { bannerMessage = '' } = options;
         reviewMode = 'updates-review';
+        appSectionMode = options.appSectionMode || 'auto';
         refs.languagePackOverlay.style.display = 'flex';
         refs.languagePackSearch.value = '';
         showAllLanguagePacks = true;
@@ -247,6 +276,7 @@ export function createLanguagePackController({
     function closeLanguagePackModal() {
         refs.languagePackOverlay.style.display = 'none';
         reviewMode = 'language-packs';
+        appSectionMode = 'auto';
         delete refs.languagePackBanner.dataset.locked;
     }
 
@@ -434,6 +464,12 @@ export function createLanguagePackController({
 
     refs.appUpdateReviewActionBtn.onclick = () => {
         void handleAppUpdateAction();
+    };
+    refs.appUpdateReviewOptOutBtn.onclick = () => {
+        if (typeof suppressPostUpdateReview === 'function') {
+            suppressPostUpdateReview();
+        }
+        closeLanguagePackModal();
     };
 
     if (typeof subscribeAppUpdateState === 'function') {

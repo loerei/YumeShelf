@@ -11,6 +11,28 @@ export function createUITextController({
     renderLanguagePackResults,
     updateSearch
 }) {
+    function renderAppVersionLink() {
+        const appVersion = getLocaleState().appVersion || '';
+        const label = `YumeShelf v${appVersion}`.trim();
+        const releaseUrl = appVersion
+            ? `https://github.com/loerei/YumeShelf/releases/tag/v${appVersion}`
+            : '';
+
+        if (navigator.onLine && releaseUrl) {
+            refs.uiAppVersion.innerHTML = `<a class="settings-version-link" href="${releaseUrl}">${label}</a>`;
+            const versionLink = refs.uiAppVersion.querySelector('a');
+            if (versionLink) {
+                versionLink.onclick = async (event) => {
+                    event.preventDefault();
+                    await electronAPI.openExternalUrl(releaseUrl);
+                };
+            }
+            return;
+        }
+
+        refs.uiAppVersion.innerText = label;
+    }
+
     async function applyUIStrings() {
         const d = getStrings();
         const defPath = await electronAPI.getDefaultPath();
@@ -29,7 +51,7 @@ export function createUITextController({
         refs.uiLanguagePackUpdatesLabel.innerText = d.language_pack_updates_label || getEnglishStrings().language_pack_updates_label;
         refs.btnChangePath.innerText = d.change;
         refs.uiFooterDesc.innerText = d.footer_desc || getEnglishStrings().footer_desc;
-        refs.uiAppVersion.innerText = `YumeShelf v${getLocaleState().appVersion || ''}`.trim();
+        renderAppVersionLink();
         refs.uiThemeSystem.innerText = d.theme_system || getEnglishStrings().theme_system;
         refs.uiThemeDark.innerText = d.theme_dark || getEnglishStrings().theme_dark;
         refs.uiThemeLight.innerText = d.theme_light || getEnglishStrings().theme_light;
@@ -64,6 +86,7 @@ export function createUITextController({
     }
 
     return {
-        applyUIStrings
+        applyUIStrings,
+        refreshAppVersionLink: renderAppVersionLink
     };
 }

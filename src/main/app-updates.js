@@ -127,6 +127,7 @@ function createAppUpdateServices({
 }) {
     const updateCacheDir = path.join(app.getPath('userData'), 'app-update-cache');
     const helperConsoleLogFile = path.join(updateCacheDir, 'portable-update-helper.log');
+    const postUpdateMarkerFile = path.join(updateCacheDir, 'post-update.json');
     const updateStateFile = path.join(updateCacheDir, 'state.json');
     const updateLogFile = path.join(updateCacheDir, 'portable-update.log');
     const localOverrideFile = path.join(app.getPath('userData'), 'app-update', 'dev-latest.json');
@@ -177,6 +178,53 @@ function createAppUpdateServices({
         try {
             await fs.unlink(updateStateFile);
         } catch {}
+    }
+
+    async function consumePostUpdateMarker() {
+        const marker = await readJsonFile(postUpdateMarkerFile);
+        try {
+            await fs.unlink(postUpdateMarkerFile);
+        } catch {}
+
+        if (!marker || typeof marker !== 'object') {
+            return null;
+        }
+
+        const notice = {
+            actionState: 'installed',
+            available: false,
+            fromVersion: marker.fromVersion ? String(marker.fromVersion) : '',
+            installed: true,
+            installedAt: marker.installedAt ? String(marker.installedAt) : null,
+            releaseName: marker.releaseName ? String(marker.releaseName) : '',
+            releaseNotes: marker.releaseNotes ? String(marker.releaseNotes) : '',
+            releaseUrl: marker.releaseUrl ? String(marker.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
+            version: marker.toVersion ? String(marker.toVersion) : (marker.version ? String(marker.version) : '')
+        };
+
+        if (!notice.version) {
+            return null;
+        }
+
+        try {
+            const latestRelease = await resolveLatestRelease();
+            if (latestRelease?.version === notice.version) {
+                notice.releaseName = latestRelease.name || notice.releaseName;
+                notice.releaseNotes = latestRelease.body || notice.releaseNotes;
+                notice.releaseUrl = latestRelease.htmlUrl || notice.releaseUrl;
+            }
+        } catch (error) {
+            await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String((error && error.stack) || error || '')}`);
+        }
+
+        await appendUpdateLog(`consumePostUpdateMarker notice=${JSON.stringify({
+            fromVersion: notice.fromVersion,
+            installedAt: notice.installedAt,
+            releaseUrl: notice.releaseUrl,
+            version: notice.version
+        })}`);
+
+        return notice;
     }
 
     function createDownloadedExePath(version) {
@@ -498,6 +546,14 @@ function createAppUpdateServices({
         const backupExePath = `${targetExePath}.backup`;
         const helperLauncherPath = path.join(app.getPath('temp'), `yumeshelf-portable-update-launcher-${state.version}-${Date.now()}.cmd`);
         const helperScriptPath = path.join(app.getPath('temp'), `yumeshelf-portable-update-${state.version}-${Date.now()}.ps1`);
+        const postUpdateMarkerBase64 = Buffer.from(JSON.stringify({
+            fromVersion: app.getVersion(),
+            installedAt: new Date().toISOString(),
+            releaseName: update.releaseName || '',
+            releaseNotes: update.releaseNotes || '',
+            releaseUrl: update.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL,
+            toVersion: update.version || state.version
+        }), 'utf8').toString('base64');
         await appendUpdateLog(`restartAndInstallDownloadedUpdate target=${JSON.stringify(executableTarget)} helper=${helperScriptPath}`);
         const helperScript = `
 $PidToWait = ${process.pid}
@@ -505,6 +561,8 @@ $TargetExePath = '${targetExePath.replace(/'/g, "''")}'
 $TargetExeDir = '${path.dirname(targetExePath).replace(/'/g, "''")}'
 $DownloadedExePath = '${state.filePath.replace(/'/g, "''")}'
 $BackupExePath = '${backupExePath.replace(/'/g, "''")}'
+$PostUpdateMarkerBase64 = '${postUpdateMarkerBase64}'
+$PostUpdateMarkerPath = '${postUpdateMarkerFile.replace(/'/g, "''")}'
 $ReleaseUrl = '${String(state.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL).replace(/'/g, "''")}'
 $StateFilePath = '${updateStateFile.replace(/'/g, "''")}'
 $LogFilePath = '${updateLogFile.replace(/'/g, "''")}'
@@ -573,6 +631,12 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
             Remove-Item -LiteralPath $StateFilePath -Force -ErrorAction SilentlyContinue
             Write-Log ("removed-state path=" + $StateFilePath)
         }
+        [System.IO.File]::WriteAllText(
+            $PostUpdateMarkerPath,
+            [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($PostUpdateMarkerBase64)),
+            [System.Text.Encoding]::UTF8
+        )
+        Write-Log ("wrote-post-update-marker path=" + $PostUpdateMarkerPath)
         Start-Process -FilePath $TargetExePath -WorkingDirectory $TargetExeDir -ArgumentList '--after-update'
         Write-Log ("relaunch-started path=" + $TargetExePath + " cwd=" + $TargetExeDir + " args=--after-update")
         $updated = $true
@@ -595,6 +659,12 @@ if (-not $updated) {
         if ((-not (Test-Path -LiteralPath $TargetExePath)) -and (Test-Path -LiteralPath $BackupExePath)) {
             Move-Item -LiteralPath $BackupExePath -Destination $TargetExePath -Force
             Write-Log ("restored-backup-after-failure path=" + $TargetExePath)
+        }
+    } catch {}
+    try {
+        if (Test-Path -LiteralPath $PostUpdateMarkerPath) {
+            Remove-Item -LiteralPath $PostUpdateMarkerPath -Force -ErrorAction SilentlyContinue
+            Write-Log ("removed-post-update-marker-after-failure path=" + $PostUpdateMarkerPath)
         }
     } catch {}
     if (Test-Path -LiteralPath $StateFilePath) {
@@ -645,6 +715,7 @@ endlocal
 
     return {
         checkForAppUpdate,
+        consumePostUpdateMarker,
         openAppUpdateDownloadPage,
         restartAndInstallDownloadedUpdate,
         startBackgroundDownload

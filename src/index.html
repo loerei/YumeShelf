@@ -184,6 +184,7 @@
                     </div>
                     <div class="app-update-review-notes" id="app-update-review-notes"></div>
                     <div class="app-update-review-actions">
+                        <button class="text-btn app-update-review-opt-out-btn" id="app-update-review-opt-out-btn" style="display: none;">Don't show again</button>
                         <button class="small-btn" id="app-update-review-action-btn">Update</button>
                     </div>
                 </section>
@@ -214,11 +215,12 @@
             <div class="update-notification-eyebrow" id="update-notification-eyebrow">Update ready</div>
             <h2 class="update-notification-title" id="update-notification-title">Updates are ready</h2>
             <ul class="update-notification-summary" id="update-notification-summary"></ul>
-            <p class="update-notification-message" id="update-notification-message"></p>
-            <div class="update-notification-actions">
-                <button class="small-btn secondary-btn" id="update-notification-later-btn">Remind later</button>
-                <button class="small-btn" id="update-notification-primary-btn">Review updates</button>
-            </div>
+                <p class="update-notification-message" id="update-notification-message"></p>
+                <div class="update-notification-actions">
+                    <button class="text-btn update-notification-tertiary" id="update-notification-tertiary-btn" style="display: none;">Don't show again</button>
+                    <button class="small-btn secondary-btn" id="update-notification-later-btn">Remind later</button>
+                    <button class="small-btn" id="update-notification-primary-btn">Review updates</button>
+                </div>
         </section>
         <button class="update-notification-handle" id="update-notification-handle">Updates</button>
     </div>

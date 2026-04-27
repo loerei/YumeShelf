@@ -520,6 +520,7 @@ const appUpdateServices = createAppUpdateServices({
 const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createStartupServices({
     app,
     checkForAppUpdate: () => appUpdateServices.checkForAppUpdate(),
+    consumePostUpdateMarker: () => appUpdateServices.consumePostUpdateMarker(),
     applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir: DEFAULT_GAMES_DIR,
@@ -678,6 +679,14 @@ app.whenReady().then(() => {
     ipcMain.handle('start-app-update-download', async () => appUpdateServices.startBackgroundDownload());
     ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices.restartAndInstallDownloadedUpdate());
     ipcMain.handle('open-app-update-download-page', async () => appUpdateServices.openAppUpdateDownloadPage());
+    ipcMain.handle('open-external-url', async (_event, url) => {
+        const normalizedUrl = String(url || '').trim();
+        if (!/^https?:\/\//i.test(normalizedUrl)) {
+            return { ok: false, reason: 'invalid-url' };
+        }
+        await shell.openExternal(normalizedUrl);
+        return { ok: true };
+    });
     ipcMain.handle('get-language-pack-manifest', async () => {
         const result = await fetchLanguageManifest();
         return {

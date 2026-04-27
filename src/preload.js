@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDefaultPath: () => ipcRenderer.invoke('get-default-path'),
     getIcon: (path) => ipcRenderer.invoke('get-icon', path),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
     startAppUpdateDownload: () => ipcRenderer.invoke('start-app-update-download'),
     restartAndInstallAppUpdate: () => ipcRenderer.invoke('restart-and-install-app-update'),
     openAppUpdateDownloadPage: () => ipcRenderer.invoke('open-app-update-download-page'),

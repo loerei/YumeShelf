@@ -32,6 +32,12 @@
     border-color: var(--text-sub);
 }
 
+.text-btn {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
 .update-notification-dismiss {
     position: absolute;
     top: 12px;
@@ -127,8 +133,20 @@
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 4px;
+}
+
+.update-notification-tertiary {
+    margin-right: auto;
+    padding: 0;
+    color: var(--text-sub);
+    font-size: 13px;
+}
+
+.update-notification-tertiary:hover {
+    color: var(--text-main);
 }
 
 .update-notification-actions .small-btn {

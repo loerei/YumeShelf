@@ -12,6 +12,7 @@ function getUpdateNotificationRefs(root) {
         message: root.getElementById('update-notification-message'),
         primaryBtn: root.getElementById('update-notification-primary-btn'),
         summary: root.getElementById('update-notification-summary'),
+        tertiaryBtn: root.getElementById('update-notification-tertiary-btn'),
         title: root.getElementById('update-notification-title')
     };
 }

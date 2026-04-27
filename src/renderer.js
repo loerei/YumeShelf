@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const appUpdateReviewStatus = document.getElementById('app-update-review-status');
     const appUpdateReviewMeta = document.getElementById('app-update-review-meta');
     const appUpdateReviewNotes = document.getElementById('app-update-review-notes');
+    const appUpdateReviewOptOutBtn = document.getElementById('app-update-review-opt-out-btn');
     const appUpdateReviewActionBtn = document.getElementById('app-update-review-action-btn');
     const languagePackSearch = document.getElementById('language-pack-search');
     const languagePackBanner = document.getElementById('language-pack-banner');
@@ -109,8 +110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const appUpdateController = createAppUpdateController({
         electronAPI: window.electronAPI,
         getText,
-        openUpdatesReviewModal: async () => {
-            await languagePackController.openUpdatesReviewModal();
+        openUpdatesReviewModal: async (options = {}) => {
+            await languagePackController.openUpdatesReviewModal(options);
         },
         updateNotificationFeature: {
             present: (...args) => updateNotificationFeature.present(...args)
@@ -118,17 +119,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     languagePackController = createLanguagePackController({
         electronAPI: window.electronAPI,
-        getAppUpdateState: () => appUpdateController.getCurrentUpdateState(),
+        getAppUpdateState: (mode) => appUpdateController.getAppUpdateState(mode),
         localeController,
         onPackInstalled: () => {
             updateNotificationFeature.clear();
         },
         performAppUpdateAction: () => appUpdateController.performReviewUpdate(),
+        suppressPostUpdateReview: () => appUpdateController.suppressPostUpdateNotice(),
         refs: {
             appUpdateReviewActionBtn,
             appUpdateReviewEyebrow,
             appUpdateReviewMeta,
             appUpdateReviewNotes,
+            appUpdateReviewOptOutBtn,
             appUpdateReviewSection,
             appUpdateReviewStatus,
             appUpdateReviewTitle,
@@ -156,8 +159,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     updateNotificationFeature = createUpdateNotificationFeature({
         getText,
-        openUpdatesReviewModal: async () => {
-            await languagePackController.openUpdatesReviewModal();
+        openUpdatesReviewModal: async (options = {}) => {
+            await languagePackController.openUpdatesReviewModal(options);
         }
     });
     const sortMenu = document.getElementById('sort-menu');
@@ -447,6 +450,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
     setInterval(rotatePlaceholder, 60000);
     await initApp(bootstrapData);
-    appUpdateController.initialize(bootstrapData);
-    updateNotificationFeature.presentBootNotifications(bootstrapData);
+    const appUpdateInit = appUpdateController.initialize(bootstrapData) || { presentedPostUpdate: false };
+    if (!appUpdateInit.presentedPostUpdate) {
+        updateNotificationFeature.presentBootNotifications(bootstrapData);
+    }
+
+    window.addEventListener('online', () => {
+        uiTextController.refreshAppVersionLink();
+    });
+    window.addEventListener('offline', () => {
+        uiTextController.refreshAppVersionLink();
+    });
 });

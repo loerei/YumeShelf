@@ -176,7 +176,20 @@
 .app-update-review-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
+}
+
+.app-update-review-opt-out-btn {
+    margin-right: auto;
+    padding: 0;
+    color: var(--text-sub);
+    font-size: 13px;
+}
+
+.app-update-review-opt-out-btn:hover {
+    color: var(--text-main);
 }
 
 .language-pack-section-title {

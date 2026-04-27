@@ -12,6 +12,13 @@ function formatVersion(version) {
     return String(version || '').trim();
 }
 
+function buildUpdatedTitle(version, getText) {
+    return formatTemplate(
+        getText('post_update_notification_title', 'YumeShelf Updated to v{version}'),
+        { version: formatVersion(version) }
+    );
+}
+
 function createLanguagePackAvailableGroup(updates, getText) {
     const count = updates.length;
     return {
@@ -249,5 +256,32 @@ export function createAppUpdateDownloadFailedNotification({
             getText('update_notification_app_manual_title', 'Update {version} needs a manual download'),
             { version }
         )
+    };
+}
+
+export function createPostUpdateInstalledNotification({
+    getText,
+    openUpdatesReviewModal,
+    suppressPostUpdateNotice,
+    update
+}) {
+    return {
+        eyebrow: '',
+        handleLabel: getText('post_update_notification_handle', 'Updated'),
+        message: '',
+        onPrimaryAction: async () => {
+            await openUpdatesReviewModal({ appSectionMode: 'installed' });
+        },
+        onTertiaryAction: () => {
+            if (typeof suppressPostUpdateNotice === 'function') {
+                suppressPostUpdateNotice();
+            }
+        },
+        persistOnce: false,
+        primaryLabel: getText('post_update_notification_review', 'Review changes'),
+        secondaryLabel: getText('post_update_notification_dismiss', 'Dismiss'),
+        summaryItems: [],
+        tertiaryLabel: getText('post_update_notification_opt_out', "Don't show again"),
+        title: buildUpdatedTitle(update?.version, getText)
     };
 }

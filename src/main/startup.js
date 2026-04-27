@@ -26,6 +26,7 @@ function createTimedTask(taskFactory, timeoutMs) {
 
 function createStartupServices({
     app,
+    checkForAppUpdate,
     applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir,
@@ -72,6 +73,22 @@ function createStartupServices({
     async function bootstrapAppState(webContents, options = {}) {
         const appUpdatesMode = String(options.appUpdatesMode || 'notify').toLowerCase();
         const languagePackUpdatesMode = String(options.languagePackUpdatesMode || 'automatic').toLowerCase();
+        const appUpdateCheck = {
+            attempted: false,
+            source: 'skipped',
+            offline: false,
+            timedOut: false,
+            error: null,
+            available: false,
+            version: null,
+            releaseName: '',
+            releaseUrl: null,
+            downloadable: false,
+            canSelfUpdate: false,
+            downloadReady: false,
+            checksumSha256: null,
+            fallbackReason: null
+        };
         const languagePackCheck = {
             attempted: false,
             source: 'skipped',
@@ -107,10 +124,45 @@ function createStartupServices({
                 games: [],
                 bootChecks: {
                     appUpdatesMode,
+                    appUpdateCheck,
                     languagePackUpdatesMode,
                     languagePackCheck
                 }
             };
+        }
+
+        if (appUpdatesMode !== 'off') {
+            emitBootStatus(webContents, {
+                key: 'boot_checking_app_update',
+                fallbackText: 'Checking for a newer version'
+            });
+
+            const appUpdateProbe = await createTimedTask(() => checkForAppUpdate(), startupNetworkTimeoutMs);
+            appUpdateCheck.attempted = true;
+
+            if (appUpdateProbe.timedOut) {
+                appUpdateCheck.source = 'timeout';
+                appUpdateCheck.timedOut = true;
+                emitBootStatus(webContents, {
+                    key: 'boot_app_update_timeout',
+                    fallbackText: 'App update check timed out, continuing startup'
+                });
+            } else if (!appUpdateProbe.ok) {
+                const offline = isNetworkLikeError(appUpdateProbe.error);
+                appUpdateCheck.source = offline ? 'offline' : 'error';
+                appUpdateCheck.offline = offline;
+                appUpdateCheck.error = String((appUpdateProbe.error && appUpdateProbe.error.message) || appUpdateProbe.error || '');
+                emitBootStatus(webContents, {
+                    key: offline ? 'boot_app_update_offline' : 'boot_app_update_failed',
+                    fallbackText: offline ? 'No internet, skipping app update check' : 'App update check failed, continuing startup'
+                });
+            } else {
+                Object.assign(appUpdateCheck, appUpdateProbe.value || {});
+                emitBootStatus(webContents, {
+                    key: appUpdateCheck.available ? 'boot_app_update_available' : 'boot_app_update_latest',
+                    fallbackText: appUpdateCheck.available ? 'New app update available' : 'App update check finished'
+                });
+            }
         }
 
         if (languagePackUpdatesMode !== 'off') {
@@ -206,6 +258,7 @@ function createStartupServices({
             games,
             bootChecks: {
                 appUpdatesMode,
+                appUpdateCheck,
                 languagePackUpdatesMode,
                 languagePackCheck
             }

@@ -1,4 +1,5 @@
 import { createBootController } from './renderer/boot.js';
+import { createAppUpdateController } from './renderer/app-updates.js';
 import { createDragDropGridController } from './renderer/drag-drop-grid.js';
 import { createGameCardFactory } from './renderer/game-cards.js';
 import { createLocaleController } from './renderer/i18n.js';
@@ -30,8 +31,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchPlaceholder = document.getElementById('search-placeholder');
     const moreLanguagesBtn = document.getElementById('more-languages-btn');
     const languagePackOverlay = document.getElementById('language-pack-overlay');
+    const appUpdateReviewSection = document.getElementById('app-update-review-section');
+    const appUpdateReviewEyebrow = document.getElementById('app-update-review-eyebrow');
+    const appUpdateReviewTitle = document.getElementById('app-update-review-title');
+    const appUpdateReviewStatus = document.getElementById('app-update-review-status');
+    const appUpdateReviewMeta = document.getElementById('app-update-review-meta');
+    const appUpdateReviewNotes = document.getElementById('app-update-review-notes');
+    const appUpdateReviewActionBtn = document.getElementById('app-update-review-action-btn');
     const languagePackSearch = document.getElementById('language-pack-search');
     const languagePackBanner = document.getElementById('language-pack-banner');
+    const languagePackToolbar = document.getElementById('language-pack-toolbar');
+    const languagePackSectionTitle = document.getElementById('language-pack-section-title');
+    const languagePackTitle = document.getElementById('ui-language-pack-title');
     const languagePackSource = document.getElementById('language-pack-source');
     const languagePackResults = document.getElementById('language-pack-results');
     const languagePackEmpty = document.getElementById('language-pack-empty');
@@ -94,20 +105,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     let languagePackController = null;
-    const updateNotificationFeature = createUpdateNotificationFeature({
+    let updateNotificationFeature = null;
+    const appUpdateController = createAppUpdateController({
+        electronAPI: window.electronAPI,
         getText,
-        openLanguagePackModal: async (options = {}) => {
-            await languagePackController.openLanguagePackModal(options);
+        openUpdatesReviewModal: async () => {
+            await languagePackController.openUpdatesReviewModal();
         },
-        openSettings: () => settingsController.openSettings()
+        updateNotificationFeature: {
+            present: (...args) => updateNotificationFeature.present(...args)
+        }
     });
     languagePackController = createLanguagePackController({
         electronAPI: window.electronAPI,
+        getAppUpdateState: () => appUpdateController.getCurrentUpdateState(),
         localeController,
         onPackInstalled: () => {
             updateNotificationFeature.clear();
         },
+        performAppUpdateAction: () => appUpdateController.performReviewUpdate(),
         refs: {
+            appUpdateReviewActionBtn,
+            appUpdateReviewEyebrow,
+            appUpdateReviewMeta,
+            appUpdateReviewNotes,
+            appUpdateReviewSection,
+            appUpdateReviewStatus,
+            appUpdateReviewTitle,
             languagePackBanner,
             languagePackEmpty,
             languagePackEmptyDesc,
@@ -119,7 +143,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             languagePackRepoLink,
             languagePackResults,
             languagePackSearch,
-            languagePackSource
+            languagePackSectionTitle,
+            languagePackSource,
+            languagePackTitle,
+            languagePackToolbar
+        },
+        subscribeAppUpdateState: (listener) => appUpdateController.subscribe(listener)
+    });
+    updateNotificationFeature = createUpdateNotificationFeature({
+        getText,
+        openUpdatesReviewModal: async () => {
+            await languagePackController.openUpdatesReviewModal();
         }
     });
     const sortMenu = document.getElementById('sort-menu');
@@ -409,5 +443,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
     setInterval(rotatePlaceholder, 60000);
     await initApp(bootstrapData);
+    appUpdateController.initialize(bootstrapData);
     updateNotificationFeature.presentBootNotifications(bootstrapData);
 });

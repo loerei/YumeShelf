@@ -6,7 +6,9 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    overflow: hidden;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .language-pack-banner {
@@ -16,6 +18,70 @@
     border: 1px solid rgba(255, 187, 0, 0.35);
     color: var(--text-main);
     font-size: 14px;
+}
+
+.app-update-review-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+}
+
+.app-update-review-copy h3,
+.language-pack-section-title {
+    margin: 0;
+    font-size: 18px;
+}
+
+.app-update-review-copy p {
+    margin: 8px 0 0;
+    color: var(--text-sub);
+    font-size: 14px;
+}
+
+.app-update-review-eyebrow {
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.app-update-review-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.app-update-review-meta .language-pack-chip {
+    background: var(--hover-bg);
+}
+
+.app-update-review-notes {
+    max-height: 220px;
+    overflow: auto;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.14);
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.app-update-review-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.language-pack-section-title {
+    color: var(--text-main);
 }
 
 .language-pack-toolbar {
@@ -135,6 +201,10 @@
     .language-pack-toolbar {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .app-update-review-actions {
+        flex-direction: column;
     }
 
     .language-pack-actions {

@@ -100,16 +100,19 @@ function compareVersions(left, right) {
 
 function isNetworkLikeError(err) {
     const msg = String((err && err.message) || err || '').toLowerCase();
+    const code = String((err && err.code) || '').toLowerCase();
     return [
         'econnreset',
         'econnrefused',
         'enetunreach',
+        'ehostunreach',
+        'eai_again',
         'timed out',
         'enotfound',
         'socket hang up',
         'offline',
         'network'
-    ].some(token => msg.includes(token));
+    ].some(token => msg.includes(token) || code.includes(token));
 }
 
 function downloadBuffer(urlString, redirectCount = 0, timeoutMs = LANGUAGE_PACK_TIMEOUT_MS) {

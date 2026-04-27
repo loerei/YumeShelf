@@ -3,7 +3,7 @@ const fsSync = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const APP_UPDATE_RELEASE_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases/latest';
+const APP_UPDATE_RELEASES_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases?per_page=25';
 const APP_UPDATE_RELEASE_PAGE_URL = 'https://github.com/loerei/YumeShelf/releases/latest';
 const APP_UPDATE_DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -43,6 +43,20 @@ function normalizeRelease(raw) {
         tagName,
         version
     };
+}
+
+function getReleaseDisplayName(release) {
+    return String(release?.name || '').trim() || `YumeShelf v${String(release?.version || '').trim()}`;
+}
+
+function formatStackedReleaseNotes(releases) {
+    return releases
+        .filter(release => release?.version)
+        .map((release) => {
+            const body = String(release.body || '').trim() || '_No release notes were published for this version._';
+            return `## ${getReleaseDisplayName(release)}\n\n${body}`;
+        })
+        .join('\n\n---\n\n');
 }
 
 function isPortableExeAsset(asset, version) {
@@ -232,11 +246,20 @@ function createAppUpdateServices({
         }
 
         try {
-            const latestRelease = await resolveLatestRelease();
-            if (latestRelease?.version === notice.version) {
-                notice.releaseName = latestRelease.name || notice.releaseName;
-                notice.releaseNotes = latestRelease.body || notice.releaseNotes;
-                notice.releaseUrl = latestRelease.htmlUrl || notice.releaseUrl;
+            const newerReleases = notice.fromVersion
+                ? await resolveNewerReleases(notice.fromVersion, notice.version)
+                : [];
+            if (newerReleases.length > 0) {
+                notice.releaseName = getReleaseDisplayName(newerReleases[0]);
+                notice.releaseNotes = formatStackedReleaseNotes(newerReleases);
+                notice.releaseUrl = newerReleases[0].htmlUrl || notice.releaseUrl;
+            } else {
+                const latestRelease = await resolveLatestRelease();
+                if (latestRelease?.version === notice.version) {
+                    notice.releaseName = getReleaseDisplayName(latestRelease);
+                    notice.releaseNotes = formatStackedReleaseNotes([latestRelease]);
+                    notice.releaseUrl = latestRelease.htmlUrl || notice.releaseUrl;
+                }
             }
         } catch (error) {
             await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String((error && error.stack) || error || '')}`);
@@ -315,10 +338,33 @@ function createAppUpdateServices({
         };
     }
 
-    async function resolveLatestRelease() {
-        const buffer = await downloadBuffer(APP_UPDATE_RELEASE_API_URL, 0, startupNetworkTimeoutMs);
+    async function resolveReleaseFeed() {
+        const buffer = await downloadBuffer(APP_UPDATE_RELEASES_API_URL, 0, startupNetworkTimeoutMs);
         const raw = JSON.parse(buffer.toString('utf8'));
-        return normalizeRelease(raw);
+        return Array.isArray(raw)
+            ? raw
+                .filter(release => !release?.draft && !release?.prerelease)
+                .map(normalizeRelease)
+                .filter(release => !!release.version)
+            : [];
+    }
+
+    async function resolveLatestRelease() {
+        const releases = await resolveReleaseFeed();
+        return releases[0] || null;
+    }
+
+    async function resolveNewerReleases(fromVersion, toVersion = null) {
+        const releases = await resolveReleaseFeed();
+        return releases.filter((release) => {
+            if (compareVersions(release.version, fromVersion) <= 0) {
+                return false;
+            }
+            if (toVersion && compareVersions(release.version, toVersion) > 0) {
+                return false;
+            }
+            return true;
+        });
     }
 
     async function resolveChecksumSha256(asset) {
@@ -374,8 +420,9 @@ function createAppUpdateServices({
                 };
             }
 
-            const release = await resolveLatestRelease();
-            if (!release.version || compareVersions(release.version, app.getVersion()) <= 0) {
+            const newerReleases = await resolveNewerReleases(app.getVersion());
+            const release = newerReleases[0] || null;
+            if (!release?.version) {
                 latestKnownUpdate = initial;
                 return initial;
             }
@@ -404,8 +451,8 @@ function createAppUpdateServices({
                         : !selfUpdateProbe.ok
                             ? selfUpdateProbe.reason
                             : null,
-                releaseName: release.name,
-                releaseNotes: release.body || '',
+                releaseName: getReleaseDisplayName(release),
+                releaseNotes: formatStackedReleaseNotes(newerReleases),
                 releaseUrl: release.htmlUrl || APP_UPDATE_RELEASE_PAGE_URL,
                 source: 'github',
                 version: release.version,

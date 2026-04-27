@@ -5,7 +5,7 @@
   "nativeName": "Tiếng Việt",
   "packVersion": "1.0.1",
   "minAppVersion": "1.3.0",
-  "reviewedForAppVersion": "1.3.8",
+  "reviewedForAppVersion": "1.3.9",
   "aliases": [
     "vi",
     "viet",
@@ -134,7 +134,7 @@
     "app_update_review_title": "YumeShelf {version}",
     "app_update_review_current_version": "Hiện tại v{version}",
     "app_update_review_next_version": "Mới v{version}",
-    "app_update_review_status_available": "Hãy xem ghi chú phát hành mới nhất, rồi nhấn Cập nhật khi bạn sẵn sàng.",
+    "app_update_review_status_available": "Hãy xem ghi chú phát hành của các phiên bản mới bên dưới, rồi nhấn Cập nhật khi bạn sẵn sàng.",
     "app_update_review_status_ready": "Bản cập nhật đã được xác minh và sẵn sàng. Nhấn Cập nhật để khởi động lại và áp dụng.",
     "app_update_review_status_downloading": "Đang tải xuống và xác minh bản build mới...",
     "app_update_review_status_installing": "Đang đóng YumeShelf và áp dụng bản cập nhật...",

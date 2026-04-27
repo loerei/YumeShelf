@@ -4,7 +4,7 @@
   "englishName": "Chinese (Simplified)",
   "nativeName": "简体中文",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.3.8",
+  "reviewedForAppVersion": "1.3.9",
   "aliases": [
     "zh",
     "chinese",
@@ -121,7 +121,7 @@
     "app_update_review_title": "YumeShelf {version}",
     "app_update_review_current_version": "当前 v{version}",
     "app_update_review_next_version": "新版本 v{version}",
-    "app_update_review_status_available": "先查看最新发布说明，准备好后再点击更新。",
+    "app_update_review_status_available": "先查看下面这些新版本的发布说明，准备好后再点击更新。",
     "app_update_review_status_ready": "已验证的新版本已准备好。点击更新即可重启并应用。",
     "app_update_review_status_downloading": "正在下载并验证新版本...",
     "app_update_review_status_installing": "正在关闭 YumeShelf 并应用更新...",

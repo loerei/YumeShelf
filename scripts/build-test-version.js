@@ -70,12 +70,40 @@ function getPackageVersion() {
     return readJson(packageJsonPath).version;
 }
 
+function parseCliArgs(argv) {
+    let targetVersion = null;
+    let cleanBuild = true;
+
+    argv.forEach((arg) => {
+        if (arg === '--no-clean') {
+            cleanBuild = false;
+            return;
+        }
+
+        if (!targetVersion) {
+            if (/^\d+\.\d+\.\d+$/.test(arg)) {
+                targetVersion = arg;
+                return;
+            }
+
+            const dashedVersion = String(arg).match(/^--(\d+\.\d+\.\d+)$/);
+            if (dashedVersion) {
+                targetVersion = dashedVersion[1];
+            }
+        }
+    });
+
+    return {
+        cleanBuild,
+        targetVersion
+    };
+}
+
 function main() {
-    const targetVersion = process.argv[2];
-    const cleanBuild = !process.argv.includes('--no-clean');
+    const { targetVersion, cleanBuild } = parseCliArgs(process.argv.slice(2));
 
     if (!targetVersion || !/^\d+\.\d+\.\d+$/.test(targetVersion)) {
-        throw new Error('Usage: npm run build:test-version -- <x.y.z> [--no-clean]');
+        throw new Error('Usage: npm run build:test-version -- <x.y.z> | --<x.y.z> [--no-clean]');
     }
 
     const originalVersion = getPackageVersion();

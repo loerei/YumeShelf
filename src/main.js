@@ -521,6 +521,7 @@ const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createSt
     app,
     checkForAppUpdate: () => appUpdateServices.checkForAppUpdate(),
     consumePostUpdateMarker: () => appUpdateServices.consumePostUpdateMarker(),
+    logAppUpdateDebug: (message) => appUpdateServices.logDebug(message),
     applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir: DEFAULT_GAMES_DIR,
@@ -685,6 +686,10 @@ app.whenReady().then(() => {
             return { ok: false, reason: 'invalid-url' };
         }
         await shell.openExternal(normalizedUrl);
+        return { ok: true };
+    });
+    ipcMain.handle('log-app-update-debug', async (_event, message) => {
+        await appUpdateServices.logDebug(`renderer ${String(message || '')}`);
         return { ok: true };
     });
     ipcMain.handle('get-language-pack-manifest', async () => {

@@ -140,6 +140,10 @@ function createAppUpdateServices({
         await fs.appendFile(updateLogFile, line, 'utf8');
     }
 
+    async function logDebug(message) {
+        await appendUpdateLog(`debug ${message}`);
+    }
+
     function emitStatus(payload) {
         if (typeof broadcastStatus === 'function') {
             broadcastStatus({
@@ -181,12 +185,32 @@ function createAppUpdateServices({
     }
 
     async function consumePostUpdateMarker() {
-        const marker = await readJsonFile(postUpdateMarkerFile);
+        const markerExists = await fs.access(postUpdateMarkerFile).then(() => true).catch(() => false);
+        await appendUpdateLog(`consumePostUpdateMarker begin exists=${markerExists}`);
+        if (!markerExists) {
+            return null;
+        }
+
+        let marker = null;
+        try {
+            const rawText = await fs.readFile(postUpdateMarkerFile, 'utf8');
+            const sanitizedText = rawText.replace(/^\uFEFF/, '');
+            const hasBom = rawText.charCodeAt(0) === 0xFEFF;
+            await appendUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
+            marker = JSON.parse(sanitizedText);
+        } catch (error) {
+            await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String((error && error.stack) || error || '')}`);
+        }
+
         try {
             await fs.unlink(postUpdateMarkerFile);
-        } catch {}
+            await appendUpdateLog('consumePostUpdateMarker deleted-marker-file');
+        } catch (error) {
+            await appendUpdateLog(`consumePostUpdateMarker delete-failed error=${String((error && error.message) || error || '')}`);
+        }
 
         if (!marker || typeof marker !== 'object') {
+            await appendUpdateLog('consumePostUpdateMarker invalid-marker');
             return null;
         }
 
@@ -203,6 +227,7 @@ function createAppUpdateServices({
         };
 
         if (!notice.version) {
+            await appendUpdateLog('consumePostUpdateMarker missing-version');
             return null;
         }
 
@@ -634,7 +659,7 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
         [System.IO.File]::WriteAllText(
             $PostUpdateMarkerPath,
             [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($PostUpdateMarkerBase64)),
-            [System.Text.Encoding]::UTF8
+            (New-Object System.Text.UTF8Encoding($false))
         )
         Write-Log ("wrote-post-update-marker path=" + $PostUpdateMarkerPath)
         Start-Process -FilePath $TargetExePath -WorkingDirectory $TargetExeDir -ArgumentList '--after-update'
@@ -716,6 +741,7 @@ endlocal
     return {
         checkForAppUpdate,
         consumePostUpdateMarker,
+        logDebug,
         openAppUpdateDownloadPage,
         restartAndInstallDownloadedUpdate,
         startBackgroundDownload

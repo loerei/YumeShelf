@@ -48,7 +48,8 @@ export function createUpdateNotificationController({
         }
 
         refs.host.dataset.state = 'expanded';
-        refs.eyebrow.textContent = activeNotification.eyebrow;
+        refs.eyebrow.textContent = activeNotification.eyebrow || '';
+        refs.eyebrow.style.display = activeNotification.eyebrow ? 'inline-flex' : 'none';
         refs.title.textContent = activeNotification.title;
         refs.message.textContent = activeNotification.message || '';
         refs.message.style.display = activeNotification.message ? 'block' : 'none';
@@ -60,6 +61,8 @@ export function createUpdateNotificationController({
         });
         refs.primaryBtn.textContent = activeNotification.primaryLabel;
         refs.laterBtn.textContent = activeNotification.secondaryLabel;
+        refs.tertiaryBtn.textContent = activeNotification.tertiaryLabel || '';
+        refs.tertiaryBtn.style.display = activeNotification.tertiaryLabel ? 'inline-flex' : 'none';
         refs.handle.textContent = activeNotification.handleLabel;
         refs.card.style.display = 'flex';
         refs.handle.style.display = 'none';
@@ -123,10 +126,21 @@ export function createUpdateNotificationController({
         collapseActiveNotification();
     }
 
+    async function handleTertiaryAction() {
+        if (!activeNotification || typeof activeNotification.onTertiaryAction !== 'function') {
+            return;
+        }
+        await activeNotification.onTertiaryAction();
+        clear();
+    }
+
     refs.primaryBtn.onclick = () => {
         void handlePrimaryAction();
     };
     refs.laterBtn.onclick = handleSecondaryAction;
+    refs.tertiaryBtn.onclick = () => {
+        void handleTertiaryAction();
+    };
     refs.dismissBtn.onclick = handleDismissAction;
     refs.handle.onclick = expandActiveNotification;
     refs.card.addEventListener('mouseenter', clearCollapseTimer);

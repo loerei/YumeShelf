@@ -1,10 +1,15 @@
 import {
     createAppUpdateDownloadFailedNotification,
-    createAppUpdateReadyNotification
+    createAppUpdateReadyNotification,
+    createPostUpdateInstalledNotification
 } from './update-notification-presets.js';
+import {
+    isPostUpdateNoticeSuppressed,
+    setPostUpdateNoticeSuppressed
+} from './post-update-preferences.js';
 
 function normalizeUpdate(update, patch = {}) {
-    if (!update || !update.available) return null;
+    if (!update || (!update.available && !update.installed)) return null;
     return {
         ...update,
         ...patch
@@ -18,12 +23,16 @@ export function createAppUpdateController({
     updateNotificationFeature
 }) {
     let currentUpdate = null;
+    let recentInstalledUpdate = null;
     let reviewActionInFlight = false;
     const listeners = new Set();
 
     function notifyStateChanged() {
         listeners.forEach((listener) => {
-            listener(currentUpdate);
+            listener({
+                currentUpdate,
+                recentInstalledUpdate
+            });
         });
     }
 
@@ -44,7 +53,25 @@ export function createAppUpdateController({
     }
 
     function getCurrentUpdateState() {
-        return currentUpdate;
+        return currentUpdate || recentInstalledUpdate;
+    }
+
+    function getAppUpdateState(mode = 'auto') {
+        if (mode === 'available') return currentUpdate;
+        if (mode === 'installed') return recentInstalledUpdate;
+        return currentUpdate || recentInstalledUpdate;
+    }
+
+    function setRecentInstalledUpdate(update, patch = {}) {
+        recentInstalledUpdate = normalizeUpdate(update, patch);
+        notifyStateChanged();
+        return recentInstalledUpdate;
+    }
+
+    function suppressPostUpdateNotice() {
+        setPostUpdateNoticeSuppressed(true);
+        recentInstalledUpdate = null;
+        notifyStateChanged();
     }
 
     function subscribe(listener) {
@@ -168,12 +195,31 @@ export function createAppUpdateController({
 
     function initialize(bootstrapData) {
         electronAPI.onAppUpdateStatus(handleRuntimeStatus);
+        let presentedPostUpdate = false;
+
+        const postUpdateNotice = bootstrapData?.postUpdateNotice || null;
+        if (postUpdateNotice?.version && !isPostUpdateNoticeSuppressed()) {
+            const installedState = setRecentInstalledUpdate(postUpdateNotice, {
+                actionState: 'installed',
+                installed: true
+            });
+            presentedPostUpdate = updateNotificationFeature.present(createPostUpdateInstalledNotification({
+                getText,
+                openUpdatesReviewModal: (options = {}) => openUpdatesReviewModal(options),
+                suppressPostUpdateNotice: () => suppressPostUpdateNotice(),
+                update: installedState
+            })) || presentedPostUpdate;
+        } else {
+            setRecentInstalledUpdate(null);
+        }
 
         const bootChecks = bootstrapData?.bootChecks || null;
         const appUpdateCheck = bootChecks?.appUpdateCheck || null;
         if (!appUpdateCheck?.available) {
             setCurrentUpdate(null);
-            return;
+            return {
+                presentedPostUpdate
+            };
         }
 
         setCurrentUpdate(appUpdateCheck, {
@@ -187,13 +233,19 @@ export function createAppUpdateController({
         ) {
             void electronAPI.startAppUpdateDownload();
         }
+
+        return {
+            presentedPostUpdate
+        };
     }
 
     return {
+        getAppUpdateState,
         getCurrentUpdateState,
         initialize,
         openReview,
         performReviewUpdate,
+        suppressPostUpdateNotice,
         subscribe
     };
 }

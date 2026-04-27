@@ -5,7 +5,7 @@
   "nativeName": "Tiếng Việt",
   "packVersion": "1.0.1",
   "minAppVersion": "1.3.0",
-  "reviewedForAppVersion": "1.3.6",
+  "reviewedForAppVersion": "1.3.7",
   "aliases": [
     "vi",
     "viet",
@@ -138,11 +138,19 @@
     "app_update_review_status_ready": "Bản cập nhật đã được xác minh và sẵn sàng. Nhấn Cập nhật để khởi động lại và áp dụng.",
     "app_update_review_status_downloading": "Đang tải xuống và xác minh bản build mới...",
     "app_update_review_status_installing": "Đang đóng YumeShelf và áp dụng bản cập nhật...",
+    "app_update_review_status_installed": "YumeShelf đã được cập nhật thành công. Bạn có thể xem ghi chú phát hành bên dưới.",
     "app_update_review_status_manual": "Không thể thay thế trực tiếp bản này tại đây, nhưng bạn vẫn có thể mở trang tải xuống.",
     "app_update_review_notes_unavailable": "Hiện chưa lấy được ghi chú phát hành.",
     "app_update_review_action": "Cập nhật",
+    "app_update_review_previous_version": "Từ v{version}",
+    "app_update_review_installed_version": "Hiện tại v{version}",
     "app_update_review_error_checksum": "Bản cập nhật ứng dụng đã tải không vượt qua kiểm tra checksum.",
     "app_update_review_error_offline": "Ứng dụng không thể hoàn tất cập nhật vì bạn đang offline.",
-    "app_update_review_error_generic": "Ứng dụng chưa thể hoàn tất cập nhật lúc này."
+    "app_update_review_error_generic": "Ứng dụng chưa thể hoàn tất cập nhật lúc này.",
+    "post_update_notification_title": "YumeShelf đã được cập nhật lên v{version}",
+    "post_update_notification_handle": "Đã cập nhật",
+    "post_update_notification_review": "Xem thay đổi",
+    "post_update_notification_dismiss": "Đóng",
+    "post_update_notification_opt_out": "Đừng hiện nữa"
   }
 }

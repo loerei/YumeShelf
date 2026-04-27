@@ -27,6 +27,7 @@ function createTimedTask(taskFactory, timeoutMs) {
 function createStartupServices({
     app,
     checkForAppUpdate,
+    consumePostUpdateMarker,
     applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir,
@@ -73,6 +74,9 @@ function createStartupServices({
     async function bootstrapAppState(webContents, options = {}) {
         const appUpdatesMode = String(options.appUpdatesMode || 'notify').toLowerCase();
         const languagePackUpdatesMode = String(options.languagePackUpdatesMode || 'automatic').toLowerCase();
+        const postUpdateNotice = typeof consumePostUpdateMarker === 'function'
+            ? await consumePostUpdateMarker()
+            : null;
         const appUpdateCheck = {
             attempted: false,
             source: 'skipped',
@@ -127,7 +131,8 @@ function createStartupServices({
                     appUpdateCheck,
                     languagePackUpdatesMode,
                     languagePackCheck
-                }
+                },
+                postUpdateNotice
             };
         }
 
@@ -261,7 +266,8 @@ function createStartupServices({
                 appUpdateCheck,
                 languagePackUpdatesMode,
                 languagePackCheck
-            }
+            },
+            postUpdateNotice
         };
     }
 

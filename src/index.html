@@ -82,7 +82,15 @@
         </div>
     </div>
 
-    <div class="loading" id="loading">...</div>
+    <div class="loading-overlay" id="loading">
+        <div class="loading-panel">
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <div class="loading-copy">
+                <div class="loading-title" id="boot-title">Starting YumeShelf</div>
+                <div class="loading-status" id="boot-status">Preparing startup pipeline</div>
+            </div>
+        </div>
+    </div>
     
     <div id="game-grid-wrapper">
         <div class="game-grid drop-zone" id="fav-grid"></div>
@@ -178,6 +186,6 @@
         </div>
     </div>
 
-    <script src="renderer.js"></script>
+    <script type="module" src="renderer.js"></script>
 </body>
 </html>

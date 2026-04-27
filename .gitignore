@@ -7,6 +7,7 @@ build_output/
 
 library_db.json
 src/library_db.json
+src/tmp/
 *.log
 
 .vscode/

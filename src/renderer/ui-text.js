@@ -1,0 +1,69 @@
+export function createUITextController({
+    bootController,
+    electronAPI,
+    getCurrentSort,
+    getEnglishStrings,
+    getLocaleState,
+    getPlaceholderIndex,
+    getPlaceholders,
+    getStrings,
+    refs,
+    renderLanguagePackResults,
+    updateSearch
+}) {
+    async function applyUIStrings() {
+        const d = getStrings();
+        const defPath = await electronAPI.getDefaultPath();
+        refs.uiTitle.innerText = d.title;
+        refs.uiWelcomeTitle.innerText = d.welcome;
+        refs.uiWelcomeDesc.innerText = d.welcome_desc;
+        refs.uiOptChoose.innerText = d.opt_choose;
+        refs.uiOptChooseDesc.innerText = d.opt_choose_desc;
+        refs.uiOptLazy.innerText = d.opt_lazy;
+        refs.uiOptLazyDesc.innerText = `${d.opt_lazy_desc_prefix} ${defPath}/!`;
+        refs.uiSettingsTitle.innerText = d.settings;
+        refs.uiLangLabel.innerText = d.lang;
+        refs.uiThemeLabel.innerText = d.theme;
+        refs.uiPathLabel.innerText = d.path;
+        refs.uiAppUpdatesLabel.innerText = d.app_updates_label || getEnglishStrings().app_updates_label;
+        refs.uiLanguagePackUpdatesLabel.innerText = d.language_pack_updates_label || getEnglishStrings().language_pack_updates_label;
+        refs.btnChangePath.innerText = d.change;
+        refs.uiFooterDesc.innerText = d.footer_desc || getEnglishStrings().footer_desc;
+        refs.uiAppVersion.innerText = `YumeShelf v${getLocaleState().appVersion || ''}`.trim();
+        refs.uiThemeSystem.innerText = d.theme_system || getEnglishStrings().theme_system;
+        refs.uiThemeDark.innerText = d.theme_dark || getEnglishStrings().theme_dark;
+        refs.uiThemeLight.innerText = d.theme_light || getEnglishStrings().theme_light;
+        refs.uiUpdateAutomatic.innerText = d.update_mode_automatic || getEnglishStrings().update_mode_automatic;
+        refs.uiUpdateNotify.innerText = d.update_mode_notify || getEnglishStrings().update_mode_notify;
+        refs.uiUpdateOff.innerText = d.update_mode_off || getEnglishStrings().update_mode_off;
+        refs.uiPackUpdateAutomatic.innerText = d.update_mode_automatic || getEnglishStrings().update_mode_automatic;
+        refs.uiPackUpdateNotify.innerText = d.update_mode_notify || getEnglishStrings().update_mode_notify;
+        refs.uiPackUpdateOff.innerText = d.update_mode_off || getEnglishStrings().update_mode_off;
+        refs.moreLanguagesBtn.innerText = d.settings_more_languages || getEnglishStrings().settings_more_languages;
+        refs.uiLanguagePackTitle.innerText = d.lang_modal_title || getEnglishStrings().lang_modal_title;
+
+        if (refs.sortMenu) {
+            refs.uiSortDate.innerText = d.sort_date;
+            refs.uiSortPlayed.innerText = d.sort_played;
+            refs.uiSortAz.innerText = d.sort_az;
+            refs.uiSortCustom.innerText = d.sort_custom;
+            refs.sortMenu.querySelectorAll('.sort-item').forEach((el) => el.classList.remove('active'));
+            const activeSort = refs.sortMenu.querySelector(`[data-sort="${getCurrentSort()}"]`);
+            if (activeSort) activeSort.classList.add('active');
+        }
+
+        if (!refs.searchInput.value.trim()) {
+            const placeholders = getPlaceholders();
+            refs.searchPlaceholder.innerText = placeholders[getPlaceholderIndex() % placeholders.length];
+        } else {
+            updateSearch(refs.searchInput.value);
+        }
+
+        renderLanguagePackResults();
+        bootController.render(bootController.getLatestPayload());
+    }
+
+    return {
+        applyUIStrings
+    };
+}

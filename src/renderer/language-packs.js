@@ -154,8 +154,33 @@ export function createLanguagePackController({
         refs.appUpdateReviewNotes.innerHTML = renderMarkdownLite(
             appUpdate.releaseNotes || getText('app_update_review_notes_unavailable', 'Release notes are unavailable right now.')
         );
+        
+        if (appUpdate.actionState === 'downloading' && appUpdate.progress) {
+            const { percent, bytesPerSecond } = appUpdate.progress;
+            refs.appUpdateProgressContainer.style.display = 'block';
+            refs.appUpdateProgressFill.style.width = `${percent}%`;
+            refs.appUpdateProgressPercent.textContent = `${percent}%`;
+            refs.appUpdateProgressSpeed.textContent = formatDataSize(bytesPerSecond) + '/s';
+            
+            refs.appUpdateReviewStatus.textContent = getText('app_update_review_status_downloading', 'Downloading update...');
+        } else {
+            refs.appUpdateProgressContainer.style.display = 'none';
+        }
+
         refs.appUpdateReviewActionBtn.textContent = primaryLabel;
         refs.appUpdateReviewActionBtn.disabled = appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing';
+    }
+
+    function formatDataSize(bytes) {
+        if (!bytes || isNaN(bytes) || bytes < 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let size = bytes;
+        let unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+        return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
     }
 
     async function fetchLanguagePackManifest() {

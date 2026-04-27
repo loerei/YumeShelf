@@ -399,9 +399,29 @@ function createAppUpdateServices({
 
             try {
                 await ensureDir(updateCacheDir);
+                let lastProgressTime = Date.now();
+                let lastDownloadedBytes = 0;
                 const buffer = update.localFilePath
                     ? await fs.readFile(update.localFilePath)
-                    : await downloadBuffer(update.downloadUrl, 0, APP_UPDATE_DOWNLOAD_TIMEOUT_MS);
+                    : await downloadBuffer(update.downloadUrl, 0, APP_UPDATE_DOWNLOAD_TIMEOUT_MS, (downloaded, total) => {
+                        const now = Date.now();
+                        const elapsed = now - lastProgressTime;
+                        
+                        // Throttle updates to ~2 times per second to prevent IPC bottleneck and UI jitter
+                        if (elapsed >= 500 || downloaded === total) {
+                            const bytesPerSecond = elapsed > 0 ? (downloaded - lastDownloadedBytes) / (elapsed / 1000) : 0;
+                            lastProgressTime = now;
+                            lastDownloadedBytes = downloaded;
+
+                            emitStatus({
+                                phase: 'download-progress',
+                                downloaded,
+                                total,
+                                bytesPerSecond,
+                                update: summarizeAppUpdate(update)
+                            });
+                        }
+                    });
                 const digest = sha256Hex(buffer);
                 if (digest !== update.checksumSha256) {
                     throw Object.assign(new Error('App update checksum verification failed.'), { code: 'checksum' });

@@ -13,10 +13,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDefaultPath: () => ipcRenderer.invoke('get-default-path'),
     getIcon: (path) => ipcRenderer.invoke('get-icon', path),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    startAppUpdateDownload: () => ipcRenderer.invoke('start-app-update-download'),
+    restartAndInstallAppUpdate: () => ipcRenderer.invoke('restart-and-install-app-update'),
+    openAppUpdateDownloadPage: () => ipcRenderer.invoke('open-app-update-download-page'),
     getLanguageState: () => ipcRenderer.invoke('get-language-state'),
     getLanguagePackManifest: () => ipcRenderer.invoke('get-language-pack-manifest'),
     installLanguagePack: (code) => ipcRenderer.invoke('install-language-pack', code),
     onBootStatus: (callback) => {
         ipcRenderer.on('boot-status', (_event, payload) => callback(payload));
+    },
+    onAppUpdateStatus: (callback) => {
+        ipcRenderer.on('app-update-status', (_event, payload) => callback(payload));
     }
 });

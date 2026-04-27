@@ -18,8 +18,7 @@ function getUpdateNotificationRefs(root) {
 
 export function createUpdateNotificationFeature({
     getText,
-    openLanguagePackModal,
-    openSettings,
+    openUpdatesReviewModal,
     root = document
 }) {
     const updateNotificationController = createUpdateNotificationController({
@@ -30,14 +29,14 @@ export function createUpdateNotificationFeature({
         presentBootUpdateNotifications({
             bootstrapData,
             getText,
-            openLanguagePackModal,
-            openSettings,
+            openUpdatesReviewModal,
             updateNotificationController
         });
     }
 
     return {
         clear: () => updateNotificationController.clear(),
+        present: (notification) => updateNotificationController.present(notification),
         presentBootNotifications
     };
 }

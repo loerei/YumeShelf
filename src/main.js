@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 const { execFile } = require('child_process');
+const { createAppUpdateServices } = require('./main/app-updates');
 const { createStartupServices } = require('./main/startup');
 
 const isDev = !app.isPackaged;
@@ -487,8 +488,27 @@ async function installLanguagePack(code) {
     };
 }
 
+const appUpdateServices = createAppUpdateServices({
+    app,
+    broadcastStatus: (payload) => {
+        BrowserWindow.getAllWindows().forEach((windowRef) => {
+            if (!windowRef || windowRef.isDestroyed()) return;
+            windowRef.webContents.send('app-update-status', payload);
+        });
+    },
+    compareVersions,
+    downloadBuffer,
+    ensureDir,
+    isNetworkLikeError,
+    openExternalUrl: (url) => shell.openExternal(url),
+    readJsonFile,
+    sha256Hex,
+    startupNetworkTimeoutMs: STARTUP_NETWORK_TIMEOUT_MS
+});
+
 const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createStartupServices({
     app,
+    checkForAppUpdate: () => appUpdateServices.checkForAppUpdate(),
     applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir: DEFAULT_GAMES_DIR,
@@ -617,16 +637,36 @@ async function scan(targetDir) {
 
 app.whenReady().then(() => {
     logStartupDiagnostics();
+    const launchedAfterUpdate = process.argv.includes('--after-update');
 
     const win = new BrowserWindow({
         width: 1200, height: 800, backgroundColor: '#121212', autoHideMenuBar: true,
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
     });
     win.loadFile(path.join(__dirname, 'index.html'));
+    if (launchedAfterUpdate) {
+        const restoreUpdatedWindow = () => {
+            if (win.isDestroyed()) {
+                return;
+            }
+
+            if (win.isMinimized()) {
+                win.restore();
+            }
+            win.show();
+            win.focus();
+        };
+
+        win.once('ready-to-show', restoreUpdatedWindow);
+        setTimeout(restoreUpdatedWindow, 1200);
+    }
 
     ipcMain.handle('get-app-version', async () => app.getVersion());
     ipcMain.handle('get-language-state', async () => buildLanguageState());
     ipcMain.handle('bootstrap-app', async (event, options = {}) => bootstrapAppState(event.sender, options));
+    ipcMain.handle('start-app-update-download', async () => appUpdateServices.startBackgroundDownload());
+    ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices.restartAndInstallDownloadedUpdate());
+    ipcMain.handle('open-app-update-download-page', async () => appUpdateServices.openAppUpdateDownloadPage());
     ipcMain.handle('get-language-pack-manifest', async () => {
         const result = await fetchLanguageManifest();
         return {

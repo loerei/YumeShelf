@@ -26,10 +26,12 @@ function createTimedTask(taskFactory, timeoutMs) {
 
 function createStartupServices({
     app,
+    applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir,
     fetchLanguageManifest,
     fsSync,
+    getLanguagePackUpdateCandidates,
     isNetworkLikeError,
     loadDB,
     saveDB,
@@ -75,14 +77,18 @@ function createStartupServices({
             source: 'skipped',
             offline: false,
             timedOut: false,
-            error: null
+            error: null,
+            updatesChecked: false,
+            availableUpdates: [],
+            installedUpdates: [],
+            failedUpdates: []
         };
 
         emitBootStatus(webContents, {
             key: 'boot_loading_language_state',
             fallbackText: 'Loading language settings'
         });
-        const languageState = await buildLanguageState();
+        let languageState = await buildLanguageState();
 
         emitBootStatus(webContents, {
             key: 'boot_checking_library_config',
@@ -152,6 +158,33 @@ function createStartupServices({
                 }
 
                 emitBootStatus(webContents, { key, fallbackText });
+
+                if (manifestResult.ok && manifestResult.manifest) {
+                    emitBootStatus(webContents, {
+                        key: 'boot_checking_language_pack_updates',
+                        fallbackText: 'Checking installed language pack updates'
+                    });
+
+                    const candidates = getLanguagePackUpdateCandidates(languageState, manifestResult.manifest);
+                    languagePackCheck.updatesChecked = true;
+                    languagePackCheck.availableUpdates = candidates.map(candidate => candidate.summary);
+
+                    if (languagePackUpdatesMode === 'automatic' && candidates.length > 0 && !manifestResult.offline) {
+                        emitBootStatus(webContents, {
+                            key: 'boot_installing_language_pack_updates',
+                            fallbackText: 'Installing language pack updates'
+                        });
+
+                        const updateResult = await applyLanguagePackUpdates(candidates, {
+                            downloadTimeoutMs: startupNetworkTimeoutMs
+                        });
+                        languagePackCheck.installedUpdates = updateResult.installed || [];
+                        languagePackCheck.failedUpdates = updateResult.failed || [];
+                        if (updateResult.state) {
+                            languageState = updateResult.state;
+                        }
+                    }
+                }
             }
         }
 

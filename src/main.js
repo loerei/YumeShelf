@@ -111,7 +111,7 @@ function isNetworkLikeError(err) {
     ].some(token => msg.includes(token));
 }
 
-function downloadBuffer(urlString, redirectCount = 0) {
+function downloadBuffer(urlString, redirectCount = 0, timeoutMs = LANGUAGE_PACK_TIMEOUT_MS) {
     return new Promise((resolve, reject) => {
         if (redirectCount > 5) {
             reject(new Error('Too many redirects while downloading language pack data.'));
@@ -136,7 +136,7 @@ function downloadBuffer(urlString, redirectCount = 0) {
             if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
                 const redirected = new URL(res.headers.location, requestUrl).toString();
                 res.resume();
-                resolve(downloadBuffer(redirected, redirectCount + 1));
+                resolve(downloadBuffer(redirected, redirectCount + 1, timeoutMs));
                 return;
             }
 
@@ -151,7 +151,7 @@ function downloadBuffer(urlString, redirectCount = 0) {
             res.on('end', () => resolve(Buffer.concat(chunks)));
         });
 
-        req.setTimeout(LANGUAGE_PACK_TIMEOUT_MS, () => {
+        req.setTimeout(timeoutMs, () => {
             req.destroy(new Error('Request timed out.'));
         });
         req.on('error', reject);
@@ -219,6 +219,38 @@ function normalizeManifest(raw) {
         generatedAt: raw.generatedAt ? String(raw.generatedAt) : null,
         packs
     };
+}
+
+function summarizeLanguagePackUpdate(installedPack, manifestEntry) {
+    return {
+        code: installedPack.code,
+        englishName: manifestEntry.englishName,
+        nativeName: manifestEntry.nativeName,
+        currentPackVersion: installedPack.packVersion,
+        nextPackVersion: manifestEntry.packVersion,
+        minAppVersion: manifestEntry.minAppVersion,
+        reviewedForAppVersion: manifestEntry.reviewedForAppVersion
+    };
+}
+
+function getLanguagePackUpdateCandidates(languageState, manifest) {
+    if (!languageState || !Array.isArray(languageState.installed) || !manifest || !Array.isArray(manifest.packs)) {
+        return [];
+    }
+
+    const manifestByCode = new Map(manifest.packs.map(pack => [pack.code, pack]));
+    return languageState.installed
+        .map((installedPack) => {
+            const manifestEntry = manifestByCode.get(installedPack.code);
+            if (!manifestEntry) return null;
+            if (manifestEntry.minAppVersion && compareVersions(app.getVersion(), manifestEntry.minAppVersion) < 0) return null;
+            if (compareVersions(manifestEntry.packVersion, installedPack.packVersion) <= 0) return null;
+            return {
+                manifestEntry,
+                summary: summarizeLanguagePackUpdate(installedPack, manifestEntry)
+            };
+        })
+        .filter(Boolean);
 }
 
 async function loadLocaleDirectory(dirPath, options = {}) {
@@ -326,25 +358,11 @@ async function fetchLanguageManifest() {
     }
 }
 
-async function installLanguagePack(code) {
-    const normalizedCode = normalizeLanguageCode(code);
+async function installLanguagePackFromManifestEntry(entry, options = {}) {
+    const normalizedCode = normalizeLanguageCode(entry && entry.code);
+    const downloadTimeoutMs = Number(options.downloadTimeoutMs) > 0 ? Number(options.downloadTimeoutMs) : LANGUAGE_PACK_TIMEOUT_MS;
     if (!normalizedCode) {
         return { ok: false, error: 'Missing language pack code.', reason: 'invalid-code' };
-    }
-
-    const manifestResult = await fetchLanguageManifest();
-    if (!manifestResult.ok || !manifestResult.manifest) {
-        return {
-            ok: false,
-            offline: manifestResult.offline,
-            error: manifestResult.offline ? 'You are offline.' : (manifestResult.error || 'Unable to load language packs.'),
-            reason: manifestResult.offline ? 'offline' : 'manifest'
-        };
-    }
-
-    const entry = manifestResult.manifest.packs.find(pack => pack.code === normalizedCode);
-    if (!entry) {
-        return { ok: false, error: `Language pack '${normalizedCode}' was not found.`, reason: 'not-found' };
     }
 
     const minVersion = entry.minAppVersion || null;
@@ -365,7 +383,7 @@ async function installLanguagePack(code) {
             }
         }
         if (!buffer) {
-            buffer = await downloadBuffer(entry.downloadUrl);
+            buffer = await downloadBuffer(entry.downloadUrl, 0, downloadTimeoutMs);
         }
 
         const digest = sha256Hex(buffer);
@@ -399,8 +417,7 @@ async function installLanguagePack(code) {
 
         return {
             ok: true,
-            installedCode: normalizedCode,
-            state: await buildLanguageState()
+            installedCode: normalizedCode
         };
     } catch (err) {
         return {
@@ -412,12 +429,72 @@ async function installLanguagePack(code) {
     }
 }
 
+async function applyLanguagePackUpdates(candidates, options = {}) {
+    const installed = [];
+    const failed = [];
+
+    for (const candidate of candidates) {
+        const result = await installLanguagePackFromManifestEntry(candidate.manifestEntry, options);
+        if (result.ok) {
+            installed.push(candidate.summary);
+            continue;
+        }
+
+        failed.push({
+            ...candidate.summary,
+            offline: !!result.offline,
+            error: result.error || null,
+            reason: result.reason || 'download'
+        });
+    }
+
+    return {
+        installed,
+        failed,
+        state: installed.length > 0 ? await buildLanguageState() : null
+    };
+}
+
+async function installLanguagePack(code) {
+    const normalizedCode = normalizeLanguageCode(code);
+    if (!normalizedCode) {
+        return { ok: false, error: 'Missing language pack code.', reason: 'invalid-code' };
+    }
+
+    const manifestResult = await fetchLanguageManifest();
+    if (!manifestResult.ok || !manifestResult.manifest) {
+        return {
+            ok: false,
+            offline: manifestResult.offline,
+            error: manifestResult.offline ? 'You are offline.' : (manifestResult.error || 'Unable to load language packs.'),
+            reason: manifestResult.offline ? 'offline' : 'manifest'
+        };
+    }
+
+    const entry = manifestResult.manifest.packs.find(pack => pack.code === normalizedCode);
+    if (!entry) {
+        return { ok: false, error: `Language pack '${normalizedCode}' was not found.`, reason: 'not-found' };
+    }
+
+    const installResult = await installLanguagePackFromManifestEntry(entry);
+    if (!installResult.ok) {
+        return installResult;
+    }
+
+    return {
+        ...installResult,
+        state: await buildLanguageState()
+    };
+}
+
 const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createStartupServices({
     app,
+    applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir: DEFAULT_GAMES_DIR,
     fetchLanguageManifest,
     fsSync,
+    getLanguagePackUpdateCandidates,
     isNetworkLikeError,
     loadDB,
     saveDB,

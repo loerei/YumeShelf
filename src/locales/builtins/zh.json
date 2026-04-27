@@ -31,6 +31,8 @@
     "boot_checking_library_config": "正在检查库配置",
     "boot_waiting_for_library_setup": "尚未配置游戏库",
     "boot_checking_language_pack_source": "正在检查语言包来源",
+    "boot_checking_language_pack_updates": "正在检查已安装语言包的更新",
+    "boot_installing_language_pack_updates": "正在安装语言包更新",
     "boot_language_pack_source_ready": "语言包来源已就绪",
     "boot_language_pack_source_cached": "正在使用缓存的语言包信息",
     "boot_language_pack_source_offline": "当前离线，已跳过语言包检查",
@@ -74,6 +76,9 @@
     "pack_chip_version_prefix": "语言包",
     "pack_chip_reviewed_for_prefix": "已检查至",
     "lang_builtin_source": "内置",
-    "lang_downloaded_source": "已下载语言包"
+    "lang_downloaded_source": "已下载语言包",
+    "lang_modal_update": "更新",
+    "lang_modal_update_available": "有可用更新",
+    "lang_modal_updates_available_banner": "你已安装的语言包有可用更新。"
   }
 }

@@ -1,3 +1,5 @@
+import { renderMarkdownLite } from './markdown-lite.js';
+
 function formatTemplate(template, replacements = {}) {
     return Object.entries(replacements).reduce((result, [key, value]) => {
         return result.replaceAll(`{${key}}`, value);
@@ -149,7 +151,9 @@ export function createLanguagePackController({
             <span class="language-pack-chip">${formatTemplate(getText('app_update_review_next_version', 'New v{version}'), { version: appUpdate.version || '-' })}</span>
             ${appUpdate.downloadReady ? `<span class="language-pack-chip">${getText('update_notification_label_ready', 'Ready to install')}</span>` : ''}
         `;
-        refs.appUpdateReviewNotes.textContent = appUpdate.releaseNotes || getText('app_update_review_notes_unavailable', 'Release notes are unavailable right now.');
+        refs.appUpdateReviewNotes.innerHTML = renderMarkdownLite(
+            appUpdate.releaseNotes || getText('app_update_review_notes_unavailable', 'Release notes are unavailable right now.')
+        );
         refs.appUpdateReviewActionBtn.textContent = primaryLabel;
         refs.appUpdateReviewActionBtn.disabled = appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing';
     }

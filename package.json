@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
@@ -8,6 +8,8 @@
     "start": "electron .",
     "build": "electron-builder --win",
     "build:fast": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js",
+    "build:fast:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:fast",
+    "build:test-version": "node .\\scripts\\build-test-version.js",
     "build:dir": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir --config.win.signAndEditExecutable=false",
     "build:dir:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:dir",
     "checksum:release": "node .\\scripts\\write-release-checksum.js",

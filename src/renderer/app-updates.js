@@ -27,6 +27,12 @@ export function createAppUpdateController({
     let reviewActionInFlight = false;
     const listeners = new Set();
 
+    function logDebug(message) {
+        if (typeof electronAPI.logAppUpdateDebug === 'function') {
+            void electronAPI.logAppUpdateDebug(message);
+        }
+    }
+
     function notifyStateChanged() {
         listeners.forEach((listener) => {
             listener({
@@ -198,7 +204,13 @@ export function createAppUpdateController({
         let presentedPostUpdate = false;
 
         const postUpdateNotice = bootstrapData?.postUpdateNotice || null;
-        if (postUpdateNotice?.version && !isPostUpdateNoticeSuppressed()) {
+        const postUpdateSuppressed = isPostUpdateNoticeSuppressed();
+        logDebug(`initialize postUpdateNotice=${JSON.stringify(postUpdateNotice ? {
+            fromVersion: postUpdateNotice.fromVersion || '',
+            installed: !!postUpdateNotice.installed,
+            version: postUpdateNotice.version || ''
+        } : null)} suppressed=${postUpdateSuppressed}`);
+        if (postUpdateNotice?.version && !postUpdateSuppressed) {
             const installedState = setRecentInstalledUpdate(postUpdateNotice, {
                 actionState: 'installed',
                 installed: true
@@ -209,6 +221,7 @@ export function createAppUpdateController({
                 suppressPostUpdateNotice: () => suppressPostUpdateNotice(),
                 update: installedState
             })) || presentedPostUpdate;
+            logDebug(`initialize presentedPostUpdate=${presentedPostUpdate} installedVersion=${installedState?.version || ''}`);
         } else {
             setRecentInstalledUpdate(null);
         }
@@ -217,6 +230,7 @@ export function createAppUpdateController({
         const appUpdateCheck = bootChecks?.appUpdateCheck || null;
         if (!appUpdateCheck?.available) {
             setCurrentUpdate(null);
+            logDebug(`initialize appUpdateCheck=none presentedPostUpdate=${presentedPostUpdate}`);
             return {
                 presentedPostUpdate
             };
@@ -233,6 +247,13 @@ export function createAppUpdateController({
         ) {
             void electronAPI.startAppUpdateDownload();
         }
+
+        logDebug(`initialize appUpdateCheck=${JSON.stringify({
+            available: !!appUpdateCheck.available,
+            downloadReady: !!appUpdateCheck.downloadReady,
+            downloadable: !!appUpdateCheck.downloadable,
+            version: appUpdateCheck.version || ''
+        })} presentedPostUpdate=${presentedPostUpdate}`);
 
         return {
             presentedPostUpdate

@@ -28,6 +28,7 @@ function createStartupServices({
     app,
     checkForAppUpdate,
     consumePostUpdateMarker,
+    logAppUpdateDebug,
     applyLanguagePackUpdates,
     buildLanguageState,
     defaultGamesDir,
@@ -77,6 +78,13 @@ function createStartupServices({
         const postUpdateNotice = typeof consumePostUpdateMarker === 'function'
             ? await consumePostUpdateMarker()
             : null;
+        if (typeof logAppUpdateDebug === 'function') {
+            await logAppUpdateDebug(`bootstrapAppState postUpdateNotice=${JSON.stringify(postUpdateNotice ? {
+                fromVersion: postUpdateNotice.fromVersion || '',
+                installed: !!postUpdateNotice.installed,
+                version: postUpdateNotice.version || ''
+            } : null)} appUpdatesMode=${appUpdatesMode} languagePackUpdatesMode=${languagePackUpdatesMode}`);
+        }
         const appUpdateCheck = {
             attempted: false,
             source: 'skipped',

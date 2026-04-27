@@ -451,8 +451,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(rotatePlaceholder, 60000);
     await initApp(bootstrapData);
     const appUpdateInit = appUpdateController.initialize(bootstrapData) || { presentedPostUpdate: false };
+    if (typeof window.electronAPI.logAppUpdateDebug === 'function') {
+        void window.electronAPI.logAppUpdateDebug(`renderer initialize result=${JSON.stringify(appUpdateInit)}`);
+    }
     if (!appUpdateInit.presentedPostUpdate) {
         updateNotificationFeature.presentBootNotifications(bootstrapData);
+        if (typeof window.electronAPI.logAppUpdateDebug === 'function') {
+            void window.electronAPI.logAppUpdateDebug('renderer presentBootNotifications=true');
+        }
+    } else if (typeof window.electronAPI.logAppUpdateDebug === 'function') {
+        void window.electronAPI.logAppUpdateDebug('renderer presentBootNotifications=false reason=post-update-presented');
     }
 
     window.addEventListener('online', () => {

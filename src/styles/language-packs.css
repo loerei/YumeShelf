@@ -130,6 +130,49 @@
     border-top: 1px solid var(--border-color);
 }
 
+.app-update-progress-container {
+    width: 100%;
+    margin: 8px 0;
+}
+
+.app-update-progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#app-update-progress-percent {
+    color: var(--text-main);
+    font-size: 18px;
+    letter-spacing: -0.02em;
+}
+
+#app-update-progress-speed {
+    color: var(--text-sub);
+    font-weight: 500;
+}
+
+.app-update-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.app-update-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), #4cc2ff);
+    box-shadow: 0 0 15px rgba(0, 120, 212, 0.3);
+    border-radius: 4px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .app-update-review-actions {
     display: flex;
     justify-content: flex-end;

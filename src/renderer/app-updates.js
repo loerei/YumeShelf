@@ -121,6 +121,19 @@ export function createAppUpdateController({
             return;
         }
 
+        if (payload.phase === 'download-progress') {
+            patchCurrentUpdate({
+                actionState: 'downloading',
+                progress: {
+                    downloaded: payload.downloaded,
+                    total: payload.total,
+                    percent: Math.round((payload.downloaded / payload.total) * 100),
+                    bytesPerSecond: payload.bytesPerSecond || 0
+                }
+            });
+            return;
+        }
+
         if (payload.phase === 'download-ready') {
             setCurrentUpdate(update, {
                 actionState: 'ready',

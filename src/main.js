@@ -115,7 +115,7 @@ function isNetworkLikeError(err) {
     ].some(token => msg.includes(token) || code.includes(token));
 }
 
-function downloadBuffer(urlString, redirectCount = 0, timeoutMs = LANGUAGE_PACK_TIMEOUT_MS) {
+function downloadBuffer(urlString, redirectCount = 0, timeoutMs = LANGUAGE_PACK_TIMEOUT_MS, onProgress = null) {
     return new Promise((resolve, reject) => {
         if (redirectCount > 5) {
             reject(new Error('Too many redirects while downloading language pack data.'));
@@ -140,7 +140,7 @@ function downloadBuffer(urlString, redirectCount = 0, timeoutMs = LANGUAGE_PACK_
             if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
                 const redirected = new URL(res.headers.location, requestUrl).toString();
                 res.resume();
-                resolve(downloadBuffer(redirected, redirectCount + 1, timeoutMs));
+                resolve(downloadBuffer(redirected, redirectCount + 1, timeoutMs, onProgress));
                 return;
             }
 
@@ -150,8 +150,16 @@ function downloadBuffer(urlString, redirectCount = 0, timeoutMs = LANGUAGE_PACK_
                 return;
             }
 
+            const total = parseInt(res.headers['content-length'], 10);
+            let downloaded = 0;
             const chunks = [];
-            res.on('data', chunk => chunks.push(Buffer.from(chunk)));
+            res.on('data', chunk => {
+                chunks.push(Buffer.from(chunk));
+                downloaded += chunk.length;
+                if (typeof onProgress === 'function' && total) {
+                    onProgress(downloaded, total);
+                }
+            });
             res.on('end', () => resolve(Buffer.concat(chunks)));
         });
 

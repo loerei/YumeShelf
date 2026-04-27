@@ -71,7 +71,63 @@
     color: var(--text-sub);
     font-size: 13px;
     line-height: 1.6;
-    white-space: pre-wrap;
+}
+
+.app-update-review-notes > :first-child {
+    margin-top: 0;
+}
+
+.app-update-review-notes > :last-child {
+    margin-bottom: 0;
+}
+
+.app-update-review-notes h1,
+.app-update-review-notes h2,
+.app-update-review-notes h3 {
+    margin: 0 0 10px;
+    color: var(--text-main);
+    font-size: 16px;
+    line-height: 1.35;
+}
+
+.app-update-review-notes p,
+.app-update-review-notes ul {
+    margin: 0 0 10px;
+}
+
+.app-update-review-notes ul {
+    padding-left: 18px;
+}
+
+.app-update-review-notes li + li {
+    margin-top: 6px;
+}
+
+.app-update-review-notes strong {
+    color: var(--text-main);
+}
+
+.app-update-review-notes code {
+    padding: 1px 5px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+    font-size: 12px;
+}
+
+.app-update-review-notes a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.app-update-review-notes a:hover {
+    text-decoration: underline;
+}
+
+.app-update-review-notes hr {
+    margin: 12px 0;
+    border: 0;
+    border-top: 1px solid var(--border-color);
 }
 
 .app-update-review-actions {

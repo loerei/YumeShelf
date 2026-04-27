@@ -431,7 +431,11 @@ function createAppUpdateServices({
                 await appendUpdateLog(`startBackgroundDownload ready stateFile=${updateStateFile} cachedFile=${filePath}`);
                 return { ok: true, update: readyUpdate };
             } catch (error) {
-                const reason = String((error && error.code) || (isNetworkLikeError(error) ? 'offline' : 'download'));
+                const reason = error?.code === 'checksum'
+                    ? 'checksum'
+                    : isNetworkLikeError(error)
+                        ? 'offline'
+                        : String((error && error.code) || 'download').toLowerCase();
                 const failedUpdate = summarizeAppUpdate(update);
                 await appendUpdateLog(`startBackgroundDownload failed reason=${reason} error=${String((error && error.stack) || error || '')}`);
                 emitStatus({
@@ -592,7 +596,7 @@ Remove-Item -LiteralPath $HelperScriptPath -Force -ErrorAction SilentlyContinue
         const helperLauncher = `@echo off
 setlocal
 echo [%date% %time%] launcher start script="${helperScriptPath}" >> "${updateLogFile}"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${helperScriptPath}" >> "${helperConsoleLogFile}" 2>&1
+powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${helperScriptPath}" >> "${helperConsoleLogFile}" 2>&1
 set "EXITCODE=%ERRORLEVEL%"
 echo [%date% %time%] launcher exit code=%EXITCODE% >> "${updateLogFile}"
 del /f /q "${helperLauncherPath}" >nul 2>nul

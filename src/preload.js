@@ -27,5 +27,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     onAppUpdateStatus: (callback) => {
         ipcRenderer.on('app-update-status', (_event, payload) => callback(payload));
+    },
+    onGameStopped: (callback) => {
+        ipcRenderer.on('game-stopped', (_event, payload) => {
+            console.log(`[PRELOAD] Received game-stopped IPC for ${payload ? payload.gameKey : 'unknown'}`);
+            callback(payload);
+        });
+    },
+    onGamePlaytimeUpdated: (callback) => {
+        ipcRenderer.on('game-playtime-updated', (_event, payload) => callback(payload));
     }
 });

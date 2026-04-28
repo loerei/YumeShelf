@@ -320,7 +320,8 @@ function createLibraryState({
                     ? existingRecord.gameKey
                     : undefined,
                 name: existingRecord?.name || getSmartName(candidate.exePath, folderName),
-                relativePath: gameKey
+                relativePath: gameKey,
+                playtime: existingRecord?.playtime || 0
             };
         }
 
@@ -411,9 +412,29 @@ function createLibraryState({
         await saveDB(db);
     }
 
+    async function addPlaytime(gameKey, durationMs) {
+        const db = await loadDB();
+        const games = readStoredGames(db);
+        if (!games[gameKey]) return;
+        games[gameKey].playtime = (games[gameKey].playtime || 0) + durationMs;
+        db.games = games;
+        await saveDB(db);
+    }
+
+    async function markGameStopped(gameKey) {
+        const db = await loadDB();
+        const games = readStoredGames(db);
+        if (!games[gameKey]) return;
+        games[gameKey].lastPlayed = Date.now();
+        db.games = games;
+        await saveDB(db);
+    }
+
     return {
+        addPlaytime,
         loadGamesForConfig,
         markGameLaunched,
+        markGameStopped,
         renameGame,
         resolveLibraryConfig,
         resolveLibraryFolderToOpen,

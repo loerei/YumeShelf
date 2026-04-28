@@ -17,6 +17,17 @@ export function createStackCardFactory({
         return d.status_recent;
     }
 
+    function formatPlaytime(ms) {
+        if (!ms || ms < 60000) return '0m';
+        const totalMins = Math.floor(ms / 60000);
+        const hours = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        if (hours > 0) {
+            return `${hours}h ${mins}m`;
+        }
+        return `${mins}m`;
+    }
+
     function createStackCard(stack) {
         const { primaryGame, representativeKey, stackSize } = stack;
         const uniqueLocations = [...new Set(stack.games.map((game) => game.locationLabel).filter(Boolean))];
@@ -28,12 +39,15 @@ export function createStackCardFactory({
         card.dataset.gameKey = representativeKey;
         card.dataset.duplicateSignature = primaryGame.duplicateSignature || '';
         card.draggable = true;
+        const d = getStrings();
+        const isStackRunning = stack.games.some(g => g.isRunning);
         card.innerHTML = `
             <div class="fav-btn stack-fav-indicator ${stack.favorite ? 'active' : ''}">★</div>
             <div class="game-icon">${primaryGame.iconData ? `<img src="${primaryGame.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
             <div class="game-duplicate-chip">${stackSize}x</div>
             <div class="game-title">${primaryGame.name}</div>
-            <div class="game-status">${timeSince(primaryGame.lastPlayed)}</div>
+            <div class="game-status">${isStackRunning ? (d.status_playing || 'Playing') : timeSince(primaryGame.lastPlayed)}</div>
+            <div class="game-playtime">${formatPlaytime(primaryGame.playtime)}</div>
             <div class="game-path">${locationSummary}</div>
         `;
 

@@ -60,6 +60,7 @@
     "delete": "削除",
     "confirm": "ゴミ箱に移動しますか？",
     "status_never": "未プレイ",
+    "status_playing": "プレイ中",
     "status_recent": "たった今",
     "status_mins": " 分前",
     "status_hours": " 時間前",

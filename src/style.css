@@ -271,6 +271,15 @@ body {
     transition: opacity 0.2s ease;
 }
 
+.game-playtime {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-top: 2px;
+    opacity: 0.8;
+    font-weight: normal;
+    transition: opacity 0.2s ease;
+}
+
 .game-path {
     position: absolute;
     left: 16px;
@@ -297,7 +306,8 @@ body {
     border-color: var(--path-chip-border-hover);
 }
 
-.game-card:hover .game-status {
+.game-card:hover .game-status,
+.game-card:hover .game-playtime {
     opacity: 0.15;
 }
 

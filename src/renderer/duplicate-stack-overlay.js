@@ -14,7 +14,7 @@ export function createDuplicateStackOverlayController({
 
             const card = createCard(game, {
                 draggable: false,
-                launchMode: 'single',
+                launchMode: 'double',
                 showDuplicateChip: false,
                 showPath: false
             });

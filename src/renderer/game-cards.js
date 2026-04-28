@@ -7,6 +7,7 @@ export function createGameCardFactory({
     onCardDeleted,
     onDragStateReset,
     onDragStart,
+    onGameLaunched,
     onRefreshRequested
 }) {
     function timeSince(date) {
@@ -19,6 +20,17 @@ export function createGameCardFactory({
         interval = seconds / 60;
         if (interval > 1) return Math.floor(interval) + d.status_mins;
         return d.status_recent;
+    }
+
+    function formatPlaytime(ms) {
+        if (!ms || ms < 60000) return '0m';
+        const totalMins = Math.floor(ms / 60000);
+        const hours = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        if (hours > 0) {
+            return `${hours}h ${mins}m`;
+        }
+        return `${mins}m`;
     }
 
     function getDropdownActionIcon(action) {
@@ -78,10 +90,12 @@ export function createGameCardFactory({
             <div class="game-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
-            <div class="game-status">${timeSince(game.lastPlayed)}</div>
+            <div class="game-status">${game.isRunning ? (d.status_playing || 'Playing') : timeSince(game.lastPlayed)}</div>
+            <div class="game-playtime">${formatPlaytime(game.playtime)}</div>
             ${showPath ? `<div class="game-path">${game.relativePathDisplay || ''}</div>` : ''}
             ${contextLabel ? `<div class="game-context-label">${contextLabel}</div>` : ''}
         `;
+        console.log(`[FRONTEND] Game card is updated for ${gameKey}, isRunning: ${game.isRunning}, status: ${game.isRunning ? 'Playing' : timeSince(game.lastPlayed)}`);
 
         if (!game.iconData) {
             electronAPI.getIcon(game.exePath).then((iconData) => {
@@ -148,10 +162,16 @@ export function createGameCardFactory({
             }
         };
         const launchGame = () => {
+            console.log(`[FRONTEND] launchGame triggered for ${gameKey}, path: ${game.exePath}`);
             card.style.opacity = '0.5';
             electronAPI.launchYume({ gameKey, exePath: game.exePath });
-            game.lastPlayed = Date.now();
-            setTimeout(() => onRefreshRequested(), 1000);
+            if (typeof onGameLaunched === 'function') {
+                onGameLaunched(gameKey);
+            } else {
+                game.lastPlayed = Date.now();
+                game.isRunning = true;
+                onRefreshRequested();
+            }
         };
         if (launchMode === 'single') {
             card.onclick = (event) => {

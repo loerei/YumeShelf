@@ -1,17 +1,27 @@
 import { getGameKey, normalizeCustomOrder } from './library-order.js';
 
 function compareGames(a, b, type, customOrder) {
+    let result = 0;
     if (type === 'custom') {
         const order = Array.isArray(customOrder) ? customOrder : normalizeCustomOrder([a, b]);
         const indexA = order.indexOf(getGameKey(a));
         const indexB = order.indexOf(getGameKey(b));
-        return (indexA > -1 ? indexA : 99999) - (indexB > -1 ? indexB : 99999);
+        result = (indexA > -1 ? indexA : 99999) - (indexB > -1 ? indexB : 99999);
+    } else if (type === 'az') {
+        result = a.name.localeCompare(b.name);
+    } else if (type === 'date') {
+        result = (b.dateAdded || 0) - (a.dateAdded || 0);
+    } else if (type === 'played') {
+        result = (b.lastPlayed || 0) - (a.lastPlayed || 0);
     }
 
-    if (type === 'az') return a.name.localeCompare(b.name);
-    if (type === 'date') return (b.dateAdded || 0) - (a.dateAdded || 0);
-    if (type === 'played') return (b.lastPlayed || 0) - (a.lastPlayed || 0);
-    return 0;
+    if (result !== 0) return result;
+
+    const depthA = (a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+    const depthB = (b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+    if (depthA !== depthB) return depthA - depthB;
+
+    return (a.relativePath || '').localeCompare(b.relativePath || '');
 }
 
 function choosePrimaryGame(games, sortedGames) {
@@ -44,7 +54,12 @@ export function buildLibraryViewItems(games, type) {
     return {
         customOrder,
         items: [...grouped.entries()].map(([groupKey, groupGames]) => {
-            const orderedGames = [...groupGames].sort((a, b) => compareGames(a, b, type, customOrder));
+            const orderedGames = [...groupGames].sort((a, b) => {
+                const depthA = (a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+                const depthB = (b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+                if (depthA !== depthB) return depthA - depthB;
+                return (a.relativePath || '').localeCompare(b.relativePath || '');
+            });
             const primaryGame = choosePrimaryGame(orderedGames, sortedGames);
             const groupFavorite = orderedGames.some((game) => game.favorite);
             const representativeKey = getGameKey(primaryGame);
@@ -54,7 +69,11 @@ export function buildLibraryViewItems(games, type) {
                 games: orderedGames,
                 groupKey,
                 isStack: orderedGames.length > 1,
-                primaryGame,
+                primaryGame: {
+                    ...primaryGame,
+                    isRunning: orderedGames.some((g) => g.isRunning),
+                    playtime: orderedGames.reduce((sum, g) => sum + (g.playtime || 0), 0)
+                },
                 representativeKey,
                 stackSize: orderedGames.length
             };

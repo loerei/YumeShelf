@@ -9,6 +9,7 @@ const { execFile } = require('child_process');
 const { createAppUpdateServices } = require('./main/app-updates');
 const { createLibraryState } = require('./main/library-state');
 const { createStartupServices } = require('./main/startup');
+const { createPlaytimeTracker } = require('./main/playtime-tracker');
 
 const isDev = !app.isPackaged;
 const DEFAULT_GAMES_DIR = isDev ? path.join(__dirname, '..', 'YumeShelf') : path.join(path.dirname(app.getPath('exe')), 'YumeShelf');
@@ -527,6 +528,8 @@ const libraryState = createLibraryState({
     saveDB
 });
 
+const playtimeTracker = createPlaytimeTracker({ libraryState });
+
 const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createStartupServices({
     app,
     checkForAppUpdate: () => appUpdateServices.checkForAppUpdate(),
@@ -619,6 +622,10 @@ app.whenReady().then(() => {
     });
     win.removeMenu();
     win.setMenuBarVisibility(false);
+    win.webContents.on('console-message', (event, level, message, line, sourceId) => {
+        console.log(`[RENDERER-LOG] ${message}`);
+    });
+
     win.loadFile(path.join(__dirname, 'index.html'));
     if (launchedAfterUpdate) {
         const restoreUpdatedWindow = () => {
@@ -675,11 +682,16 @@ app.whenReady().then(() => {
     ipcMain.handle('setup-library', async (_event, type) => libraryState.setupLibrary(type));
     ipcMain.handle('update-library-config', async (_event, updates = {}) => libraryState.updateLibraryConfig(updates));
 
-    ipcMain.handle('get-games', async () => loadGamesForConfig(await resolveLibraryConfig()));
+    ipcMain.handle('get-games', async () => {
+        const games = await loadGamesForConfig(await resolveLibraryConfig());
+        return games.map(game => ({
+            ...game,
+            isRunning: playtimeTracker.isGameRunning(game.gameKey)
+        }));
+    });
 
     ipcMain.on('launch-yume', async (_event, { gameKey, exePath }) => {
-        await libraryState.markGameLaunched(gameKey);
-        execFile(exePath, { cwd: path.dirname(exePath) });
+        playtimeTracker.trackGameLaunch(gameKey, exePath);
     });
 
     ipcMain.on('open-folder', async () => {

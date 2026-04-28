@@ -54,6 +54,7 @@
     "delete": "Delete",
     "confirm": "Delete into Recycle Bin?",
     "status_never": "Never played",
+    "status_playing": "Playing",
     "status_recent": "Just now",
     "status_mins": " mins ago",
     "status_hours": " hours ago",

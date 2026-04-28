@@ -31,14 +31,11 @@ function createStartupServices({
     logAppUpdateDebug,
     applyLanguagePackUpdates,
     buildLanguageState,
-    defaultGamesDir,
     fetchLanguageManifest,
-    fsSync,
     getLanguagePackUpdateCandidates,
     isNetworkLikeError,
-    loadDB,
-    saveDB,
-    scan,
+    loadGamesForConfig,
+    resolveLibraryConfig,
     startupNetworkTimeoutMs
 }) {
     function emitBootStatus(webContents, payload) {
@@ -48,28 +45,6 @@ function createStartupServices({
             timestamp: Date.now(),
             ...payload
         });
-    }
-
-    async function resolveLibraryConfig() {
-        if (process.argv.some(arg => arg.toLowerCase() === '--welcome' || arg.toLowerCase() === '-w')) return null;
-        const db = await loadDB();
-
-        if (!db.config && fsSync.existsSync(defaultGamesDir)) {
-            db.config = { libraryPath: defaultGamesDir };
-            await saveDB(db);
-        }
-
-        if (db.config && !fsSync.existsSync(db.config.libraryPath) && fsSync.existsSync(defaultGamesDir)) {
-            db.config.libraryPath = defaultGamesDir;
-            await saveDB(db);
-        }
-
-        return db.config || null;
-    }
-
-    async function loadGamesForConfig(config) {
-        if (!config || !config.libraryPath) return [];
-        return scan(config.libraryPath);
     }
 
     async function bootstrapAppState(webContents, options = {}) {
@@ -124,7 +99,7 @@ function createStartupServices({
             fallbackText: 'Checking library configuration'
         });
         const config = await resolveLibraryConfig();
-        if (!config) {
+        if (!config || !config.libraryPath) {
             emitBootStatus(webContents, {
                 key: 'boot_waiting_for_library_setup',
                 fallbackText: 'Library not configured yet'
@@ -132,7 +107,7 @@ function createStartupServices({
             return {
                 appVersion: app.getVersion(),
                 languageState,
-                config: null,
+                config: config || null,
                 games: [],
                 bootChecks: {
                     appUpdatesMode,

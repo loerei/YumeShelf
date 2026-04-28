@@ -4,7 +4,7 @@
   "englishName": "English",
   "nativeName": "English",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.3.9",
+  "reviewedForAppVersion": "1.4.0",
   "aliases": [
     "en",
     "english"
@@ -19,6 +19,7 @@
     "lang": "Language",
     "theme": "Theme Mode",
     "path": "Library Path",
+    "max_depth_label": "Max Depth",
     "app_updates_label": "App Updates",
     "language_pack_updates_label": "Language Pack Updates",
     "change": "Change",

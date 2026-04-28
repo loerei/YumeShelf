@@ -1,6 +1,7 @@
 import { createBootController } from './renderer/boot.js';
 import { createAppUpdateController } from './renderer/app-updates.js';
 import { createDragDropGridController } from './renderer/drag-drop-grid.js';
+import { annotateGamesForDisplay } from './renderer/game-annotations.js';
 import { createGameCardFactory } from './renderer/game-cards.js';
 import { createLocaleController } from './renderer/i18n.js';
 import { createLanguagePackController } from './renderer/language-packs.js';
@@ -26,6 +27,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const themeSelect = document.getElementById('theme-select');
     const appUpdatesSelect = document.getElementById('app-updates-select');
     const languagePackUpdatesSelect = document.getElementById('language-pack-updates-select');
+    const maxDepthInput = document.getElementById('max-depth-input');
+    const maxDepthDecreaseBtn = document.getElementById('max-depth-decrease-btn');
+    const maxDepthIncreaseBtn = document.getElementById('max-depth-increase-btn');
     const searchInput = document.getElementById('search-input');
     const searchDropdown = document.getElementById('search-dropdown');
     const searchPlaceholder = document.getElementById('search-placeholder');
@@ -101,6 +105,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         refs: {
             appUpdatesSelect,
             languagePackUpdatesSelect,
+            maxDepthDecreaseBtn,
+            maxDepthIncreaseBtn,
+            maxDepthInput,
             settingsOverlay,
             themeSelect
         }
@@ -191,11 +198,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const gameCardFactory = createGameCardFactory({
         electronAPI: window.electronAPI,
         getStrings: () => getStrings(),
-        onCardDeleted: (folderName) => {
-            allGames = allGames.filter(g => g.folderName !== folderName);
+        onCardDeleted: (gameKey) => {
+            allGames = allGames.filter(g => g.gameKey !== gameKey);
         },
-        onDragStart: (folderName) => {
-            dragDropGridController.startDrag(folderName);
+        onDragStart: (gameKey) => {
+            dragDropGridController.startDrag(gameKey);
         },
         onDragStateReset: () => {
             dragDropGridController.resetDragState();
@@ -227,8 +234,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         refs: {
             welcome
         },
-        setAllGames: (games) => {
-            allGames = games;
+        setAllGames: (games, config) => {
+            allGames = annotateGamesForDisplay(games, config?.libraryPath || '');
         },
         sortGames: (type) => sortGames(type)
     });
@@ -253,6 +260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             uiLangLabel: document.getElementById('ui-lang-label'),
             uiLanguagePackTitle: document.getElementById('ui-language-pack-title'),
             uiLanguagePackUpdatesLabel: document.getElementById('ui-language-pack-updates-label'),
+            uiMaxDepthLabel: document.getElementById('ui-max-depth-label'),
             uiOptChoose: document.getElementById('ui-opt-choose'),
             uiOptChooseDesc: document.getElementById('ui-opt-choose-desc'),
             uiOptLazy: document.getElementById('ui-opt-lazy'),
@@ -397,6 +405,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     languagePackUpdatesSelect.onchange = (event) => {
         settingsController.handleLanguagePackUpdatesChange(event.target.value);
     };
+    maxDepthInput.onchange = async (event) => {
+        const maxDepth = settingsController.handleMaxDepthChange(event.target.value);
+        await startupController.handleLibraryConfigChange({ maxDepth });
+    };
+    maxDepthInput.oninput = (event) => {
+        event.target.value = event.target.value.replace(/[^\d]/g, '').slice(0, 2);
+    };
+    maxDepthIncreaseBtn.onclick = async () => {
+        const maxDepth = settingsController.handleMaxDepthStep(1);
+        await startupController.handleLibraryConfigChange({ maxDepth });
+    };
+    maxDepthDecreaseBtn.onclick = async () => {
+        const maxDepth = settingsController.handleMaxDepthStep(-1);
+        await startupController.handleLibraryConfigChange({ maxDepth });
+    };
+    maxDepthInput.onkeydown = async (event) => {
+        if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) return;
+        event.preventDefault();
+        const maxDepth = event.key === 'ArrowUp'
+            ? settingsController.handleMaxDepthStep(1)
+            : event.key === 'ArrowDown'
+                ? settingsController.handleMaxDepthStep(-1)
+                : settingsController.handleMaxDepthChange(event.target.value);
+        await startupController.handleLibraryConfigChange({ maxDepth });
+    };
     langSelect.onchange = (event) => {
         setCurrentLanguage(event.target.value);
     };
@@ -446,6 +479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadLanguageState(bootstrapData ? bootstrapData.languageState : null);
+    settingsController.applyLibraryConfig(bootstrapData ? bootstrapData.config : null);
     searchPlaceholder.innerText = localeController.getPlaceholders()[localeController.getPlaceholderIndex()];
     setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
     setInterval(rotatePlaceholder, 60000);

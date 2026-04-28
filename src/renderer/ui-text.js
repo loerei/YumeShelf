@@ -47,6 +47,7 @@ export function createUITextController({
         refs.uiLangLabel.innerText = d.lang;
         refs.uiThemeLabel.innerText = d.theme;
         refs.uiPathLabel.innerText = d.path;
+        refs.uiMaxDepthLabel.innerText = d.max_depth_label || getEnglishStrings().max_depth_label;
         refs.uiAppUpdatesLabel.innerText = d.app_updates_label || getEnglishStrings().app_updates_label;
         refs.uiLanguagePackUpdatesLabel.innerText = d.language_pack_updates_label || getEnglishStrings().language_pack_updates_label;
         refs.btnChangePath.innerText = d.change;

@@ -148,6 +148,22 @@ body {
     pointer-events: none;
 }
 
+.game-duplicate-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    padding: 3px 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-sub);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
 .game-title {
     font-size: 14px;
     font-weight: 600;
@@ -237,6 +253,37 @@ body {
     margin-top: 5px;
     opacity: 0.8;
     font-weight: normal;
+    transition: opacity 0.2s ease;
+}
+
+.game-path {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--text-sub);
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    pointer-events: none;
+}
+
+.game-card:hover .game-path {
+    opacity: 1;
+    transform: translateY(0);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.game-card:hover .game-status {
+    opacity: 0.15;
 }
 
 /* INLINE RENAME INPUT */
@@ -616,6 +663,7 @@ body {
 .setting-control-zone #theme-select,
 .setting-control-zone #app-updates-select,
 .setting-control-zone #language-pack-updates-select,
+.setting-control-zone .max-depth-stepper,
 .wide-setting-btn {
     width: 196px;
     min-width: 196px;
@@ -738,6 +786,63 @@ body.light-theme {
     border-color: var(--text-sub);
 }
 
+.max-depth-stepper {
+    display: flex;
+    align-items: stretch;
+    height: 42px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+}
+
+.max-depth-stepper:hover,
+.max-depth-stepper:focus-within {
+    border-color: var(--text-sub);
+}
+
+.max-depth-stepper-btn {
+    width: 44px;
+    border: 0;
+    border-right: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.max-depth-stepper-btn:last-child {
+    border-right: 0;
+    border-left: 1px solid var(--border-color);
+}
+
+.max-depth-stepper-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+}
+
+.max-depth-stepper-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+#max-depth-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-main);
+    text-align: center;
+    font-family: inherit;
+    font-size: 15px;
+    padding: 0 10px;
+}
+
 .wide-setting-btn {
     text-align: center;
 }
@@ -806,6 +911,7 @@ body.light-theme {
     .setting-control-zone #theme-select,
     .setting-control-zone #app-updates-select,
     .setting-control-zone #language-pack-updates-select,
+    .setting-control-zone .max-depth-stepper,
     .wide-setting-btn {
         width: 100%;
         min-width: 0;

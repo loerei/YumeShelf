@@ -7,6 +7,7 @@ const http = require('http');
 const https = require('https');
 const { execFile } = require('child_process');
 const { createAppUpdateServices } = require('./main/app-updates');
+const { createLibraryState } = require('./main/library-state');
 const { createStartupServices } = require('./main/startup');
 
 const isDev = !app.isPackaged;
@@ -517,6 +518,15 @@ const appUpdateServices = createAppUpdateServices({
     startupNetworkTimeoutMs: STARTUP_NETWORK_TIMEOUT_MS
 });
 
+const libraryState = createLibraryState({
+    defaultGamesDir: DEFAULT_GAMES_DIR,
+    dialog,
+    fs,
+    fsSync,
+    loadDB,
+    saveDB
+});
+
 const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createStartupServices({
     app,
     checkForAppUpdate: () => appUpdateServices.checkForAppUpdate(),
@@ -524,14 +534,11 @@ const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createSt
     logAppUpdateDebug: (message) => appUpdateServices.logDebug(message),
     applyLanguagePackUpdates,
     buildLanguageState,
-    defaultGamesDir: DEFAULT_GAMES_DIR,
     fetchLanguageManifest,
-    fsSync,
     getLanguagePackUpdateCandidates,
     isNetworkLikeError,
-    loadDB,
-    saveDB,
-    scan,
+    loadGamesForConfig: (config) => libraryState.loadGamesForConfig(config),
+    resolveLibraryConfig: () => libraryState.resolveLibraryConfig(),
     startupNetworkTimeoutMs: STARTUP_NETWORK_TIMEOUT_MS
 });
 
@@ -602,52 +609,6 @@ app.on('render-process-gone', (event, webContents, details) => {
     console.error(`[MAIN][PROCESS] render-process-gone ${JSON.stringify(details)}`);
 });
 
-async function findExeRecursive(currentPath, depth = 0) {
-    if (depth > 5) return null;
-    try {
-        const items = await fs.readdir(currentPath, { withFileTypes: true });
-        let exes = items.filter(i => i.isFile() && i.name.toLowerCase().endsWith('.exe'));
-        const blacklist = ['crashhandler', 'notification', 'unins', 'updater', 'ffmpeg', 'dnspy', 'gifski', 'nircmd', 'unitycrash'];
-        exes = exes.filter(exe => !blacklist.some(b => exe.name.toLowerCase().includes(b)));
-        if (exes.length > 0) {
-            const folderName = path.basename(currentPath).toLowerCase();
-            return path.join(currentPath, exes.find(e => e.name.toLowerCase().includes(folderName))?.name || exes.find(e => e.name.toLowerCase() === 'game.exe')?.name || exes[0].name);
-        }
-        for (const item of items) { if (item.isDirectory()) { const found = await findExeRecursive(path.join(currentPath, item.name), depth + 1); if (found) return found; } }
-    } catch {}
-    return null;
-}
-
-function getSmartName(exePath, topName) {
-    const id = exePath.match(/(RJ\d{6,8}|\b\d{6,8}\b)/i);
-    const clean = (s) => s.replace(/\[.*?\]|RY-|(RJ\d+|\b\d{6,8}\b)|(_pc|_win|_dlsite|_eng|subscriber|v\d+\.\d+.*)|[_-]/gi, ' ').trim().replace(/\s+/g, ' ');
-    return (id ? `[${id[0].toUpperCase()}] ` : '') + (clean(path.basename(path.dirname(exePath))) || clean(topName));
-}
-
-async function scan(targetDir) {
-    let db = await loadDB();
-    if (!require('fs').existsSync(targetDir)) return [];
-    try {
-        const folders = await fs.readdir(targetDir, { withFileTypes: true });
-        const results = await Promise.all(folders.map(async (f) => {
-            if (!f.isDirectory()) return null;
-            const folderPath = path.join(targetDir, f.name);
-            if (db[f.name] && db[f.name].folderPath === folderPath) {
-                try { await fs.access(db[f.name].exePath); return { folderName: f.name, ...db[f.name] }; } catch { delete db[f.name]; }
-            }
-            const exePath = await findExeRecursive(folderPath, 0);
-            if (exePath) {
-                const stats = await fs.stat(folderPath);
-                db[f.name] = { name: getSmartName(exePath, f.name), exePath, folderPath, dateAdded: stats.birthtimeMs, lastPlayed: db[f.name]?.lastPlayed || 0, favorite: db[f.name]?.favorite || false };
-                return { folderName: f.name, ...db[f.name] };
-            }
-            return null;
-        }));
-        await saveDB(db);
-        return results.filter(r => r !== null);
-    } catch { return []; }
-}
-
 app.whenReady().then(() => {
     logStartupDiagnostics();
     const launchedAfterUpdate = process.argv.includes('--after-update');
@@ -709,60 +670,25 @@ app.whenReady().then(() => {
 
     ipcMain.handle('get-default-path', () => DEFAULT_GAMES_DIR);
 
-    ipcMain.handle('setup-library', async (e, type) => {
-        try {
-            let db = await loadDB();
-            let finalPath = '';
-            if (type === 'default') {
-                finalPath = DEFAULT_GAMES_DIR;
-                if (!require('fs').existsSync(finalPath)) {
-                    require('fs').mkdirSync(finalPath, { recursive: true });
-                }
-            } else {
-                const res = await dialog.showOpenDialog({ properties: ['openDirectory'] });
-                if (res.canceled) return null;
-                finalPath = res.filePaths[0];
-            }
-            db.config = { libraryPath: finalPath };
-            await saveDB(db);
-            return finalPath;
-        } catch (err) {
-            console.error('Setup library failed:', err);
-            return null;
-        }
-    });
+    ipcMain.handle('setup-library', async (_event, type) => libraryState.setupLibrary(type));
+    ipcMain.handle('update-library-config', async (_event, updates = {}) => libraryState.updateLibraryConfig(updates));
 
     ipcMain.handle('get-games', async () => loadGamesForConfig(await resolveLibraryConfig()));
 
-    ipcMain.on('launch-yume', async (e, {folderName, exePath}) => {
-        let db = await loadDB();
-        if(db[folderName]) { db[folderName].lastPlayed = Date.now(); await saveDB(db); }
+    ipcMain.on('launch-yume', async (_event, { gameKey, exePath }) => {
+        await libraryState.markGameLaunched(gameKey);
         execFile(exePath, { cwd: path.dirname(exePath) });
     });
 
     ipcMain.on('open-folder', async () => {
-        let db = await loadDB();
-        if (db.config) {
-            let p = db.config.libraryPath;
-            if (!require('fs').existsSync(p) && require('fs').existsSync(DEFAULT_GAMES_DIR)) {
-                p = DEFAULT_GAMES_DIR;
-                db.config.libraryPath = p;
-                await saveDB(db);
-            }
-            shell.openPath(p);
+        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
+        if (libraryPath) {
+            shell.openPath(libraryPath);
         }
     });
 
-    ipcMain.handle('rename-game', async (e, { folderName, newName }) => {
-        let db = await loadDB();
-        if(db[folderName]) { db[folderName].name = newName; await saveDB(db); return true; }
-        return false;
-    });
-    ipcMain.handle('toggle-favorite', async (e, folderName) => {
-        let db = await loadDB();
-        if(db[folderName]) { db[folderName].favorite = !db[folderName].favorite; await saveDB(db); return db[folderName].favorite; }
-        return false;
-    });
+    ipcMain.handle('rename-game', async (_event, { gameKey, newName }) => libraryState.renameGame(gameKey, newName));
+    ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
     ipcMain.on('reveal-game', (e, p) => shell.showItemInFolder(p));
     ipcMain.handle('delete-game', async (e, p) => await shell.trashItem(p));
     // --- ICON EXTRACTION NODE WORKER QUEUE ---

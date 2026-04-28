@@ -1,3 +1,5 @@
+import { getGameKey } from './library-order.js';
+
 export function createSearchController({
     advancePlaceholderIndex,
     electronAPI,
@@ -33,7 +35,8 @@ export function createSearchController({
         refs.searchPlaceholder.style.display = 'none';
         const filtered = getAllGames().filter(game =>
             game.name.toLowerCase().includes(query.toLowerCase()) ||
-            game.folderName.toLowerCase().includes(query.toLowerCase())
+            game.folderName.toLowerCase().includes(query.toLowerCase()) ||
+            String(game.relativePath || '').toLowerCase().includes(query.toLowerCase())
         );
 
         refs.searchDropdown.innerHTML = '';
@@ -76,11 +79,12 @@ export function createSearchController({
             }
 
             item.ondragstart = (event) => {
-                setDraggedGameFolder(game.folderName);
-                event.dataTransfer.setData('folderName', game.folderName);
+                const gameKey = getGameKey(game);
+                setDraggedGameFolder(gameKey);
+                event.dataTransfer.setData('gameKey', gameKey);
             };
             item.ondragend = () => {
-                if (getDraggedGameFolder() === game.folderName) {
+                if (getDraggedGameFolder() === getGameKey(game)) {
                     setDraggedGameFolder(null);
                 }
             };
@@ -88,7 +92,7 @@ export function createSearchController({
             const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
             launchIconWrapper.onclick = (event) => {
                 event.stopPropagation();
-                const card = document.querySelector(`.game-card[data-folder="${game.folderName}"]`);
+                const card = document.querySelector(`.game-card[data-game-key="${getGameKey(game)}"]`);
                 if (card) {
                     hideSearchDropdown();
                     refs.searchInput.value = '';
@@ -110,7 +114,7 @@ export function createSearchController({
             };
             item.ondblclick = (event) => {
                 event.stopPropagation();
-                electronAPI.launchYume({ folderName: game.folderName, exePath: game.exePath });
+                electronAPI.launchYume({ gameKey: getGameKey(game), exePath: game.exePath });
                 hideSearchDropdown();
                 refs.searchInput.value = '';
             };

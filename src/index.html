@@ -132,6 +132,25 @@
                     </div>
                 </div>
                 <div class="setting-item">
+                    <label id="ui-max-depth-label">Max Depth</label>
+                    <div class="setting-control-zone">
+                        <div class="max-depth-stepper">
+                            <button class="max-depth-stepper-btn" id="max-depth-decrease-btn" type="button" aria-label="Decrease max depth">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                    <path d="M6 12h12"></path>
+                                </svg>
+                            </button>
+                            <input id="max-depth-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2">
+                            <button class="max-depth-stepper-btn" id="max-depth-increase-btn" type="button" aria-label="Increase max depth">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                    <path d="M12 6v12"></path>
+                                    <path d="M6 12h12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-item">
                     <label id="ui-app-updates-label">App Updates</label>
                     <div class="setting-control-zone">
                         <select id="app-updates-select">

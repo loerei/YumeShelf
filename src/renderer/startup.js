@@ -9,7 +9,7 @@ export function createStartupController({
 }) {
     async function initApp(bootstrapData = null) {
         const config = bootstrapData ? bootstrapData.config : await electronAPI.checkConfig();
-        if (!config) {
+        if (!config || !config.libraryPath) {
             bootController.hide();
             refs.welcome.style.display = 'flex';
             applyUIStrings();
@@ -25,9 +25,14 @@ export function createStartupController({
         }
 
         const nextGames = bootstrapData ? (bootstrapData.games || []) : await electronAPI.getGames();
-        setAllGames(nextGames);
+        setAllGames(nextGames, config);
         sortGames(getCurrentSort());
         bootController.hide();
+    }
+
+    async function handleLibraryConfigChange(updates) {
+        await electronAPI.updateLibraryConfig(updates);
+        await initApp();
     }
 
     async function handleSetupDefault() {
@@ -54,6 +59,7 @@ export function createStartupController({
 
     return {
         handleChangePath,
+        handleLibraryConfigChange,
         handleQuickFolderOpen,
         handleSetupCustom,
         handleSetupDefault,

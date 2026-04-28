@@ -1,3 +1,5 @@
+import { getGameKey, normalizeCustomOrder, writeCustomOrder } from './library-order.js';
+
 export function createDragDropGridController({
     dragPointerSlop,
     dragRowTolerance,
@@ -30,13 +32,13 @@ export function createDragDropGridController({
         const cards = [...document.querySelectorAll('.game-card')];
         const firstRects = new Map();
         cards.forEach((card) => {
-            firstRects.set(card.dataset.folder, card.getBoundingClientRect());
+            firstRects.set(card.dataset.gameKey, card.getBoundingClientRect());
         });
 
         mutator();
 
         [...document.querySelectorAll('.game-card')].forEach((card) => {
-            const first = firstRects.get(card.dataset.folder);
+            const first = firstRects.get(card.dataset.gameKey);
             const last = card.getBoundingClientRect();
             if (!first) return;
 
@@ -66,8 +68,8 @@ export function createDragDropGridController({
         });
     }
 
-    function startDrag(folderName) {
-        setDraggedGameFolder(folderName);
+    function startDrag(gameKey) {
+        setDraggedGameFolder(gameKey);
         setDragTargetInfo(null);
     }
 
@@ -85,23 +87,26 @@ export function createDragDropGridController({
             zone.ondragover = (event) => {
                 event.preventDefault();
                 zone.classList.add('drag-over');
-                if (zone === refs.separator) return;
+                if (zone === refs.separator) {
+                    setDragTargetInfo({ gameKey: null, insertAfter: true });
+                    return;
+                }
 
                 const cards = [...zone.querySelectorAll('.game-card')];
                 const cardsWithRects = cards
-                    .filter(card => card.dataset.folder !== getDraggedGameFolder())
+                    .filter(card => card.dataset.gameKey !== getDraggedGameFolder())
                     .map(card => ({ card, rect: card.getBoundingClientRect() }));
 
                 cards.forEach(card => { card.style.transform = 'none'; });
 
                 if (cardsWithRects.length === 0) {
-                    setDragTargetInfo({ folder: null, insertAfter: true });
+                    setDragTargetInfo({ gameKey: null, insertAfter: true });
                     return;
                 }
 
                 const maxBottom = Math.max(...cardsWithRects.map(({ rect }) => rect.bottom));
                 if (event.clientY > maxBottom + dragPointerSlop) {
-                    setDragTargetInfo({ folder: null, insertAfter: true });
+                    setDragTargetInfo({ gameKey: null, insertAfter: true });
                     return;
                 }
 
@@ -116,7 +121,7 @@ export function createDragDropGridController({
                 });
 
                 if (!closest) {
-                    setDragTargetInfo({ folder: null, insertAfter: true });
+                    setDragTargetInfo({ gameKey: null, insertAfter: true });
                     return;
                 }
 
@@ -130,13 +135,13 @@ export function createDragDropGridController({
                     event.clientY <= rect.bottom + rect.height * 0.6;
 
                 if (isAppendAfterLastCard) {
-                    setDragTargetInfo({ folder: null, insertAfter: true });
+                    setDragTargetInfo({ gameKey: null, insertAfter: true });
                     return;
                 }
 
                 const isLeft = event.clientX < rect.left + rect.width / 2;
                 setDragTargetInfo({
-                    folder: closestCard.dataset.folder,
+                    gameKey: closestCard.dataset.gameKey,
                     insertAfter: !isLeft
                 });
 
@@ -158,15 +163,16 @@ export function createDragDropGridController({
             zone.ondrop = (event) => {
                 event.preventDefault();
                 zone.classList.remove('drag-over');
-                const draggedFolder = event.dataTransfer.getData('folderName');
-                if (!draggedFolder) return;
+                const draggedGameKey = event.dataTransfer.getData('gameKey');
+                if (!draggedGameKey) return;
                 const allGames = getAllGames();
-                const draggedGame = allGames.find(game => game.folderName === draggedFolder);
+                const draggedGame = allGames.find(game => getGameKey(game) === draggedGameKey);
                 if (!draggedGame) return;
 
                 const isFavZone = zone === refs.favGrid || zone === refs.separator;
                 let needsSave = false;
                 let doToggle = false;
+                const dragTargetInfo = getDragTargetInfo();
 
                 if (draggedGame.favorite !== isFavZone) {
                     draggedGame.favorite = isFavZone;
@@ -179,23 +185,21 @@ export function createDragDropGridController({
                         setCurrentSort('custom');
                     }
 
-                    let customOrder = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
-                    if (customOrder.length === 0) customOrder = allGames.map(game => game.folderName);
-                    allGames.forEach((game) => { if (!customOrder.includes(game.folderName)) customOrder.push(game.folderName); });
+                    const customOrder = normalizeCustomOrder(allGames);
 
-                    const draggedIdx = customOrder.indexOf(draggedFolder);
+                    const draggedIdx = customOrder.indexOf(draggedGameKey);
                     if (draggedIdx > -1) {
                         customOrder.splice(draggedIdx, 1);
                         let insertIdx = customOrder.length;
-                        if (getDragTargetInfo() && getDragTargetInfo().folder) {
-                            const targetIdx = customOrder.indexOf(getDragTargetInfo().folder);
+                        if (dragTargetInfo && dragTargetInfo.gameKey) {
+                            const targetIdx = customOrder.indexOf(dragTargetInfo.gameKey);
                             if (targetIdx > -1) {
-                                insertIdx = getDragTargetInfo().insertAfter ? targetIdx + 1 : targetIdx;
+                                insertIdx = dragTargetInfo.insertAfter ? targetIdx + 1 : targetIdx;
                             }
                         }
 
-                        customOrder.splice(insertIdx, 0, draggedFolder);
-                        localStorage.setItem('yumeshelf_custom_order', JSON.stringify(customOrder));
+                        customOrder.splice(insertIdx, 0, draggedGameKey);
+                        writeCustomOrder(customOrder);
                         needsSave = true;
                     }
                 }
@@ -206,7 +210,7 @@ export function createDragDropGridController({
                 }, true);
 
                 if (doToggle) {
-                    electronAPI.toggleFavorite(draggedFolder);
+                    electronAPI.toggleFavorite(draggedGameKey);
                 }
                 if (!needsSave) {
                     sortGames(getCurrentSort());

@@ -72,6 +72,10 @@ export function createGameCardFactory({
         const showDuplicateChip = options.showDuplicateChip !== false;
         const showPath = options.showPath !== false;
         const contextLabel = options.contextLabel || '';
+        if (!window.iconCache) window.iconCache = new Map();
+        if (!game.iconData && window.iconCache.has(game.exePath)) {
+            game.iconData = window.iconCache.get(game.exePath);
+        }
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = gameKey;
@@ -101,8 +105,11 @@ export function createGameCardFactory({
             electronAPI.getIcon(game.exePath).then((iconData) => {
                 if (iconData) {
                     game.iconData = iconData;
+                    if (window.iconCache) window.iconCache.set(game.exePath, iconData);
                     const iconDiv = card.querySelector('.game-icon');
-                    iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+                    if (iconDiv) {
+                        iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+                    }
                 }
             });
         }

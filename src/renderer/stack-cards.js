@@ -34,6 +34,10 @@ export function createStackCardFactory({
         const locationSummary = uniqueLocations.length > 1
             ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
             : (uniqueLocations[0] || primaryGame.locationLabel || '');
+        if (!window.iconCache) window.iconCache = new Map();
+        if (!primaryGame.iconData && window.iconCache.has(primaryGame.exePath)) {
+            primaryGame.iconData = window.iconCache.get(primaryGame.exePath);
+        }
         const card = document.createElement('div');
         card.className = `game-card stack-card ${stack.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = representativeKey;
@@ -55,8 +59,11 @@ export function createStackCardFactory({
             window.electronAPI.getIcon(primaryGame.exePath).then((iconData) => {
                 if (!iconData) return;
                 primaryGame.iconData = iconData;
+                if (window.iconCache) window.iconCache.set(primaryGame.exePath, iconData);
                 const iconDiv = card.querySelector('.game-icon');
-                iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+                if (iconDiv) {
+                    iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+                }
             });
         }
 

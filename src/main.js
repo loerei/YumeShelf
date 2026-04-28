@@ -1,4 +1,16 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, protocol } = require('electron');
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'game-icon',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true
+    }
+  }
+]);
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -613,6 +625,70 @@ app.on('render-process-gone', (event, webContents, details) => {
 });
 
 app.whenReady().then(() => {
+    require('electron').protocol.handle('game-icon', async (request) => {
+        try {
+            const urlObj = new URL(request.url);
+            const p = urlObj.searchParams.get('path');
+            if (!p) return new Response('Missing path', { status: 400 });
+
+            // 1. Check local image
+            const dir = path.dirname(p);
+            const exts = ['png', 'jpg', 'jpeg', 'webp'];
+            const names = ['icon', 'cover', 'folder'];
+            for (const name of names) {
+                for (const ext of exts) {
+                    const imgPath = path.join(dir, `${name}.${ext}`);
+                    if (fsSync.existsSync(imgPath)) {
+                        const buffer = await fs.readFile(imgPath);
+                        const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+                        return new Response(buffer, { headers: { 'Content-Type': contentType } });
+                    }
+                }
+            }
+
+            // 2. Check cache
+            const normalizedPath = path.win32.normalize(p);
+            let stats = null;
+            try { stats = await fs.stat(normalizedPath); } catch (_) {}
+            if (stats) {
+                const state = await loadIconCacheState();
+                const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
+                const entry = state.entriesByPath[normalizedPath];
+                if (entry && entry.fingerprint === fingerprint) {
+                    const cacheFilePath = path.join(ICON_CACHE_DIR, entry.fileName);
+                    try {
+                        const buffer = await fs.readFile(cacheFilePath);
+                        return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });
+                    } catch (_) {}
+                }
+            }
+
+            // 3. Extract via Node Worker
+            try {
+                const result = await new Promise((resolve) => {
+                    const id = ++iconReqIdCounter;
+                    const extPath = buildExtractFileIconPath();
+                    extractionQueue.push({ id, path: p, extPath, resolve, enqueuedAt: Date.now() });
+                    processExtractionQueue();
+                });
+                if (result && result.base64) {
+                    const buffer = Buffer.from(result.base64, 'base64');
+                    storeHighResIconInCache(p, result.base64, result.meta || null).catch(() => {});
+                    return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });
+                }
+            } catch (e) {
+                console.error('[MAIN][PROTOCOL] extract-file-icon node-worker error:', e);
+            }
+
+            // 4. Fallback
+            const icon = await app.getFileIcon(p, { size: 'large' });
+            return new Response(icon.toPNG(), { headers: { 'Content-Type': 'image/png' } });
+        } catch (e) {
+            console.error(`[MAIN][PROTOCOL] game-icon error:`, e);
+            return new Response('Internal error', { status: 500 });
+        }
+    });
+
     logStartupDiagnostics();
     const launchedAfterUpdate = process.argv.includes('--after-update');
 
@@ -685,10 +761,13 @@ app.whenReady().then(() => {
 
     ipcMain.handle('get-games', async () => {
         const games = await loadGamesForConfig(await resolveLibraryConfig());
-        return games.map(game => ({
-            ...game,
-            isRunning: playtimeTracker.isGameRunning(game.gameKey)
-        }));
+        return games.map(game => {
+            const { iconData, ...rest } = game;
+            return {
+                ...rest,
+                isRunning: playtimeTracker.isGameRunning(game.gameKey)
+            };
+        });
     });
 
     ipcMain.on('launch-yume', async (_event, { gameKey, exePath }) => {

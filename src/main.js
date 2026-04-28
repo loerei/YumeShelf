@@ -618,6 +618,7 @@ app.whenReady().then(() => {
 
     const win = new BrowserWindow({
         width: 1200, height: 800, backgroundColor: '#121212', autoHideMenuBar: true,
+        icon: path.join(__dirname, '..', 'assets', 'yumeshelf_icon_highres_4096.png'),
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
     });
     win.removeMenu();

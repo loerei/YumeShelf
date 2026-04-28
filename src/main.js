@@ -1,5 +1,28 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, protocol } = require('electron');
 
+const originalGetVersion = app.getVersion.bind(app);
+try {
+    Object.defineProperty(app, 'getVersion', {
+        value: function() {
+            const overrideArg = process.argv.find(arg => /^-\d+\.\d+\.\d+/.test(arg));
+            if (overrideArg) {
+                return overrideArg.slice(1);
+            }
+            return originalGetVersion();
+        },
+        configurable: true,
+        writable: true
+    });
+} catch (e) {
+    app.getVersion = function() {
+        const overrideArg = process.argv.find(arg => /^-\d+\.\d+\.\d+/.test(arg));
+        if (overrideArg) {
+            return overrideArg.slice(1);
+        }
+        return originalGetVersion();
+    };
+}
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'game-icon',

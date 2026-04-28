@@ -93,6 +93,30 @@ export function createLocaleController({
             langSelect.appendChild(option);
         });
         langSelect.value = isLanguageAvailable(currentLang) ? currentLang : 'en';
+
+        const welcomePicker = document.getElementById('welcome-lang-picker');
+        if (welcomePicker) {
+            welcomePicker.innerHTML = '';
+            languages.forEach((language, index) => {
+                const link = document.createElement('span');
+                link.className = 'welcome-lang-link';
+                if (language.code === currentLang) {
+                    link.classList.add('active');
+                }
+                link.textContent = language.nativeName || language.englishName || language.code;
+                link.onclick = () => {
+                    setCurrentLanguage(language.code);
+                };
+                welcomePicker.appendChild(link);
+
+                if (index < languages.length - 1) {
+                    const divider = document.createElement('span');
+                    divider.className = 'welcome-lang-divider';
+                    divider.textContent = ' | ';
+                    welcomePicker.appendChild(divider);
+                }
+            });
+        }
     }
 
     async function loadLanguageState(nextState = null) {
@@ -115,15 +139,42 @@ export function createLocaleController({
 
     function setCurrentLanguage(nextCode, options = {}) {
         const { persist = true } = options;
-        currentLang = isLanguageAvailable(nextCode) ? String(nextCode).toLowerCase() : 'en';
-        if (persist) {
-            localStorage.setItem('yumeshelf_lang', currentLang);
-        }
-        refreshLanguageDropdown();
-        if (getAllGames().length > 0) {
-            sortGames();
+        const nextLang = isLanguageAvailable(nextCode) ? String(nextCode).toLowerCase() : 'en';
+
+        const welcomeBox = document.querySelector('.welcome-box');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const isWelcomeVisible = welcomeScreen && welcomeScreen.style.display === 'flex';
+
+        if (welcomeBox && isWelcomeVisible && currentLang !== nextLang) {
+            welcomeBox.classList.remove('reassemble');
+            welcomeBox.classList.add('dissolve');
+
+            setTimeout(() => {
+                currentLang = nextLang;
+                if (persist) {
+                    localStorage.setItem('yumeshelf_lang', currentLang);
+                }
+                refreshLanguageDropdown();
+                if (getAllGames().length > 0) {
+                    sortGames();
+                } else {
+                    applyUIStrings();
+                }
+
+                welcomeBox.classList.remove('dissolve');
+                welcomeBox.classList.add('reassemble');
+            }, 400);
         } else {
-            applyUIStrings();
+            currentLang = nextLang;
+            if (persist) {
+                localStorage.setItem('yumeshelf_lang', currentLang);
+            }
+            refreshLanguageDropdown();
+            if (getAllGames().length > 0) {
+                sortGames();
+            } else {
+                applyUIStrings();
+            }
         }
     }
 

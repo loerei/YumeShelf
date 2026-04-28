@@ -63,6 +63,7 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 20px;
+    min-height: 252px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -71,6 +72,14 @@ body {
     transition: transform 0.2s, border-color 0.2s, box-shadow 0.3s ease;
     cursor: pointer;
     overflow: hidden;
+}
+
+.stack-card .menu-btn {
+    display: none;
+}
+
+.stack-card .fav-btn {
+    pointer-events: none;
 }
 
 .game-card.drag-over {
@@ -157,7 +166,7 @@ body {
     margin-bottom: 10px;
     border: 1px solid var(--border-color);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--chip-bg);
     color: var(--text-sub);
     font-size: 10px;
     font-weight: 700;
@@ -167,8 +176,14 @@ body {
 .game-title {
     font-size: 14px;
     font-weight: 600;
-    word-wrap: break-word;
     line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    min-height: calc(1.4em * 3);
+    max-height: calc(1.4em * 3);
 }
 
 /* DROPDOWN MENU */
@@ -176,11 +191,11 @@ body {
     position: absolute;
     top: 35px;
     right: 10px;
-    background-color: #2b2b2b;
-    border: 1px solid #444;
+    background-color: var(--menu-bg);
+    border: 1px solid var(--menu-border);
     border-radius: 6px;
     padding: 5px 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    box-shadow: var(--menu-shadow);
     display: none;
     z-index: 100;
     min-width: 170px;
@@ -210,11 +225,11 @@ body {
     display: inline-block;
 }
 
-.dropdown-item:hover { background-color: #3a3a3a; }
+.dropdown-item:hover { background-color: var(--menu-hover-bg); }
 
 .dropdown-item.danger {
     color: #ff4a4a;
-    border-top: 1px solid #444;
+    border-top: 1px solid var(--menu-border);
 }
 
 .dropdown-item.danger:hover { background-color: rgba(255, 74, 74, 0.15); }
@@ -241,12 +256,12 @@ body {
 
 .sort-menu {
     position: absolute; top: 45px; right: 0;
-    background: #2b2b2b; border: 1px solid #444; border-radius: 6px;
-    display: none; z-index: 1000; min-width: 150px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    background: var(--menu-bg); border: 1px solid var(--menu-border); border-radius: 6px;
+    display: none; z-index: 1000; min-width: 150px; box-shadow: var(--menu-shadow);
 }
 .sort-menu.show { display: block; }
-.sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: #ccc; }
-.sort-item:hover { background: #3a3a3a; color: white; }
+.sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); }
+.sort-item:hover { background: var(--menu-hover-bg); color: var(--text-main); }
 .game-status {
     font-size: 11px;
     color: var(--text-sub);
@@ -262,9 +277,9 @@ body {
     right: 16px;
     bottom: 12px;
     padding: 6px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--path-chip-border);
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.28);
+    background: var(--path-chip-bg);
     color: var(--text-sub);
     font-size: 10px;
     white-space: nowrap;
@@ -279,17 +294,24 @@ body {
 .game-card:hover .game-path {
     opacity: 1;
     transform: translateY(0);
-    border-color: rgba(255, 255, 255, 0.16);
+    border-color: var(--path-chip-border-hover);
 }
 
 .game-card:hover .game-status {
     opacity: 0.15;
 }
 
+.game-context-label {
+    margin-top: 10px;
+    color: var(--text-sub);
+    font-size: 11px;
+    opacity: 0.9;
+}
+
 /* INLINE RENAME INPUT */
 .rename-input {
     width: 90%;
-    background: #121212;
+    background: var(--field-bg);
     color: var(--text-main);
     border: 1px solid var(--accent);
     border-radius: 4px;
@@ -366,8 +388,8 @@ body {
     position: relative; /* Cần thiết để neo vạch trắng */
 }
 .sort-item.active {
-    background-color: rgba(255, 255, 255, 0.08); /* Highlight nền nhẹ */
-    color: #ffffff;
+    background-color: var(--menu-active-bg); /* Highlight nền nhẹ */
+    color: var(--text-main);
 }
 .sort-item.active::after {
     content: '';
@@ -377,9 +399,69 @@ body {
     transform: translateY(-50%);
     width: 3px;
     height: 16px;
-    background-color: #ffffff; /* Vạch trắng */
+    background-color: var(--text-main); /* Vạch trắng */
     border-radius: 2px;
     box-shadow: 0 0 5px rgba(255,255,255,0.5); /* Tỏa sáng nhẹ cho đẹp */
+}
+
+.stack-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: var(--overlay-bg);
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.stack-overlay.show {
+    opacity: 1;
+}
+
+.stack-overlay-panel {
+    width: min(1080px, 100%);
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.stack-overlay-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+}
+
+.stack-overlay-item {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    opacity: 0;
+    transform: translateY(22px) scale(0.96);
+    animation: stackOverlayEnter 0.28s ease forwards;
+    animation-delay: var(--stack-delay, 0ms);
+}
+
+.stack-overlay-card {
+    min-height: 290px;
+}
+
+.stack-overlay-location {
+    margin-top: 10px;
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
+@keyframes stackOverlayEnter {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* --- CẤP NHẬT 1.0: STYLE CHO SCROLLBAR (CHỐNG LỆCH TÔNG) --- */
@@ -446,7 +528,7 @@ body {
 
 .search-input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--field-bg);
     border: 1px solid var(--border-color);
     border-radius: 20px;
     padding: 8px 15px;
@@ -458,7 +540,7 @@ body {
 }
 
 .search-input:focus {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--field-hover-bg);
     border-color: var(--accent);
     box-shadow: 0 0 15px rgba(0, 120, 212, 0.2);
 }
@@ -468,7 +550,7 @@ body {
     top: 45px;
     left: 0;
     width: 100%;
-    background: #1e1e1e;
+    background: var(--menu-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     max-height: 400px;
@@ -569,19 +651,47 @@ body {
     opacity: 0.8;
 }
 
-/* POP-OUT TOOLTIP */
-.search-tooltip {
+/* APP TOOLTIP */
+.app-tooltip {
     position: fixed;
-    background: #2d2d2d;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
+    max-width: min(420px, calc(100vw - 24px));
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--tooltip-bg);
+    color: var(--text-main);
+    border: 1px solid var(--tooltip-border);
     font-size: 12px;
     z-index: 10000;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    box-shadow: var(--tooltip-shadow);
+    backdrop-filter: blur(14px);
     pointer-events: none;
-    display: none;
-    border: 1px solid #444;
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.app-tooltip.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.app-tooltip-title,
+.app-tooltip-subtitle {
+    white-space: normal;
+    word-break: break-word;
+}
+
+.app-tooltip-title {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.app-tooltip-subtitle {
+    margin-top: 4px;
+    color: var(--text-sub);
+    font-size: 11px;
+    line-height: 1.45;
 }
 
 .settings-icon-btn:hover {
@@ -592,7 +702,7 @@ body {
 .settings-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--overlay-bg);
     backdrop-filter: blur(8px);
     z-index: 2000;
     display: none; /* Ẩn mặc định */
@@ -661,6 +771,7 @@ body {
 }
 
 .setting-control-zone #theme-select,
+.setting-control-zone #location-display-select,
 .setting-control-zone #app-updates-select,
 .setting-control-zone #language-pack-updates-select,
 .setting-control-zone .max-depth-stepper,
@@ -718,6 +829,20 @@ body {
     --accent: #0078d4;
     --border-color: #333;
     --overlay-bg: rgba(0, 0, 0, 0.7);
+    --field-bg: #121212;
+    --field-hover-bg: rgba(255, 255, 255, 0.04);
+    --menu-bg: #202020;
+    --menu-border: #3d3d3d;
+    --menu-hover-bg: rgba(255, 255, 255, 0.06);
+    --menu-active-bg: rgba(255, 255, 255, 0.08);
+    --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+    --chip-bg: rgba(255, 255, 255, 0.03);
+    --path-chip-bg: rgba(0, 0, 0, 0.28);
+    --path-chip-border: rgba(255, 255, 255, 0.08);
+    --path-chip-border-hover: rgba(255, 255, 255, 0.16);
+    --tooltip-bg: rgba(22, 22, 22, 0.96);
+    --tooltip-border: rgba(255, 255, 255, 0.1);
+    --tooltip-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 body.light-theme {
@@ -729,6 +854,20 @@ body.light-theme {
     --accent: #006abc;
     --border-color: #dddddd;
     --overlay-bg: rgba(255, 255, 255, 0.7);
+    --field-bg: #ffffff;
+    --field-hover-bg: rgba(18, 18, 18, 0.04);
+    --menu-bg: #ffffff;
+    --menu-border: rgba(18, 18, 18, 0.12);
+    --menu-hover-bg: rgba(18, 18, 18, 0.05);
+    --menu-active-bg: rgba(18, 18, 18, 0.08);
+    --menu-shadow: 0 14px 36px rgba(18, 18, 18, 0.12);
+    --chip-bg: rgba(18, 18, 18, 0.04);
+    --path-chip-bg: rgba(255, 255, 255, 0.92);
+    --path-chip-border: rgba(18, 18, 18, 0.12);
+    --path-chip-border-hover: rgba(18, 18, 18, 0.2);
+    --tooltip-bg: rgba(255, 255, 255, 0.96);
+    --tooltip-border: rgba(18, 18, 18, 0.12);
+    --tooltip-shadow: 0 14px 36px rgba(18, 18, 18, 0.14);
 }
 
 @media (prefers-color-scheme: light) {
@@ -741,6 +880,20 @@ body.light-theme {
         --accent: #006abc;
         --border-color: #dddddd;
         --overlay-bg: rgba(255, 255, 255, 0.7);
+        --field-bg: #ffffff;
+        --field-hover-bg: rgba(18, 18, 18, 0.04);
+        --menu-bg: #ffffff;
+        --menu-border: rgba(18, 18, 18, 0.12);
+        --menu-hover-bg: rgba(18, 18, 18, 0.05);
+        --menu-active-bg: rgba(18, 18, 18, 0.08);
+        --menu-shadow: 0 14px 36px rgba(18, 18, 18, 0.12);
+        --chip-bg: rgba(18, 18, 18, 0.04);
+        --path-chip-bg: rgba(255, 255, 255, 0.92);
+        --path-chip-border: rgba(18, 18, 18, 0.12);
+        --path-chip-border-hover: rgba(18, 18, 18, 0.2);
+        --tooltip-bg: rgba(255, 255, 255, 0.96);
+        --tooltip-border: rgba(18, 18, 18, 0.12);
+        --tooltip-shadow: 0 14px 36px rgba(18, 18, 18, 0.14);
     }
 }
 
@@ -771,19 +924,48 @@ body.light-theme {
 .settings-panel { background: var(--card-bg); border-color: var(--border-color); }
 
 
-#lang-select, #theme-select, #app-updates-select, #language-pack-updates-select {
-    background: var(--bg-color);
+.setting-field-group select,
+.setting-control-zone select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--field-bg);
+    background-image:
+        linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+        calc(100% - 18px) calc(50% - 2px),
+        calc(100% - 12px) calc(50% - 2px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
     color: var(--text-main);
     border: 1px solid var(--border-color);
-    padding: 8px 15px;
+    padding: 8px 38px 8px 15px;
     border-radius: 6px;
     outline: none;
     font-family: inherit;
+    font-size: 14px;
+    line-height: 1.25;
     cursor: pointer;
+    height: 42px;
     min-width: 120px;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
-#lang-select:hover, #theme-select:hover, #app-updates-select:hover, #language-pack-updates-select:hover {
+.setting-field-group select:hover,
+.setting-control-zone select:hover {
     border-color: var(--text-sub);
+    background-color: var(--hover-bg);
+}
+
+.setting-field-group select:focus,
+.setting-control-zone select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.setting-field-group select option,
+.setting-control-zone select option {
+    background: var(--menu-bg);
+    color: var(--text-main);
 }
 
 .max-depth-stepper {
@@ -821,7 +1003,7 @@ body.light-theme {
 }
 
 .max-depth-stepper-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--field-hover-bg);
     color: var(--text-main);
 }
 
@@ -882,6 +1064,21 @@ body.light-theme {
 }
 
 @media (max-width: 900px) {
+    .stack-overlay {
+        padding: 18px;
+    }
+
+    .stack-overlay-panel {
+        width: 100%;
+        max-height: calc(100vh - 36px);
+        padding: 12px;
+    }
+
+    .stack-overlay-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
     .settings-panel {
         width: calc(100% - 24px);
         max-width: none;
@@ -909,6 +1106,7 @@ body.light-theme {
 
     .setting-field-group #lang-select,
     .setting-control-zone #theme-select,
+    .setting-control-zone #location-display-select,
     .setting-control-zone #app-updates-select,
     .setting-control-zone #language-pack-updates-select,
     .setting-control-zone .max-depth-stepper,

@@ -4,7 +4,7 @@
   "englishName": "Chinese (Simplified)",
   "nativeName": "简体中文",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.4.0",
+  "reviewedForAppVersion": "1.4.1",
   "aliases": [
     "zh",
     "chinese",
@@ -20,6 +20,9 @@
     "lang": "语言",
     "theme": "主题模式",
     "path": "库路径",
+    "location_display_label": "路径显示",
+    "location_display_parent": "仅显示分类",
+    "location_display_full": "显示完整游戏文件夹路径",
     "max_depth_label": "最大深度",
     "app_updates_label": "应用更新",
     "language_pack_updates_label": "语言包更新",

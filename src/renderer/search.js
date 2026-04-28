@@ -1,6 +1,7 @@
 import { getGameKey } from './library-order.js';
 
 export function createSearchController({
+    attachTooltip,
     advancePlaceholderIndex,
     electronAPI,
     getAllGames,
@@ -11,10 +12,6 @@ export function createSearchController({
     refs,
     setDraggedGameFolder
 }) {
-    const tooltip = document.createElement('div');
-    tooltip.className = 'search-tooltip';
-    document.body.appendChild(tooltip);
-
     function highlightMatch(text, query) {
         if (!query) return text;
         const parts = text.split(new RegExp(`(${query})`, 'gi'));
@@ -92,7 +89,11 @@ export function createSearchController({
             const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
             launchIconWrapper.onclick = (event) => {
                 event.stopPropagation();
-                const card = document.querySelector(`.game-card[data-game-key="${getGameKey(game)}"]`);
+                const exactCard = document.querySelector(`.game-card[data-game-key="${getGameKey(game)}"]`);
+                const stackCard = !exactCard && game.duplicateSignature
+                    ? document.querySelector(`.game-card.stack-card[data-duplicate-signature="${game.duplicateSignature}"]`)
+                    : null;
+                const card = exactCard || stackCard;
                 if (card) {
                     hideSearchDropdown();
                     refs.searchInput.value = '';
@@ -102,16 +103,10 @@ export function createSearchController({
                 }
             };
 
-            item.onmouseenter = () => {
-                tooltip.innerText = game.name;
-                tooltip.style.display = 'block';
-                const rect = item.getBoundingClientRect();
-                tooltip.style.left = `${rect.left}px`;
-                tooltip.style.top = `${rect.bottom + 5}px`;
-            };
-            item.onmouseleave = () => {
-                tooltip.style.display = 'none';
-            };
+            attachTooltip(item, () => ({
+                title: game.name,
+                subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || ''
+            }));
             item.ondblclick = (event) => {
                 event.stopPropagation();
                 electronAPI.launchYume({ gameKey: getGameKey(game), exePath: game.exePath });

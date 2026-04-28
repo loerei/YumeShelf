@@ -617,6 +617,8 @@ app.whenReady().then(() => {
         width: 1200, height: 800, backgroundColor: '#121212', autoHideMenuBar: true,
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
     });
+    win.removeMenu();
+    win.setMenuBarVisibility(false);
     win.loadFile(path.join(__dirname, 'index.html'));
     if (launchedAfterUpdate) {
         const restoreUpdatedWindow = () => {

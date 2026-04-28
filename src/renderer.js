@@ -2,13 +2,17 @@ import { createBootController } from './renderer/boot.js';
 import { createAppUpdateController } from './renderer/app-updates.js';
 import { createDragDropGridController } from './renderer/drag-drop-grid.js';
 import { annotateGamesForDisplay } from './renderer/game-annotations.js';
+import { createDuplicateStackOverlayController } from './renderer/duplicate-stack-overlay.js';
 import { createGameCardFactory } from './renderer/game-cards.js';
 import { createLocaleController } from './renderer/i18n.js';
 import { createLanguagePackController } from './renderer/language-packs.js';
 import { createLibraryGridController } from './renderer/library-grid.js';
+import { buildLibraryViewItems } from './renderer/library-stacks.js';
 import { createSearchController } from './renderer/search.js';
 import { createSettingsController } from './renderer/settings.js';
+import { createStackCardFactory } from './renderer/stack-cards.js';
 import { createStartupController } from './renderer/startup.js';
+import { createTooltipController } from './renderer/tooltips.js';
 import { createUpdateNotificationFeature } from './renderer/update-notification-feature.js';
 import { createUITextController } from './renderer/ui-text.js';
 
@@ -17,6 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const unfavGrid = document.getElementById('unfav-grid');
     const separator = document.getElementById('favorites-separator');
     const emptyContainer = document.getElementById('empty-state-container');
+    const duplicateStackOverlay = document.getElementById('duplicate-stack-overlay');
+    const duplicateStackGrid = document.getElementById('duplicate-stack-grid');
     const loading = document.getElementById('loading');
     const bootTitle = document.getElementById('boot-title');
     const bootStatus = document.getElementById('boot-status');
@@ -27,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const themeSelect = document.getElementById('theme-select');
     const appUpdatesSelect = document.getElementById('app-updates-select');
     const languagePackUpdatesSelect = document.getElementById('language-pack-updates-select');
+    const locationDisplaySelect = document.getElementById('location-display-select');
     const maxDepthInput = document.getElementById('max-depth-input');
     const maxDepthDecreaseBtn = document.getElementById('max-depth-decrease-btn');
     const maxDepthIncreaseBtn = document.getElementById('max-depth-increase-btn');
@@ -63,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const DRAG_POINTER_SLOP = 18;
 
     let allGames = [];
+    let currentLibraryConfig = null;
     let draggedGameFolder = null;
     let dragTargetInfo = null;
     let currentSort = localStorage.getItem('yumeshelf_sort_pref') || 'date';
@@ -84,7 +92,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         langSelect,
         sortGames: () => sortGames(currentSort)
     });
+    const tooltipController = createTooltipController();
     const searchController = createSearchController({
+        attachTooltip: (element, getContent) => {
+            tooltipController.attachTooltip(element, getContent);
+        },
         advancePlaceholderIndex: () => localeController.advancePlaceholderIndex(),
         electronAPI: window.electronAPI,
         getAllGames: () => allGames,
@@ -105,6 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         refs: {
             appUpdatesSelect,
             languagePackUpdatesSelect,
+            locationDisplaySelect,
             maxDepthDecreaseBtn,
             maxDepthIncreaseBtn,
             maxDepthInput,
@@ -196,6 +209,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         sortGames: (type) => sortGames(type)
     });
     const gameCardFactory = createGameCardFactory({
+        attachTooltip: (element, getContent) => {
+            tooltipController.attachTooltip(element, getContent);
+        },
         electronAPI: window.electronAPI,
         getStrings: () => getStrings(),
         onCardDeleted: (gameKey) => {
@@ -209,8 +225,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         onRefreshRequested: () => sortGames(currentSort)
     });
+    const duplicateStackOverlayController = createDuplicateStackOverlayController({
+        createCard: (game, options) => createCard(game, options),
+        refs: {
+            grid: duplicateStackGrid,
+            overlay: duplicateStackOverlay
+        }
+    });
+    const stackCardFactory = createStackCardFactory({
+        attachTooltip: (element, getContent) => {
+            tooltipController.attachTooltip(element, getContent);
+        },
+        getStrings: () => getStrings(),
+        onDragStart: (gameKey) => {
+            dragDropGridController.startDrag(gameKey);
+        },
+        onDragStateReset: () => {
+            dragDropGridController.resetDragState();
+        },
+        onOpenStack: (stack) => {
+            duplicateStackOverlayController.open(stack);
+        }
+    });
     const libraryGridController = createLibraryGridController({
-        createCard: (game) => createCard(game),
+        createLibraryItem: (item) => createLibraryItem(item),
         getAllGames: () => allGames,
         getStrings: () => getStrings(),
         onAfterRender: () => applyUIStrings(),
@@ -235,7 +273,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             welcome
         },
         setAllGames: (games, config) => {
-            allGames = annotateGamesForDisplay(games, config?.libraryPath || '');
+            currentLibraryConfig = config || currentLibraryConfig;
+            allGames = annotateGamesForDisplay(
+                games,
+                currentLibraryConfig?.libraryPath || '',
+                settingsController.getLocationDisplayMode()
+            );
         },
         sortGames: (type) => sortGames(type)
     });
@@ -260,6 +303,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             uiLangLabel: document.getElementById('ui-lang-label'),
             uiLanguagePackTitle: document.getElementById('ui-language-pack-title'),
             uiLanguagePackUpdatesLabel: document.getElementById('ui-language-pack-updates-label'),
+            uiLocationDisplayFull: document.getElementById('ui-location-display-full'),
+            uiLocationDisplayLabel: document.getElementById('ui-location-display-label'),
+            uiLocationDisplayParent: document.getElementById('ui-location-display-parent'),
             uiMaxDepthLabel: document.getElementById('ui-max-depth-label'),
             uiOptChoose: document.getElementById('ui-opt-choose'),
             uiOptChooseDesc: document.getElementById('ui-opt-choose-desc'),
@@ -278,10 +324,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             uiThemeLabel: document.getElementById('ui-theme-label'),
             uiThemeLight: document.getElementById('ui-theme-light'),
             uiThemeSystem: document.getElementById('ui-theme-system'),
-            uiTitle: document.getElementById('ui-title'),
             uiUpdateAutomatic: document.getElementById('ui-update-automatic'),
             uiUpdateNotify: document.getElementById('ui-update-notify'),
             uiUpdateOff: document.getElementById('ui-update-off'),
+            uiTitle: document.getElementById('ui-title'),
             uiWelcomeDesc: document.getElementById('ui-welcome-desc'),
             uiWelcomeTitle: document.getElementById('ui-welcome-title')
         },
@@ -362,12 +408,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         await uiTextController.applyUIStrings();
     }
 
-    function createCard(game) {
-        return gameCardFactory.createCard(game);
+    function createCard(game, options) {
+        return gameCardFactory.createCard(game, options);
+    }
+
+    function reannotateGames() {
+        allGames = annotateGamesForDisplay(
+            allGames,
+            currentLibraryConfig?.libraryPath || '',
+            settingsController.getLocationDisplayMode()
+        );
+    }
+
+    function createLibraryItem(item) {
+        if (item.isStack) {
+            return stackCardFactory.createStackCard(item);
+        }
+        return createCard(item.primaryGame || item);
+    }
+
+    function refreshOpenDuplicateStack() {
+        if (!duplicateStackOverlayController.isOpen()) return;
+        const activeStackKey = duplicateStackOverlayController.getActiveStackKey();
+        const nextStack = buildLibraryViewItems(allGames, currentSort).items
+            .find((item) => item.groupKey === activeStackKey);
+        duplicateStackOverlayController.refresh(nextStack || null);
     }
 
     function sortGames(type) {
         libraryGridController.renderLibraryGrid(type);
+        refreshOpenDuplicateStack();
     }
 
     async function initApp(bootstrapData = null) {
@@ -405,6 +475,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     languagePackUpdatesSelect.onchange = (event) => {
         settingsController.handleLanguagePackUpdatesChange(event.target.value);
     };
+    locationDisplaySelect.onchange = (event) => {
+        settingsController.handleLocationDisplayModeChange(event.target.value);
+        reannotateGames();
+        sortGames(currentSort);
+    };
     maxDepthInput.onchange = async (event) => {
         const maxDepth = settingsController.handleMaxDepthChange(event.target.value);
         await startupController.handleLibraryConfigChange({ maxDepth });
@@ -439,6 +514,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             if (languagePackOverlay.style.display === 'flex') closeLanguagePackModal();
+            else if (duplicateStackOverlayController.isOpen()) duplicateStackOverlayController.close();
             else settingsController.closeSettings();
         }
     });

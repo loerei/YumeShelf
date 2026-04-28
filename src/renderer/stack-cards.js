@@ -1,0 +1,91 @@
+export function createStackCardFactory({
+    attachTooltip,
+    getStrings,
+    onOpenStack,
+    onDragStart,
+    onDragStateReset
+}) {
+    function timeSince(date) {
+        const d = getStrings();
+        if (!date || date === 0) return d.status_never;
+        const seconds = Math.floor((new Date() - date) / 1000);
+        if (seconds < 60) return d.status_recent;
+        let interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + d.status_hours;
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + d.status_mins;
+        return d.status_recent;
+    }
+
+    function createStackCard(stack) {
+        const { primaryGame, representativeKey, stackSize } = stack;
+        const uniqueLocations = [...new Set(stack.games.map((game) => game.locationLabel).filter(Boolean))];
+        const locationSummary = uniqueLocations.length > 1
+            ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
+            : (uniqueLocations[0] || primaryGame.locationLabel || '');
+        const card = document.createElement('div');
+        card.className = `game-card stack-card ${stack.favorite ? 'favorited' : ''}`;
+        card.dataset.gameKey = representativeKey;
+        card.dataset.duplicateSignature = primaryGame.duplicateSignature || '';
+        card.draggable = true;
+        card.innerHTML = `
+            <div class="fav-btn stack-fav-indicator ${stack.favorite ? 'active' : ''}">★</div>
+            <div class="game-icon">${primaryGame.iconData ? `<img src="${primaryGame.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
+            <div class="game-duplicate-chip">${stackSize}x</div>
+            <div class="game-title">${primaryGame.name}</div>
+            <div class="game-status">${timeSince(primaryGame.lastPlayed)}</div>
+            <div class="game-path">${locationSummary}</div>
+        `;
+
+        if (!primaryGame.iconData) {
+            window.electronAPI.getIcon(primaryGame.exePath).then((iconData) => {
+                if (!iconData) return;
+                primaryGame.iconData = iconData;
+                const iconDiv = card.querySelector('.game-icon');
+                iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+            });
+        }
+
+        attachTooltip(card, () => ({
+            title: primaryGame.name,
+            subtitle: primaryGame.fullLocationLabel || locationSummary
+        }));
+
+        let suppressNextClick = false;
+        card.onclick = () => {
+            if (suppressNextClick) {
+                suppressNextClick = false;
+                return;
+            }
+            onOpenStack(stack);
+        };
+        card.ondblclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenStack(stack);
+        };
+        card.ondragstart = (event) => {
+            suppressNextClick = true;
+            event.dataTransfer.setData('gameKey', representativeKey);
+            event.dataTransfer.effectAllowed = 'move';
+            requestAnimationFrame(() => {
+                card.style.opacity = '0.01';
+            });
+            onDragStart(representativeKey);
+        };
+        card.ondragend = () => {
+            card.style.opacity = '1';
+            onDragStateReset();
+        };
+        card.ondragenter = (event) => { event.preventDefault(); };
+        card.ondragleave = (event) => { event.preventDefault(); };
+        card.ondragover = (event) => { event.preventDefault(); };
+        card.ondrop = (event) => { event.preventDefault(); };
+
+        return card;
+    }
+
+    return {
+        createStackCard
+    };
+}

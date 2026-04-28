@@ -1,6 +1,7 @@
 const DEFAULT_MAX_DEPTH = 5;
 const MIN_MAX_DEPTH = 0;
 const MAX_MAX_DEPTH = 12;
+const DEFAULT_LOCATION_DISPLAY_MODE = 'parent';
 
 function clampMaxDepth(value) {
     const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -14,6 +15,7 @@ export function createSettingsController({
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
     let currentAppUpdates = localStorage.getItem('yumeshelf_app_updates_pref') || 'notify';
     let currentLanguagePackUpdates = localStorage.getItem('yumeshelf_language_pack_updates_pref') || 'automatic';
+    let currentLocationDisplayMode = localStorage.getItem('yumeshelf_location_display_mode') || DEFAULT_LOCATION_DISPLAY_MODE;
     let currentMaxDepth = DEFAULT_MAX_DEPTH;
 
     function openSettings() {
@@ -34,6 +36,7 @@ export function createSettingsController({
         refs.themeSelect.value = currentTheme;
         refs.appUpdatesSelect.value = currentAppUpdates;
         refs.languagePackUpdatesSelect.value = currentLanguagePackUpdates;
+        refs.locationDisplaySelect.value = currentLocationDisplayMode;
     }
 
     function handleThemeChange(nextTheme) {
@@ -50,6 +53,13 @@ export function createSettingsController({
     function handleLanguagePackUpdatesChange(nextMode) {
         currentLanguagePackUpdates = nextMode;
         localStorage.setItem('yumeshelf_language_pack_updates_pref', currentLanguagePackUpdates);
+    }
+
+    function handleLocationDisplayModeChange(nextMode) {
+        currentLocationDisplayMode = nextMode === 'full' ? 'full' : DEFAULT_LOCATION_DISPLAY_MODE;
+        localStorage.setItem('yumeshelf_location_display_mode', currentLocationDisplayMode);
+        refs.locationDisplaySelect.value = currentLocationDisplayMode;
+        return currentLocationDisplayMode;
     }
 
     function applyLibraryConfig(libraryConfig = null) {
@@ -80,8 +90,10 @@ export function createSettingsController({
         applyLibraryConfig,
         closeSettings,
         getBootstrapPreferences,
+        getLocationDisplayMode: () => currentLocationDisplayMode,
         handleAppUpdatesChange,
         handleLanguagePackUpdatesChange,
+        handleLocationDisplayModeChange,
         handleMaxDepthChange,
         handleMaxDepthStep,
         handleThemeChange,

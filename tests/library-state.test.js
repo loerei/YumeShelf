@@ -124,3 +124,46 @@ test('legacy top-level records migrate best-effort to a unique nested descendant
     assert.ok(savedDb.games['Game Three/Version 1']);
     assert.equal(savedDb['Game Three'], undefined);
 });
+
+test('manually moved games keep metadata when a unique moved target is found', async () => {
+    const rootPath = await makeTempDir();
+    const originalFolderPath = path.join(rootPath, '[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc');
+    const movedFolderPath = path.join(rootPath, 'VN', '[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc');
+    const exePath = path.join(movedFolderPath, 'LivingTogether_alpha_060_subscriber-0.60-pc.exe');
+    await writeExe(exePath);
+
+    const { db, state } = createLibraryHarness(rootPath, {
+        config: {
+            libraryPath: rootPath,
+            maxDepth: 5
+        },
+        games: {
+            '[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc': {
+                name: 'LivingTogether alpha 060 0.60 pc',
+                folderName: '[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc',
+                folderPath: originalFolderPath,
+                exePath,
+                dateAdded: 111,
+                lastPlayed: 222,
+                favorite: true,
+                relativePath: '[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc'
+            }
+        }
+    });
+
+    const games = await state.loadGamesForConfig({ libraryPath: rootPath, maxDepth: 5 });
+
+    assert.equal(games.length, 1);
+    assert.equal(games[0].gameKey, 'VN/[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc');
+    assert.equal(games[0].name, 'LivingTogether alpha 060 0.60 pc');
+    assert.equal(games[0].favorite, true);
+    assert.equal(games[0].lastPlayed, 222);
+    assert.equal(games[0].dateAdded, 111);
+    assert.equal(games[0].migratedFromGameKey, '[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc');
+
+    const savedDb = db.read();
+    assert.ok(savedDb.games['VN/[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc']);
+    assert.equal(savedDb.games['VN/[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc'].favorite, true);
+    assert.equal(savedDb.games['VN/[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc'].lastPlayed, 222);
+    assert.equal(savedDb.games['[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc'], undefined);
+});

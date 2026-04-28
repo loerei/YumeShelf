@@ -1,6 +1,7 @@
 import { getGameKey } from './library-order.js';
 
 export function createGameCardFactory({
+    attachTooltip,
     electronAPI,
     getStrings,
     onCardDeleted,
@@ -51,14 +52,21 @@ export function createGameCardFactory({
         return '';
     }
 
-    function createCard(game) {
+    function createCard(game, options = {}) {
         const d = getStrings();
         const gameKey = getGameKey(game);
+        const draggable = options.draggable !== false;
+        const launchMode = options.launchMode || 'double';
+        const showDuplicateChip = options.showDuplicateChip !== false;
+        const showPath = options.showPath !== false;
+        const contextLabel = options.contextLabel || '';
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = gameKey;
-        card.title = game.relativePathDisplay || game.relativePath || game.folderPath || game.name;
-        card.draggable = true;
+        if (game.duplicateSignature) {
+            card.dataset.duplicateSignature = game.duplicateSignature;
+        }
+        card.draggable = draggable;
         card.innerHTML = `
             <div class="fav-btn ${game.favorite ? 'active' : ''}">★</div>
             <div class="menu-btn"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
@@ -68,10 +76,11 @@ export function createGameCardFactory({
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
             <div class="game-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
-            ${game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
+            ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
             <div class="game-status">${timeSince(game.lastPlayed)}</div>
-            <div class="game-path">${game.relativePathDisplay || ''}</div>
+            ${showPath ? `<div class="game-path">${game.relativePathDisplay || ''}</div>` : ''}
+            ${contextLabel ? `<div class="game-context-label">${contextLabel}</div>` : ''}
         `;
 
         if (!game.iconData) {
@@ -83,6 +92,11 @@ export function createGameCardFactory({
                 }
             });
         }
+
+        attachTooltip(card, () => ({
+            title: game.name,
+            subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || game.folderPath || ''
+        }));
 
         card.querySelector('.fav-btn').onclick = async (event) => {
             event.stopPropagation();
@@ -121,37 +135,51 @@ export function createGameCardFactory({
             };
             input.onblur = save;
         };
-        card.querySelector('.action-reveal').onclick = () => electronAPI.revealGame(game.exePath);
-        card.querySelector('.action-delete').onclick = async () => {
+        card.querySelector('.action-reveal').onclick = (event) => {
+            event.stopPropagation();
+            electronAPI.revealGame(game.exePath);
+        };
+        card.querySelector('.action-delete').onclick = async (event) => {
+            event.stopPropagation();
             if (confirm(d.confirm)) {
                 await electronAPI.deleteGame(game.folderPath);
                 onCardDeleted(gameKey);
                 onRefreshRequested();
             }
         };
-        card.ondblclick = () => {
+        const launchGame = () => {
             card.style.opacity = '0.5';
             electronAPI.launchYume({ gameKey, exePath: game.exePath });
             game.lastPlayed = Date.now();
             setTimeout(() => onRefreshRequested(), 1000);
         };
+        if (launchMode === 'single') {
+            card.onclick = (event) => {
+                if (event.target.closest('.fav-btn, .menu-btn, .dropdown-menu, .rename-input')) return;
+                launchGame();
+            };
+        } else {
+            card.ondblclick = launchGame;
+        }
 
-        card.ondragstart = (event) => {
-            event.dataTransfer.setData('gameKey', gameKey);
-            event.dataTransfer.effectAllowed = 'move';
-            requestAnimationFrame(() => {
-                card.style.opacity = '0.01';
-            });
-            onDragStart(gameKey);
-        };
-        card.ondragend = () => {
-            card.style.opacity = '1';
-            onDragStateReset();
-        };
-        card.ondragenter = (event) => { event.preventDefault(); };
-        card.ondragleave = (event) => { event.preventDefault(); };
-        card.ondragover = (event) => { event.preventDefault(); };
-        card.ondrop = (event) => { event.preventDefault(); };
+        if (draggable) {
+            card.ondragstart = (event) => {
+                event.dataTransfer.setData('gameKey', gameKey);
+                event.dataTransfer.effectAllowed = 'move';
+                requestAnimationFrame(() => {
+                    card.style.opacity = '0.01';
+                });
+                onDragStart(gameKey);
+            };
+            card.ondragend = () => {
+                card.style.opacity = '1';
+                onDragStateReset();
+            };
+            card.ondragenter = (event) => { event.preventDefault(); };
+            card.ondragleave = (event) => { event.preventDefault(); };
+            card.ondragover = (event) => { event.preventDefault(); };
+            card.ondrop = (event) => { event.preventDefault(); };
+        }
 
         return card;
     }

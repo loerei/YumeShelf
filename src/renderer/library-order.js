@@ -20,14 +20,18 @@ export function writeCustomOrder(order) {
 export function normalizeCustomOrder(games) {
     const rawOrder = readStoredCustomOrder();
     const keySet = new Set(games.map((game) => getGameKey(game)));
-    const folderNameMatches = new Map();
+    const aliasMatches = new Map();
 
     games.forEach((game) => {
-        const folderName = String(game.folderName || '').trim();
-        if (!folderName) return;
-        const matches = folderNameMatches.get(folderName) || [];
-        matches.push(getGameKey(game));
-        folderNameMatches.set(folderName, matches);
+        const aliases = [
+            String(game.folderName || '').trim(),
+            String(game.migratedFromGameKey || '').trim()
+        ].filter(Boolean);
+        aliases.forEach((alias) => {
+            const matches = aliasMatches.get(alias) || [];
+            matches.push(getGameKey(game));
+            aliasMatches.set(alias, matches);
+        });
     });
 
     const migratedOrder = [];
@@ -37,7 +41,7 @@ export function normalizeCustomOrder(games) {
             continue;
         }
 
-        const matches = folderNameMatches.get(entry) || [];
+        const matches = aliasMatches.get(entry) || [];
         if (matches.length === 1) {
             migratedOrder.push(matches[0]);
         }

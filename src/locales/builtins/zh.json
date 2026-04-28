@@ -61,6 +61,7 @@
     "delete": "删除",
     "confirm": "确定要删除吗？",
     "status_never": "从未运行",
+    "status_playing": "游玩中",
     "status_recent": "刚刚",
     "status_mins": " 分钟前",
     "status_hours": " 小时前",

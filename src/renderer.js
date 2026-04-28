@@ -215,13 +215,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         electronAPI: window.electronAPI,
         getStrings: () => getStrings(),
         onCardDeleted: (gameKey) => {
-            allGames = allGames.filter(g => g.gameKey !== gameKey);
+            allGames = allGames.filter(g => (g.gameKey || g.exePath) !== gameKey);
+            reannotateGames();
         },
         onDragStart: (gameKey) => {
             dragDropGridController.startDrag(gameKey);
         },
         onDragStateReset: () => {
             dragDropGridController.resetDragState();
+        },
+        onGameLaunched: (gameKey) => {
+            const target = allGames.find(g => (g.gameKey || g.exePath) === gameKey);
+            if (target) {
+                target.lastPlayed = Date.now();
+                target.isRunning = true;
+            }
+            sortGames(currentSort);
         },
         onRefreshRequested: () => sortGames(currentSort)
     });
@@ -264,6 +273,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentSort = value;
         }
     });
+    function setAllGames(games, config) {
+        currentLibraryConfig = config || currentLibraryConfig;
+        allGames = annotateGamesForDisplay(
+            games,
+            currentLibraryConfig?.libraryPath || '',
+            settingsController.getLocationDisplayMode()
+        );
+    }
+
     const startupController = createStartupController({
         applyUIStrings: () => applyUIStrings(),
         bootController,
@@ -272,14 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         refs: {
             welcome
         },
-        setAllGames: (games, config) => {
-            currentLibraryConfig = config || currentLibraryConfig;
-            allGames = annotateGamesForDisplay(
-                games,
-                currentLibraryConfig?.libraryPath || '',
-                settingsController.getLocationDisplayMode()
-            );
-        },
+        setAllGames,
         sortGames: (type) => sortGames(type)
     });
     const uiTextController = createUITextController({
@@ -335,6 +346,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateSearch: (query) => updateSearch(query)
     });
     dragDropGridController.attachZoneHandlers();
+    
+    window.electronAPI.onBootStatus((payload) => {
+        bootController.show(payload);
+    });
+
+    window.electronAPI.onGameStopped(async (payload) => {
+        console.log(`[FRONTEND] Received 'game-stopped' event for gameKey:`, payload ? payload.gameKey : 'unknown');
+        if (payload && payload.gameKey) {
+            const target = allGames.find(g => (g.gameKey || g.exePath) === payload.gameKey);
+            if (target) {
+                target.isRunning = false;
+                target.lastPlayed = Date.now();
+                console.log(`[FRONTEND] Set target.isRunning=false synchronously for ${payload.gameKey}`);
+            }
+        }
+        console.log(`[FRONTEND] Fetching games from backend via getGames()`);
+        const games = await window.electronAPI.getGames();
+        console.log(`[FRONTEND] Received ${games.length} games from backend`);
+        setAllGames(games);
+        console.log(`[FRONTEND] Re-sorting grid cards`);
+        sortGames(currentSort);
+    });
+
+    window.electronAPI.onGamePlaytimeUpdated(async (payload) => {
+        console.log(`[FRONTEND] Received 'game-playtime-updated' event for gameKey:`, payload ? payload.gameKey : 'unknown');
+        const games = await window.electronAPI.getGames();
+        console.log(`[FRONTEND] Fetched ${games.length} games after game-playtime-updated.`);
+        setAllGames(games);
+        sortGames(currentSort);
+    });
 
     function getEnglishStrings() {
         return localeController.getEnglishStrings();
@@ -533,9 +574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     settingsController.initializeSettingsUI();
 
-    window.electronAPI.onBootStatus((payload) => {
-        bootController.show(payload);
-    });
+
 
     bootController.show({
         key: 'boot_initializing',

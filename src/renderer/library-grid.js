@@ -1,3 +1,5 @@
+import { getGameKey, normalizeCustomOrder } from './library-order.js';
+
 export function createLibraryGridController({
     createCard,
     getAllGames,
@@ -7,12 +9,12 @@ export function createLibraryGridController({
     refs,
     setCurrentSort
 }) {
-    function sortCollection(games, type) {
+    function sortCollection(games, type, customOrder = null) {
         if (type === 'custom') {
-            const order = JSON.parse(localStorage.getItem('yumeshelf_custom_order') || '[]');
+            const order = Array.isArray(customOrder) ? customOrder : normalizeCustomOrder(games);
             return [...games].sort((a, b) => {
-                const indexA = order.indexOf(a.folderName);
-                const indexB = order.indexOf(b.folderName);
+                const indexA = order.indexOf(getGameKey(a));
+                const indexB = order.indexOf(getGameKey(b));
                 return (indexA > -1 ? indexA : 99999) - (indexB > -1 ? indexB : 99999);
             });
         }
@@ -52,9 +54,10 @@ export function createLibraryGridController({
 
         const favorites = allGames.filter(game => game.favorite);
         const nonFavorites = allGames.filter(game => !game.favorite);
+        const customOrder = type === 'custom' ? normalizeCustomOrder(allGames) : null;
 
-        sortCollection(favorites, type).forEach(game => refs.favGrid.appendChild(createCard(game)));
-        sortCollection(nonFavorites, type).forEach(game => refs.unfavGrid.appendChild(createCard(game)));
+        sortCollection(favorites, type, customOrder).forEach(game => refs.favGrid.appendChild(createCard(game)));
+        sortCollection(nonFavorites, type, customOrder).forEach(game => refs.unfavGrid.appendChild(createCard(game)));
         refs.separator.style.display = (favorites.length > 0 && nonFavorites.length > 0) ? 'flex' : 'none';
 
         onAfterRender();

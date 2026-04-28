@@ -4,7 +4,7 @@
   "englishName": "Japanese",
   "nativeName": "日本語",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.3.9",
+  "reviewedForAppVersion": "1.4.0",
   "aliases": [
     "ja",
     "japanese",
@@ -19,6 +19,7 @@
     "lang": "言語",
     "theme": "テーマ",
     "path": "ライブラリパス",
+    "max_depth_label": "最大深度",
     "app_updates_label": "アプリ更新",
     "language_pack_updates_label": "言語パック更新",
     "change": "変更",

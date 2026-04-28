@@ -1,3 +1,5 @@
+import { getGameKey } from './library-order.js';
+
 export function createGameCardFactory({
     electronAPI,
     getStrings,
@@ -51,9 +53,11 @@ export function createGameCardFactory({
 
     function createCard(game) {
         const d = getStrings();
+        const gameKey = getGameKey(game);
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
-        card.dataset.folder = game.folderName;
+        card.dataset.gameKey = gameKey;
+        card.title = game.relativePathDisplay || game.relativePath || game.folderPath || game.name;
         card.draggable = true;
         card.innerHTML = `
             <div class="fav-btn ${game.favorite ? 'active' : ''}">★</div>
@@ -64,8 +68,10 @@ export function createGameCardFactory({
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
             <div class="game-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
+            ${game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
             <div class="game-status">${timeSince(game.lastPlayed)}</div>
+            <div class="game-path">${game.relativePathDisplay || ''}</div>
         `;
 
         if (!game.iconData) {
@@ -80,7 +86,7 @@ export function createGameCardFactory({
 
         card.querySelector('.fav-btn').onclick = async (event) => {
             event.stopPropagation();
-            game.favorite = await electronAPI.toggleFavorite(game.folderName);
+            game.favorite = await electronAPI.toggleFavorite(gameKey);
             onRefreshRequested();
         };
         card.querySelector('.menu-btn').onclick = (event) => {
@@ -103,7 +109,7 @@ export function createGameCardFactory({
             const save = async () => {
                 if (input.value.trim() && input.value.trim() !== game.name) {
                     game.name = input.value.trim();
-                    await electronAPI.renameGame({ folderName: game.folderName, newName: game.name });
+                    await electronAPI.renameGame({ gameKey, newName: game.name });
                 }
                 if (input.parentNode) input.replaceWith(titleDiv);
                 titleDiv.innerText = game.name;
@@ -119,24 +125,24 @@ export function createGameCardFactory({
         card.querySelector('.action-delete').onclick = async () => {
             if (confirm(d.confirm)) {
                 await electronAPI.deleteGame(game.folderPath);
-                onCardDeleted(game.folderName);
+                onCardDeleted(gameKey);
                 onRefreshRequested();
             }
         };
         card.ondblclick = () => {
             card.style.opacity = '0.5';
-            electronAPI.launchYume({ folderName: game.folderName, exePath: game.exePath });
+            electronAPI.launchYume({ gameKey, exePath: game.exePath });
             game.lastPlayed = Date.now();
             setTimeout(() => onRefreshRequested(), 1000);
         };
 
         card.ondragstart = (event) => {
-            event.dataTransfer.setData('folderName', game.folderName);
+            event.dataTransfer.setData('gameKey', gameKey);
             event.dataTransfer.effectAllowed = 'move';
             requestAnimationFrame(() => {
                 card.style.opacity = '0.01';
             });
-            onDragStart(game.folderName);
+            onDragStart(gameKey);
         };
         card.ondragend = () => {
             card.style.opacity = '1';

@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
@@ -29,7 +29,8 @@
       "output": "build_output"
     },
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "assets/yumeshelf_icon_highres_4096.png"
     }
   },
   "devDependencies": {

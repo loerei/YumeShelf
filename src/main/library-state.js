@@ -46,6 +46,41 @@ function getLeafFolderName(folderPath) {
     return path.basename(normalized);
 }
 
+function normalizeComparableText(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/\[[^\]]*]/g, ' ')
+        .replace(/\b(rj\d{6,8}|\d{6,8})\b/gi, ' ')
+        .replace(/\bv?\d+(?:\.\d+)+(?:\s*[a-z]+)?\b/gi, ' ')
+        .replace(/[_-]+/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+}
+
+function getExecutableStem(exePath) {
+    const normalized = String(exePath || '').replace(/[\\/]+/g, '/');
+    const baseName = normalized.split('/').pop() || '';
+    return baseName.replace(/\.exe$/i, '');
+}
+
+function buildContinuitySignature(record) {
+    if (!record) return null;
+    const signatureSource = `${record.folderName || getLeafFolderName(record.folderPath)} ${record.exePath || ''}`;
+    const idMatch = signatureSource.match(/(RJ\d{6,8}|\b\d{6,8}\b)/i);
+    if (idMatch) {
+        return `id:${idMatch[0].toUpperCase()}`;
+    }
+
+    const normalizedFolderName = normalizeComparableText(record.folderName || getLeafFolderName(record.folderPath));
+    const normalizedExeStem = normalizeComparableText(getExecutableStem(record.exePath));
+    if (!normalizedFolderName || normalizedFolderName.length < 4 || !normalizedExeStem || normalizedExeStem.length < 3) {
+        return null;
+    }
+
+    return `folder:${normalizedFolderName}|exe:${normalizedExeStem}`;
+}
+
 function pickPreferredExecutable(currentPath, executableEntries) {
     const folderName = path.basename(currentPath).toLowerCase();
     const preferred = executableEntries.find((entry) => entry.name.toLowerCase().includes(folderName))
@@ -164,6 +199,47 @@ function dedupeCandidates(candidates) {
     return [...unique.values()];
 }
 
+function buildMoveMigrationMap({ candidates, libraryPath, storedGames }) {
+    const candidateGameKeys = new Set(candidates.map((candidate) => buildGameKey(libraryPath, candidate.folderPath)));
+    const candidateFolderPaths = new Set(candidates.map((candidate) => normalizePathForComparison(candidate.folderPath)));
+    const orphanedRecordsBySignature = new Map();
+    const unmatchedCandidatesBySignature = new Map();
+
+    for (const [gameKey, record] of Object.entries(storedGames)) {
+        if (!isStoredGameRecord(record)) continue;
+        if (candidateGameKeys.has(gameKey)) continue;
+        if (candidateFolderPaths.has(normalizePathForComparison(record.folderPath))) continue;
+
+        const signature = buildContinuitySignature({ gameKey, ...record });
+        if (!signature) continue;
+        const nextGroup = orphanedRecordsBySignature.get(signature) || [];
+        nextGroup.push({ gameKey, ...record });
+        orphanedRecordsBySignature.set(signature, nextGroup);
+    }
+
+    for (const candidate of candidates) {
+        const candidateRecord = {
+            exePath: candidate.exePath,
+            folderName: getLeafFolderName(candidate.folderPath),
+            folderPath: candidate.folderPath
+        };
+        const signature = buildContinuitySignature(candidateRecord);
+        if (!signature) continue;
+        const nextGroup = unmatchedCandidatesBySignature.get(signature) || [];
+        nextGroup.push(candidate);
+        unmatchedCandidatesBySignature.set(signature, nextGroup);
+    }
+
+    const migrationMap = new Map();
+    for (const [signature, records] of orphanedRecordsBySignature.entries()) {
+        const candidatesForSignature = unmatchedCandidatesBySignature.get(signature) || [];
+        if (records.length !== 1 || candidatesForSignature.length !== 1) continue;
+        migrationMap.set(normalizePathForComparison(candidatesForSignature[0].folderPath), records[0]);
+    }
+
+    return migrationMap;
+}
+
 function normalizeGameRecord(gameKey, record) {
     return {
         ...record,
@@ -210,6 +286,11 @@ function createLibraryState({
             await collectGameCandidates(fs, normalizedConfig.libraryPath, normalizedConfig.libraryPath, 0, normalizedConfig.maxDepth)
         );
         const legacyMigrationMap = buildLegacyMigrationMap(candidates, legacyGames);
+        const moveMigrationMap = buildMoveMigrationMap({
+            candidates,
+            libraryPath: normalizedConfig.libraryPath,
+            storedGames
+        });
         const nextGames = {};
 
         for (const candidate of candidates) {
@@ -218,6 +299,7 @@ function createLibraryState({
             const existingRecord = storedGames[gameKey]
                 || storedGamesByFolderPath.get(folderPathKey)
                 || legacyMigrationMap.get(folderPathKey)
+                || moveMigrationMap.get(folderPathKey)
                 || null;
             const folderName = getLeafFolderName(candidate.folderPath);
             let stats;
@@ -234,6 +316,9 @@ function createLibraryState({
                 folderName,
                 folderPath: candidate.folderPath,
                 lastPlayed: existingRecord?.lastPlayed || 0,
+                migratedFromGameKey: existingRecord?.gameKey && existingRecord.gameKey !== gameKey
+                    ? existingRecord.gameKey
+                    : undefined,
                 name: existingRecord?.name || getSmartName(candidate.exePath, folderName),
                 relativePath: gameKey
             };

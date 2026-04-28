@@ -1,4 +1,5 @@
 import { getGameKey, normalizeCustomOrder, writeCustomOrder } from './library-order.js';
+import { getGroupedKeysForGame } from './library-stacks.js';
 
 export function createDragDropGridController({
     dragPointerSlop,
@@ -171,12 +172,19 @@ export function createDragDropGridController({
 
                 const isFavZone = zone === refs.favGrid || zone === refs.separator;
                 let needsSave = false;
-                let doToggle = false;
                 const dragTargetInfo = getDragTargetInfo();
+                const favoriteGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey);
 
-                if (draggedGame.favorite !== isFavZone) {
-                    draggedGame.favorite = isFavZone;
-                    doToggle = true;
+                if (favoriteGroupKeys.some((key) => {
+                    const game = allGames.find((entry) => getGameKey(entry) === key);
+                    return game && game.favorite !== isFavZone;
+                })) {
+                    favoriteGroupKeys.forEach((key) => {
+                        const game = allGames.find((entry) => getGameKey(entry) === key);
+                        if (!game || game.favorite === isFavZone) return;
+                        game.favorite = isFavZone;
+                        electronAPI.toggleFavorite(key);
+                    });
                     needsSave = true;
                 }
 
@@ -186,19 +194,33 @@ export function createDragDropGridController({
                     }
 
                     const customOrder = normalizeCustomOrder(allGames);
+                    const draggedGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey, customOrder);
+                    const dragIndexEntries = draggedGroupKeys
+                        .map((key) => customOrder.indexOf(key))
+                        .filter((index) => index > -1)
+                        .sort((a, b) => b - a);
 
-                    const draggedIdx = customOrder.indexOf(draggedGameKey);
-                    if (draggedIdx > -1) {
-                        customOrder.splice(draggedIdx, 1);
+                    if (dragIndexEntries.length > 0) {
+                        dragIndexEntries.forEach((index) => {
+                            customOrder.splice(index, 1);
+                        });
+
                         let insertIdx = customOrder.length;
                         if (dragTargetInfo && dragTargetInfo.gameKey) {
-                            const targetIdx = customOrder.indexOf(dragTargetInfo.gameKey);
-                            if (targetIdx > -1) {
-                                insertIdx = dragTargetInfo.insertAfter ? targetIdx + 1 : targetIdx;
+                            const targetGroupKeys = getGroupedKeysForGame(allGames, dragTargetInfo.gameKey, customOrder);
+                            const draggingIntoOwnGroup = targetGroupKeys.every((key) => draggedGroupKeys.includes(key));
+                            const targetIndexes = targetGroupKeys
+                                .map((key) => customOrder.indexOf(key))
+                                .filter((index) => index > -1)
+                                .sort((a, b) => a - b);
+                            if (!draggingIntoOwnGroup && targetIndexes.length > 0) {
+                                insertIdx = dragTargetInfo.insertAfter
+                                    ? targetIndexes[targetIndexes.length - 1] + 1
+                                    : targetIndexes[0];
                             }
                         }
 
-                        customOrder.splice(insertIdx, 0, draggedGameKey);
+                        customOrder.splice(insertIdx, 0, ...draggedGroupKeys);
                         writeCustomOrder(customOrder);
                         needsSave = true;
                     }
@@ -208,10 +230,6 @@ export function createDragDropGridController({
                     document.querySelectorAll('.game-card').forEach(card => { card.style.transform = 'none'; });
                     sortGames(getCurrentSort());
                 }, true);
-
-                if (doToggle) {
-                    electronAPI.toggleFavorite(draggedGameKey);
-                }
                 if (!needsSave) {
                     sortGames(getCurrentSort());
                 }

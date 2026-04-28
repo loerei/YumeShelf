@@ -4,7 +4,7 @@
   "englishName": "Japanese",
   "nativeName": "日本語",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.4.0",
+  "reviewedForAppVersion": "1.4.1",
   "aliases": [
     "ja",
     "japanese",
@@ -19,6 +19,9 @@
     "lang": "言語",
     "theme": "テーマ",
     "path": "ライブラリパス",
+    "location_display_label": "パス表示",
+    "location_display_parent": "カテゴリのみ",
+    "location_display_full": "ゲームフォルダまで表示",
     "max_depth_label": "最大深度",
     "app_updates_label": "アプリ更新",
     "language_pack_updates_label": "言語パック更新",

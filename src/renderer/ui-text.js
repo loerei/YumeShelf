@@ -47,6 +47,7 @@ export function createUITextController({
         refs.uiLangLabel.innerText = d.lang;
         refs.uiThemeLabel.innerText = d.theme;
         refs.uiPathLabel.innerText = d.path;
+        refs.uiLocationDisplayLabel.innerText = d.location_display_label || getEnglishStrings().location_display_label;
         refs.uiMaxDepthLabel.innerText = d.max_depth_label || getEnglishStrings().max_depth_label;
         refs.uiAppUpdatesLabel.innerText = d.app_updates_label || getEnglishStrings().app_updates_label;
         refs.uiLanguagePackUpdatesLabel.innerText = d.language_pack_updates_label || getEnglishStrings().language_pack_updates_label;
@@ -56,6 +57,8 @@ export function createUITextController({
         refs.uiThemeSystem.innerText = d.theme_system || getEnglishStrings().theme_system;
         refs.uiThemeDark.innerText = d.theme_dark || getEnglishStrings().theme_dark;
         refs.uiThemeLight.innerText = d.theme_light || getEnglishStrings().theme_light;
+        refs.uiLocationDisplayParent.innerText = d.location_display_parent || getEnglishStrings().location_display_parent;
+        refs.uiLocationDisplayFull.innerText = d.location_display_full || getEnglishStrings().location_display_full;
         refs.uiUpdateAutomatic.innerText = d.update_mode_automatic || getEnglishStrings().update_mode_automatic;
         refs.uiUpdateNotify.innerText = d.update_mode_notify || getEnglishStrings().update_mode_notify;
         refs.uiUpdateOff.innerText = d.update_mode_off || getEnglishStrings().update_mode_off;

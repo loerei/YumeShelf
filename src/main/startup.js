@@ -94,31 +94,6 @@ function createStartupServices({
         });
         let languageState = await buildLanguageState();
 
-        emitBootStatus(webContents, {
-            key: 'boot_checking_library_config',
-            fallbackText: 'Checking library configuration'
-        });
-        const config = await resolveLibraryConfig();
-        if (!config || !config.libraryPath) {
-            emitBootStatus(webContents, {
-                key: 'boot_waiting_for_library_setup',
-                fallbackText: 'Library not configured yet'
-            });
-            return {
-                appVersion: app.getVersion(),
-                languageState,
-                config: config || null,
-                games: [],
-                bootChecks: {
-                    appUpdatesMode,
-                    appUpdateCheck,
-                    languagePackUpdatesMode,
-                    languagePackCheck
-                },
-                postUpdateNotice
-            };
-        }
-
         if (appUpdatesMode !== 'off') {
             emitBootStatus(webContents, {
                 key: 'boot_checking_app_update',
@@ -151,6 +126,31 @@ function createStartupServices({
                     fallbackText: appUpdateCheck.available ? 'New app update available' : 'App update check finished'
                 });
             }
+        }
+
+        emitBootStatus(webContents, {
+            key: 'boot_checking_library_config',
+            fallbackText: 'Checking library configuration'
+        });
+        const config = await resolveLibraryConfig();
+        if (!config || !config.libraryPath) {
+            emitBootStatus(webContents, {
+                key: 'boot_waiting_for_library_setup',
+                fallbackText: 'Library not configured yet'
+            });
+            return {
+                appVersion: app.getVersion(),
+                languageState,
+                config: config || null,
+                games: [],
+                bootChecks: {
+                    appUpdatesMode,
+                    appUpdateCheck,
+                    languagePackUpdatesMode,
+                    languagePackCheck
+                },
+                postUpdateNotice
+            };
         }
 
         if (languagePackUpdatesMode !== 'off') {

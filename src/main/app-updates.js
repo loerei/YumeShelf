@@ -411,7 +411,8 @@ function createAppUpdateServices({
                 return latestKnownUpdate;
             }
 
-            if (!app.isPackaged) {
+            const isFakingVersion = process.argv.some(arg => /^-\d+\.\d+\.\d+/.test(arg));
+            if (!app.isPackaged && !isFakingVersion) {
                 latestKnownUpdate = initial;
                 return {
                     ...initial,

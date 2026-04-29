@@ -11,6 +11,7 @@ const builtinsDir = path.join(repoRoot, 'src', 'locales', 'builtins');
 const packsDir = path.join(repoRoot, 'language-packs', 'packs');
 const manifestPath = path.join(repoRoot, 'language-packs', 'manifest.json');
 const sampleTemplatePath = path.join(repoRoot, 'language-packs', 'templates', 'en.sample.json');
+const SEMVER_WITH_PRERELEASE_REGEX = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -82,12 +83,12 @@ function parseCliArgs(argv) {
         }
 
         if (!targetVersion) {
-            if (/^\d+\.\d+\.\d+$/.test(arg)) {
+            if (SEMVER_WITH_PRERELEASE_REGEX.test(arg)) {
                 targetVersion = arg;
                 return;
             }
 
-            const dashedVersion = String(arg).match(/^--(\d+\.\d+\.\d+)$/);
+            const dashedVersion = String(arg).match(/^--(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/);
             if (dashedVersion) {
                 targetVersion = dashedVersion[1];
             }
@@ -103,8 +104,8 @@ function parseCliArgs(argv) {
 function main() {
     const { targetVersion, cleanBuild } = parseCliArgs(process.argv.slice(2));
 
-    if (!targetVersion || !/^\d+\.\d+\.\d+$/.test(targetVersion)) {
-        throw new Error('Usage: npm run build:test-version -- <x.y.z> | --<x.y.z> [--no-clean]');
+    if (!targetVersion || !SEMVER_WITH_PRERELEASE_REGEX.test(targetVersion)) {
+        throw new Error('Usage: npm run build:test-version -- <x.y.z> | <x.y.z-prerelease> | --<version> [--no-clean]');
     }
 
     const originalVersion = getPackageVersion();

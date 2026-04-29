@@ -1,7 +1,7 @@
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { createNsisUpdaterService, isFakeVersionRun } = require('./nsis-updater');
 
 const APP_UPDATE_RELEASES_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases?per_page=25';
 const APP_UPDATE_RELEASE_PAGE_URL = 'https://github.com/loerei/YumeShelf/releases/latest';
@@ -109,21 +109,43 @@ function readPortableEnvironment() {
 }
 
 function resolveRuntimeUpdateStrategy(app) {
+    if (app.isPackaged) {
+        return {
+            artifactKind: 'nsis-installer',
+            channel: 'nsis',
+            manualFallbackReason: null,
+            supportsInPlaceApply: true,
+            supportsUpdater: true
+        };
+    }
+
+    if (isFakeVersionRun()) {
+        return {
+            artifactKind: 'nsis-installer',
+            channel: 'development',
+            manualFallbackReason: null,
+            supportsInPlaceApply: true,
+            supportsUpdater: true
+        };
+    }
+
     const portableEnvironment = readPortableEnvironment();
     if (portableEnvironment.detected) {
         return {
             artifactKind: 'portable-exe',
-            channel: 'portable',
-            manualFallbackReason: null,
-            supportsInPlaceApply: !!app.isPackaged
+            channel: 'portable-legacy',
+            manualFallbackReason: 'manual-installer-required',
+            supportsInPlaceApply: false,
+            supportsUpdater: false
         };
     }
 
     return {
         artifactKind: 'nsis-installer',
-        channel: app.isPackaged ? 'nsis' : 'development',
-        manualFallbackReason: 'manual-installer-required',
-        supportsInPlaceApply: false
+        channel: 'development',
+        manualFallbackReason: 'not-packaged',
+        supportsInPlaceApply: false,
+        supportsUpdater: false
     };
 }
 
@@ -187,12 +209,8 @@ function createAppUpdateServices({
     startupNetworkTimeoutMs
 }) {
     const updateCacheDir = path.join(app.getPath('userData'), 'app-update-cache');
-    const helperConsoleLogFile = path.join(updateCacheDir, 'portable-update-helper.log');
     const postUpdateMarkerFile = path.join(updateCacheDir, 'post-update.json');
-    const updateStateFile = path.join(updateCacheDir, 'state.json');
     const updateLogFile = path.join(updateCacheDir, 'portable-update.log');
-    const localOverrideFile = path.join(app.getPath('userData'), 'app-update', 'dev-latest.json');
-    let activeDownloadPromise = null;
     let latestKnownUpdate = null;
 
     async function appendUpdateLog(message) {
@@ -205,44 +223,30 @@ function createAppUpdateServices({
         await appendUpdateLog(`debug ${message}`);
     }
 
-    function emitStatus(payload) {
-        if (typeof broadcastStatus === 'function') {
-            broadcastStatus({
-                scope: 'app-update',
-                timestamp: Date.now(),
-                ...payload
-            });
-        }
-    }
+    const nsisUpdaterService = createNsisUpdaterService({
+        app,
+        appendUpdateLog,
+        broadcastStatus,
+        compareVersions,
+        ensureDir,
+        releasePageUrl: APP_UPDATE_RELEASE_PAGE_URL,
+        updateCacheDir,
+        postUpdateMarkerFile
+    });
 
-    async function writeState(state) {
-        await ensureDir(updateCacheDir);
-        await fs.writeFile(updateStateFile, JSON.stringify(state, null, 2), 'utf8');
-    }
-
-    async function readState() {
-        const raw = await readJsonFile(updateStateFile);
-        if (!raw || typeof raw !== 'object') return null;
-        if (!raw.version || !raw.filePath || !raw.sha256) return null;
-        return {
-            downloadedAt: raw.downloadedAt ? String(raw.downloadedAt) : null,
-            filePath: String(raw.filePath),
-            releaseUrl: raw.releaseUrl ? String(raw.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
-            sha256: String(raw.sha256).toLowerCase(),
-            version: String(raw.version)
-        };
-    }
-
-    async function clearState(state = null) {
-        const currentState = state || await readState();
-        if (currentState?.filePath) {
-            try {
-                await fs.unlink(currentState.filePath);
-            } catch {}
-        }
-        try {
-            await fs.unlink(updateStateFile);
-        } catch {}
+    function summarizeAppUpdate(update) {
+        return nsisUpdaterService.summarizeUpdateState({
+            available: !!update?.available,
+            canSelfUpdate: !!update?.canSelfUpdate,
+            deferredUntilNextLaunch: !!update?.deferredUntilNextLaunch,
+            downloadable: !!update?.downloadable,
+            downloadReady: !!update?.downloadReady,
+            releaseName: update?.releaseName ? String(update.releaseName) : '',
+            releaseNotes: update?.releaseNotes ? String(update.releaseNotes) : '',
+            releaseUrl: update?.releaseUrl ? String(update.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
+            selfApplicable: !!update?.selfApplicable,
+            version: update?.version ? String(update.version) : ''
+        });
     }
 
     async function consumePostUpdateMarker() {
@@ -278,17 +282,25 @@ function createAppUpdateServices({
         const notice = {
             actionState: 'installed',
             available: false,
+            deferredUntilNextLaunch: false,
             fromVersion: marker.fromVersion ? String(marker.fromVersion) : '',
             installed: true,
             installedAt: marker.installedAt ? String(marker.installedAt) : null,
             releaseName: marker.releaseName ? String(marker.releaseName) : '',
             releaseNotes: marker.releaseNotes ? String(marker.releaseNotes) : '',
             releaseUrl: marker.releaseUrl ? String(marker.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
+            selfApplicable: true,
             version: marker.toVersion ? String(marker.toVersion) : (marker.version ? String(marker.version) : '')
         };
 
         if (!notice.version) {
             await appendUpdateLog('consumePostUpdateMarker missing-version');
+            return null;
+        }
+
+        const currentVersion = app.getVersion();
+        if (compareVersions(currentVersion, notice.version) !== 0) {
+            await appendUpdateLog(`consumePostUpdateMarker version-mismatch current=${currentVersion} marker=${notice.version}`);
             return null;
         }
 
@@ -322,80 +334,6 @@ function createAppUpdateServices({
         return notice;
     }
 
-    function createDownloadedExePath(version) {
-        return path.join(updateCacheDir, `YumeShelf.${version}.exe`);
-    }
-
-    async function getCachedDownloadStateForVersion(version, expectedSha256) {
-        const state = await readState();
-        if (!state) return null;
-        if (state.version !== version) {
-            await clearState(state);
-            return null;
-        }
-        if (expectedSha256 && state.sha256 !== String(expectedSha256).toLowerCase()) {
-            await clearState(state);
-            return null;
-        }
-        if (!fsSync.existsSync(state.filePath)) {
-            await clearState(state);
-            return null;
-        }
-        return state;
-    }
-
-    async function readLocalOverride() {
-        const raw = await readJsonFile(localOverrideFile);
-        if (!raw || typeof raw !== 'object') return null;
-        if (!raw.version || !raw.exePath || !raw.sha256) return null;
-        const localFilePath = path.resolve(String(raw.exePath));
-        if (!fsSync.existsSync(localFilePath)) return null;
-        const runtimeStrategy = resolveRuntimeUpdateStrategy(app);
-        const localArtifactKind = inferExecutableArtifactKind(localFilePath);
-        const executableTarget = resolvePortableExecutablePath(app);
-        const writeProbe = runtimeStrategy.supportsInPlaceApply
-            ? probeWritableDir(executableTarget.dirPath)
-            : { ok: false, reason: runtimeStrategy.manualFallbackReason };
-        const canSelfUpdate = runtimeStrategy.supportsInPlaceApply
-            && localArtifactKind === runtimeStrategy.artifactKind
-            && writeProbe.ok;
-        const fallbackReason = localArtifactKind !== runtimeStrategy.artifactKind
-            ? 'manual-installer-required'
-            : canSelfUpdate
-                ? null
-                : (writeProbe.reason || runtimeStrategy.manualFallbackReason);
-        await appendUpdateLog(`readLocalOverride strategy=${JSON.stringify(runtimeStrategy)} target=${JSON.stringify(executableTarget)} probe=${JSON.stringify(writeProbe)} localArtifactKind=${localArtifactKind} localFilePath=${localFilePath}`);
-        return {
-            available: true,
-            canSelfUpdate,
-            checksumSha256: String(raw.sha256).toLowerCase(),
-            downloadable: canSelfUpdate,
-            downloadReady: false,
-            fallbackReason,
-            localFilePath,
-            releaseNotes: String(raw.releaseNotes || raw.body || '').trim(),
-            releaseName: String(raw.releaseName || raw.version),
-            releaseUrl: String(raw.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL),
-            source: 'local',
-            version: String(raw.version)
-        };
-    }
-
-    function summarizeAppUpdate(update) {
-        return {
-            available: !!update?.available,
-            canSelfUpdate: !!update?.canSelfUpdate,
-            checksumSha256: update?.checksumSha256 ? String(update.checksumSha256).toLowerCase() : null,
-            downloadable: !!update?.downloadable,
-            downloadReady: !!update?.downloadReady,
-            fallbackReason: update?.fallbackReason ? String(update.fallbackReason) : null,
-            releaseNotes: update?.releaseNotes ? String(update.releaseNotes) : '',
-            releaseName: update?.releaseName ? String(update.releaseName) : '',
-            releaseUrl: update?.releaseUrl ? String(update.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
-            version: update?.version ? String(update.version) : ''
-        };
-    }
-
     async function resolveReleaseFeed() {
         const buffer = await downloadBuffer(APP_UPDATE_RELEASES_API_URL, 0, startupNetworkTimeoutMs);
         const raw = JSON.parse(buffer.toString('utf8'));
@@ -425,10 +363,41 @@ function createAppUpdateServices({
         });
     }
 
-    async function resolveChecksumSha256(asset) {
-        if (!asset?.browserDownloadUrl) return null;
-        const buffer = await downloadBuffer(asset.browserDownloadUrl, 0, startupNetworkTimeoutMs);
-        return firstHexDigest(buffer.toString('utf8'));
+    async function enrichUpdateInfo(update, runtimeStrategy) {
+        const enriched = {
+            ...update,
+            available: !!update?.available,
+            canSelfUpdate: !!update?.canSelfUpdate,
+            deferredUntilNextLaunch: !!update?.deferredUntilNextLaunch,
+            downloadable: !!update?.downloadable,
+            downloadReady: !!update?.downloadReady,
+            fallbackReason: update?.fallbackReason ? String(update.fallbackReason) : null,
+            releaseName: update?.releaseName ? String(update.releaseName) : '',
+            releaseNotes: update?.releaseNotes ? String(update.releaseNotes) : '',
+            releaseUrl: update?.releaseUrl ? String(update.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
+            selfApplicable: !!update?.selfApplicable,
+            source: update?.source ? String(update.source) : runtimeStrategy.channel,
+            version: update?.version ? String(update.version) : null
+        };
+
+        if (!enriched.available || !enriched.version) {
+            return enriched;
+        }
+
+        if (runtimeStrategy.channel === 'nsis') {
+            try {
+                const newerReleases = await resolveNewerReleases(app.getVersion(), enriched.version);
+                if (newerReleases.length > 0) {
+                    enriched.releaseName = getReleaseDisplayName(newerReleases[0]);
+                    enriched.releaseNotes = formatStackedReleaseNotes(newerReleases);
+                    enriched.releaseUrl = newerReleases[0].htmlUrl || enriched.releaseUrl;
+                }
+            } catch (error) {
+                await appendUpdateLog(`enrichUpdateInfo release-refresh-failed error=${String((error && error.stack) || error || '')}`);
+            }
+        }
+
+        return enriched;
     }
 
     async function checkForAppUpdate() {
@@ -437,110 +406,65 @@ function createAppUpdateServices({
             available: false,
             canSelfUpdate: false,
             checksumSha256: null,
+            deferredUntilNextLaunch: false,
             downloadable: false,
             downloadReady: false,
             error: null,
             fallbackReason: null,
             offline: false,
             releaseName: '',
-            releaseUrl: APP_UPDATE_RELEASE_PAGE_URL,
             releaseNotes: '',
-            source: 'github',
+            releaseUrl: APP_UPDATE_RELEASE_PAGE_URL,
+            selfApplicable: false,
+            source: 'unsupported',
             timedOut: false,
             version: null
         };
 
         try {
             const runtimeStrategy = resolveRuntimeUpdateStrategy(app);
-            const localOverride = await readLocalOverride();
-            if (localOverride && compareVersions(localOverride.version, app.getVersion()) > 0) {
-                const cachedState = await getCachedDownloadStateForVersion(localOverride.version, localOverride.checksumSha256);
+            if (!runtimeStrategy.supportsUpdater) {
                 latestKnownUpdate = {
                     ...initial,
-                    ...localOverride,
-                    downloadReady: !!cachedState && !!localOverride.canSelfUpdate,
-                    downloadable: !!(localOverride.localFilePath && localOverride.checksumSha256 && localOverride.canSelfUpdate)
+                    fallbackReason: runtimeStrategy.manualFallbackReason,
+                    source: runtimeStrategy.channel
                 };
-                await appendUpdateLog(`checkForAppUpdate source=local strategy=${JSON.stringify(runtimeStrategy)} env=${JSON.stringify({
-                    appExePath: app.getPath('exe'),
-                    portableExecutableDir: process.env.PORTABLE_EXECUTABLE_DIR || '',
-                    portableExecutableFile: process.env.PORTABLE_EXECUTABLE_FILE || '',
-                    portableExecutableAppFilename: process.env.PORTABLE_EXECUTABLE_APP_FILENAME || ''
-                })} result=${JSON.stringify(summarizeAppUpdate(latestKnownUpdate))}`);
+                await appendUpdateLog(`checkForAppUpdate unsupported strategy=${JSON.stringify(runtimeStrategy)}`);
                 return latestKnownUpdate;
             }
 
-            const isFakingVersion = process.argv.some(arg => /^-\d+\.\d+\.\d+/.test(arg));
-            if (!app.isPackaged && !isFakingVersion) {
-                latestKnownUpdate = initial;
-                return {
+            const update = await nsisUpdaterService.checkForUpdates();
+            if (!update.available) {
+                latestKnownUpdate = {
                     ...initial,
-                    fallbackReason: 'not-packaged',
-                    source: 'unsupported'
+                    canSelfUpdate: !!update.canSelfUpdate,
+                    deferredUntilNextLaunch: !!update.deferredUntilNextLaunch,
+                    downloadable: !!update.downloadable,
+                    downloadReady: !!update.downloadReady,
+                    releaseName: update.releaseName || '',
+                    releaseNotes: update.releaseNotes || '',
+                    releaseUrl: update.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL,
+                    selfApplicable: !!update.selfApplicable,
+                    source: update.provider === 'github' ? 'github' : runtimeStrategy.channel,
+                    version: update.version || null
                 };
+                await appendUpdateLog(`checkForAppUpdate no-update strategy=${JSON.stringify(runtimeStrategy)} result=${JSON.stringify(summarizeAppUpdate(latestKnownUpdate))}`);
+                return latestKnownUpdate;
             }
 
-            const newerReleases = await resolveNewerReleases(app.getVersion());
-            const release = newerReleases[0] || null;
-            if (!release?.version) {
-                latestKnownUpdate = initial;
-                return initial;
-            }
-
-            const exeAsset = release.assets.find((asset) => {
-                return runtimeStrategy.artifactKind === 'nsis-installer'
-                    ? isNsisInstallerAsset(asset, release.version)
-                    : isPortableExeAsset(asset, release.version);
-            });
-            const checksumAsset = release.assets.find(asset => isChecksumAsset(asset, release.version, runtimeStrategy.artifactKind));
-            const checksumSha256 = checksumAsset ? await resolveChecksumSha256(checksumAsset) : null;
-            const executableTarget = resolvePortableExecutablePath(app);
-            const selfUpdateProbe = runtimeStrategy.supportsInPlaceApply
-                ? probeWritableDir(executableTarget.dirPath)
-                : { ok: false, reason: runtimeStrategy.manualFallbackReason };
-            const cachedState = checksumSha256
-                ? await getCachedDownloadStateForVersion(release.version, checksumSha256)
-                : null;
-            const canSelfUpdate = runtimeStrategy.supportsInPlaceApply && selfUpdateProbe.ok;
-            const downloadable = !!(exeAsset?.browserDownloadUrl && checksumSha256 && canSelfUpdate);
-            const downloadReady = !!cachedState && canSelfUpdate;
-            const fallbackReason = !exeAsset?.browserDownloadUrl
-                ? 'missing-release-asset'
-                : !checksumSha256
-                    ? 'missing-checksum'
-                    : !canSelfUpdate
-                        ? (selfUpdateProbe.reason || runtimeStrategy.manualFallbackReason)
-                        : null;
-
-            latestKnownUpdate = {
+            latestKnownUpdate = await enrichUpdateInfo({
                 ...initial,
-                assetName: exeAsset?.name || null,
-                available: true,
-                canSelfUpdate,
-                checksumSha256,
-                downloadable,
-                downloadReady,
-                fallbackReason,
-                releaseName: getReleaseDisplayName(release),
-                releaseNotes: formatStackedReleaseNotes(newerReleases),
-                releaseUrl: release.htmlUrl || APP_UPDATE_RELEASE_PAGE_URL,
-                source: 'github',
-                version: release.version,
-                downloadUrl: exeAsset?.browserDownloadUrl || null
-            };
-
-            await appendUpdateLog(`checkForAppUpdate source=github strategy=${JSON.stringify(runtimeStrategy)} env=${JSON.stringify({
-                appExePath: app.getPath('exe'),
-                portableExecutableDir: process.env.PORTABLE_EXECUTABLE_DIR || '',
-                portableExecutableFile: process.env.PORTABLE_EXECUTABLE_FILE || '',
-                portableExecutableAppFilename: process.env.PORTABLE_EXECUTABLE_APP_FILENAME || ''
-            })} target=${JSON.stringify(executableTarget)} probe=${JSON.stringify(selfUpdateProbe)} result=${JSON.stringify(summarizeAppUpdate(latestKnownUpdate))}`);
+                ...update,
+                source: update.provider === 'github' ? 'github' : runtimeStrategy.channel
+            }, runtimeStrategy);
+            await appendUpdateLog(`checkForAppUpdate available strategy=${JSON.stringify(runtimeStrategy)} result=${JSON.stringify(summarizeAppUpdate(latestKnownUpdate))}`);
             return latestKnownUpdate;
         } catch (error) {
             const offline = isNetworkLikeError(error);
             latestKnownUpdate = {
                 ...initial,
                 error: String((error && error.message) || error || ''),
+                fallbackReason: offline ? 'offline' : 'error',
                 offline,
                 source: offline ? 'offline' : 'error'
             };
@@ -556,312 +480,100 @@ function createAppUpdateServices({
     }
 
     async function startBackgroundDownload() {
-        if (activeDownloadPromise) return activeDownloadPromise;
         const update = latestKnownUpdate || await checkForAppUpdate();
         await appendUpdateLog(`startBackgroundDownload update=${JSON.stringify(summarizeAppUpdate(update))}`);
         if (!update?.available) {
             return { ok: false, reason: 'no-update' };
         }
-
-        if (update.downloadReady) {
-            emitStatus({
-                phase: 'download-ready',
-                update: summarizeAppUpdate(update)
-            });
-            return { ok: true, alreadyReady: true, update: summarizeAppUpdate(update) };
-        }
-
-        if (!update.downloadable || (!update.downloadUrl && !update.localFilePath) || !update.checksumSha256) {
-            const fallbackUpdate = summarizeAppUpdate(update);
-            emitStatus({
-                phase: 'download-failed',
-                reason: update.fallbackReason || 'not-downloadable',
-                update: fallbackUpdate
-            });
-            return { ok: false, reason: update.fallbackReason || 'not-downloadable', update: fallbackUpdate };
-        }
-
-        activeDownloadPromise = (async () => {
-            emitStatus({
-                phase: 'download-started',
-                update: summarizeAppUpdate(update)
-            });
-
-            try {
-                await ensureDir(updateCacheDir);
-                let lastProgressTime = Date.now();
-                let lastDownloadedBytes = 0;
-                const buffer = update.localFilePath
-                    ? await fs.readFile(update.localFilePath)
-                    : await downloadBuffer(update.downloadUrl, 0, APP_UPDATE_DOWNLOAD_TIMEOUT_MS, (downloaded, total) => {
-                        const now = Date.now();
-                        const elapsed = now - lastProgressTime;
-                        
-                        // Throttle updates to ~2 times per second to prevent IPC bottleneck and UI jitter
-                        if (elapsed >= 500 || downloaded === total) {
-                            const bytesPerSecond = elapsed > 0 ? (downloaded - lastDownloadedBytes) / (elapsed / 1000) : 0;
-                            lastProgressTime = now;
-                            lastDownloadedBytes = downloaded;
-
-                            emitStatus({
-                                phase: 'download-progress',
-                                downloaded,
-                                total,
-                                bytesPerSecond,
-                                update: summarizeAppUpdate(update)
-                            });
-                        }
-                    });
-                const digest = sha256Hex(buffer);
-                if (digest !== update.checksumSha256) {
-                    throw Object.assign(new Error('App update checksum verification failed.'), { code: 'checksum' });
-                }
-                await appendUpdateLog(`startBackgroundDownload verified version=${update.version} digest=${digest}`);
-
-                const filePath = createDownloadedExePath(update.version);
-                await fs.writeFile(filePath, buffer);
-                await writeState({
-                    downloadedAt: new Date().toISOString(),
-                    filePath,
-                    releaseUrl: update.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL,
-                    sha256: digest,
-                    version: update.version
-                });
-
-                latestKnownUpdate = {
-                    ...update,
-                    downloadReady: true
-                };
-
-                const readyUpdate = summarizeAppUpdate(latestKnownUpdate);
-                emitStatus({
-                    phase: 'download-ready',
-                    update: readyUpdate
-                });
-                await appendUpdateLog(`startBackgroundDownload ready stateFile=${updateStateFile} cachedFile=${filePath}`);
-                return { ok: true, update: readyUpdate };
-            } catch (error) {
-                const reason = error?.code === 'checksum'
-                    ? 'checksum'
-                    : isNetworkLikeError(error)
-                        ? 'offline'
-                        : String((error && error.code) || 'download').toLowerCase();
-                const failedUpdate = summarizeAppUpdate(update);
-                await appendUpdateLog(`startBackgroundDownload failed reason=${reason} error=${String((error && error.stack) || error || '')}`);
-                emitStatus({
-                    error: String((error && error.message) || error || ''),
-                    phase: 'download-failed',
-                    reason,
-                    update: failedUpdate
-                });
-                return {
-                    ok: false,
-                    error: String((error && error.message) || error || ''),
-                    reason,
-                    update: failedUpdate
-                };
-            } finally {
-                activeDownloadPromise = null;
-            }
-        })();
-
-        return activeDownloadPromise;
-    }
-
-    async function restartAndInstallDownloadedUpdate() {
-        const runtimeStrategy = resolveRuntimeUpdateStrategy(app);
-        if (!runtimeStrategy.supportsInPlaceApply) {
-            await appendUpdateLog(`restartAndInstallDownloadedUpdate manual-fallback strategy=${JSON.stringify(runtimeStrategy)}`);
+        if (!update.downloadable) {
             return {
                 ok: false,
-                reason: runtimeStrategy.manualFallbackReason || 'not-supported'
+                reason: update.fallbackReason || 'not-downloadable',
+                update: summarizeAppUpdate(update)
             };
         }
 
-        const update = latestKnownUpdate || await checkForAppUpdate();
-        const state = await getCachedDownloadStateForVersion(update?.version, update?.checksumSha256);
-        await appendUpdateLog(`restartAndInstallDownloadedUpdate state=${JSON.stringify(state)} update=${JSON.stringify(summarizeAppUpdate(update))}`);
-        if (!update?.available || !state) {
-            return { ok: false, reason: 'no-downloaded-update' };
-        }
-
-        const buffer = await fs.readFile(state.filePath);
-        const digest = sha256Hex(buffer);
-        if (digest !== state.sha256) {
-            await clearState(state);
-            return { ok: false, reason: 'checksum' };
-        }
-
-        const executableTarget = resolvePortableExecutablePath(app);
-        const targetExePath = executableTarget.exePath;
-        const backupExePath = `${targetExePath}.backup`;
-        const helperLauncherPath = path.join(app.getPath('temp'), `yumeshelf-portable-update-launcher-${state.version}-${Date.now()}.cmd`);
-        const helperScriptPath = path.join(app.getPath('temp'), `yumeshelf-portable-update-${state.version}-${Date.now()}.ps1`);
-        const postUpdateMarkerBase64 = Buffer.from(JSON.stringify({
-            fromVersion: app.getVersion(),
-            installedAt: new Date().toISOString(),
-            releaseName: update.releaseName || '',
-            releaseNotes: update.releaseNotes || '',
-            releaseUrl: update.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL,
-            toVersion: update.version || state.version
-        }), 'utf8').toString('base64');
-        await appendUpdateLog(`restartAndInstallDownloadedUpdate target=${JSON.stringify(executableTarget)} helper=${helperScriptPath}`);
-        const helperScript = `
-$PidToWait = ${process.pid}
-$TargetExePath = '${targetExePath.replace(/'/g, "''")}'
-$TargetExeDir = '${path.dirname(targetExePath).replace(/'/g, "''")}'
-$DownloadedExePath = '${state.filePath.replace(/'/g, "''")}'
-$BackupExePath = '${backupExePath.replace(/'/g, "''")}'
-$PostUpdateMarkerBase64 = '${postUpdateMarkerBase64}'
-$PostUpdateMarkerPath = '${postUpdateMarkerFile.replace(/'/g, "''")}'
-$ReleaseUrl = '${String(state.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL).replace(/'/g, "''")}'
-$StateFilePath = '${updateStateFile.replace(/'/g, "''")}'
-$LogFilePath = '${updateLogFile.replace(/'/g, "''")}'
-$HelperScriptPath = $MyInvocation.MyCommand.Path
-
-Start-Sleep -Milliseconds 500
-
-function Write-Log {
-    param(
-        [string]$Message
-    )
-
-    try {
-        Add-Content -LiteralPath $LogFilePath -Value ("[" + [DateTime]::UtcNow.ToString("o") + "] helper " + $Message)
-    } catch {}
-}
-
-function Test-TargetProcessRunning {
-    param(
-        [string]$ExecutablePath
-    )
-
-    try {
-        $normalizedTarget = [System.IO.Path]::GetFullPath($ExecutablePath)
-        $processes = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-            $_.ExecutablePath -and ([System.IO.Path]::GetFullPath($_.ExecutablePath) -eq $normalizedTarget)
-        }
-        if ($processes) {
-            Write-Log ("target-process-running count=" + @($processes).Count + " path=" + $normalizedTarget)
-        }
-        return [bool]$processes
-    } catch {
-        Write-Log ("target-process-check-failed error=" + $_.Exception.Message)
-        return $false
-    }
-}
-
-try {
-    Wait-Process -Id $PidToWait -Timeout 60 -ErrorAction SilentlyContinue
-} catch {}
-Write-Log ("waited-for-inner-pid pid=" + $PidToWait)
-
-for ($waitAttempt = 0; $waitAttempt -lt 120; $waitAttempt++) {
-    if (-not (Test-TargetProcessRunning -ExecutablePath $TargetExePath)) {
-        Write-Log ("target-process-cleared attempt=" + $waitAttempt)
-        break
-    }
-    Start-Sleep -Milliseconds 500
-}
-
-$updated = $false
-for ($attempt = 0; $attempt -lt 30; $attempt++) {
-    try {
-        Write-Log ("swap-attempt=" + $attempt + " target=" + $TargetExePath)
-        if ((Test-Path -LiteralPath $TargetExePath) -and (-not (Test-Path -LiteralPath $BackupExePath))) {
-            Move-Item -LiteralPath $TargetExePath -Destination $BackupExePath -Force
-            Write-Log ("moved-target-to-backup path=" + $BackupExePath)
-        }
-        Move-Item -LiteralPath $DownloadedExePath -Destination $TargetExePath -Force
-        Write-Log ("moved-downloaded-to-target path=" + $TargetExePath)
-        if (Test-Path -LiteralPath $BackupExePath) {
-            Remove-Item -LiteralPath $BackupExePath -Force -ErrorAction SilentlyContinue
-            Write-Log ("removed-backup path=" + $BackupExePath)
-        }
-        if (Test-Path -LiteralPath $StateFilePath) {
-            Remove-Item -LiteralPath $StateFilePath -Force -ErrorAction SilentlyContinue
-            Write-Log ("removed-state path=" + $StateFilePath)
-        }
-        [System.IO.File]::WriteAllText(
-            $PostUpdateMarkerPath,
-            [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($PostUpdateMarkerBase64)),
-            (New-Object System.Text.UTF8Encoding($false))
-        )
-        Write-Log ("wrote-post-update-marker path=" + $PostUpdateMarkerPath)
-        Start-Process -FilePath $TargetExePath -WorkingDirectory $TargetExeDir -ArgumentList '--after-update'
-        Write-Log ("relaunch-started path=" + $TargetExePath + " cwd=" + $TargetExeDir + " args=--after-update")
-        $updated = $true
-        break
-    } catch {
-        Write-Log ("swap-attempt-failed attempt=" + $attempt + " error=" + $_.Exception.Message)
-        try {
-            if ((-not (Test-Path -LiteralPath $TargetExePath)) -and (Test-Path -LiteralPath $BackupExePath)) {
-                Move-Item -LiteralPath $BackupExePath -Destination $TargetExePath -Force
-                Write-Log ("restored-backup path=" + $TargetExePath)
-            }
-        } catch {}
-        Start-Sleep -Milliseconds 1000
-    }
-}
-
-if (-not $updated) {
-    Write-Log "swap-never-succeeded"
-    try {
-        if ((-not (Test-Path -LiteralPath $TargetExePath)) -and (Test-Path -LiteralPath $BackupExePath)) {
-            Move-Item -LiteralPath $BackupExePath -Destination $TargetExePath -Force
-            Write-Log ("restored-backup-after-failure path=" + $TargetExePath)
-        }
-    } catch {}
-    try {
-        if (Test-Path -LiteralPath $PostUpdateMarkerPath) {
-            Remove-Item -LiteralPath $PostUpdateMarkerPath -Force -ErrorAction SilentlyContinue
-            Write-Log ("removed-post-update-marker-after-failure path=" + $PostUpdateMarkerPath)
-        }
-    } catch {}
-    if (Test-Path -LiteralPath $StateFilePath) {
-        Remove-Item -LiteralPath $StateFilePath -Force -ErrorAction SilentlyContinue
-        Write-Log ("removed-state-after-failure path=" + $StateFilePath)
-    }
-    if (Test-Path -LiteralPath $TargetExePath) {
-        Start-Process -FilePath $TargetExePath -WorkingDirectory $TargetExeDir -ArgumentList '--after-update'
-        Write-Log ("relaunch-old-target path=" + $TargetExePath + " cwd=" + $TargetExeDir + " args=--after-update")
-    }
-    Start-Process $ReleaseUrl
-    Write-Log ("opened-release-url url=" + $ReleaseUrl)
-}
-
-Remove-Item -LiteralPath $HelperScriptPath -Force -ErrorAction SilentlyContinue
-`;
-
-        await fs.writeFile(helperScriptPath, helperScript.trimStart(), 'utf8');
-        const helperLauncher = `@echo off
-setlocal
-echo [%date% %time%] launcher start script="${helperScriptPath}" >> "${updateLogFile}"
-powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${helperScriptPath}" >> "${helperConsoleLogFile}" 2>&1
-set "EXITCODE=%ERRORLEVEL%"
-echo [%date% %time%] launcher exit code=%EXITCODE% >> "${updateLogFile}"
-del /f /q "${helperLauncherPath}" >nul 2>nul
-endlocal
-`;
-        await fs.writeFile(helperLauncherPath, helperLauncher, 'utf8');
-        await appendUpdateLog(`restartAndInstallDownloadedUpdate launching-helper helper=${helperScriptPath} launcher=${helperLauncherPath} consoleLog=${helperConsoleLogFile}`);
-        const child = spawn('cmd.exe', [
-            '/d',
-            '/c',
-            helperLauncherPath
-        ], {
-            detached: true,
-            stdio: 'ignore',
-            windowsHide: true
+        const result = await nsisUpdaterService.downloadUpdate({
+            releaseName: update.releaseName,
+            releaseNotes: update.releaseNotes,
+            releaseUrl: update.releaseUrl,
+            version: update.version
         });
-        await appendUpdateLog(`restartAndInstallDownloadedUpdate helper-spawned pid=${child.pid || 'unknown'}`);
-        child.unref();
 
-        setTimeout(() => {
-            app.quit();
-        }, 120);
+        if (result?.ok) {
+            latestKnownUpdate = {
+                ...update,
+                actionState: update.deferredUntilNextLaunch ? 'scheduled' : 'ready',
+                deferredUntilNextLaunch: false,
+                downloadReady: true
+            };
+            return {
+                ...result,
+                update: summarizeAppUpdate(latestKnownUpdate)
+            };
+        }
 
-        return { ok: true };
+        latestKnownUpdate = {
+            ...update,
+            actionState: 'failed'
+        };
+        return {
+            ...result,
+            update: summarizeAppUpdate(latestKnownUpdate)
+        };
+    }
+
+    async function restartAndInstallDownloadedUpdate() {
+        const update = latestKnownUpdate || await checkForAppUpdate();
+        await appendUpdateLog(`restartAndInstallDownloadedUpdate update=${JSON.stringify(summarizeAppUpdate(update))}`);
+        if (!update?.available) {
+            return { ok: false, reason: 'no-update' };
+        }
+        const result = await nsisUpdaterService.installDownloadedUpdateNow({
+            fromVersion: app.getVersion(),
+            releaseName: update.releaseName,
+            releaseNotes: update.releaseNotes,
+            releaseUrl: update.releaseUrl,
+            version: update.version
+        });
+        if (!result?.ok) {
+            return result || { ok: false, reason: 'install' };
+        }
+        return result;
+    }
+
+    async function scheduleInstallOnNextLaunch() {
+        const update = latestKnownUpdate || await checkForAppUpdate();
+        await appendUpdateLog(`scheduleInstallOnNextLaunch update=${JSON.stringify(summarizeAppUpdate(update))}`);
+        if (!update?.available) {
+            return { ok: false, reason: 'no-update' };
+        }
+
+        const result = await nsisUpdaterService.scheduleInstallOnNextLaunch({
+            fromVersion: app.getVersion(),
+            releaseName: update.releaseName,
+            releaseNotes: update.releaseNotes,
+            releaseUrl: update.releaseUrl,
+            version: update.version
+        });
+        if (!result?.ok) {
+            return result || { ok: false, reason: 'schedule' };
+        }
+
+        latestKnownUpdate = {
+            ...update,
+            actionState: 'scheduled',
+            deferredUntilNextLaunch: true,
+            downloadReady: true
+        };
+        return {
+            ...result,
+            update: summarizeAppUpdate(latestKnownUpdate)
+        };
+    }
+
+    async function runDeferredInstallOnLaunch() {
+        return nsisUpdaterService.runDeferredInstallOnLaunch();
     }
 
     return {
@@ -870,6 +582,8 @@ endlocal
         logDebug,
         openAppUpdateDownloadPage,
         restartAndInstallDownloadedUpdate,
+        runDeferredInstallOnLaunch,
+        scheduleInstallOnNextLaunch,
         startBackgroundDownload
     };
 }

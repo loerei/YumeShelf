@@ -69,10 +69,13 @@ function createStartupServices({
             available: false,
             version: null,
             releaseName: '',
+            releaseNotes: '',
             releaseUrl: null,
             downloadable: false,
             canSelfUpdate: false,
+            selfApplicable: false,
             downloadReady: false,
+            deferredUntilNextLaunch: false,
             checksumSha256: null,
             fallbackReason: null
         };

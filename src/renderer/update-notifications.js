@@ -114,11 +114,23 @@ export function createUpdateNotificationController({
 
     async function handlePrimaryAction() {
         if (!activeNotification || typeof activeNotification.onPrimaryAction !== 'function') return;
-        await activeNotification.onPrimaryAction();
-        collapseActiveNotification();
+        const notification = activeNotification;
+        await notification.onPrimaryAction();
+        if (activeNotification === notification) {
+            collapseActiveNotification();
+        }
     }
 
-    function handleSecondaryAction() {
+    async function handleSecondaryAction() {
+        if (!activeNotification) return;
+        const notification = activeNotification;
+        if (typeof notification.onSecondaryAction === 'function') {
+            await notification.onSecondaryAction();
+            if (activeNotification === notification) {
+                collapseActiveNotification();
+            }
+            return;
+        }
         collapseActiveNotification();
     }
 
@@ -137,7 +149,9 @@ export function createUpdateNotificationController({
     refs.primaryBtn.onclick = () => {
         void handlePrimaryAction();
     };
-    refs.laterBtn.onclick = handleSecondaryAction;
+    refs.laterBtn.onclick = () => {
+        void handleSecondaryAction();
+    };
     refs.tertiaryBtn.onclick = () => {
         void handleTertiaryAction();
     };

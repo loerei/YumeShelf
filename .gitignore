@@ -4,6 +4,7 @@ node_modules/
 dist/
 build_output/
 *.exe
+dev-app-update.yml
 
 library_db.json
 src/library_db.json

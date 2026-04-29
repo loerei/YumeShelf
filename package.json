@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.4.5",
+  "version": "1.4.6-beta.1",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
@@ -14,11 +14,20 @@
     "build:dir:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:dir",
     "checksum:release": "node .\\scripts\\write-release-checksum.js",
     "mock:app-update": "node .\\scripts\\write-dev-app-update-manifest.js",
+    "mock:app-update:serve": "node .\\scripts\\serve-dev-app-update-feed.js",
     "sync:release-metadata": "node .\\scripts\\sync-release-metadata.js"
   },
   "build": {
     "appId": "com.loerei.yumeshelf",
     "productName": "YumeShelf",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "loerei",
+        "repo": "YumeShelf"
+      }
+    ],
+    "electronUpdaterCompatibility": ">=2.16",
     "files": [
       "src/**/*",
       "package.json",
@@ -38,7 +47,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName} Setup ${version}.${ext}"
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },
   "devDependencies": {
@@ -46,6 +55,7 @@
     "electron-builder": "^26.8.1"
   },
   "dependencies": {
+    "electron-updater": "^6.8.3",
     "extract-file-icon": "^0.3.2"
   }
 }

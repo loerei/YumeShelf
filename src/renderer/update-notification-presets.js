@@ -82,6 +82,20 @@ function createAppReadyGroup(appUpdateCheck, getText) {
     };
 }
 
+function createAppScheduledGroup(appUpdateCheck, getText) {
+    if (!appUpdateCheck || !appUpdateCheck.available || !appUpdateCheck.downloadReady || !appUpdateCheck.deferredUntilNextLaunch) return null;
+    return {
+        count: 1,
+        kind: 'app-scheduled',
+        signaturePart: appUpdateCheck.version,
+        summaryText: formatTemplate(
+            getText('update_notification_summary_app_scheduled_one', 'App update {version} will install on the next launch'),
+            { version: formatVersion(appUpdateCheck.version) }
+        ),
+        version: formatVersion(appUpdateCheck.version)
+    };
+}
+
 function createAggregatedUpdateNotification({
     groups,
     mode = 'notify',
@@ -142,6 +156,8 @@ export function presentBootUpdateNotifications({
     bootstrapData,
     getText,
     openUpdatesReviewModal,
+    restartAndInstallAppUpdate,
+    scheduleAppUpdateNextLaunch,
     updateNotificationController
 }) {
     if (!bootstrapData || !bootstrapData.bootChecks) return;
@@ -160,11 +176,12 @@ export function presentBootUpdateNotifications({
         automaticGroups.push(createLanguagePackInstalledGroup(languagePackCheck.installedUpdates, getText));
     }
     if (appReadyGroup) {
-        updateNotificationController.present(createAggregatedUpdateNotification({
+        updateNotificationController.present(createAppUpdateReadyNotification({
             getText,
-            groups: [appReadyGroup, ...automaticGroups],
-            mode: 'notify',
-            openUpdatesReviewModal
+            openUpdatesReviewModal,
+            restartAndInstallAppUpdate,
+            scheduleAppUpdateNextLaunch,
+            update: appUpdateCheck
         }));
         return;
     }
@@ -214,19 +231,73 @@ export function presentBootUpdateNotifications({
 export function createAppUpdateReadyNotification({
     getText,
     openUpdatesReviewModal,
+    restartAndInstallAppUpdate,
+    scheduleAppUpdateNextLaunch,
     update
 }) {
     const version = formatVersion(update?.version);
-    return createAggregatedUpdateNotification({
-        getText,
-        groups: [createAppReadyGroup(update, getText)],
-        mode: 'notify',
-        openUpdatesReviewModal,
-        titleOverride: formatTemplate(
+    return {
+        eyebrow: getText('update_notification_label_ready', 'Ready to install'),
+        handleLabel: getText('update_notification_handle', 'Updates'),
+        message: '',
+        onPrimaryAction: async () => {
+            if (typeof restartAndInstallAppUpdate === 'function') {
+                await restartAndInstallAppUpdate();
+                return;
+            }
+            await openUpdatesReviewModal();
+        },
+        onSecondaryAction: async () => {
+            if (typeof scheduleAppUpdateNextLaunch === 'function') {
+                await scheduleAppUpdateNextLaunch();
+                return;
+            }
+        },
+        persistOnce: false,
+        primaryLabel: getText('update_notification_restart_and_update', 'Restart and Update'),
+        secondaryLabel: getText('update_notification_install_next_launch', 'Install on next launch'),
+        signature: null,
+        summaryItems: [
+            formatTemplate(
+                getText('update_notification_summary_app_ready_one', 'App update {version} is ready to install'),
+                { version }
+            )
+        ],
+        title: formatTemplate(
             getText('update_notification_app_ready_title', 'Update {version} is ready to install'),
             { version }
         )
-    });
+    };
+}
+
+export function createAppUpdateScheduledNotification({
+    getText,
+    openUpdatesReviewModal,
+    update
+}) {
+    const version = formatVersion(update?.version);
+    return {
+        eyebrow: getText('update_notification_label_scheduled', 'Scheduled'),
+        handleLabel: getText('update_notification_handle', 'Updates'),
+        message: '',
+        onPrimaryAction: async () => {
+            await openUpdatesReviewModal();
+        },
+        persistOnce: false,
+        primaryLabel: getText('update_notification_review', 'Review updates'),
+        secondaryLabel: getText('post_update_notification_dismiss', 'Dismiss'),
+        signature: null,
+        summaryItems: [
+            formatTemplate(
+                getText('update_notification_summary_app_scheduled_one', 'App update {version} will install on the next launch'),
+                { version }
+            )
+        ],
+        title: formatTemplate(
+            getText('update_notification_app_scheduled_title', 'Update {version} will install on the next launch'),
+            { version }
+        )
+    };
 }
 
 export function createAppUpdateDownloadFailedNotification({

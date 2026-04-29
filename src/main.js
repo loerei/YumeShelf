@@ -647,7 +647,7 @@ app.on('render-process-gone', (event, webContents, details) => {
     console.error(`[MAIN][PROCESS] render-process-gone ${JSON.stringify(details)}`);
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     require('electron').protocol.handle('game-icon', async (request) => {
         try {
             const urlObj = new URL(request.url);
@@ -714,6 +714,11 @@ app.whenReady().then(() => {
 
     logStartupDiagnostics();
     const launchedAfterUpdate = process.argv.includes('--after-update');
+    const deferredInstallLaunch = await appUpdateServices.runDeferredInstallOnLaunch();
+    if (deferredInstallLaunch?.launched) {
+        app.quit();
+        return;
+    }
 
     const win = new BrowserWindow({
         width: 1200, height: 800, backgroundColor: '#121212', autoHideMenuBar: true,
@@ -749,6 +754,7 @@ app.whenReady().then(() => {
     ipcMain.handle('bootstrap-app', async (event, options = {}) => bootstrapAppState(event.sender, options));
     ipcMain.handle('start-app-update-download', async () => appUpdateServices.startBackgroundDownload());
     ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices.restartAndInstallDownloadedUpdate());
+    ipcMain.handle('schedule-app-update-next-launch', async () => appUpdateServices.scheduleInstallOnNextLaunch());
     ipcMain.handle('open-app-update-download-page', async () => appUpdateServices.openAppUpdateDownloadPage());
     ipcMain.handle('open-external-url', async (_event, url) => {
         const normalizedUrl = String(url || '').trim();

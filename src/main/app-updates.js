@@ -69,13 +69,62 @@ function isPortableExeAsset(asset, version) {
     });
 }
 
-function isChecksumAsset(asset, version) {
+function isNsisInstallerAsset(asset, version) {
     const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
     return candidates.some((value) => {
         return value.includes('yumeshelf')
+            && value.includes('setup')
+            && value.includes(version.toLowerCase())
+            && value.endsWith('.exe')
+            && !value.endsWith('.exe.sha256');
+    });
+}
+
+function isChecksumAsset(asset, version, artifactKind) {
+    const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
+    return candidates.some((value) => {
+        return value.includes('yumeshelf')
+            && (artifactKind !== 'nsis-installer' || value.includes('setup'))
             && value.includes(version.toLowerCase())
             && value.endsWith('.exe.sha256');
     });
+}
+
+function inferExecutableArtifactKind(filePath) {
+    const fileName = path.basename(String(filePath || '')).toLowerCase();
+    if (!fileName.endsWith('.exe')) return 'unknown';
+    return fileName.includes('setup') ? 'nsis-installer' : 'portable-exe';
+}
+
+function readPortableEnvironment() {
+    const explicitPortableExe = String(process.env.PORTABLE_EXECUTABLE_FILE || '').trim();
+    const portableDir = String(process.env.PORTABLE_EXECUTABLE_DIR || '').trim();
+    const portableAppFilename = String(process.env.PORTABLE_EXECUTABLE_APP_FILENAME || '').trim();
+    return {
+        detected: !!explicitPortableExe || !!(portableDir && portableAppFilename),
+        explicitPortableExe,
+        portableAppFilename,
+        portableDir
+    };
+}
+
+function resolveRuntimeUpdateStrategy(app) {
+    const portableEnvironment = readPortableEnvironment();
+    if (portableEnvironment.detected) {
+        return {
+            artifactKind: 'portable-exe',
+            channel: 'portable',
+            manualFallbackReason: null,
+            supportsInPlaceApply: !!app.isPackaged
+        };
+    }
+
+    return {
+        artifactKind: 'nsis-installer',
+        channel: app.isPackaged ? 'nsis' : 'development',
+        manualFallbackReason: 'manual-installer-required',
+        supportsInPlaceApply: false
+    };
 }
 
 function probeWritableDir(dirPath) {
@@ -97,23 +146,21 @@ function probeWritableDir(dirPath) {
 }
 
 function resolvePortableExecutablePath(app) {
-    const explicitPortableExe = String(process.env.PORTABLE_EXECUTABLE_FILE || '').trim();
-    if (explicitPortableExe && fsSync.existsSync(explicitPortableExe)) {
+    const portableEnvironment = readPortableEnvironment();
+    if (portableEnvironment.explicitPortableExe && fsSync.existsSync(portableEnvironment.explicitPortableExe)) {
         return {
-            exePath: explicitPortableExe,
-            dirPath: path.dirname(explicitPortableExe),
+            exePath: portableEnvironment.explicitPortableExe,
+            dirPath: path.dirname(portableEnvironment.explicitPortableExe),
             source: 'portable-env-file'
         };
     }
 
-    const portableDir = String(process.env.PORTABLE_EXECUTABLE_DIR || '').trim();
-    const portableAppFilename = String(process.env.PORTABLE_EXECUTABLE_APP_FILENAME || '').trim();
-    if (portableDir && portableAppFilename) {
-        const candidatePath = path.join(portableDir, `${portableAppFilename}.exe`);
+    if (portableEnvironment.portableDir && portableEnvironment.portableAppFilename) {
+        const candidatePath = path.join(portableEnvironment.portableDir, `${portableEnvironment.portableAppFilename}.exe`);
         if (fsSync.existsSync(candidatePath)) {
             return {
                 exePath: candidatePath,
-                dirPath: portableDir,
+                dirPath: portableEnvironment.portableDir,
                 source: 'portable-env-dir'
             };
         }
@@ -303,17 +350,28 @@ function createAppUpdateServices({
         if (!raw.version || !raw.exePath || !raw.sha256) return null;
         const localFilePath = path.resolve(String(raw.exePath));
         if (!fsSync.existsSync(localFilePath)) return null;
+        const runtimeStrategy = resolveRuntimeUpdateStrategy(app);
+        const localArtifactKind = inferExecutableArtifactKind(localFilePath);
         const executableTarget = resolvePortableExecutablePath(app);
-        const writeProbe = probeWritableDir(executableTarget.dirPath);
-        const canSelfUpdate = app.isPackaged && writeProbe.ok;
-        await appendUpdateLog(`readLocalOverride target=${JSON.stringify(executableTarget)} probe=${JSON.stringify(writeProbe)} localFilePath=${localFilePath}`);
+        const writeProbe = runtimeStrategy.supportsInPlaceApply
+            ? probeWritableDir(executableTarget.dirPath)
+            : { ok: false, reason: runtimeStrategy.manualFallbackReason };
+        const canSelfUpdate = runtimeStrategy.supportsInPlaceApply
+            && localArtifactKind === runtimeStrategy.artifactKind
+            && writeProbe.ok;
+        const fallbackReason = localArtifactKind !== runtimeStrategy.artifactKind
+            ? 'manual-installer-required'
+            : canSelfUpdate
+                ? null
+                : (writeProbe.reason || runtimeStrategy.manualFallbackReason);
+        await appendUpdateLog(`readLocalOverride strategy=${JSON.stringify(runtimeStrategy)} target=${JSON.stringify(executableTarget)} probe=${JSON.stringify(writeProbe)} localArtifactKind=${localArtifactKind} localFilePath=${localFilePath}`);
         return {
             available: true,
             canSelfUpdate,
             checksumSha256: String(raw.sha256).toLowerCase(),
             downloadable: canSelfUpdate,
             downloadReady: false,
-            fallbackReason: null,
+            fallbackReason,
             localFilePath,
             releaseNotes: String(raw.releaseNotes || raw.body || '').trim(),
             releaseName: String(raw.releaseName || raw.version),
@@ -393,6 +451,7 @@ function createAppUpdateServices({
         };
 
         try {
+            const runtimeStrategy = resolveRuntimeUpdateStrategy(app);
             const localOverride = await readLocalOverride();
             if (localOverride && compareVersions(localOverride.version, app.getVersion()) > 0) {
                 const cachedState = await getCachedDownloadStateForVersion(localOverride.version, localOverride.checksumSha256);
@@ -402,7 +461,7 @@ function createAppUpdateServices({
                     downloadReady: !!cachedState && !!localOverride.canSelfUpdate,
                     downloadable: !!(localOverride.localFilePath && localOverride.checksumSha256 && localOverride.canSelfUpdate)
                 };
-                await appendUpdateLog(`checkForAppUpdate source=local env=${JSON.stringify({
+                await appendUpdateLog(`checkForAppUpdate source=local strategy=${JSON.stringify(runtimeStrategy)} env=${JSON.stringify({
                     appExePath: app.getPath('exe'),
                     portableExecutableDir: process.env.PORTABLE_EXECUTABLE_DIR || '',
                     portableExecutableFile: process.env.PORTABLE_EXECUTABLE_FILE || '',
@@ -428,30 +487,40 @@ function createAppUpdateServices({
                 return initial;
             }
 
-            const exeAsset = release.assets.find(asset => isPortableExeAsset(asset, release.version));
-            const checksumAsset = release.assets.find(asset => isChecksumAsset(asset, release.version));
+            const exeAsset = release.assets.find((asset) => {
+                return runtimeStrategy.artifactKind === 'nsis-installer'
+                    ? isNsisInstallerAsset(asset, release.version)
+                    : isPortableExeAsset(asset, release.version);
+            });
+            const checksumAsset = release.assets.find(asset => isChecksumAsset(asset, release.version, runtimeStrategy.artifactKind));
             const checksumSha256 = checksumAsset ? await resolveChecksumSha256(checksumAsset) : null;
             const executableTarget = resolvePortableExecutablePath(app);
-            const selfUpdateProbe = probeWritableDir(executableTarget.dirPath);
+            const selfUpdateProbe = runtimeStrategy.supportsInPlaceApply
+                ? probeWritableDir(executableTarget.dirPath)
+                : { ok: false, reason: runtimeStrategy.manualFallbackReason };
             const cachedState = checksumSha256
                 ? await getCachedDownloadStateForVersion(release.version, checksumSha256)
                 : null;
+            const canSelfUpdate = runtimeStrategy.supportsInPlaceApply && selfUpdateProbe.ok;
+            const downloadable = !!(exeAsset?.browserDownloadUrl && checksumSha256 && canSelfUpdate);
+            const downloadReady = !!cachedState && canSelfUpdate;
+            const fallbackReason = !exeAsset?.browserDownloadUrl
+                ? 'missing-release-asset'
+                : !checksumSha256
+                    ? 'missing-checksum'
+                    : !canSelfUpdate
+                        ? (selfUpdateProbe.reason || runtimeStrategy.manualFallbackReason)
+                        : null;
 
             latestKnownUpdate = {
                 ...initial,
                 assetName: exeAsset?.name || null,
                 available: true,
-                canSelfUpdate: selfUpdateProbe.ok,
+                canSelfUpdate,
                 checksumSha256,
-                downloadable: !!(exeAsset?.browserDownloadUrl && checksumSha256 && selfUpdateProbe.ok),
-                downloadReady: !!cachedState && selfUpdateProbe.ok,
-                fallbackReason: !exeAsset?.browserDownloadUrl
-                    ? 'missing-release-asset'
-                    : !checksumSha256
-                        ? 'missing-checksum'
-                        : !selfUpdateProbe.ok
-                            ? selfUpdateProbe.reason
-                            : null,
+                downloadable,
+                downloadReady,
+                fallbackReason,
                 releaseName: getReleaseDisplayName(release),
                 releaseNotes: formatStackedReleaseNotes(newerReleases),
                 releaseUrl: release.htmlUrl || APP_UPDATE_RELEASE_PAGE_URL,
@@ -460,7 +529,7 @@ function createAppUpdateServices({
                 downloadUrl: exeAsset?.browserDownloadUrl || null
             };
 
-            await appendUpdateLog(`checkForAppUpdate source=github env=${JSON.stringify({
+            await appendUpdateLog(`checkForAppUpdate source=github strategy=${JSON.stringify(runtimeStrategy)} env=${JSON.stringify({
                 appExePath: app.getPath('exe'),
                 portableExecutableDir: process.env.PORTABLE_EXECUTABLE_DIR || '',
                 portableExecutableFile: process.env.PORTABLE_EXECUTABLE_FILE || '',
@@ -600,6 +669,15 @@ function createAppUpdateServices({
     }
 
     async function restartAndInstallDownloadedUpdate() {
+        const runtimeStrategy = resolveRuntimeUpdateStrategy(app);
+        if (!runtimeStrategy.supportsInPlaceApply) {
+            await appendUpdateLog(`restartAndInstallDownloadedUpdate manual-fallback strategy=${JSON.stringify(runtimeStrategy)}`);
+            return {
+                ok: false,
+                reason: runtimeStrategy.manualFallbackReason || 'not-supported'
+            };
+        }
+
         const update = latestKnownUpdate || await checkForAppUpdate();
         const state = await getCachedDownloadStateForVersion(update?.version, update?.checksumSha256);
         await appendUpdateLog(`restartAndInstallDownloadedUpdate state=${JSON.stringify(state)} update=${JSON.stringify(summarizeAppUpdate(update))}`);

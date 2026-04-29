@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { resolveInstallerArtifactPath } = require('./release-artifacts');
 
 const repoRoot = path.resolve(__dirname, '..');
 const syncScriptPath = path.join(__dirname, 'sync-release-metadata.js');
@@ -117,7 +118,11 @@ function main() {
     try {
         run(process.execPath, [syncScriptPath, targetVersion]);
         run('npm', ['run', buildScript]);
-        console.log(`[build:test-version] built build_output\\YumeShelf ${targetVersion}.exe`);
+        const installerPath = resolveInstallerArtifactPath(targetVersion);
+        if (!fs.existsSync(installerPath)) {
+            throw new Error(`Expected NSIS installer was not found: ${installerPath}`);
+        }
+        console.log(`[build:test-version] built ${path.relative(repoRoot, installerPath).replace(/\//g, '\\')}`);
     } finally {
         restoreSnapshot(snapshot);
         console.log(`[build:test-version] restored workspace metadata to ${originalVersion}`);

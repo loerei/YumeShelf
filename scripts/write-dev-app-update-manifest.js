@@ -22,7 +22,7 @@ function resolveOutputPath() {
 function main() {
     const inputPath = process.argv[2];
     if (!inputPath) {
-        throw new Error('Usage: node scripts/write-dev-app-update-manifest.js <path-to-exe> [version] [releaseUrl] [releaseNotes]');
+        throw new Error('Usage: node scripts/write-dev-app-update-manifest.js <path-to-release-exe> [version] [releaseUrl] [releaseNotes]');
     }
 
     const exePath = path.resolve(inputPath);
@@ -36,7 +36,7 @@ function main() {
     }
 
     const releaseUrl = process.argv[4] || 'https://github.com/loerei/YumeShelf/releases/latest';
-    const releaseNotes = process.argv[5] || `## Local test build\n- Portable updater review flow test for YumeShelf ${version}.`;
+    const releaseNotes = process.argv[5] || `## Local test build\n- Installer/manual update review flow test for YumeShelf ${version}.`;
     const outputPath = resolveOutputPath();
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, `${JSON.stringify({

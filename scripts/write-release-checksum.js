@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { resolveNewestInstallerArtifactPath } = require('./release-artifacts');
 
 function resolveInputPath() {
     const explicitPath = process.argv[2];
@@ -8,21 +9,7 @@ function resolveInputPath() {
         return path.resolve(explicitPath);
     }
 
-    const buildOutputDir = path.resolve(__dirname, '..', 'build_output');
-    const candidates = fs.readdirSync(buildOutputDir)
-        .filter((name) => /^YumeShelf .*\.exe$/i.test(name))
-        .map((name) => path.join(buildOutputDir, name))
-        .map((filePath) => ({
-            filePath,
-            mtimeMs: fs.statSync(filePath).mtimeMs
-        }))
-        .sort((left, right) => right.mtimeMs - left.mtimeMs);
-
-    if (candidates.length === 0) {
-        throw new Error('No YumeShelf release executable was found in build_output.');
-    }
-
-    return candidates[0].filePath;
+    return resolveNewestInstallerArtifactPath();
 }
 
 function sha256File(filePath) {
@@ -32,7 +19,7 @@ function sha256File(filePath) {
 function main() {
     const inputPath = resolveInputPath();
     if (!fs.existsSync(inputPath)) {
-        throw new Error(`Release executable was not found: ${inputPath}`);
+        throw new Error(`Release installer was not found: ${inputPath}`);
     }
 
     const digest = sha256File(inputPath);

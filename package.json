@@ -29,8 +29,16 @@
       "output": "build_output"
     },
     "win": {
-      "target": "portable",
+      "target": [
+        "nsis"
+      ],
       "icon": "assets/yumeshelf_icon_highres_4096.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName} Setup ${version}.${ext}"
     }
   },
   "devDependencies": {

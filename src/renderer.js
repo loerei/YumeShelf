@@ -181,7 +181,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         getText,
         openUpdatesReviewModal: async (options = {}) => {
             await languagePackController.openUpdatesReviewModal(options);
-        }
+        },
+        restartAndInstallAppUpdate: () => appUpdateController.performReviewUpdate(),
+        scheduleAppUpdateNextLaunch: () => appUpdateController.scheduleInstallOnNextLaunch()
     });
     const sortMenu = document.getElementById('sort-menu');
     const dragDropGridController = createDragDropGridController({

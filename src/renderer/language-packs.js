@@ -142,10 +142,12 @@ export function createLanguagePackController({
             ? getText('app_update_review_status_downloading', 'Downloading and verifying the new build...')
             : appUpdate.actionState === 'installing'
             ? getText('app_update_review_status_installing', 'Closing YumeShelf and applying the update...')
+            : appUpdate.actionState === 'scheduled' || appUpdate.deferredUntilNextLaunch
+            ? getText('app_update_review_status_scheduled', 'This update will install automatically the next time you launch YumeShelf.')
             : !appUpdate.downloadable
             ? getText('app_update_review_status_manual', 'This update cannot be installed in place here. You can still open the download page.')
             : appUpdate.downloadReady
-            ? getText('app_update_review_status_ready', 'The verified update is ready. Press Update to restart and apply it.')
+            ? getText('app_update_review_status_ready', 'The verified update is ready. Press Restart and Update to apply it now.')
             : getText('app_update_review_status_available', 'Review the latest release notes, then press Update when you are ready.');
         const primaryLabel = installedMode
             ? ''
@@ -153,6 +155,8 @@ export function createLanguagePackController({
             ? getText('lang_modal_downloading', 'Downloading...')
             : !appUpdate.downloadable
             ? getText('update_notification_open_download_page', 'Open download page')
+            : appUpdate.downloadReady
+            ? getText('update_notification_restart_and_update', 'Restart and Update')
             : getText('app_update_review_action', 'Update');
 
         refs.appUpdateReviewEyebrow.textContent = getText('app_update_review_eyebrow', 'App update');
@@ -173,7 +177,8 @@ export function createLanguagePackController({
                 ),
                 { version: appUpdate.version || '-' }
             )}</span>
-            ${(!installedMode && appUpdate.downloadReady) ? `<span class="language-pack-chip">${getText('update_notification_label_ready', 'Ready to install')}</span>` : ''}
+            ${(!installedMode && appUpdate.downloadReady && !appUpdate.deferredUntilNextLaunch) ? `<span class="language-pack-chip">${getText('update_notification_label_ready', 'Ready to install')}</span>` : ''}
+            ${(!installedMode && appUpdate.deferredUntilNextLaunch) ? `<span class="language-pack-chip">${getText('update_notification_label_scheduled', 'Scheduled')}</span>` : ''}
         `;
         refs.appUpdateReviewNotes.innerHTML = renderMarkdownLite(
             appUpdate.releaseNotes || getText('app_update_review_notes_unavailable', 'Release notes are unavailable right now.')

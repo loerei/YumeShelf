@@ -35,7 +35,7 @@
 
 ### 🚀 Quick Start
 1. **Download**: Grab the latest version from the [Releases] page.
-2. **Install**: Run `YumeShelf Setup <version>.exe` and follow the installer.
+2. **Install**: Run `YumeShelf-Setup-<version>.exe` and follow the installer.
 3. **Launch**: Open YumeShelf from your desktop or Start Menu, then choose your existing game folder or let YumeShelf create one for you.
 4. **Enjoy**: Double-click any game to start your journey.
 
@@ -62,7 +62,7 @@ YumeShelf/
 ```
 
 #### Windows Build Outputs
-* **Official release artifact**: `npm run build` and `npm run build:fast` produce `build_output\YumeShelf Setup <version>.exe`
+* **Official release artifact**: `npm run build` and `npm run build:fast` produce `build_output\YumeShelf-Setup-<version>.exe`
 * **Local/dev-only artifact**: `npm run build:dir` produces `build_output\win-unpacked\`
 * **Portable releases**: Retired
 
@@ -84,7 +84,7 @@ YumeShelf/
 
 ### 🚀 快速开始
 1. **下载**: 从 [Releases] 页面获取最新版本。
-2. **安装**: 运行 `YumeShelf Setup <version>.exe` 并按向导完成安装。
+2. **安装**: 运行 `YumeShelf-Setup-<version>.exe` 并按向导完成安装。
 3. **启动**: 从桌面或开始菜单打开 YumeShelf，然后选择现有的游戏文件夹，或者让 YumeShelf 为你创建一个。
 4. **享受**: 双击任意游戏，开启你的旅程。
 
@@ -128,7 +128,7 @@ YumeShelf/
 
 ### 🚀 クイックスタート
 1. **ダウンロード**: [Releases] ページから最新バージョンを取得します。
-2. **インストール**: `YumeShelf Setup <version>.exe` を実行し、インストーラーの案内に従います。
+2. **インストール**: `YumeShelf-Setup-<version>.exe` を実行し、インストーラーの案内に従います。
 3. **起動**: デスクトップまたはスタートメニューから YumeShelf を開き、既存のゲームフォルダを選択するか、YumeShelf に作成させます。
 4. **楽しむ**: 任意のゲームをダブルクリックして旅を始めましょう。
 
@@ -172,7 +172,7 @@ YumeShelf/
 
 ### 🚀 Bắt đầu nhanh
 1. **Tải về**: Lấy phiên bản mới nhất từ trang [Releases].
-2. **Cài đặt**: Chạy `YumeShelf Setup <version>.exe` và làm theo trình cài đặt.
+2. **Cài đặt**: Chạy `YumeShelf-Setup-<version>.exe` và làm theo trình cài đặt.
 3. **Khởi chạy**: Mở YumeShelf từ desktop hoặc Start Menu, rồi chọn thư mục game có sẵn của bạn hoặc để YumeShelf tự tạo một cái mới.
 4. **Thưởng thức**: Click đúp vào bất kỳ game nào để bắt đầu hành trình.
 

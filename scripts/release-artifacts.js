@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const INSTALLER_ARTIFACT_REGEX = /^YumeShelf Setup (.+)\.exe$/i;
+const INSTALLER_ARTIFACT_REGEX = /^YumeShelf-Setup-(.+)\.exe$/i;
 
 function getBuildOutputDir() {
     return path.resolve(__dirname, '..', 'build_output');
@@ -12,7 +12,7 @@ function isInstallerArtifactName(fileName) {
 }
 
 function resolveInstallerArtifactPath(version, buildOutputDir = getBuildOutputDir()) {
-    return path.join(buildOutputDir, `YumeShelf Setup ${version}.exe`);
+    return path.join(buildOutputDir, `YumeShelf-Setup-${version}.exe`);
 }
 
 function resolveNewestInstallerArtifactPath(buildOutputDir = getBuildOutputDir()) {

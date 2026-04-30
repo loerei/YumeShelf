@@ -330,11 +330,14 @@ function createNsisUpdaterService({
         updater.autoDownload = false;
         updater.autoInstallOnAppQuit = false;
         updater.autoRunAppAfterInstall = true;
+        updater.allowPrerelease = String(app.getVersion() || '').includes('-');
 
         const runtime = resolveRuntime();
         if (runtime.usesDevConfig) {
             updater.forceDevUpdateConfig = true;
         }
+
+        void appendUpdateLog(`nsis-updater created current=${app.getVersion()} allowPrerelease=${updater.allowPrerelease}`);
 
         updater.on('checking-for-update', () => {
             void appendUpdateLog(`nsis-updater checking-for-update runtime=${JSON.stringify(runtime)}`);

@@ -456,7 +456,7 @@ function createAppUpdateServices({
         const includePrerelease = options.includePrerelease === true;
         const buffer = await downloadBuffer(APP_UPDATE_RELEASES_API_URL, 0, startupNetworkTimeoutMs);
         const raw = JSON.parse(buffer.toString('utf8'));
-        return Array.isArray(raw)
+        const releases = Array.isArray(raw)
             ? raw
                 .filter(release => !release?.draft && (includePrerelease || !release?.prerelease))
                 .map(normalizeRelease)
@@ -469,6 +469,9 @@ function createAppUpdateServices({
                     return String(right.tagName || '').localeCompare(String(left.tagName || ''));
                 })
             : [];
+
+        await appendUpdateLog(`resolveReleaseFeed includePrerelease=${includePrerelease} count=${releases.length} tags=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
+        return releases;
     }
 
     async function resolveLatestRelease(options = {}) {
@@ -490,10 +493,17 @@ function createAppUpdateServices({
     }
 
     async function resolvePackagedFeedOverride({ currentVersion, runtime }) {
-        if (runtime?.channel !== 'nsis') return null;
-        if (!isPrereleaseVersion(currentVersion)) return null;
+        if (runtime?.channel !== 'nsis') {
+            await appendUpdateLog(`resolvePackagedFeedOverride skip-non-nsis current=${currentVersion} runtime=${JSON.stringify(runtime || null)}`);
+            return null;
+        }
+        if (!isPrereleaseVersion(currentVersion)) {
+            await appendUpdateLog(`resolvePackagedFeedOverride skip-non-prerelease current=${currentVersion}`);
+            return null;
+        }
 
         const releases = await resolveReleaseFeed({ includePrerelease: true });
+        await appendUpdateLog(`resolvePackagedFeedOverride candidates current=${currentVersion} releases=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
         const targetRelease = releases.find(release => compareAppReleaseVersions(release.version, currentVersion) > 0);
         if (!targetRelease) {
             await appendUpdateLog(`resolvePackagedFeedOverride none current=${currentVersion}`);

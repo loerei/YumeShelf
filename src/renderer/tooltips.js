@@ -79,6 +79,11 @@ export function createTooltipController() {
         element.addEventListener('blur', hide, true);
     }
 
+    document.addEventListener('pointerdown', hide, true);
+    document.addEventListener('scroll', hide, true);
+    window.addEventListener('blur', hide);
+    window.addEventListener('resize', hide);
+
     return {
         attachTooltip,
         hide

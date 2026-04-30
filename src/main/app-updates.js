@@ -1,327 +1,26 @@
 const fs = require('fs/promises');
-const fsSync = require('fs');
 const path = require('path');
+const { downloadBuffer, ensureDir, isNetworkLikeError } = require('./core/shared-io');
+const {
+    compareAppReleaseVersions,
+    formatStackedReleaseNotes,
+    getReleaseDisplayName,
+    normalizeRelease,
+    normalizeReleaseNotesForReview,
+    readAssetName,
+    shouldIncludePrereleaseReleases,
+    isPrereleaseVersion
+} = require('./app-updates/release-utils');
+const { resolveRuntimeUpdateStrategy } = require('./app-updates/runtime-strategy');
 const { createNsisUpdaterService, isFakeVersionRun } = require('./nsis-updater');
 
 const APP_UPDATE_RELEASES_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases?per_page=25';
 const APP_UPDATE_RELEASE_PAGE_URL = 'https://github.com/loerei/YumeShelf/releases/latest';
-const APP_UPDATE_DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;
-
-function extractVersion(tagName) {
-    const value = String(tagName || '').trim();
-    return value.replace(/^v/i, '');
-}
-
-function isNumericVersionIdentifier(value) {
-    return /^\d+$/.test(String(value || '').trim());
-}
-
-function parseAppReleaseVersion(value) {
-    const normalized = extractVersion(value);
-    const [corePart, ...prereleaseParts] = String(normalized || '0').split('-');
-    const core = corePart
-        .split('.')
-        .map(part => parseInt(part, 10))
-        .map(part => Number.isFinite(part) ? part : 0);
-    const prerelease = prereleaseParts
-        .join('-')
-        .split('.')
-        .map(part => part.trim())
-        .filter(Boolean)
-        .map(part => isNumericVersionIdentifier(part) ? Number(part) : part.toLowerCase());
-    return {
-        core,
-        prerelease
-    };
-}
-
-function compareAppReleaseVersions(left, right) {
-    const a = parseAppReleaseVersion(left);
-    const b = parseAppReleaseVersion(right);
-    const coreLength = Math.max(a.core.length, b.core.length);
-    for (let index = 0; index < coreLength; index += 1) {
-        const delta = (a.core[index] || 0) - (b.core[index] || 0);
-        if (delta !== 0) return delta;
-    }
-
-    const aHasPrerelease = a.prerelease.length > 0;
-    const bHasPrerelease = b.prerelease.length > 0;
-    if (!aHasPrerelease && !bHasPrerelease) return 0;
-    if (!aHasPrerelease) return 1;
-    if (!bHasPrerelease) return -1;
-
-    const prereleaseLength = Math.max(a.prerelease.length, b.prerelease.length);
-    for (let index = 0; index < prereleaseLength; index += 1) {
-        const leftPart = a.prerelease[index];
-        const rightPart = b.prerelease[index];
-        if (leftPart === undefined) return -1;
-        if (rightPart === undefined) return 1;
-        if (leftPart === rightPart) continue;
-
-        const leftIsNumber = typeof leftPart === 'number';
-        const rightIsNumber = typeof rightPart === 'number';
-        if (leftIsNumber && rightIsNumber) return leftPart - rightPart;
-        if (leftIsNumber) return -1;
-        if (rightIsNumber) return 1;
-
-        const delta = String(leftPart).localeCompare(String(rightPart));
-        if (delta !== 0) return delta;
-    }
-
-    return 0;
-}
-
-function isPrereleaseVersion(value) {
-    return String(extractVersion(value || '')).includes('-');
-}
-
-function shouldIncludePrereleaseReleases(...versions) {
-    return versions.some(version => isPrereleaseVersion(version));
-}
-
-function firstHexDigest(text) {
-    const match = String(text || '').match(/\b[a-f0-9]{64}\b/i);
-    return match ? match[0].toLowerCase() : null;
-}
-
-function readAssetLabel(asset) {
-    return String(asset?.label || asset?.name || '').trim();
-}
-
-function readAssetName(asset) {
-    return String(asset?.name || asset?.label || '').trim();
-}
-
-function decodeHtmlEntities(value) {
-    return String(value || '')
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'");
-}
-
-function normalizeInlineHtmlToMarkdown(value) {
-    return String(value || '')
-        .replace(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_match, href, text) => `[${normalizeInlineHtmlToMarkdown(text).trim()}](${href.trim()})`)
-        .replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, text) => `**${normalizeInlineHtmlToMarkdown(text).trim()}**`)
-        .replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, text) => `*${normalizeInlineHtmlToMarkdown(text).trim()}*`)
-        .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_match, text) => `\`${decodeHtmlEntities(text).trim()}\``)
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/?[^>]+>/g, '')
-        .replace(/\n{3,}/g, '\n\n');
-}
-
-function normalizeReleaseNotesForReview(value) {
-    const raw = String(value || '').replace(/\r\n?/g, '\n').trim();
-    if (!raw) return '';
-    if (!/<[a-z][\s\S]*>/i.test(raw)) {
-        return decodeHtmlEntities(raw);
-    }
-
-    let normalized = raw;
-    normalized = normalized.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_match, level, text) => {
-        const headingLevel = Math.min(3, Math.max(1, Number(level) || 1));
-        return `\n\n${'#'.repeat(headingLevel)} ${normalizeInlineHtmlToMarkdown(text).trim()}\n\n`;
-    });
-    normalized = normalized.replace(/<(ul|ol)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, inner) => {
-        const items = Array.from(inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi))
-            .map((entry) => `- ${normalizeInlineHtmlToMarkdown(entry[1]).trim()}`)
-            .filter(Boolean);
-        return items.length > 0 ? `\n${items.join('\n')}\n` : '\n';
-    });
-    normalized = normalized.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (_match, text) => `\n\n${normalizeInlineHtmlToMarkdown(text).trim()}\n\n`);
-    normalized = normalized.replace(/<hr\s*\/?>/gi, '\n\n---\n\n');
-    normalized = normalized.replace(/<br\s*\/?>/gi, '\n');
-    normalized = normalizeInlineHtmlToMarkdown(normalized);
-    normalized = decodeHtmlEntities(normalized)
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-    return normalized;
-}
-
-function normalizeRelease(raw) {
-    const tagName = String(raw?.tag_name || raw?.tagName || '').trim();
-    const version = extractVersion(tagName);
-    const assets = Array.isArray(raw?.assets) ? raw.assets.map((asset) => ({
-        name: readAssetName(asset),
-        label: readAssetLabel(asset),
-        browserDownloadUrl: String(asset?.browser_download_url || asset?.url || '').trim()
-    })) : [];
-
-    return {
-        assets,
-        body: normalizeReleaseNotesForReview(raw?.body || raw?.releaseNotes || ''),
-        htmlUrl: String(raw?.html_url || raw?.url || APP_UPDATE_RELEASE_PAGE_URL).trim(),
-        name: String(raw?.name || '').trim(),
-        publishedAt: raw?.published_at ? String(raw.published_at) : null,
-        tagName,
-        version
-    };
-}
-
-function getReleaseDisplayName(release) {
-    return String(release?.name || '').trim() || `YumeShelf v${String(release?.version || '').trim()}`;
-}
-
-function formatStackedReleaseNotes(releases) {
-    return releases
-        .filter(release => release?.version)
-        .map((release) => {
-            const body = String(release.body || '').trim() || '_No release notes were published for this version._';
-            return `## ${getReleaseDisplayName(release)}\n\n${body}`;
-        })
-        .join('\n\n---\n\n');
-}
-
-function isPortableExeAsset(asset, version) {
-    const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
-    return candidates.some((value) => {
-        return value.includes('yumeshelf')
-            && value.includes(version.toLowerCase())
-            && value.endsWith('.exe')
-            && !value.endsWith('.exe.sha256');
-    });
-}
-
-function isNsisInstallerAsset(asset, version) {
-    const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
-    return candidates.some((value) => {
-        return value.includes('yumeshelf')
-            && value.includes('setup')
-            && value.includes(version.toLowerCase())
-            && value.endsWith('.exe')
-            && !value.endsWith('.exe.sha256');
-    });
-}
-
-function isChecksumAsset(asset, version, artifactKind) {
-    const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
-    return candidates.some((value) => {
-        return value.includes('yumeshelf')
-            && (artifactKind !== 'nsis-installer' || value.includes('setup'))
-            && value.includes(version.toLowerCase())
-            && value.endsWith('.exe.sha256');
-    });
-}
-
-function inferExecutableArtifactKind(filePath) {
-    const fileName = path.basename(String(filePath || '')).toLowerCase();
-    if (!fileName.endsWith('.exe')) return 'unknown';
-    return fileName.includes('setup') ? 'nsis-installer' : 'portable-exe';
-}
-
-function readPortableEnvironment() {
-    const explicitPortableExe = String(process.env.PORTABLE_EXECUTABLE_FILE || '').trim();
-    const portableDir = String(process.env.PORTABLE_EXECUTABLE_DIR || '').trim();
-    const portableAppFilename = String(process.env.PORTABLE_EXECUTABLE_APP_FILENAME || '').trim();
-    return {
-        detected: !!explicitPortableExe || !!(portableDir && portableAppFilename),
-        explicitPortableExe,
-        portableAppFilename,
-        portableDir
-    };
-}
-
-function resolveRuntimeUpdateStrategy(app) {
-    if (app.isPackaged) {
-        return {
-            artifactKind: 'nsis-installer',
-            channel: 'nsis',
-            manualFallbackReason: null,
-            supportsInPlaceApply: true,
-            supportsUpdater: true
-        };
-    }
-
-    if (isFakeVersionRun()) {
-        return {
-            artifactKind: 'nsis-installer',
-            channel: 'development',
-            manualFallbackReason: null,
-            supportsInPlaceApply: true,
-            supportsUpdater: true
-        };
-    }
-
-    const portableEnvironment = readPortableEnvironment();
-    if (portableEnvironment.detected) {
-        return {
-            artifactKind: 'portable-exe',
-            channel: 'portable-legacy',
-            manualFallbackReason: 'manual-installer-required',
-            supportsInPlaceApply: false,
-            supportsUpdater: false
-        };
-    }
-
-    return {
-        artifactKind: 'nsis-installer',
-        channel: 'development',
-        manualFallbackReason: 'not-packaged',
-        supportsInPlaceApply: false,
-        supportsUpdater: false
-    };
-}
-
-function probeWritableDir(dirPath) {
-    const stamp = `${process.pid}-${Date.now()}`;
-    const sourcePath = path.join(dirPath, `yumeshelf-update-probe-${stamp}.tmp`);
-    const targetPath = path.join(dirPath, `yumeshelf-update-probe-${stamp}.moved.tmp`);
-    try {
-        fsSync.mkdirSync(dirPath, { recursive: true });
-        fsSync.writeFileSync(sourcePath, 'ok');
-        fsSync.renameSync(sourcePath, targetPath);
-        fsSync.unlinkSync(targetPath);
-        return { ok: true, reason: null };
-    } catch (error) {
-        return {
-            ok: false,
-            reason: String((error && error.code) || 'not-writable').toLowerCase()
-        };
-    }
-}
-
-function resolvePortableExecutablePath(app) {
-    const portableEnvironment = readPortableEnvironment();
-    if (portableEnvironment.explicitPortableExe && fsSync.existsSync(portableEnvironment.explicitPortableExe)) {
-        return {
-            exePath: portableEnvironment.explicitPortableExe,
-            dirPath: path.dirname(portableEnvironment.explicitPortableExe),
-            source: 'portable-env-file'
-        };
-    }
-
-    if (portableEnvironment.portableDir && portableEnvironment.portableAppFilename) {
-        const candidatePath = path.join(portableEnvironment.portableDir, `${portableEnvironment.portableAppFilename}.exe`);
-        if (fsSync.existsSync(candidatePath)) {
-            return {
-                exePath: candidatePath,
-                dirPath: portableEnvironment.portableDir,
-                source: 'portable-env-dir'
-            };
-        }
-    }
-
-    const defaultExePath = app.getPath('exe');
-    return {
-        exePath: defaultExePath,
-        dirPath: path.dirname(defaultExePath),
-        source: 'app-exe'
-    };
-}
-
 function createAppUpdateServices({
     app,
     broadcastStatus,
     compareVersions,
-    downloadBuffer,
-    ensureDir,
-    isNetworkLikeError,
     openExternalUrl,
-    readJsonFile,
-    sha256Hex,
     startupNetworkTimeoutMs
 }) {
     const updateCacheDir = path.join(app.getPath('userData'), 'app-update-cache');
@@ -459,7 +158,7 @@ function createAppUpdateServices({
         const releases = Array.isArray(raw)
             ? raw
                 .filter(release => !release?.draft && (includePrerelease || !release?.prerelease))
-                .map(normalizeRelease)
+                .map(release => normalizeRelease(release, APP_UPDATE_RELEASE_PAGE_URL))
                 .filter(release => !!release.version)
                 .sort((left, right) => {
                     const versionDelta = compareAppReleaseVersions(right.version, left.version);
@@ -589,7 +288,7 @@ function createAppUpdateServices({
         };
 
         try {
-            const runtimeStrategy = resolveRuntimeUpdateStrategy(app);
+            const runtimeStrategy = resolveRuntimeUpdateStrategy(app, isFakeVersionRun);
             if (!runtimeStrategy.supportsUpdater) {
                 latestKnownUpdate = {
                     ...initial,

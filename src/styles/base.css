@@ -1,0 +1,57 @@
+body {
+    margin: 0;
+    padding: 20px 40px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+}
+
+/* --- CẤP NHẬT 1.0: STYLE CHO SCROLLBAR (CHỐNG LỆCH TÔNG) --- */
+/* 1. Tổng thể thanh cuộn */
+::-webkit-scrollbar {
+    width: 10px;  /* Độ rộng thanh dọc - làm mảnh đi cho tinh tế */
+    height: 10px; /* Độ cao thanh ngang */
+}
+
+/* 2. Phần nền của thanh cuộn (Track) */
+::-webkit-scrollbar-track {
+    background: var(--bg-color); /* Tiệp màu hoàn toàn với nền app #121212 */
+    border-radius: 10px;
+}
+
+/* 3. Phần tay cầm để kéo (Thumb) */
+::-webkit-scrollbar-thumb {
+    background: #333; /* Màu xám đen, sáng hơn nền một chút để dễ thấy */
+    border-radius: 10px; /* Bo góc tròn trịa */
+    /* Tạo khoảng trống ảo xung quanh thumb bằng border trùng màu nền */
+    border: 2px solid var(--bg-color); 
+}
+
+/* 4. Hiệu ứng hover cho tay cầm */
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent); /* Chuyển sang màu xanh accent (#0078d4) khi di chuột vào - Nhìn rất 'pro' */
+}
+
+/* ĐIỀU CHỈNH VỊ TRÍ NÚT */
+.controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.small-btn {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#ui-opt-lazy-desc {
+    word-break: break-all; /* Chống vỡ layout khi path quá dài */
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 8px;
+}

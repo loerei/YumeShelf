@@ -233,11 +233,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             dragDropGridController.resetDragState();
         },
         onGameLaunched: (gameKey) => {
-            const target = allGames.find(g => (g.gameKey || g.exePath) === gameKey);
-            if (target) {
-                target.lastPlayed = Date.now();
-                target.isRunning = true;
-            }
             sortGames(currentSort);
         },
         onRefreshRequested: () => sortGames(currentSort)
@@ -365,7 +360,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const target = allGames.find(g => (g.gameKey || g.exePath) === payload.gameKey);
             if (target) {
                 target.isRunning = false;
-                target.lastPlayed = Date.now();
                 console.log(`[FRONTEND] Set target.isRunning=false synchronously for ${payload.gameKey}`);
             }
         }

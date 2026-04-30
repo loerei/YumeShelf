@@ -29,6 +29,8 @@ function createStartupServices({
     checkForAppUpdate,
     consumePostUpdateMarker,
     prepareDeferredInstallOnLaunch,
+    preparePlaytimeSessions,
+    overlayPlaytimeSessions,
     logAppUpdateDebug,
     applyLanguagePackUpdates,
     buildLanguageState,
@@ -97,6 +99,13 @@ function createStartupServices({
             fallbackText: 'Loading language settings'
         });
         let languageState = await buildLanguageState();
+        if (typeof preparePlaytimeSessions === 'function') {
+            emitBootStatus(webContents, {
+                key: 'boot_recovering_playtime_sessions',
+                fallbackText: 'Recovering running game sessions'
+            });
+            await preparePlaytimeSessions();
+        }
         const deferredAppUpdateInstall = typeof prepareDeferredInstallOnLaunch === 'function'
             ? await prepareDeferredInstallOnLaunch()
             : { pending: false, reason: 'not-supported' };
@@ -264,7 +273,10 @@ function createStartupServices({
             key: 'boot_loading_library',
             fallbackText: 'Loading library'
         });
-        const games = await loadGamesForConfig(config);
+        const loadedGames = await loadGamesForConfig(config);
+        const games = typeof overlayPlaytimeSessions === 'function'
+            ? overlayPlaytimeSessions(loadedGames)
+            : loadedGames;
 
         emitBootStatus(webContents, {
             key: 'boot_preparing_interface',

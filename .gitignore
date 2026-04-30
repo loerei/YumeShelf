@@ -4,6 +4,7 @@ node_modules/
 dist/
 build_output/
 *.exe
+native/playtime-helper/target/
 dev-app-update.yml
 
 library_db.json

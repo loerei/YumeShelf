@@ -403,10 +403,6 @@ function createLibraryState({
         return games[gameKey].favorite;
     }
 
-    async function markGameLaunched(gameKey) {
-        return !!gameKey;
-    }
-
     async function addPlaytime(gameKey, durationMs) {
         const db = await loadDB();
         const games = readStoredGames(db);
@@ -414,10 +410,6 @@ function createLibraryState({
         games[gameKey].playtime = (games[gameKey].playtime || 0) + durationMs;
         db.games = games;
         await saveDB(db);
-    }
-
-    async function markGameStopped(gameKey) {
-        return !!gameKey;
     }
 
     async function finalizeTrackedSession(gameKey, durationMs, endedAt) {
@@ -434,8 +426,6 @@ function createLibraryState({
         addPlaytime,
         finalizeTrackedSession,
         loadGamesForConfig,
-        markGameLaunched,
-        markGameStopped,
         renameGame,
         resolveLibraryConfig,
         resolveLibraryFolderToOpen,

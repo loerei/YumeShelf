@@ -8,6 +8,8 @@ const { assertPlaytimeHelperExists, resolvePlaytimeHelperPath } = require('./pla
 const SESSION_SCHEMA_VERSION = 1;
 const SESSION_REFRESH_INTERVAL_MS = 5000;
 const SESSION_ATTACH_RETRY_GRACE_MS = 15000;
+const SESSION_READ_RETRY_DELAY_MS = 40;
+const SESSION_READ_RETRY_COUNT = 3;
 const ACTIVE_SESSION_STATUSES = new Set(['launching', 'running', 'finalizing']);
 
 function isPidAlive(pid) {
@@ -54,9 +56,31 @@ function isActiveJournal(journal) {
     return ACTIVE_SESSION_STATUSES.has(journal.status);
 }
 
+function isTransientSessionReadError(error) {
+    if (!error) return false;
+    if (error.code === 'ENOENT') return true;
+    return error instanceof SyntaxError;
+}
+
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function readSessionJournal(filePath) {
-    const raw = JSON.parse(await fs.readFile(filePath, 'utf8'));
-    return normalizeSessionJournal(raw, filePath);
+    let lastError = null;
+    for (let attempt = 0; attempt < SESSION_READ_RETRY_COUNT; attempt += 1) {
+        try {
+            const raw = JSON.parse(await fs.readFile(filePath, 'utf8'));
+            return normalizeSessionJournal(raw, filePath);
+        } catch (error) {
+            lastError = error;
+            if (!isTransientSessionReadError(error) || attempt === SESSION_READ_RETRY_COUNT - 1) {
+                throw error;
+            }
+            await delay(SESSION_READ_RETRY_DELAY_MS);
+        }
+    }
+    throw lastError;
 }
 
 async function writeSessionJournal(filePath, journal) {

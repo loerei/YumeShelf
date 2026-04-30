@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     startAppUpdateDownload: () => ipcRenderer.invoke('start-app-update-download'),
     restartAndInstallAppUpdate: () => ipcRenderer.invoke('restart-and-install-app-update'),
     scheduleAppUpdateNextLaunch: () => ipcRenderer.invoke('schedule-app-update-next-launch'),
+    beginDeferredAppUpdateInstall: () => ipcRenderer.invoke('begin-deferred-app-update-install'),
     openAppUpdateDownloadPage: () => ipcRenderer.invoke('open-app-update-download-page'),
     getLanguageState: () => ipcRenderer.invoke('get-language-state'),
     getLanguagePackManifest: () => ipcRenderer.invoke('get-language-pack-manifest'),

@@ -28,6 +28,7 @@ function createStartupServices({
     app,
     checkForAppUpdate,
     consumePostUpdateMarker,
+    prepareDeferredInstallOnLaunch,
     logAppUpdateDebug,
     applyLanguagePackUpdates,
     buildLanguageState,
@@ -96,6 +97,34 @@ function createStartupServices({
             fallbackText: 'Loading language settings'
         });
         let languageState = await buildLanguageState();
+        const deferredAppUpdateInstall = typeof prepareDeferredInstallOnLaunch === 'function'
+            ? await prepareDeferredInstallOnLaunch()
+            : { pending: false, reason: 'not-supported' };
+
+        if (deferredAppUpdateInstall?.pending) {
+            emitBootStatus(webContents, {
+                key: 'boot_update_preparing_install',
+                fallbackText: 'Preparing installation',
+                mode: 'update',
+                showProgress: true,
+                titleKey: 'boot_update_title',
+                titleText: 'Installing YumeShelf update'
+            });
+            return {
+                appVersion: app.getVersion(),
+                languageState,
+                config: null,
+                games: [],
+                bootChecks: {
+                    appUpdatesMode,
+                    appUpdateCheck,
+                    languagePackUpdatesMode,
+                    languagePackCheck
+                },
+                deferredAppUpdateInstall,
+                postUpdateNotice
+            };
+        }
 
         if (appUpdatesMode !== 'off') {
             emitBootStatus(webContents, {

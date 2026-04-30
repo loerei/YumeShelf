@@ -94,6 +94,10 @@ function classifyErrorReason(error) {
     return code || 'download';
 }
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
 function createNsisUpdaterService({
     app,
     appendUpdateLog,
@@ -101,6 +105,7 @@ function createNsisUpdaterService({
     compareVersions,
     ensureDir,
     releasePageUrl,
+    resolveFeedOverride,
     updateCacheDir,
     postUpdateMarkerFile
 }) {
@@ -111,6 +116,7 @@ function createNsisUpdaterService({
     let latestUpdateInfo = null;
     let latestDownloadedEvent = null;
     let activeDownloadPromise = null;
+    let updaterFeedKey = null;
 
     function resolveRuntime() {
         if (app.isPackaged) {
@@ -238,6 +244,69 @@ function createNsisUpdaterService({
         return state;
     }
 
+    function summarizeReadyUpdateFromState(state, patch = {}) {
+        return summarizeUpdateState({
+            available: true,
+            canSelfUpdate: true,
+            deferredUntilNextLaunch: !!patch.deferredUntilNextLaunch,
+            downloadable: true,
+            downloadReady: true,
+            releaseName: state.releaseName,
+            releaseNotes: state.releaseNotes,
+            releaseUrl: state.releaseUrl || releasePageUrl,
+            selfApplicable: true,
+            version: state.version,
+            ...patch
+        });
+    }
+
+    async function launchInstallerAndQuit({
+        installerPath,
+        logPrefix,
+        onAfterLaunch,
+        onBeforeLaunch,
+        readyUpdate,
+        statusPatch = {}
+    }) {
+        if (typeof onBeforeLaunch === 'function') {
+            await onBeforeLaunch();
+        }
+
+        try {
+            const child = spawn(installerPath, ['--updated', '/S', '--force-run'], {
+                detached: true,
+                stdio: 'ignore',
+                windowsHide: true
+            });
+            child.unref();
+            if (typeof onAfterLaunch === 'function') {
+                await onAfterLaunch();
+            }
+            emitStatus({
+                phase: 'install-handoff',
+                update: {
+                    ...readyUpdate,
+                    ...statusPatch
+                }
+            });
+            await appendUpdateLog(`${logPrefix} launched pid=${child.pid || 'unknown'} installer=${installerPath}`);
+            setTimeout(() => {
+                try {
+                    app.quit();
+                } catch (error) {
+                    void appendUpdateLog(`${logPrefix} quit-failed error=${String((error && error.stack) || error || '')}`);
+                }
+            }, 80);
+            return {
+                launched: true,
+                pid: child.pid || null
+            };
+        } catch (error) {
+            await appendUpdateLog(`${logPrefix} launch-failed error=${String((error && error.stack) || error || '')}`);
+            throw error;
+        }
+    }
+
     function buildReleaseMetadata(updateInfo, override = {}) {
         return {
             installedAt: new Date().toISOString(),
@@ -273,7 +342,7 @@ function createNsisUpdaterService({
 
         updater.on('update-available', (updateInfo) => {
             latestUpdateInfo = updateInfo;
-            void appendUpdateLog(`nsis-updater update-available version=${normalizeText(updateInfo?.version, '')}`);
+            void appendUpdateLog(`nsis-updater update-available version=${normalizeText(updateInfo?.version, '')} releaseName=${normalizeText(updateInfo?.releaseName, '')} releaseDate=${normalizeText(updateInfo?.releaseDate, '')}`);
         });
 
         updater.on('update-not-available', () => {
@@ -315,6 +384,48 @@ function createNsisUpdaterService({
         return updater;
     }
 
+    async function configureUpdaterFeed(runtime) {
+        const nsisUpdater = createUpdater();
+        let feedOverride = null;
+
+        if (typeof resolveFeedOverride === 'function') {
+            try {
+                feedOverride = await resolveFeedOverride({
+                    currentVersion: app.getVersion(),
+                    runtime
+                });
+            } catch (error) {
+                await appendUpdateLog(`nsis-updater feed-override-error error=${String((error && error.stack) || error || '')}`);
+            }
+        }
+
+        if (feedOverride?.provider === 'generic' && feedOverride?.url) {
+            const desiredFeedKey = `generic:${feedOverride.url}`;
+            if (updaterFeedKey !== desiredFeedKey) {
+                nsisUpdater.setFeedURL({
+                    provider: 'generic',
+                    url: feedOverride.url
+                });
+                updaterFeedKey = desiredFeedKey;
+            }
+
+            await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=generic url=${feedOverride.url} target=${normalizeText(feedOverride.release?.version, '')} tag=${normalizeText(feedOverride.release?.tagName, '')}`);
+            return {
+                feedOverride,
+                updater: nsisUpdater
+            };
+        }
+
+        if (updaterFeedKey == null) {
+            updaterFeedKey = runtime.usesDevConfig ? 'dev-config' : `publish:${runtime.provider}`;
+        }
+        await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=${runtime.provider} mode=${runtime.usesDevConfig ? 'dev-config' : 'publish-config'}`);
+        return {
+            feedOverride: null,
+            updater: nsisUpdater
+        };
+    }
+
     async function checkForUpdates() {
         const runtime = resolveRuntime();
         if (!runtime.supported) {
@@ -334,13 +445,15 @@ function createNsisUpdaterService({
             };
         }
 
-        const nsisUpdater = createUpdater();
+        const { updater: nsisUpdater, feedOverride } = await configureUpdaterFeed(runtime);
         const result = await nsisUpdater.checkForUpdates();
         const updateInfo = result?.updateInfo || null;
+        await appendUpdateLog(`nsis-updater check-result current=${app.getVersion()} candidate=${normalizeText(updateInfo?.version, '')} releaseName=${normalizeText(updateInfo?.releaseName, '')} releaseDate=${normalizeText(updateInfo?.releaseDate, '')} feed=${feedOverride?.url || runtime.provider}`);
         if (!updateInfo?.version || compareVersions(updateInfo.version, app.getVersion()) <= 0) {
             latestUpdateInfo = null;
             latestDownloadedEvent = null;
             await clearDeferredInstallState();
+            await appendUpdateLog(`nsis-updater no-newer-update current=${app.getVersion()} candidate=${normalizeText(updateInfo?.version, '')}`);
             return {
                 available: false,
                 canSelfUpdate: true,
@@ -512,6 +625,11 @@ function createNsisUpdaterService({
             return { ok: false, reason: 'no-downloaded-update' };
         }
 
+        const readyUpdate = summarizeReadyUpdateFromState(downloadedState);
+        emitStatus({
+            phase: 'install-preparing',
+            update: readyUpdate
+        });
         await clearDeferredInstallState();
         await writePostUpdateMarker(buildReleaseMetadata(updateState.updateInfo, {
             ...releaseMetadata,
@@ -519,9 +637,27 @@ function createNsisUpdaterService({
             releaseNotes: releaseMetadata.releaseNotes || downloadedState.releaseNotes,
             releaseUrl: releaseMetadata.releaseUrl || downloadedState.releaseUrl
         }));
-        await appendUpdateLog(`nsis-updater quit-and-install version=${downloadedState.version}`);
-        createUpdater().quitAndInstall(true, true);
-        return { ok: true };
+        await appendUpdateLog(`nsis-updater preparing installer-launch version=${downloadedState.version} installer=${downloadedState.installerPath}`);
+        await delay(160);
+
+        try {
+            await launchInstallerAndQuit({
+                installerPath: downloadedState.installerPath,
+                logPrefix: 'nsis-updater immediate-install',
+                onAfterLaunch: () => clearDownloadedState(),
+                readyUpdate
+            });
+            return { ok: true };
+        } catch (error) {
+            try {
+                await fs.unlink(postUpdateMarkerFile);
+            } catch {}
+            return {
+                error: String((error && error.message) || error || ''),
+                ok: false,
+                reason: 'launch-failed'
+            };
+        }
     }
 
     async function scheduleInstallOnNextLaunch(releaseMetadata = {}) {
@@ -567,22 +703,58 @@ function createNsisUpdaterService({
         };
     }
 
-    async function runDeferredInstallOnLaunch() {
+    async function prepareDeferredInstallOnLaunch() {
         const runtime = resolveRuntime();
         if (!runtime.supported) {
-            return { launched: false, reason: 'unsupported-runtime' };
+            return { pending: false, reason: 'unsupported-runtime' };
         }
 
         const deferredState = await getValidatedDeferredInstallState();
         if (!deferredState) {
-            return { launched: false, reason: 'no-deferred-update' };
+            return { pending: false, reason: 'no-deferred-update' };
         }
 
         if (compareVersions(app.getVersion(), deferredState.version) >= 0) {
             await clearDeferredInstallState();
             await appendUpdateLog(`deferred-install already-satisfied current=${app.getVersion()} target=${deferredState.version}`);
-            return { launched: false, reason: 'already-installed' };
+            return { pending: false, reason: 'already-installed' };
         }
+
+        return {
+            pending: true,
+            update: summarizeReadyUpdateFromState(deferredState, {
+                deferredUntilNextLaunch: true
+            })
+        };
+    }
+
+    async function beginDeferredInstallOnLaunch() {
+        const prepared = await prepareDeferredInstallOnLaunch();
+        if (!prepared.pending || !prepared.update) {
+            return {
+                launched: false,
+                pending: false,
+                reason: prepared.reason || 'no-deferred-update'
+            };
+        }
+
+        const deferredState = await getValidatedDeferredInstallState();
+        if (!deferredState) {
+            return {
+                launched: false,
+                pending: false,
+                reason: 'no-deferred-update'
+            };
+        }
+
+        emitStatus({
+            phase: 'install-preparing',
+            update: summarizeReadyUpdateFromState(deferredState, {
+                deferredUntilNextLaunch: true
+            })
+        });
+        await appendUpdateLog(`deferred-install preparing version=${deferredState.version} installer=${deferredState.installerPath}`);
+        await delay(160);
 
         await writePostUpdateMarker({
             fromVersion: app.getVersion(),
@@ -594,37 +766,49 @@ function createNsisUpdaterService({
         });
 
         try {
-            const child = spawn(deferredState.installerPath, ['--updated', '/S', '--force-run'], {
-                detached: true,
-                stdio: 'ignore',
-                windowsHide: true
-            });
-            child.unref();
             await clearDeferredInstallState();
-            await appendUpdateLog(`deferred-install launched pid=${child.pid || 'unknown'} installer=${deferredState.installerPath}`);
+            const launchResult = await launchInstallerAndQuit({
+                installerPath: deferredState.installerPath,
+                logPrefix: 'deferred-install',
+                readyUpdate: summarizeReadyUpdateFromState(deferredState, {
+                    deferredUntilNextLaunch: true
+                }),
+                statusPatch: {
+                    deferredUntilNextLaunch: true
+                }
+            });
             return {
-                launched: true,
-                pid: child.pid || null
+                launched: launchResult.launched,
+                pending: false,
+                pid: launchResult.pid || null
             };
         } catch (error) {
             try {
                 await fs.unlink(postUpdateMarkerFile);
             } catch {}
+            await clearDeferredInstallState();
             await appendUpdateLog(`deferred-install launch-failed error=${String((error && error.stack) || error || '')}`);
             return {
                 error: String((error && error.message) || error || ''),
                 launched: false,
+                pending: false,
                 reason: 'launch-failed'
             };
         }
     }
 
+    async function runDeferredInstallOnLaunch() {
+        return beginDeferredInstallOnLaunch();
+    }
+
     return {
+        beginDeferredInstallOnLaunch,
         checkForUpdates,
         clearDeferredInstallState,
         createUpdater,
         downloadUpdate,
         installDownloadedUpdateNow,
+        prepareDeferredInstallOnLaunch,
         readDeferredInstallState,
         resolveRuntime,
         runDeferredInstallOnLaunch,

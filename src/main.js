@@ -569,6 +569,7 @@ const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createSt
     app,
     checkForAppUpdate: () => appUpdateServices.checkForAppUpdate(),
     consumePostUpdateMarker: () => appUpdateServices.consumePostUpdateMarker(),
+    prepareDeferredInstallOnLaunch: () => appUpdateServices.prepareDeferredInstallOnLaunch(),
     logAppUpdateDebug: (message) => appUpdateServices.logDebug(message),
     applyLanguagePackUpdates,
     buildLanguageState,
@@ -714,11 +715,6 @@ app.whenReady().then(async () => {
 
     logStartupDiagnostics();
     const launchedAfterUpdate = process.argv.includes('--after-update');
-    const deferredInstallLaunch = await appUpdateServices.runDeferredInstallOnLaunch();
-    if (deferredInstallLaunch?.launched) {
-        app.quit();
-        return;
-    }
 
     const win = new BrowserWindow({
         width: 1200, height: 800, backgroundColor: '#121212', autoHideMenuBar: true,
@@ -755,6 +751,7 @@ app.whenReady().then(async () => {
     ipcMain.handle('start-app-update-download', async () => appUpdateServices.startBackgroundDownload());
     ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices.restartAndInstallDownloadedUpdate());
     ipcMain.handle('schedule-app-update-next-launch', async () => appUpdateServices.scheduleInstallOnNextLaunch());
+    ipcMain.handle('begin-deferred-app-update-install', async () => appUpdateServices.beginDeferredInstallOnLaunch());
     ipcMain.handle('open-app-update-download-page', async () => appUpdateServices.openAppUpdateDownloadPage());
     ipcMain.handle('open-external-url', async (_event, url) => {
         const normalizedUrl = String(url || '').trim();

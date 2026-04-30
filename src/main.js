@@ -44,7 +44,7 @@ const { execFile } = require('child_process');
 const { createAppUpdateServices } = require('./main/app-updates');
 const { createLibraryState } = require('./main/library-state');
 const { createStartupServices } = require('./main/startup');
-const { createPlaytimeTracker } = require('./main/playtime-tracker');
+const { createPlaytimeSessionManager } = require('./main/playtime-session-manager');
 
 const isDev = !app.isPackaged;
 const DEFAULT_GAMES_DIR = isDev ? path.join(__dirname, '..', 'YumeShelf') : path.join(path.dirname(app.getPath('exe')), 'YumeShelf');
@@ -563,13 +563,20 @@ const libraryState = createLibraryState({
     saveDB
 });
 
-const playtimeTracker = createPlaytimeTracker({ libraryState });
+const playtimeSessionManager = createPlaytimeSessionManager({
+    app,
+    BrowserWindow,
+    dbFilePath: DB_FILE,
+    libraryState
+});
 
 const { bootstrapAppState, loadGamesForConfig, resolveLibraryConfig } = createStartupServices({
     app,
     checkForAppUpdate: () => appUpdateServices.checkForAppUpdate(),
     consumePostUpdateMarker: () => appUpdateServices.consumePostUpdateMarker(),
     prepareDeferredInstallOnLaunch: () => appUpdateServices.prepareDeferredInstallOnLaunch(),
+    preparePlaytimeSessions: () => playtimeSessionManager.initialize(),
+    overlayPlaytimeSessions: (games) => playtimeSessionManager.overlayGames(games),
     logAppUpdateDebug: (message) => appUpdateServices.logDebug(message),
     applyLanguagePackUpdates,
     buildLanguageState,
@@ -786,18 +793,20 @@ app.whenReady().then(async () => {
     ipcMain.handle('update-library-config', async (_event, updates = {}) => libraryState.updateLibraryConfig(updates));
 
     ipcMain.handle('get-games', async () => {
+        await playtimeSessionManager.refreshSessions({ recover: true, emit: false });
         const games = await loadGamesForConfig(await resolveLibraryConfig());
-        return games.map(game => {
+        return playtimeSessionManager.overlayGames(games).map(game => {
             const { iconData, ...rest } = game;
-            return {
-                ...rest,
-                isRunning: playtimeTracker.isGameRunning(game.gameKey)
-            };
+            return rest;
         });
     });
 
     ipcMain.on('launch-yume', async (_event, { gameKey, exePath }) => {
-        playtimeTracker.trackGameLaunch(gameKey, exePath);
+        try {
+            await playtimeSessionManager.launchTrackedGame(gameKey, exePath);
+        } catch (error) {
+            console.error(`[PLAYTIME][SESSIONS] failed to launch tracked game ${gameKey}:`, error);
+        }
     });
 
     ipcMain.on('open-folder', async () => {

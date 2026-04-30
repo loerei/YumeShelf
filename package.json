@@ -5,12 +5,13 @@
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron .",
-    "build": "electron-builder --win",
-    "build:fast": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js",
+    "ensure:playtime-helper": "node .\\scripts\\ensure-playtime-helper.js",
+    "start": "npm run ensure:playtime-helper && electron .",
+    "build": "npm run ensure:playtime-helper && electron-builder --win",
+    "build:fast": "npm run ensure:playtime-helper && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js",
     "build:fast:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:fast",
     "build:test-version": "node .\\scripts\\build-test-version.js",
-    "build:dir": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir --config.win.signAndEditExecutable=false",
+    "build:dir": "npm run ensure:playtime-helper && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir --config.win.signAndEditExecutable=false",
     "build:dir:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:dir",
     "checksum:release": "node .\\scripts\\write-release-checksum.js",
     "mock:app-update": "node .\\scripts\\write-dev-app-update-manifest.js",
@@ -37,6 +38,12 @@
     "directories": {
       "output": "build_output"
     },
+    "extraResources": [
+      {
+        "from": "native/playtime-helper/target/release/playtime-helper.exe",
+        "to": "native/playtime-helper/playtime-helper.exe"
+      }
+    ],
     "win": {
       "target": [
         "nsis"

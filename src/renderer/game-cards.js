@@ -175,8 +175,6 @@ export function createGameCardFactory({
             if (typeof onGameLaunched === 'function') {
                 onGameLaunched(gameKey);
             } else {
-                game.lastPlayed = Date.now();
-                game.isRunning = true;
                 onRefreshRequested();
             }
         };

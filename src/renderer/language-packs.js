@@ -58,6 +58,13 @@ export function createLanguagePackController({
     let reviewMode = 'language-packs';
     let appSectionMode = 'auto';
 
+    function isFinalInstallPhase(appUpdate) {
+        if (!appUpdate) return false;
+        return appUpdate.actionState === 'installing'
+            || appUpdate.installPhase === 'install-preparing'
+            || appUpdate.installPhase === 'install-handoff';
+    }
+
     function getText(key, fallback = '') {
         const d = localeController.getStrings();
         const en = localeController.getEnglishStrings();
@@ -106,23 +113,27 @@ export function createLanguagePackController({
         return updates;
     }
 
-    function setOverlayChrome() {
+    function setOverlayChrome(appUpdate = null) {
         const reviewOpen = reviewMode === 'updates-review';
+        const updateOnlyFocus = reviewOpen && isFinalInstallPhase(appUpdate);
         refs.languagePackTitle.textContent = reviewOpen
             ? getText('updates_review_title', 'Review updates')
             : getText('lang_modal_title', 'Language packs');
         refs.languagePackToolbar.style.display = reviewOpen ? 'none' : 'flex';
-        refs.languagePackSectionTitle.style.display = reviewOpen ? 'block' : 'none';
+        refs.languagePackSectionTitle.style.display = reviewOpen && !updateOnlyFocus ? 'block' : 'none';
         refs.languagePackSectionTitle.textContent = getText('updates_review_language_section_title', 'Language pack updates');
         refs.languagePackHint.textContent = reviewOpen
             ? getText('updates_review_language_hint', 'Installed language pack updates that are ready for this library.')
             : getText('lang_modal_hint');
+        refs.languagePackHint.style.display = reviewOpen && updateOnlyFocus ? 'none' : 'block';
+        refs.languagePackSource.style.display = reviewOpen && updateOnlyFocus ? 'none' : 'block';
     }
 
     function renderAppUpdateReview() {
         const reviewOpen = reviewMode === 'updates-review';
         const appUpdate = typeof getAppUpdateState === 'function' ? getAppUpdateState(appSectionMode) : null;
         const installedMode = !!appUpdate?.installed || appUpdate?.actionState === 'installed';
+        const updateOnlyFocus = isFinalInstallPhase(appUpdate);
         refs.appUpdateReviewSection.style.display = reviewOpen && appUpdate ? 'flex' : 'none';
         if (!reviewOpen || !appUpdate) return;
 
@@ -140,6 +151,10 @@ export function createLanguagePackController({
             ? getText('app_update_review_status_installed', 'YumeShelf was updated successfully. Review the release notes below.')
             : appUpdate.actionState === 'downloading'
             ? getText('app_update_review_status_downloading', 'Downloading and verifying the new build...')
+            : appUpdate.installPhase === 'install-preparing'
+            ? getText('app_update_review_status_install_preparing', 'Preparing YumeShelf for installation...')
+            : appUpdate.installPhase === 'install-handoff'
+            ? getText('app_update_review_status_install_handoff', 'Handing off to the installer and restarting YumeShelf...')
             : appUpdate.actionState === 'installing'
             ? getText('app_update_review_status_installing', 'Closing YumeShelf and applying the update...')
             : appUpdate.actionState === 'scheduled' || appUpdate.deferredUntilNextLaunch
@@ -196,10 +211,10 @@ export function createLanguagePackController({
             refs.appUpdateProgressContainer.style.display = 'none';
         }
 
-        refs.appUpdateReviewActionBtn.style.display = installedMode ? 'none' : 'inline-flex';
+        refs.appUpdateReviewActionBtn.style.display = installedMode || updateOnlyFocus ? 'none' : 'inline-flex';
         refs.appUpdateReviewActionBtn.textContent = primaryLabel;
         refs.appUpdateReviewActionBtn.disabled = appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing';
-        refs.appUpdateReviewOptOutBtn.style.display = installedMode ? 'inline-flex' : 'none';
+        refs.appUpdateReviewOptOutBtn.style.display = installedMode && !updateOnlyFocus ? 'inline-flex' : 'none';
         refs.appUpdateReviewOptOutBtn.textContent = getText('post_update_notification_opt_out', "Don't show again");
     }
 
@@ -349,7 +364,9 @@ export function createLanguagePackController({
     function renderLanguagePackResults() {
         const availableUpdates = getAvailableLanguagePackUpdates();
         const reviewOpen = reviewMode === 'updates-review';
-        setOverlayChrome();
+        const appUpdate = typeof getAppUpdateState === 'function' ? getAppUpdateState(appSectionMode) : null;
+        const updateOnlyFocus = reviewOpen && isFinalInstallPhase(appUpdate);
+        setOverlayChrome(appUpdate);
         renderAppUpdateReview();
         updateLanguagePackSourceText();
         refs.languagePackSearch.placeholder = getText('lang_modal_search_placeholder');
@@ -362,9 +379,14 @@ export function createLanguagePackController({
 
         refs.languagePackResults.innerHTML = '';
         refs.languagePackEmpty.style.display = 'none';
+        refs.languagePackResults.style.display = updateOnlyFocus ? 'none' : 'grid';
 
         if (remoteManifestState.loading) {
             refs.languagePackResults.innerHTML = `<div class="language-pack-placeholder">${reviewOpen ? getText('updates_review_loading', 'Checking available updates...') : getText('lang_modal_loading')}</div>`;
+            return;
+        }
+
+        if (updateOnlyFocus) {
             return;
         }
 

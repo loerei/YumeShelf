@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const duplicateStackOverlay = document.getElementById('duplicate-stack-overlay');
     const duplicateStackGrid = document.getElementById('duplicate-stack-grid');
     const loading = document.getElementById('loading');
+    const bootProgress = document.getElementById('boot-progress');
+    const bootProgressBar = document.getElementById('boot-progress-bar');
     const bootTitle = document.getElementById('boot-title');
     const bootStatus = document.getElementById('boot-status');
     const welcome = document.getElementById('welcome-screen');
@@ -77,6 +79,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentSort === 'rj') currentSort = 'date';
     const bootController = createBootController({
         loading,
+        bootProgress,
+        bootProgressBar,
         bootTitle,
         bootStatus,
         getStrings: () => getStrings(),
@@ -128,11 +132,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let languagePackController = null;
     let updateNotificationFeature = null;
     const appUpdateController = createAppUpdateController({
+        bootController,
         electronAPI: window.electronAPI,
         getText,
         openUpdatesReviewModal: async (options = {}) => {
             await languagePackController.openUpdatesReviewModal(options);
         },
+        reloadWindow: () => window.location.reload(),
         updateNotificationFeature: {
             present: (...args) => updateNotificationFeature.present(...args)
         }
@@ -600,18 +606,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchPlaceholder.innerText = localeController.getPlaceholders()[localeController.getPlaceholderIndex()];
     setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
     setInterval(rotatePlaceholder, 60000);
-    await initApp(bootstrapData);
-    const appUpdateInit = appUpdateController.initialize(bootstrapData) || { presentedPostUpdate: false };
+    const deferredInstallPending = !!bootstrapData?.deferredAppUpdateInstall?.pending;
+    if (!deferredInstallPending) {
+        await initApp(bootstrapData);
+    } else {
+        welcome.style.display = 'none';
+    }
+    const appUpdateInit = await appUpdateController.initialize(bootstrapData) || { presentedPostUpdate: false };
     if (typeof window.electronAPI.logAppUpdateDebug === 'function') {
         void window.electronAPI.logAppUpdateDebug(`renderer initialize result=${JSON.stringify(appUpdateInit)}`);
+        const bootChecks = bootstrapData?.bootChecks || null;
+        const appUpdateCheck = bootChecks?.appUpdateCheck || null;
+        void window.electronAPI.logAppUpdateDebug(`renderer bootChecks appUpdatesMode=${bootChecks?.appUpdatesMode || ''} languagePackUpdatesMode=${bootChecks?.languagePackUpdatesMode || ''} appUpdateCheck=${JSON.stringify(appUpdateCheck ? {
+            available: !!appUpdateCheck.available,
+            deferredUntilNextLaunch: !!appUpdateCheck.deferredUntilNextLaunch,
+            downloadable: !!appUpdateCheck.downloadable,
+            downloadReady: !!appUpdateCheck.downloadReady,
+            releaseName: appUpdateCheck.releaseName || '',
+            version: appUpdateCheck.version || ''
+        } : null)}`);
     }
-    if (!appUpdateInit.presentedPostUpdate) {
+    if (!deferredInstallPending && !appUpdateInit.presentedPostUpdate) {
         updateNotificationFeature.presentBootNotifications(bootstrapData);
         if (typeof window.electronAPI.logAppUpdateDebug === 'function') {
             void window.electronAPI.logAppUpdateDebug('renderer presentBootNotifications=true');
         }
     } else if (typeof window.electronAPI.logAppUpdateDebug === 'function') {
-        void window.electronAPI.logAppUpdateDebug('renderer presentBootNotifications=false reason=post-update-presented');
+        void window.electronAPI.logAppUpdateDebug(`renderer presentBootNotifications=false reason=${deferredInstallPending ? 'deferred-install-pending' : 'post-update-presented'}`);
     }
 
     window.addEventListener('online', () => {

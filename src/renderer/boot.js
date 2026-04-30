@@ -1,5 +1,7 @@
 export function createBootController({
     loading,
+    bootProgress,
+    bootProgressBar,
     bootTitle,
     bootStatus,
     getStrings,
@@ -7,7 +9,9 @@ export function createBootController({
 }) {
     let latestBootPayload = {
         key: 'boot_initializing',
-        fallbackText: 'Preparing startup pipeline'
+        fallbackText: 'Preparing startup pipeline',
+        mode: 'startup',
+        showProgress: false
     };
 
     function resolveBootMessage(payload = latestBootPayload) {
@@ -19,13 +23,30 @@ export function createBootController({
         return (payload && payload.fallbackText) || '';
     }
 
+    function resolveBootTitle(payload = latestBootPayload) {
+        const d = getStrings();
+        const en = getEnglishStrings();
+        if (payload && payload.titleKey) {
+            return d[payload.titleKey] || en[payload.titleKey] || payload.titleText || '';
+        }
+        return payload?.titleText || d.boot_title || en.boot_title || 'Starting YumeShelf';
+    }
+
     function render(payload = latestBootPayload) {
         latestBootPayload = payload || latestBootPayload;
+        const mode = latestBootPayload?.mode === 'update' ? 'update' : 'startup';
+        loading.dataset.mode = mode;
         if (bootTitle) {
-            bootTitle.textContent = getStrings().boot_title || getEnglishStrings().boot_title || 'Starting YumeShelf';
+            bootTitle.textContent = resolveBootTitle(latestBootPayload);
         }
         if (bootStatus) {
             bootStatus.textContent = resolveBootMessage(latestBootPayload);
+        }
+        if (bootProgress) {
+            bootProgress.style.display = latestBootPayload?.showProgress ? 'flex' : 'none';
+        }
+        if (bootProgressBar) {
+            bootProgressBar.style.animationPlayState = latestBootPayload?.showProgress ? 'running' : 'paused';
         }
     }
 

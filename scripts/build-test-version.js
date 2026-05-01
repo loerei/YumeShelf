@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { resolveInstallerArtifactPath } = require('./release-artifacts');
 
 const repoRoot = path.resolve(__dirname, '..');
 const syncScriptPath = path.join(__dirname, 'sync-release-metadata.js');
@@ -10,6 +11,7 @@ const builtinsDir = path.join(repoRoot, 'src', 'locales', 'builtins');
 const packsDir = path.join(repoRoot, 'language-packs', 'packs');
 const manifestPath = path.join(repoRoot, 'language-packs', 'manifest.json');
 const sampleTemplatePath = path.join(repoRoot, 'language-packs', 'templates', 'en.sample.json');
+const SEMVER_WITH_PRERELEASE_REGEX = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -81,12 +83,12 @@ function parseCliArgs(argv) {
         }
 
         if (!targetVersion) {
-            if (/^\d+\.\d+\.\d+$/.test(arg)) {
+            if (SEMVER_WITH_PRERELEASE_REGEX.test(arg)) {
                 targetVersion = arg;
                 return;
             }
 
-            const dashedVersion = String(arg).match(/^--(\d+\.\d+\.\d+)$/);
+            const dashedVersion = String(arg).match(/^--(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/);
             if (dashedVersion) {
                 targetVersion = dashedVersion[1];
             }
@@ -102,8 +104,8 @@ function parseCliArgs(argv) {
 function main() {
     const { targetVersion, cleanBuild } = parseCliArgs(process.argv.slice(2));
 
-    if (!targetVersion || !/^\d+\.\d+\.\d+$/.test(targetVersion)) {
-        throw new Error('Usage: npm run build:test-version -- <x.y.z> | --<x.y.z> [--no-clean]');
+    if (!targetVersion || !SEMVER_WITH_PRERELEASE_REGEX.test(targetVersion)) {
+        throw new Error('Usage: npm run build:test-version -- <x.y.z> | <x.y.z-prerelease> | --<version> [--no-clean]');
     }
 
     const originalVersion = getPackageVersion();
@@ -117,7 +119,11 @@ function main() {
     try {
         run(process.execPath, [syncScriptPath, targetVersion]);
         run('npm', ['run', buildScript]);
-        console.log(`[build:test-version] built build_output\\YumeShelf ${targetVersion}.exe`);
+        const installerPath = resolveInstallerArtifactPath(targetVersion);
+        if (!fs.existsSync(installerPath)) {
+            throw new Error(`Expected NSIS installer was not found: ${installerPath}`);
+        }
+        console.log(`[build:test-version] built ${path.relative(repoRoot, installerPath).replace(/\//g, '\\')}`);
     } finally {
         restoreSnapshot(snapshot);
         console.log(`[build:test-version] restored workspace metadata to ${originalVersion}`);

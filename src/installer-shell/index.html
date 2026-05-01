@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YumeShelf Installer</title>
+    <link rel="stylesheet" href="../styles/theme.css">
+    <link rel="stylesheet" href="../styles/base.css">
+    <link rel="stylesheet" href="../styles/settings.css">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="system-theme">
+    <div class="settings-overlay installer-shell-overlay">
+        <div class="settings-panel installer-shell-panel">
+            <div class="settings-header installer-shell-header">
+                <h2 class="installer-shell-title" id="path-title"></h2>
+            </div>
+            <div class="settings-body installer-shell-body">
+                <button class="installer-path-display" id="path-display" type="button"></button>
+                <p class="installer-path-note" id="path-note"></p>
+
+                <label class="installer-checkbox-row" for="delete-setup-checkbox">
+                    <input id="delete-setup-checkbox" type="checkbox" checked>
+                    <span id="delete-setup-label"></span>
+                </label>
+
+                <div class="language-strip language-strip-inline" id="language-strip"></div>
+
+                <div class="installer-shell-actions">
+                    <button class="small-btn secondary-btn installer-action-btn" id="path-cancel"></button>
+                    <button class="small-btn installer-primary-btn installer-action-btn" id="path-install"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>

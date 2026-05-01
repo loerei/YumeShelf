@@ -19,8 +19,8 @@ function writeJson(filePath, value) {
 }
 
 function assertVersion(version) {
-    if (!/^\d+\.\d+\.\d+$/.test(version)) {
-        throw new Error(`Invalid version '${version}'. Expected x.y.z`);
+    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+        throw new Error(`Invalid version '${version}'. Expected x.y.z or x.y.z-prerelease`);
     }
 }
 

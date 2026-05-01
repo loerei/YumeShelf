@@ -1,0 +1,301 @@
+.game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.drop-zone {
+    min-height: 40px;
+    border: 2px dashed transparent;
+    border-radius: 12px;
+    transition: all 0.3s;
+}
+
+.drop-zone.drag-over {
+    background: rgba(0, 255, 255, 0.03);
+    border-color: var(--accent);
+}
+
+.game-card {
+    box-sizing: border-box;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    min-height: 252px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.3s ease;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.stack-card .menu-btn {
+    display: none;
+}
+
+.stack-card .fav-btn {
+    pointer-events: none;
+}
+
+.game-card.drag-over {
+    border: 2px dashed var(--accent);
+    transform: scale(1.02);
+    opacity: 0.8;
+}
+
+.game-card.drag-placeholder {
+    border: 2px dashed var(--accent);
+    background: rgba(0, 255, 255, 0.05);
+    opacity: 0.8;
+    pointer-events: none;
+    min-height: 120px;
+}
+
+.game-card.glow {
+    box-shadow: 0 0 20px var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
+.game-card:hover {
+    background-color: var(--hover-bg);
+    transform: translateY(-5px);
+    border-color: #444;
+}
+
+.game-card:active {
+    transform: translateY(0);
+}
+
+/* NÚT BA CHẤM ĐỔI TÊN */
+.menu-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.2s;
+    opacity: 0; /* Ẩn đi khi chưa hover */
+}
+
+.game-card:hover .menu-btn {
+    opacity: 1; /* Chỉ hiện nút khi di chuột vào Game Card */
+}
+
+.menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+
+
+.game-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 45px;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+}
+
+.game-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.game-duplicate-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    padding: 3px 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--chip-bg);
+    color: var(--text-sub);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.game-title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    min-height: calc(1.4em * 3);
+    max-height: calc(1.4em * 3);
+}
+
+
+.game-status {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-top: 5px;
+    opacity: 0.8;
+    font-weight: normal;
+    transition: opacity 0.2s ease;
+}
+
+.game-playtime {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-top: 2px;
+    opacity: 0.8;
+    font-weight: normal;
+    transition: opacity 0.2s ease;
+}
+
+.game-path {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    padding: 6px 10px;
+    border: 1px solid var(--path-chip-border);
+    border-radius: 999px;
+    background: var(--path-chip-bg);
+    color: var(--text-sub);
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    pointer-events: none;
+}
+
+.game-card:hover .game-path {
+    opacity: 1;
+    transform: translateY(0);
+    border-color: var(--path-chip-border-hover);
+}
+
+.game-card:hover .game-status,
+.game-card:hover .game-playtime {
+    opacity: 0.15;
+}
+
+.game-context-label {
+    margin-top: 10px;
+    color: var(--text-sub);
+    font-size: 11px;
+    opacity: 0.9;
+}
+
+/* INLINE RENAME INPUT */
+.rename-input {
+    width: 90%;
+    background: var(--field-bg);
+    color: var(--text-main);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    display: block;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+.rename-input::selection {
+    background: var(--accent);
+    color: white;
+}
+
+/* NÚT FAVORITE (NGÔI SAO) */
+.fav-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.15); /* Ngôi sao mờ khi chưa active */
+    background: transparent;
+    pointer-events: auto;
+    transition: all 0.2s;
+    user-select: none;
+}
+.fav-btn:hover {
+    transform: scale(1.2);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.4);
+}
+.fav-btn.active {
+    color: #ffd700; /* Vàng sáng */
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8); /* Tỏa sáng */
+}
+
+body.light-theme .fav-btn {
+    color: rgba(18, 18, 18, 0.22);
+}
+
+body.light-theme .fav-btn:hover {
+    background: rgba(18, 18, 18, 0.08);
+    color: rgba(18, 18, 18, 0.52);
+}
+
+@media (prefers-color-scheme: light) {
+    body.system-theme .fav-btn {
+        color: rgba(18, 18, 18, 0.22);
+    }
+
+    body.system-theme .fav-btn:hover {
+        background: rgba(18, 18, 18, 0.08);
+        color: rgba(18, 18, 18, 0.52);
+    }
+}
+
+/* HIỆU ỨNG VIỀN GLOW CHO CARD GAME */
+.game-card.favorited {
+    border-color: rgba(255, 215, 0, 0.4);
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.08);
+}
+.game-card.favorited:hover {
+    box-shadow: 0 6px 25px rgba(255, 215, 0, 0.15);
+    border-color: rgba(255, 215, 0, 0.8);
+}
+
+/* ĐƯỜNG LINE NGĂN CÁCH FAVORITES & OTHERS */
+.favorites-separator-container {
+    grid-column: 1 / -1; /* Bắt buộc line này kéo dài toàn bộ màn hình */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 15px 0;
+}
+.favorites-separator {
+    width: 60%;
+    height: 1px;
+    background: var(--text-sub);
+    opacity: 0.2;
+    mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+}

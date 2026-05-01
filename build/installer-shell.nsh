@@ -99,6 +99,10 @@ FunctionEnd
 !macro customInstall
   ${IfNot} ${isUpdated}
     Call WriteInstallerFirstLaunchMarker
+    !insertmacro copyFile "$EXEPATH" "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
+    FileOpen $9 "$TEMP\YumeShelf-installer-debug.log" a
+    FileWrite $9 "customInstall cachedInstaller=$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}$\r$\n"
+    FileClose $9
   ${EndIf}
 !macroend
 

@@ -1,10 +1,14 @@
 const fs = require('fs/promises');
+const fsSync = require('fs');
+const path = require('path');
 const { NsisUpdater } = require('electron-updater');
 const { createInstallerHandoff } = require('./nsis-updater/installer-handoff');
 const { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } = require('./nsis-updater/runtime');
 const { createStateFiles } = require('./nsis-updater/state-files');
 const { buildDownloadedState, normalizeDownloadedState, pickReleaseName, pickReleaseNotes, sha512FileBase64 } = require('./nsis-updater/update-info');
 const { attachUpdaterEventLogging } = require('./nsis-updater/updater-events');
+
+const GITHUB_RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/loerei/YumeShelf/releases/download';
 
 function createNsisUpdaterService({
     app,
@@ -25,6 +29,71 @@ function createNsisUpdaterService({
 
     function resolveRuntime() {
         return resolveUpdaterRuntime(app, isFakeVersionRun);
+    }
+
+    function createUpdaterLogger() {
+        function forward(level, message) {
+            const text = normalizeText(message, '');
+            if (!text) return;
+            void appendUpdateLog(`nsis-updater:${level} ${text}`);
+        }
+
+        return {
+            debug(message) {
+                forward('debug', message);
+            },
+            error(message) {
+                forward('error', message);
+            },
+            info(message) {
+                forward('info', message);
+            },
+            warn(message) {
+                forward('warn', message);
+            }
+        };
+    }
+
+    function normalizeReleaseTagName(version) {
+        const normalizedVersion = normalizeText(version, '').replace(/^v/i, '');
+        return normalizedVersion ? `v${normalizedVersion}` : '';
+    }
+
+    function buildGitHubReleaseDownloadBaseUrl(version) {
+        const tagName = normalizeReleaseTagName(version);
+        return tagName ? `${GITHUB_RELEASE_DOWNLOAD_BASE_URL}/${tagName}` : '';
+    }
+
+    function resolvePreviousBlockmapBaseUrl({ currentVersion, feedOverride, runtime }) {
+        const overrideBaseUrl = buildGitHubReleaseDownloadBaseUrl(currentVersion);
+        if (!overrideBaseUrl) {
+            return null;
+        }
+
+        const isGitHubGenericOverride = feedOverride?.provider === 'generic'
+            && /^https:\/\/github\.com\/loerei\/YumeShelf\/releases\/download\/[^/]+$/i.test(normalizeText(feedOverride.url, ''));
+        if (isGitHubGenericOverride || runtime?.provider === 'github') {
+            return overrideBaseUrl;
+        }
+
+        return null;
+    }
+
+    async function configureDifferentialDownload(nsisUpdater, { currentVersion, feedOverride, runtime }) {
+        const previousBlockmapBaseUrlOverride = resolvePreviousBlockmapBaseUrl({
+            currentVersion,
+            feedOverride,
+            runtime
+        });
+        nsisUpdater.previousBlockmapBaseUrlOverride = previousBlockmapBaseUrlOverride;
+
+        await appendUpdateLog(
+            `nsis-updater differential-config current=${currentVersion}`
+            + ` runtime=${normalizeText(runtime?.channel, '')}`
+            + ` provider=${normalizeText(feedOverride?.provider || runtime?.provider, '')}`
+            + ` previousBlockmapBaseUrlOverride=${previousBlockmapBaseUrlOverride || 'default'}`
+            + ` disableDifferentialDownload=${nsisUpdater.disableDifferentialDownload}`
+        );
     }
 
     function summarizeUpdateState(state = {}) {
@@ -105,6 +174,7 @@ function createNsisUpdaterService({
         if (updater) return updater;
 
         updater = new NsisUpdater();
+        updater.logger = createUpdaterLogger();
         updater.autoDownload = false;
         updater.autoInstallOnAppQuit = false;
         updater.autoRunAppAfterInstall = true;
@@ -165,6 +235,11 @@ function createNsisUpdaterService({
                 updaterFeedKey = desiredFeedKey;
             }
 
+            await configureDifferentialDownload(nsisUpdater, {
+                currentVersion: app.getVersion(),
+                feedOverride,
+                runtime
+            });
             await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=generic url=${feedOverride.url} target=${normalizeText(feedOverride.release?.version, '')} tag=${normalizeText(feedOverride.release?.tagName, '')}`);
             return {
                 feedOverride,
@@ -175,6 +250,11 @@ function createNsisUpdaterService({
         if (updaterFeedKey == null) {
             updaterFeedKey = runtime.usesDevConfig ? 'dev-config' : `publish:${runtime.provider}`;
         }
+        await configureDifferentialDownload(nsisUpdater, {
+            currentVersion: app.getVersion(),
+            feedOverride: null,
+            runtime
+        });
         await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=${runtime.provider} mode=${runtime.usesDevConfig ? 'dev-config' : 'publish-config'}`);
         return {
             feedOverride: null,
@@ -290,7 +370,29 @@ function createNsisUpdaterService({
 
         activeDownloadPromise = (async () => {
             try {
-                const paths = await createUpdater().downloadUpdate();
+                const activeUpdater = createUpdater();
+                let cachedInstallerPath = '';
+                let hasCachedInstaller = false;
+                try {
+                    const downloadHelper = typeof activeUpdater.getOrCreateDownloadHelper === 'function'
+                        ? await activeUpdater.getOrCreateDownloadHelper()
+                        : null;
+                    cachedInstallerPath = normalizeText(downloadHelper?.cacheDir, '')
+                        ? path.join(downloadHelper.cacheDir, 'installer.exe')
+                        : '';
+                    hasCachedInstaller = cachedInstallerPath ? fsSync.existsSync(cachedInstallerPath) : false;
+                } catch (error) {
+                    await appendUpdateLog(`nsis-updater cache-state-error error=${String((error && error.stack) || error || '')}`);
+                }
+                await appendUpdateLog(
+                    `nsis-updater download-begin current=${app.getVersion()}`
+                    + ` target=${normalizeText(updateState.updateInfo?.version, '')}`
+                    + ` previousBlockmapBaseUrlOverride=${normalizeText(activeUpdater.previousBlockmapBaseUrlOverride, '') || 'default'}`
+                    + ` cachedInstaller=${cachedInstallerPath || 'unknown'}`
+                    + ` cachedInstallerExists=${hasCachedInstaller}`
+                );
+                const paths = await activeUpdater.downloadUpdate();
+                await appendUpdateLog(`nsis-updater download-paths paths=${JSON.stringify(Array.isArray(paths) ? paths : [])}`);
                 const installerPath = normalizeText(
                     latestDownloadedEvent?.downloadedFile
                     || (Array.isArray(paths) ? paths.find(candidate => String(candidate || '').toLowerCase().endsWith('.exe')) : '')

@@ -179,6 +179,7 @@ function createNsisUpdaterService({
         updater.autoInstallOnAppQuit = false;
         updater.autoRunAppAfterInstall = true;
         updater.allowPrerelease = String(app.getVersion() || '').includes('-');
+        updater.disableWebInstaller = true;
 
         const runtime = resolveUpdaterRuntime(app, isFakeVersionRun);
         if (runtime.usesDevConfig) {
@@ -230,7 +231,8 @@ function createNsisUpdaterService({
             if (updaterFeedKey !== desiredFeedKey) {
                 nsisUpdater.setFeedURL({
                     provider: 'generic',
-                    url: feedOverride.url
+                    url: feedOverride.url,
+                    useMultipleRangeRequest: false
                 });
                 updaterFeedKey = desiredFeedKey;
             }

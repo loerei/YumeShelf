@@ -1,4 +1,5 @@
 import { getGameKey } from './library-order.js';
+import { applyIconPayload, cacheIconPayload, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
 
 export function createGameCardFactory({
     attachTooltip,
@@ -74,9 +75,9 @@ export function createGameCardFactory({
         const showDuplicateChip = options.showDuplicateChip !== false;
         const showPath = options.showPath !== false;
         const contextLabel = options.contextLabel || '';
-        if (!window.iconCache) window.iconCache = new Map();
-        if (!game.iconData && window.iconCache.has(game.exePath)) {
-            game.iconData = window.iconCache.get(game.exePath);
+        const cachedIcon = !game.iconData ? readCachedIconPayload(game.exePath) : null;
+        if (cachedIcon) {
+            applyIconPayload(game, cachedIcon);
         }
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
@@ -93,7 +94,7 @@ export function createGameCardFactory({
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
-            <div class="game-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
+            <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
             <div class="game-status">${game.isRunning ? (d.status_playing || 'Playing') : timeSince(game.lastPlayed)}</div>
@@ -104,14 +105,13 @@ export function createGameCardFactory({
         console.log(`[FRONTEND] Game card is updated for ${gameKey}, isRunning: ${game.isRunning}, status: ${game.isRunning ? 'Playing' : timeSince(game.lastPlayed)}`);
 
         if (!game.iconData) {
-            electronAPI.getIcon(game.exePath).then((iconData) => {
-                if (iconData) {
-                    game.iconData = iconData;
-                    if (window.iconCache) window.iconCache.set(game.exePath, iconData);
-                    const iconDiv = card.querySelector('.game-icon');
-                    if (iconDiv) {
-                        iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
-                    }
+            electronAPI.getIcon(game.exePath).then((iconPayload) => {
+                const normalizedIcon = applyIconPayload(game, iconPayload);
+                if (!normalizedIcon) return;
+                cacheIconPayload(game.exePath, normalizedIcon);
+                const iconDiv = card.querySelector('.game-icon');
+                if (iconDiv) {
+                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit);
                 }
             });
         }

@@ -1,3 +1,5 @@
+import { applyIconPayload, cacheIconPayload, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
+
 export function createStackCardFactory({
     attachTooltip,
     getStrings,
@@ -34,9 +36,9 @@ export function createStackCardFactory({
         const locationSummary = uniqueLocations.length > 1
             ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
             : (uniqueLocations[0] || primaryGame.locationLabel || '');
-        if (!window.iconCache) window.iconCache = new Map();
-        if (!primaryGame.iconData && window.iconCache.has(primaryGame.exePath)) {
-            primaryGame.iconData = window.iconCache.get(primaryGame.exePath);
+        const cachedIcon = !primaryGame.iconData ? readCachedIconPayload(primaryGame.exePath) : null;
+        if (cachedIcon) {
+            applyIconPayload(primaryGame, cachedIcon);
         }
         const card = document.createElement('div');
         card.className = `game-card stack-card ${stack.favorite ? 'favorited' : ''}`;
@@ -47,7 +49,7 @@ export function createStackCardFactory({
         const isStackRunning = stack.games.some(g => g.isRunning);
         card.innerHTML = `
             <div class="fav-btn stack-fav-indicator ${stack.favorite ? 'active' : ''}">★</div>
-            <div class="game-icon">${primaryGame.iconData ? `<img src="${primaryGame.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
+            <div class="game-icon">${primaryGame.iconData ? renderIconMarkup(primaryGame.iconData, primaryGame.iconFit) : '🎮'}</div>
             <div class="game-duplicate-chip">${stackSize}x</div>
             <div class="game-title">${primaryGame.name}</div>
             <div class="game-status">${isStackRunning ? (d.status_playing || 'Playing') : timeSince(primaryGame.lastPlayed)}</div>
@@ -56,13 +58,13 @@ export function createStackCardFactory({
         `;
 
         if (!primaryGame.iconData) {
-            window.electronAPI.getIcon(primaryGame.exePath).then((iconData) => {
-                if (!iconData) return;
-                primaryGame.iconData = iconData;
-                if (window.iconCache) window.iconCache.set(primaryGame.exePath, iconData);
+            window.electronAPI.getIcon(primaryGame.exePath).then((iconPayload) => {
+                const normalizedIcon = applyIconPayload(primaryGame, iconPayload);
+                if (!normalizedIcon) return;
+                cacheIconPayload(primaryGame.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {
-                    iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
+                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit);
                 }
             });
         }

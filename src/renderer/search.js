@@ -1,4 +1,5 @@
 import { getGameKey } from './library-order.js';
+import { applyIconPayload, cacheIconPayload, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
 
 export function createSearchController({
     attachTooltip,
@@ -47,16 +48,16 @@ export function createSearchController({
         }
 
         filtered.forEach((game) => {
-            if (!window.iconCache) window.iconCache = new Map();
-            if (!game.iconData && window.iconCache.has(game.exePath)) {
-                game.iconData = window.iconCache.get(game.exePath);
+            const cachedIcon = !game.iconData ? readCachedIconPayload(game.exePath) : null;
+            if (cachedIcon) {
+                applyIconPayload(game, cachedIcon);
             }
             const item = document.createElement('div');
             item.className = 'search-item';
             item.draggable = true;
             item.innerHTML = `
                 <div class="search-item-info">
-                    <div class="search-item-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">` : '🎮'}</div>
+                    <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit) : '🎮'}</div>
                     <div class="search-item-title-container">
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
@@ -70,14 +71,13 @@ export function createSearchController({
             `;
 
             if (!game.iconData) {
-                electronAPI.getIcon(game.exePath).then((iconData) => {
-                    if (iconData) {
-                        game.iconData = iconData;
-                        if (window.iconCache) window.iconCache.set(game.exePath, iconData);
-                        const iconSpan = item.querySelector('.search-item-icon');
-                        if (iconSpan) {
-                            iconSpan.innerHTML = `<img src="${iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
-                        }
+                electronAPI.getIcon(game.exePath).then((iconPayload) => {
+                    const normalizedIcon = applyIconPayload(game, iconPayload);
+                    if (!normalizedIcon) return;
+                    cacheIconPayload(game.exePath, normalizedIcon);
+                    const iconSpan = item.querySelector('.search-item-icon');
+                    if (iconSpan) {
+                        iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit);
                     }
                 });
             }

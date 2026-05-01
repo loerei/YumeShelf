@@ -14,6 +14,13 @@ function createIconPipeline({
     ipcMain,
     sourceRootDir
 }) {
+    function createIconPayload(dataUrl, fit = 'contain') {
+        return {
+            dataUrl,
+            fit: fit === 'cover' ? 'cover' : 'contain'
+        };
+    }
+
     const iconWorkers = [];
     const pendingIconRequests = new Map();
     const extractionQueue = [];
@@ -406,7 +413,7 @@ function createIconPipeline({
                 const imgPath = path.join(dir, `${name}.${ext}`);
                 if (fsSync.existsSync(imgPath)) {
                     console.log(`[MAIN][IPC] Found local image: ${imgPath}`);
-                    return `file:///${imgPath.replace(/\\/g, '/')}`;
+                    return createIconPayload(`file:///${imgPath.replace(/\\/g, '/')}`, 'contain');
                 }
             }
         }
@@ -414,7 +421,7 @@ function createIconPipeline({
         const cachedIconDataUrl = await tryGetCachedIconDataUrl(targetPath);
         if (cachedIconDataUrl) {
             console.log(`[MAIN][IPC] Returning cached high-res icon for: ${targetPath}`);
-            return cachedIconDataUrl;
+            return createIconPayload(cachedIconDataUrl, 'contain');
         }
 
         try {
@@ -433,7 +440,7 @@ function createIconPipeline({
                     console.warn(`[MAIN][ICON-CACHE] STORE-FAIL path=${path.win32.normalize(targetPath)} error=${String((cacheErr && cacheErr.stack) || cacheErr)}`);
                 }
                 console.log(`[MAIN][IPC] Successfully resolved high-res icon for: ${targetPath}`);
-                return `data:image/png;base64,${result.base64}`;
+                return createIconPayload(`data:image/png;base64,${result.base64}`, 'contain');
             }
             console.warn(`[MAIN][IPC] High-res extraction did not yield usable data for: ${targetPath}`);
             if (result && result.meta) {
@@ -445,7 +452,7 @@ function createIconPipeline({
 
         console.warn(`[MAIN][IPC] Falling back to app.getFileIcon for: ${targetPath}`);
         const icon = await app.getFileIcon(targetPath, { size: 'large' });
-        return icon.toDataURL();
+        return createIconPayload(icon.toDataURL(), 'cover');
     }
 
     async function handleProtocolRequest(request) {

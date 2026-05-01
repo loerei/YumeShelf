@@ -1,2 +1,2 @@
 !include "installer-install-mode.nsh"
-!include "installer-branding.nsh"
+!include "installer-shell.nsh"

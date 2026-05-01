@@ -1,0 +1,178 @@
+body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 0;
+    background: var(--bg-color);
+    color: var(--text-main);
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.installer-shell-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+    background: var(--overlay-bg);
+    backdrop-filter: blur(8px);
+    box-sizing: border-box;
+}
+
+.installer-shell-panel {
+    width: min(680px, calc(100vw - 48px));
+    max-width: 680px;
+    height: auto;
+    max-height: calc(100vh - 48px);
+}
+
+.installer-shell-header {
+    padding-bottom: 18px;
+}
+
+.installer-shell-title {
+    margin: 0;
+    font-size: clamp(26px, 3vw, 32px);
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.installer-shell-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.installer-path-display {
+    appearance: none;
+    width: 100%;
+    min-height: 56px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--path-chip-border);
+    background: var(--path-chip-bg);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+    line-height: 1.45;
+    word-break: break-word;
+    cursor: pointer;
+    transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.installer-path-display:hover {
+    border-color: var(--path-chip-border-hover);
+    background: var(--field-hover-bg);
+}
+
+.installer-path-display:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.installer-path-note {
+    margin: -6px 0 0;
+    color: var(--text-sub);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.installer-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-main);
+    cursor: pointer;
+    line-height: 1.45;
+}
+
+.installer-checkbox-row input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--accent);
+}
+
+.language-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-start;
+    padding-top: 4px;
+}
+
+.language-link {
+    border: 1px solid var(--path-chip-border);
+    background: var(--path-chip-bg);
+    color: var(--text-sub);
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font: inherit;
+    transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.language-link:hover,
+.language-link.active {
+    color: var(--text-main);
+    border-color: var(--path-chip-border-hover);
+    background: var(--field-hover-bg);
+}
+
+.language-link:hover {
+    transform: translateY(-1px);
+}
+
+.installer-shell-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.installer-action-btn {
+    min-width: 144px;
+    height: 42px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    box-sizing: border-box;
+}
+
+.installer-primary-btn {
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid transparent;
+}
+
+.installer-primary-btn:hover {
+    filter: brightness(1.05);
+}
+
+@media (max-width: 760px) {
+    .installer-shell-overlay {
+        padding: 16px;
+    }
+
+    .installer-shell-panel {
+        width: 100%;
+        max-height: calc(100vh - 32px);
+    }
+
+    .installer-setting-item,
+    .installer-shell-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .installer-action-btn {
+        width: 100%;
+    }
+}

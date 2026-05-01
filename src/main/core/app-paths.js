@@ -2,15 +2,25 @@ const path = require('path');
 
 function createAppPaths(app, sourceRootDir) {
     const isDev = !app.isPackaged;
+    const userDataDir = app.getPath('userData');
+    const appDataDir = app.getPath('appData');
+    const appName = app.getName();
     return {
         isDev,
         defaultGamesDir: isDev
             ? path.join(sourceRootDir, '..', 'YumeShelf')
             : path.join(path.dirname(app.getPath('exe')), 'YumeShelf'),
-        dbFile: path.join(app.getPath('userData'), 'library_db.json'),
-        userLocalesDir: path.join(app.getPath('userData'), 'locales'),
-        languagePackCacheDir: path.join(app.getPath('userData'), 'language-pack-cache'),
-        languagePackManifestCacheFile: path.join(app.getPath('userData'), 'language-pack-cache', 'manifest.json'),
+        dbFile: path.join(userDataDir, 'library_db.json'),
+        installerFirstLaunchMarkerFile: path.join(userDataDir, 'install-handoff.ini'),
+        installerFirstLaunchFallbackMarkerFiles: [
+            path.join(appDataDir, appName, 'install-handoff.ini'),
+            path.join(appDataDir, 'YumeShelf', 'install-handoff.ini'),
+            path.join(appDataDir, 'yumeshelf', 'install-handoff.ini')
+        ],
+        installerFirstLaunchLogFile: path.join(userDataDir, 'install-handoff.log'),
+        userLocalesDir: path.join(userDataDir, 'locales'),
+        languagePackCacheDir: path.join(userDataDir, 'language-pack-cache'),
+        languagePackManifestCacheFile: path.join(userDataDir, 'language-pack-cache', 'manifest.json'),
         builtInLocalesDir: path.join(sourceRootDir, 'locales', 'builtins'),
         localLanguagePackRoot: path.join(sourceRootDir, '..', 'language-packs'),
         localLanguagePackManifestFile: path.join(sourceRootDir, '..', 'language-packs', 'manifest.json'),

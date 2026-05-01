@@ -3,6 +3,7 @@ export function createLanguagePackActions({
     fetchManifestState,
     getText,
     localeController,
+    onOverlayOpen,
     onPackInstalled,
     performAppUpdateAction,
     refs,
@@ -53,6 +54,9 @@ export function createLanguagePackActions({
         const { bannerMessage = '', showAll = false } = options;
         setReviewMode('language-packs');
         setAppSectionMode('auto');
+        if (typeof onOverlayOpen === 'function') {
+            onOverlayOpen();
+        }
         refs.languagePackOverlay.style.display = 'flex';
         refs.languagePackSearch.value = '';
         setShowAllLanguagePacks(!!showAll);
@@ -70,6 +74,9 @@ export function createLanguagePackActions({
         const { bannerMessage = '' } = options;
         setReviewMode('updates-review');
         setAppSectionMode(options.appSectionMode || 'auto');
+        if (typeof onOverlayOpen === 'function') {
+            onOverlayOpen();
+        }
         refs.languagePackOverlay.style.display = 'flex';
         refs.languagePackSearch.value = '';
         setShowAllLanguagePacks(true);

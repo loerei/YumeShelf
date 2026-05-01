@@ -10,6 +10,7 @@ function clampMaxDepth(value) {
 }
 
 export function createSettingsController({
+    onOpen,
     refs
 }) {
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
@@ -19,6 +20,9 @@ export function createSettingsController({
     let currentMaxDepth = DEFAULT_MAX_DEPTH;
 
     function openSettings() {
+        if (typeof onOpen === 'function') {
+            onOpen();
+        }
         refs.settingsOverlay.style.display = 'flex';
     }
 

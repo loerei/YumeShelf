@@ -54,6 +54,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "installerHeader": "build/installerHeader.bmp",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },

@@ -1,3 +1,2 @@
-!macro customInstallMode
-  StrCpy $isForceCurrentInstall true
-!macroend
+!include "installer-install-mode.nsh"
+!include "installer-branding.nsh"

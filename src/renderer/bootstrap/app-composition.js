@@ -65,6 +65,9 @@ export function createRendererComposition({
         }
     });
     const settingsController = createSettingsController({
+        onOpen: () => {
+            tooltipController.hide();
+        },
         refs: {
             appUpdatesSelect: refs.appUpdatesSelect,
             languagePackUpdatesSelect: refs.languagePackUpdatesSelect,
@@ -94,6 +97,9 @@ export function createRendererComposition({
         electronAPI,
         getAppUpdateState: (mode) => appUpdateController.getAppUpdateState(mode),
         localeController,
+        onOverlayOpen: () => {
+            tooltipController.hide();
+        },
         onPackInstalled: () => {
             updateNotificationFeature.clear();
         },
@@ -196,6 +202,9 @@ export function createRendererComposition({
     });
     const duplicateStackOverlayController = createDuplicateStackOverlayController({
         createCard: (game, options) => createCard(game, options),
+        onOpen: () => {
+            tooltipController.hide();
+        },
         refs: {
             grid: refs.duplicateStackGrid,
             overlay: refs.duplicateStackOverlay

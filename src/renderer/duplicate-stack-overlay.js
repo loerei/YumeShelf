@@ -1,5 +1,6 @@
 export function createDuplicateStackOverlayController({
     createCard,
+    onOpen,
     refs
 }) {
     let activeStackKey = null;
@@ -50,6 +51,9 @@ export function createDuplicateStackOverlayController({
         activeStackKey = stack.groupKey;
         renderStack(stack);
 
+        if (typeof onOpen === 'function') {
+            onOpen();
+        }
         refs.overlay.style.display = 'flex';
         requestAnimationFrame(() => {
             refs.overlay.classList.add('show');

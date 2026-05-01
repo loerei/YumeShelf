@@ -1,0 +1,103 @@
+/* THEME VARIABLES SYSTEM */
+:root {
+    /* Default Dark (Yume) */
+    --bg-color: #121212;
+    --card-bg: #1e1e1e;
+    --hover-bg: #2a2a2a;
+    --text-main: #ffffff;
+    --text-sub: #b3b3b3;
+    --accent: #0078d4;
+    --border-color: #333;
+    --overlay-bg: rgba(0, 0, 0, 0.7);
+    --field-bg: #121212;
+    --field-hover-bg: rgba(255, 255, 255, 0.04);
+    --menu-bg: #202020;
+    --menu-border: #3d3d3d;
+    --menu-hover-bg: rgba(255, 255, 255, 0.06);
+    --menu-active-bg: rgba(255, 255, 255, 0.08);
+    --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+    --chip-bg: rgba(255, 255, 255, 0.03);
+    --path-chip-bg: rgba(0, 0, 0, 0.28);
+    --path-chip-border: rgba(255, 255, 255, 0.08);
+    --path-chip-border-hover: rgba(255, 255, 255, 0.16);
+    --tooltip-bg: rgba(22, 22, 22, 0.96);
+    --tooltip-border: rgba(255, 255, 255, 0.1);
+    --tooltip-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+body.light-theme {
+    --bg-color: #f5f5f5;
+    --card-bg: #ffffff;
+    --hover-bg: #efefef;
+    --text-main: #121212;
+    --text-sub: #666666;
+    --accent: #006abc;
+    --border-color: #dddddd;
+    --overlay-bg: rgba(255, 255, 255, 0.7);
+    --field-bg: #ffffff;
+    --field-hover-bg: rgba(18, 18, 18, 0.04);
+    --menu-bg: #ffffff;
+    --menu-border: rgba(18, 18, 18, 0.12);
+    --menu-hover-bg: rgba(18, 18, 18, 0.05);
+    --menu-active-bg: rgba(18, 18, 18, 0.08);
+    --menu-shadow: 0 14px 36px rgba(18, 18, 18, 0.12);
+    --chip-bg: rgba(18, 18, 18, 0.04);
+    --path-chip-bg: rgba(255, 255, 255, 0.92);
+    --path-chip-border: rgba(18, 18, 18, 0.12);
+    --path-chip-border-hover: rgba(18, 18, 18, 0.2);
+    --tooltip-bg: rgba(255, 255, 255, 0.96);
+    --tooltip-border: rgba(18, 18, 18, 0.12);
+    --tooltip-shadow: 0 14px 36px rgba(18, 18, 18, 0.14);
+}
+
+@media (prefers-color-scheme: light) {
+    body.system-theme {
+        --bg-color: #f5f5f5;
+        --card-bg: #ffffff;
+        --hover-bg: #efefef;
+        --text-main: #121212;
+        --text-sub: #666666;
+        --accent: #006abc;
+        --border-color: #dddddd;
+        --overlay-bg: rgba(255, 255, 255, 0.7);
+        --field-bg: #ffffff;
+        --field-hover-bg: rgba(18, 18, 18, 0.04);
+        --menu-bg: #ffffff;
+        --menu-border: rgba(18, 18, 18, 0.12);
+        --menu-hover-bg: rgba(18, 18, 18, 0.05);
+        --menu-active-bg: rgba(18, 18, 18, 0.08);
+        --menu-shadow: 0 14px 36px rgba(18, 18, 18, 0.12);
+        --chip-bg: rgba(18, 18, 18, 0.04);
+        --path-chip-bg: rgba(255, 255, 255, 0.92);
+        --path-chip-border: rgba(18, 18, 18, 0.12);
+        --path-chip-border-hover: rgba(18, 18, 18, 0.2);
+        --tooltip-bg: rgba(255, 255, 255, 0.96);
+        --tooltip-border: rgba(18, 18, 18, 0.12);
+        --tooltip-shadow: 0 14px 36px rgba(18, 18, 18, 0.14);
+    }
+}
+
+/* FIX CĂN GIỮA ICON SVG */
+.sort-btn, .settings-icon-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.icon-svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-main);
+    pointer-events: none;
+}
+
+/* XÓA CÁC ICON CONTENT CŨ GÂY LỆCH */
+.sort-btn::after, .settings-icon-btn::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Cập nhật màu border chung */
+.header { border-color: var(--border-color) !important; }
+.game-card:hover { border-color: var(--text-sub); }

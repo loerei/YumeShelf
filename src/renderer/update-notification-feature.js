@@ -20,6 +20,8 @@ function getUpdateNotificationRefs(root) {
 export function createUpdateNotificationFeature({
     getText,
     openUpdatesReviewModal,
+    restartAndInstallAppUpdate,
+    scheduleAppUpdateNextLaunch,
     root = document
 }) {
     const updateNotificationController = createUpdateNotificationController({
@@ -31,6 +33,8 @@ export function createUpdateNotificationFeature({
             bootstrapData,
             getText,
             openUpdatesReviewModal,
+            restartAndInstallAppUpdate,
+            scheduleAppUpdateNextLaunch,
             updateNotificationController
         });
     }

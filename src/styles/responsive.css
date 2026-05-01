@@ -1,0 +1,52 @@
+@media (max-width: 900px) {
+    .stack-overlay {
+        padding: 18px;
+    }
+
+    .stack-overlay-panel {
+        width: 100%;
+        max-height: calc(100vh - 36px);
+        padding: 12px;
+    }
+
+    .stack-overlay-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    .settings-panel {
+        width: calc(100% - 24px);
+        max-width: none;
+        height: auto;
+        max-height: calc(100vh - 24px);
+    }
+
+    .settings-body {
+        padding: 24px;
+    }
+
+    .setting-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .setting-control-zone {
+        width: 100%;
+    }
+
+    .setting-field-group {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .setting-field-group #lang-select,
+    .setting-control-zone #theme-select,
+    .setting-control-zone #location-display-select,
+    .setting-control-zone #app-updates-select,
+    .setting-control-zone #language-pack-updates-select,
+    .setting-control-zone .max-depth-stepper,
+    .wide-setting-btn {
+        width: 100%;
+        min-width: 0;
+    }
+}

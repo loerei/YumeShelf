@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$targetDir = Join-Path $repoRoot 'build_output\win-unpacked'
+$targetDir = Join-Path $repoRoot 'build_output\unpacked\win-unpacked'
 $targetPrefix = ($targetDir.TrimEnd('\') + '\').ToLowerInvariant()
 
 if (-not (Test-Path -LiteralPath $targetDir)) {

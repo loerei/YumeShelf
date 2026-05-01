@@ -3,7 +3,10 @@ node_modules/
 
 dist/
 build_output/
+build/installer-shell-dist/
 *.exe
+native/playtime-helper/target/
+dev-app-update.yml
 
 library_db.json
 src/library_db.json

@@ -1,0 +1,59 @@
+.stack-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: var(--overlay-bg);
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.stack-overlay.show {
+    opacity: 1;
+}
+
+.stack-overlay-panel {
+    width: min(1080px, 100%);
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.stack-overlay-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+}
+
+.stack-overlay-item {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    opacity: 0;
+    transform: translateY(22px) scale(0.96);
+    animation: stackOverlayEnter 0.28s ease forwards;
+    animation-delay: var(--stack-delay, 0ms);
+}
+
+.stack-overlay-card {
+    min-height: 290px;
+}
+
+.stack-overlay-location {
+    margin-top: 10px;
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
+@keyframes stackOverlayEnter {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

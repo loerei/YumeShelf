@@ -8,6 +8,7 @@ export function createGameCardFactory({
     onDragStateReset,
     onDragStart,
     onGameLaunched,
+    onFavoriteToggled,
     onRefreshRequested
 }) {
     function timeSince(date) {
@@ -69,6 +70,7 @@ export function createGameCardFactory({
         const gameKey = getGameKey(game);
         const draggable = options.draggable !== false;
         const launchMode = options.launchMode || 'double';
+        const interactiveSelector = '.fav-btn, .menu-btn, .dropdown-menu, .rename-input';
         const showDuplicateChip = options.showDuplicateChip !== false;
         const showPath = options.showPath !== false;
         const contextLabel = options.contextLabel || '';
@@ -119,9 +121,22 @@ export function createGameCardFactory({
             subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || game.folderPath || ''
         }));
 
-        card.querySelector('.fav-btn').onclick = async (event) => {
+        const favoriteButton = card.querySelector('.fav-btn');
+        favoriteButton.draggable = false;
+        favoriteButton.onmousedown = (event) => {
+            event.preventDefault();
+        };
+        favoriteButton.onclick = async (event) => {
+            event.preventDefault();
             event.stopPropagation();
-            game.favorite = await electronAPI.toggleFavorite(gameKey);
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            }
+            const nextFavorite = await electronAPI.toggleFavorite(gameKey);
+            game.favorite = nextFavorite;
+            if (typeof onFavoriteToggled === 'function') {
+                onFavoriteToggled(gameKey, nextFavorite);
+            }
             onRefreshRequested();
         };
         card.querySelector('.menu-btn').onclick = (event) => {
@@ -175,14 +190,12 @@ export function createGameCardFactory({
             if (typeof onGameLaunched === 'function') {
                 onGameLaunched(gameKey);
             } else {
-                game.lastPlayed = Date.now();
-                game.isRunning = true;
                 onRefreshRequested();
             }
         };
         if (launchMode === 'single') {
             card.onclick = (event) => {
-                if (event.target.closest('.fav-btn, .menu-btn, .dropdown-menu, .rename-input')) return;
+                if (event.target.closest(interactiveSelector)) return;
                 launchGame();
             };
         } else {
@@ -191,6 +204,10 @@ export function createGameCardFactory({
 
         if (draggable) {
             card.ondragstart = (event) => {
+                if (event.target.closest(interactiveSelector)) {
+                    event.preventDefault();
+                    return false;
+                }
                 event.dataTransfer.setData('gameKey', gameKey);
                 event.dataTransfer.effectAllowed = 'move';
                 requestAnimationFrame(() => {

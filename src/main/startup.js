@@ -28,6 +28,9 @@ function createStartupServices({
     app,
     checkForAppUpdate,
     consumePostUpdateMarker,
+    prepareDeferredInstallOnLaunch,
+    preparePlaytimeSessions,
+    overlayPlaytimeSessions,
     logAppUpdateDebug,
     applyLanguagePackUpdates,
     buildLanguageState,
@@ -69,10 +72,13 @@ function createStartupServices({
             available: false,
             version: null,
             releaseName: '',
+            releaseNotes: '',
             releaseUrl: null,
             downloadable: false,
             canSelfUpdate: false,
+            selfApplicable: false,
             downloadReady: false,
+            deferredUntilNextLaunch: false,
             checksumSha256: null,
             fallbackReason: null
         };
@@ -93,6 +99,41 @@ function createStartupServices({
             fallbackText: 'Loading language settings'
         });
         let languageState = await buildLanguageState();
+        if (typeof preparePlaytimeSessions === 'function') {
+            emitBootStatus(webContents, {
+                key: 'boot_recovering_playtime_sessions',
+                fallbackText: 'Recovering running game sessions'
+            });
+            await preparePlaytimeSessions();
+        }
+        const deferredAppUpdateInstall = typeof prepareDeferredInstallOnLaunch === 'function'
+            ? await prepareDeferredInstallOnLaunch()
+            : { pending: false, reason: 'not-supported' };
+
+        if (deferredAppUpdateInstall?.pending) {
+            emitBootStatus(webContents, {
+                key: 'boot_update_preparing_install',
+                fallbackText: 'Preparing installation',
+                mode: 'update',
+                showProgress: true,
+                titleKey: 'boot_update_title',
+                titleText: 'Installing YumeShelf update'
+            });
+            return {
+                appVersion: app.getVersion(),
+                languageState,
+                config: null,
+                games: [],
+                bootChecks: {
+                    appUpdatesMode,
+                    appUpdateCheck,
+                    languagePackUpdatesMode,
+                    languagePackCheck
+                },
+                deferredAppUpdateInstall,
+                postUpdateNotice
+            };
+        }
 
         if (appUpdatesMode !== 'off') {
             emitBootStatus(webContents, {
@@ -232,7 +273,10 @@ function createStartupServices({
             key: 'boot_loading_library',
             fallbackText: 'Loading library'
         });
-        const games = await loadGamesForConfig(config);
+        const loadedGames = await loadGamesForConfig(config);
+        const games = typeof overlayPlaytimeSessions === 'function'
+            ? overlayPlaytimeSessions(loadedGames)
+            : loadedGames;
 
         emitBootStatus(webContents, {
             key: 'boot_preparing_interface',

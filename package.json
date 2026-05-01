@@ -1,17 +1,20 @@
 {
   "name": "yumeshelf",
-  "version": "1.4.6-beta.1",
+  "version": "1.4.6",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
   "scripts": {
     "ensure:playtime-helper": "node .\\scripts\\ensure-playtime-helper.js",
+    "ensure:installer-shell": "node .\\scripts\\ensure-installer-shell.js",
+    "ensure:installer-shell:fast": "node .\\scripts\\ensure-installer-shell.js --fast",
+    "organize:build-output": "node .\\scripts\\organize-build-output.js",
     "start": "npm run ensure:playtime-helper && electron .",
-    "build": "npm run ensure:playtime-helper && electron-builder --win",
-    "build:fast": "npm run ensure:playtime-helper && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js",
+    "build": "npm run ensure:playtime-helper && npm run ensure:installer-shell && electron-builder --win && npm run organize:build-output",
+    "build:fast": "npm run ensure:playtime-helper && npm run ensure:installer-shell:fast && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js && npm run organize:build-output",
     "build:fast:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:fast",
     "build:test-version": "node .\\scripts\\build-test-version.js",
-    "build:dir": "npm run ensure:playtime-helper && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir --config.win.signAndEditExecutable=false",
+    "build:dir": "npm run ensure:playtime-helper && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir --config.win.signAndEditExecutable=false && npm run organize:build-output",
     "build:dir:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:dir",
     "checksum:release": "node .\\scripts\\write-release-checksum.js",
     "mock:app-update": "node .\\scripts\\write-dev-app-update-manifest.js",
@@ -51,10 +54,9 @@
       "icon": "assets/yumeshelf_icon_highres_4096.png"
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerHeader": "build/installerHeader.bmp",
+      "allowToChangeInstallationDirectory": false,
       "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },

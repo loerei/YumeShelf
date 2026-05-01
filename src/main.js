@@ -8,6 +8,7 @@ const { downloadBuffer, ensureDir, isNetworkLikeError, readJsonFile, sha256Hex }
 const { compareNumericVersions } = require('./main/core/version-utils');
 const { createIconPipeline } = require('./main/icon-pipeline/service');
 const { registerMainIpc } = require('./main/ipc/register');
+const { createInstallHandoffService } = require('./main/install-handoff');
 const { createLanguagePackServices } = require('./main/language-packs/service');
 const { createAppUpdateServices } = require('./main/app-updates');
 const { createLibraryState } = require('./main/library-state');
@@ -46,6 +47,13 @@ const appUpdateServices = createAppUpdateServices({
     compareVersions: compareNumericVersions,
     openExternalUrl: (url) => shell.openExternal(url),
     startupNetworkTimeoutMs: 3500
+});
+
+const installHandoffService = createInstallHandoffService({
+    app,
+    markerFile: paths.installerFirstLaunchMarkerFile,
+    fallbackMarkerFiles: paths.installerFirstLaunchFallbackMarkerFiles,
+    logFile: paths.installerFirstLaunchLogFile
 });
 
 const libraryState = createLibraryState({
@@ -93,6 +101,7 @@ logBootDiagnostics(app);
 attachProcessDiagnostics(app);
 
 app.whenReady().then(async () => {
+    await installHandoffService.consumeManualInstallHandoff();
     await startMainRuntime({
         app,
         appUpdateServices,

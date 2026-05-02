@@ -1,12 +1,14 @@
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
+const { load } = require('js-yaml');
 const { NsisUpdater } = require('electron-updater');
 const { createInstallerHandoff } = require('./nsis-updater/installer-handoff');
 const { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } = require('./nsis-updater/runtime');
 const { createStateFiles } = require('./nsis-updater/state-files');
 const { buildDownloadedState, normalizeDownloadedState, pickReleaseName, pickReleaseNotes, sha512FileBase64 } = require('./nsis-updater/update-info');
 const { attachUpdaterEventLogging } = require('./nsis-updater/updater-events');
+const { downloadBuffer } = require('./core/shared-io');
 
 const GITHUB_RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/loerei/YumeShelf/releases/download';
 
@@ -62,6 +64,108 @@ function createNsisUpdaterService({
     function buildGitHubReleaseDownloadBaseUrl(version) {
         const tagName = normalizeReleaseTagName(version);
         return tagName ? `${GITHUB_RELEASE_DOWNLOAD_BASE_URL}/${tagName}` : '';
+    }
+
+    function buildGitHubReleaseManifestUrl(version) {
+        const baseUrl = buildGitHubReleaseDownloadBaseUrl(version);
+        return baseUrl ? `${baseUrl}/latest.yml` : '';
+    }
+
+    async function resolveCurrentReleaseCacheInputs(version) {
+        const manifestUrl = buildGitHubReleaseManifestUrl(version);
+        if (!manifestUrl) {
+            return null;
+        }
+
+        const manifestBuffer = await downloadBuffer(manifestUrl, 0, 15000, null, app.getVersion());
+        const manifest = load(manifestBuffer.toString('utf8'));
+        const installerName = normalizeText(manifest?.path, '');
+        const installerSha512 = normalizeText(manifest?.sha512, '');
+        if (!installerName || !installerSha512) {
+            throw new Error(`latest.yml for ${version} did not contain both path and sha512.`);
+        }
+
+        const releaseBaseUrl = buildGitHubReleaseDownloadBaseUrl(version);
+        return {
+            blockmapUrl: `${releaseBaseUrl}/${installerName}.blockmap`,
+            installerName,
+            installerSha512,
+            installerUrl: `${releaseBaseUrl}/${installerName}`,
+            manifestUrl
+        };
+    }
+
+    async function ensureCurrentInstallerCacheState(activeUpdater, currentVersion) {
+        const downloadHelper = typeof activeUpdater.getOrCreateDownloadHelper === 'function'
+            ? await activeUpdater.getOrCreateDownloadHelper()
+            : null;
+        const cacheDir = normalizeText(downloadHelper?.cacheDir, '');
+        if (!cacheDir) {
+            await appendUpdateLog(`nsis-updater current-cache skip current=${currentVersion} reason=no-cache-dir`);
+            return null;
+        }
+
+        const cachedInstallerPath = path.join(cacheDir, 'installer.exe');
+        const cachedBlockmapPath = path.join(cacheDir, 'current.blockmap');
+        const releaseInputs = await resolveCurrentReleaseCacheInputs(currentVersion);
+        if (!releaseInputs) {
+            await appendUpdateLog(`nsis-updater current-cache skip current=${currentVersion} reason=no-release-inputs`);
+            return {
+                cacheDir,
+                cachedBlockmapPath,
+                cachedInstallerPath
+            };
+        }
+
+        let cachedInstallerSha512 = '';
+        if (fsSync.existsSync(cachedInstallerPath)) {
+            try {
+                cachedInstallerSha512 = await sha512FileBase64(cachedInstallerPath);
+            } catch (error) {
+                await appendUpdateLog(`nsis-updater current-cache hash-error current=${currentVersion} installer=${cachedInstallerPath} error=${String((error && error.stack) || error || '')}`);
+            }
+        }
+
+        const installerMatches = cachedInstallerSha512 === releaseInputs.installerSha512;
+        await appendUpdateLog(
+            `nsis-updater current-cache probe current=${currentVersion}`
+            + ` manifest=${releaseInputs.manifestUrl}`
+            + ` installer=${cachedInstallerPath}`
+            + ` installerExists=${fsSync.existsSync(cachedInstallerPath)}`
+            + ` installerMatches=${installerMatches}`
+            + ` cachedInstallerSha512=${cachedInstallerSha512 || 'missing'}`
+            + ` expectedInstallerSha512=${releaseInputs.installerSha512}`
+            + ` blockmapExists=${fsSync.existsSync(cachedBlockmapPath)}`
+        );
+
+        if (!installerMatches) {
+            const tempInstallerPath = `${cachedInstallerPath}.download`;
+            await ensureDir(path.dirname(cachedInstallerPath));
+            try {
+                await fs.unlink(tempInstallerPath);
+            } catch {}
+            await activeUpdater.httpExecutor.download(new URL(releaseInputs.installerUrl), tempInstallerPath, {
+                cancellationToken: null,
+                headers: activeUpdater.requestHeaders || undefined,
+                sha512: releaseInputs.installerSha512
+            });
+            await fs.rm(cachedInstallerPath, { force: true });
+            await fs.rename(tempInstallerPath, cachedInstallerPath);
+            cachedInstallerSha512 = await sha512FileBase64(cachedInstallerPath);
+            await appendUpdateLog(`nsis-updater current-cache refreshed-installer current=${currentVersion} installer=${cachedInstallerPath} sha512=${cachedInstallerSha512}`);
+        }
+
+        const blockmapBuffer = await downloadBuffer(releaseInputs.blockmapUrl, 0, 15000, null, app.getVersion());
+        await ensureDir(path.dirname(cachedBlockmapPath));
+        await fs.writeFile(cachedBlockmapPath, blockmapBuffer);
+        await appendUpdateLog(`nsis-updater current-cache refreshed-blockmap current=${currentVersion} blockmap=${cachedBlockmapPath} bytes=${blockmapBuffer.length}`);
+
+        return {
+            cacheDir,
+            cachedBlockmapPath,
+            cachedInstallerPath,
+            cachedInstallerSha512
+        };
     }
 
     function resolvePreviousBlockmapBaseUrl({ currentVersion, feedOverride, runtime }) {
@@ -376,12 +480,8 @@ function createNsisUpdaterService({
                 let cachedInstallerPath = '';
                 let hasCachedInstaller = false;
                 try {
-                    const downloadHelper = typeof activeUpdater.getOrCreateDownloadHelper === 'function'
-                        ? await activeUpdater.getOrCreateDownloadHelper()
-                        : null;
-                    cachedInstallerPath = normalizeText(downloadHelper?.cacheDir, '')
-                        ? path.join(downloadHelper.cacheDir, 'installer.exe')
-                        : '';
+                    const currentCacheState = await ensureCurrentInstallerCacheState(activeUpdater, app.getVersion());
+                    cachedInstallerPath = normalizeText(currentCacheState?.cachedInstallerPath, '');
                     hasCachedInstaller = cachedInstallerPath ? fsSync.existsSync(cachedInstallerPath) : false;
                 } catch (error) {
                     await appendUpdateLog(`nsis-updater cache-state-error error=${String((error && error.stack) || error || '')}`);

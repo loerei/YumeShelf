@@ -1,6 +1,7 @@
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
+const { CancellationToken } = require('builder-util-runtime');
 const { load } = require('js-yaml');
 const { NsisUpdater } = require('electron-updater');
 const { createInstallerHandoff } = require('./nsis-updater/installer-handoff');
@@ -145,7 +146,7 @@ function createNsisUpdaterService({
                 await fs.unlink(tempInstallerPath);
             } catch {}
             await activeUpdater.httpExecutor.download(new URL(releaseInputs.installerUrl), tempInstallerPath, {
-                cancellationToken: null,
+                cancellationToken: new CancellationToken(),
                 headers: activeUpdater.requestHeaders || undefined,
                 sha512: releaseInputs.installerSha512
             });

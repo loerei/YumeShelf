@@ -16,6 +16,7 @@ const { createNsisUpdaterService, isFakeVersionRun } = require('./nsis-updater')
 
 const APP_UPDATE_RELEASES_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases?per_page=25';
 const APP_UPDATE_RELEASE_PAGE_URL = 'https://github.com/loerei/YumeShelf/releases/latest';
+const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 function createAppUpdateServices({
     app,
     broadcastStatus,
@@ -34,8 +35,13 @@ function createAppUpdateServices({
         await fs.appendFile(updateLogFile, line, 'utf8');
     }
 
+    async function appendVerboseUpdateLog(message) {
+        if (!VERBOSE_UPDATE_LOG) return;
+        await appendUpdateLog(message);
+    }
+
     async function logDebug(message) {
-        await appendUpdateLog(`debug ${message}`);
+        await appendVerboseUpdateLog(`debug ${message}`);
     }
 
     const nsisUpdaterService = createNsisUpdaterService({
@@ -67,7 +73,7 @@ function createAppUpdateServices({
 
     async function consumePostUpdateMarker() {
         const markerExists = await fs.access(postUpdateMarkerFile).then(() => true).catch(() => false);
-        await appendUpdateLog(`consumePostUpdateMarker begin exists=${markerExists}`);
+        await appendVerboseUpdateLog(`consumePostUpdateMarker begin exists=${markerExists}`);
         if (!markerExists) {
             return null;
         }
@@ -77,7 +83,7 @@ function createAppUpdateServices({
             const rawText = await fs.readFile(postUpdateMarkerFile, 'utf8');
             const sanitizedText = rawText.replace(/^\uFEFF/, '');
             const hasBom = rawText.charCodeAt(0) === 0xFEFF;
-            await appendUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
+            await appendVerboseUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
             marker = JSON.parse(sanitizedText);
         } catch (error) {
             await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String((error && error.stack) || error || '')}`);
@@ -85,7 +91,7 @@ function createAppUpdateServices({
 
         try {
             await fs.unlink(postUpdateMarkerFile);
-            await appendUpdateLog('consumePostUpdateMarker deleted-marker-file');
+            await appendVerboseUpdateLog('consumePostUpdateMarker deleted-marker-file');
         } catch (error) {
             await appendUpdateLog(`consumePostUpdateMarker delete-failed error=${String((error && error.message) || error || '')}`);
         }
@@ -141,7 +147,7 @@ function createAppUpdateServices({
             await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String((error && error.stack) || error || '')}`);
         }
 
-        await appendUpdateLog(`consumePostUpdateMarker notice=${JSON.stringify({
+        await appendVerboseUpdateLog(`consumePostUpdateMarker notice=${JSON.stringify({
             fromVersion: notice.fromVersion,
             installedAt: notice.installedAt,
             releaseUrl: notice.releaseUrl,
@@ -169,7 +175,7 @@ function createAppUpdateServices({
                 })
             : [];
 
-        await appendUpdateLog(`resolveReleaseFeed includePrerelease=${includePrerelease} count=${releases.length} tags=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
+        await appendVerboseUpdateLog(`resolveReleaseFeed includePrerelease=${includePrerelease} count=${releases.length} tags=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
         return releases;
     }
 
@@ -193,25 +199,25 @@ function createAppUpdateServices({
 
     async function resolvePackagedFeedOverride({ currentVersion, runtime }) {
         if (runtime?.channel !== 'nsis') {
-            await appendUpdateLog(`resolvePackagedFeedOverride skip-non-nsis current=${currentVersion} runtime=${JSON.stringify(runtime || null)}`);
+            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-non-nsis current=${currentVersion} runtime=${JSON.stringify(runtime || null)}`);
             return null;
         }
         if (!isPrereleaseVersion(currentVersion)) {
-            await appendUpdateLog(`resolvePackagedFeedOverride skip-non-prerelease current=${currentVersion}`);
+            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-non-prerelease current=${currentVersion}`);
             return null;
         }
 
         const releases = await resolveReleaseFeed({ includePrerelease: true });
-        await appendUpdateLog(`resolvePackagedFeedOverride candidates current=${currentVersion} releases=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
+        await appendVerboseUpdateLog(`resolvePackagedFeedOverride candidates current=${currentVersion} releases=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
         const targetRelease = releases.find(release => compareAppReleaseVersions(release.version, currentVersion) > 0);
         if (!targetRelease) {
-            await appendUpdateLog(`resolvePackagedFeedOverride none current=${currentVersion}`);
+            await appendVerboseUpdateLog(`resolvePackagedFeedOverride none current=${currentVersion}`);
             return null;
         }
 
         const hasLatestManifest = targetRelease.assets.some(asset => readAssetName(asset).toLowerCase() === 'latest.yml');
         if (!hasLatestManifest) {
-            await appendUpdateLog(`resolvePackagedFeedOverride skip-missing-latest current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName}`);
+            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-missing-latest current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName}`);
             return null;
         }
 
@@ -221,7 +227,7 @@ function createAppUpdateServices({
             release: targetRelease,
             url: `https://github.com/loerei/YumeShelf/releases/download/${targetRelease.tagName}`
         };
-        await appendUpdateLog(`resolvePackagedFeedOverride selected current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName} url=${override.url}`);
+        await appendVerboseUpdateLog(`resolvePackagedFeedOverride selected current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName} url=${override.url}`);
         return override;
     }
 

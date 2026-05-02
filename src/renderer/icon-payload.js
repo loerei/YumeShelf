@@ -60,31 +60,8 @@ export function renderIconMarkup(dataUrl, fit = 'contain', source = 'unknown') {
 }
 
 export function logIconRender(context, key, payload, imgElement) {
-    const normalized = normalizeIconPayload(payload);
-    if (!normalized) {
-        console.log(`[FRONTEND][ICON] ${context} key=${key} payload=missing`);
-        return;
-    }
-
-    const debugText = normalized.debug ? JSON.stringify(normalized.debug) : 'null';
-    console.log(
-        `[FRONTEND][ICON] ${context} key=${key} source=${normalized.source} fit=${normalized.fit} hasDebug=${normalized.debug ? 'true' : 'false'} debug=${debugText}`
-    );
-
-    if (!imgElement) {
-        return;
-    }
-
-    const logDimensions = () => {
-        console.log(
-            `[FRONTEND][ICON] ${context} key=${key} rendered natural=${imgElement.naturalWidth}x${imgElement.naturalHeight} client=${imgElement.clientWidth}x${imgElement.clientHeight} dataFit=${imgElement.dataset.iconFit || ''} dataSource=${imgElement.dataset.iconSource || ''}`
-        );
-    };
-
-    if (imgElement.complete) {
-        logDimensions();
-        return;
-    }
-
-    imgElement.addEventListener('load', logDimensions, { once: true });
+    void context;
+    void key;
+    void payload;
+    void imgElement;
 }

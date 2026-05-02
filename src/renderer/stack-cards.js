@@ -40,9 +40,6 @@ export function createStackCardFactory({
         if (cachedIcon) {
             applyIconPayload(primaryGame, cachedIcon);
         }
-        console.log(
-            `[FRONTEND][STACK-CARD] create key=${representativeKey} hasIcon=${primaryGame.iconData ? 'true' : 'false'} source=${primaryGame.iconSource || 'none'} fit=${primaryGame.iconFit || 'none'}`
-        );
         const card = document.createElement('div');
         card.className = `game-card stack-card ${stack.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = representativeKey;
@@ -72,9 +69,6 @@ export function createStackCardFactory({
             window.electronAPI.getIcon(primaryGame.exePath).then((iconPayload) => {
                 const normalizedIcon = applyIconPayload(primaryGame, iconPayload);
                 if (!normalizedIcon) return;
-                console.log(
-                    `[FRONTEND][STACK-CARD] async-icon key=${representativeKey} source=${normalizedIcon.source} fit=${normalizedIcon.fit}`
-                );
                 cacheIconPayload(primaryGame.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {

@@ -53,9 +53,6 @@ export function createSearchController({
                 applyIconPayload(game, cachedIcon);
             }
             const gameKey = getGameKey(game);
-            console.log(
-                `[FRONTEND][SEARCH-ITEM] create key=${gameKey} hasIcon=${game.iconData ? 'true' : 'false'} source=${game.iconSource || 'none'} fit=${game.iconFit || 'none'}`
-            );
             const item = document.createElement('div');
             item.className = 'search-item';
             item.draggable = true;
@@ -86,9 +83,6 @@ export function createSearchController({
                 electronAPI.getIcon(game.exePath).then((iconPayload) => {
                     const normalizedIcon = applyIconPayload(game, iconPayload);
                     if (!normalizedIcon) return;
-                    console.log(
-                        `[FRONTEND][SEARCH-ITEM] async-icon key=${gameKey} source=${normalizedIcon.source} fit=${normalizedIcon.fit}`
-                    );
                     cacheIconPayload(game.exePath, normalizedIcon);
                     const iconSpan = item.querySelector('.search-item-icon');
                     if (iconSpan) {

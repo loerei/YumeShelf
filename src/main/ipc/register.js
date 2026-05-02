@@ -26,11 +26,6 @@ function registerMainIpc({
         await shell.openExternal(normalizedUrl);
         return { ok: true };
     });
-    ipcMain.handle('log-app-update-debug', async (_event, message) => {
-        await appUpdateServices.logDebug(`renderer ${String(message || '')}`);
-        return { ok: true };
-    });
-
     ipcMain.handle('get-language-pack-manifest', async () => {
         const result = await languagePackServices.fetchLanguageManifest();
         return {

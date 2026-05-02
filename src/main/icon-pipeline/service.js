@@ -211,10 +211,8 @@ function createIconPipeline({
                     version: parsed.version || ICON_CACHE_VERSION,
                     entriesByPath: parsed.entriesByPath || {}
                 };
-                console.log(`[MAIN][ICON-CACHE] Loaded state version=${iconCacheState.version} entries=${Object.keys(iconCacheState.entriesByPath).length} dir=${ICON_CACHE_DIR}`);
             } catch (err) {
                 iconCacheState = { version: ICON_CACHE_VERSION, entriesByPath: {} };
-                console.log(`[MAIN][ICON-CACHE] Initialized empty state dir=${ICON_CACHE_DIR} reason=${String((err && err.code) || (err && err.message) || err)}`);
             }
             return iconCacheState;
         })();
@@ -239,11 +237,8 @@ function createIconPipeline({
         if (stillUsed) return;
         try {
             await fs.unlink(path.join(ICON_CACHE_DIR, fileName));
-            console.log(`[MAIN][ICON-CACHE] Deleted unused file fileName=${fileName}`);
         } catch (err) {
-            if (err && err.code !== 'ENOENT') {
-                console.warn(`[MAIN][ICON-CACHE] Failed to delete unused file fileName=${fileName}: ${String((err && err.message) || err)}`);
-            }
+            void err;
         }
     }
 
@@ -253,7 +248,6 @@ function createIconPipeline({
         try {
             stats = await fs.stat(normalizedPath);
         } catch (err) {
-            console.warn(`[MAIN][ICON-CACHE] MISS reason=stat_failed path=${normalizedPath} error=${String((err && err.code) || (err && err.message) || err)}`);
             return null;
         }
 
@@ -262,27 +256,20 @@ function createIconPipeline({
         const entry = state.entriesByPath[normalizedPath];
 
         if (!entry) {
-            console.log(`[MAIN][ICON-CACHE] MISS reason=no_entry path=${normalizedPath} fingerprint=${fingerprint}`);
             return null;
         }
 
         if (entry.fingerprint !== fingerprint) {
-            console.log(`[MAIN][ICON-CACHE] MISS reason=fingerprint_changed path=${normalizedPath} old=${entry.fingerprint} new=${fingerprint}`);
             return null;
         }
 
         const cacheFilePath = path.join(ICON_CACHE_DIR, entry.fileName);
         try {
             const buffer = await fs.readFile(cacheFilePath);
-            console.log(`[MAIN][ICON-CACHE] HIT path=${normalizedPath} fingerprint=${fingerprint} bytes=${buffer.length} fileName=${entry.fileName}`);
             const cachedDataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
             const normalizedIcon = cropTransparentPaddingFromDataUrl(cachedDataUrl, { source: 'cache' });
-            if (normalizedIcon.cropped) {
-                console.log(`[MAIN][ICON-CACHE] CROPPED-HIT path=${normalizedPath} summary=${JSON.stringify(normalizedIcon.summary)}`);
-            }
             return normalizedIcon.dataUrl;
         } catch (err) {
-            console.warn(`[MAIN][ICON-CACHE] MISS reason=file_missing path=${normalizedPath} fingerprint=${fingerprint} fileName=${entry.fileName} error=${String((err && err.code) || (err && err.message) || err)}`);
             return null;
         }
     }
@@ -293,7 +280,6 @@ function createIconPipeline({
         try {
             stats = await fs.stat(normalizedPath);
         } catch (err) {
-            console.warn(`[MAIN][ICON-CACHE] STORE-SKIP reason=stat_failed path=${normalizedPath} error=${String((err && err.code) || (err && err.message) || err)}`);
             return;
         }
 
@@ -317,7 +303,6 @@ function createIconPipeline({
         if (previousEntry && previousEntry.fileName !== fileName) {
             await deleteIconCacheFileIfUnused(state, previousEntry.fileName, normalizedPath);
         }
-        console.log(`[MAIN][ICON-CACHE] STORE path=${normalizedPath} fingerprint=${fingerprint} bytes=${buffer.length} rawLength=${meta && meta.rawLength !== undefined ? meta.rawLength : 'unknown'} fileName=${fileName}`);
     }
 
     function resolveNodeExecPath() {
@@ -334,7 +319,6 @@ function createIconPipeline({
         for (const candidate of candidates) {
             if (fsSync.existsSync(candidate) && candidate.toLowerCase().endsWith('\\node.exe')) {
                 resolvedNodeExecPath = candidate;
-                console.log(`[MAIN][NODE-WORKER] Resolved node.exe from candidate: ${candidate}`);
                 return resolvedNodeExecPath;
             }
         }
@@ -350,7 +334,6 @@ function createIconPipeline({
                 .filter(line => line && fsSync.existsSync(line) && line.toLowerCase().endsWith('\\node.exe'));
             if (matches.length > 0) {
                 resolvedNodeExecPath = matches[0];
-                console.log(`[MAIN][NODE-WORKER] Resolved node.exe via where.exe: ${resolvedNodeExecPath}`);
                 return resolvedNodeExecPath;
             }
         }
@@ -365,7 +348,6 @@ function createIconPipeline({
 
     function recycleWorker(worker, reason) {
         if (!worker) return;
-        console.warn(`[MAIN][NODE-WORKER] Recycling worker #${worker.__workerId || 'unknown'} pid=${worker.pid} reason=${reason}`);
         const idx = iconWorkers.indexOf(worker);
         if (idx > -1) iconWorkers.splice(idx, 1);
         try {
@@ -376,7 +358,6 @@ function createIconPipeline({
     function createIconWorker() {
         const workerId = iconWorkers.length + 1;
         const nodeExecPath = resolveNodeExecPath();
-        console.log(`[MAIN][NODE-WORKER] Forking node worker #${workerId} via ${nodeExecPath}`);
         const workerPath = path.join(sourceRootDir, 'icon-extractor.js');
         const worker = fork(workerPath, [], {
             execPath: nodeExecPath,
@@ -393,13 +374,6 @@ function createIconPipeline({
         worker.on('message', (msg) => {
             if (!msg || msg.id === undefined) return;
             const pending = pendingIconRequests.get(msg.id);
-            const durationMs = activeExtractionReq && activeExtractionReq.id === msg.id && activeExtractionReq.sentAt
-                ? Date.now() - activeExtractionReq.sentAt
-                : null;
-            console.log(`[MAIN][NODE-WORKER] Received response for #${msg.id}, base64 length=${msg.base64 ? msg.base64.length : 0}, workerRoundTripMs=${durationMs}`);
-            if (msg.meta) {
-                console.log(`[MAIN][NODE-WORKER] Response meta for #${msg.id}: ${JSON.stringify(msg.meta)}`);
-            }
             if (pending) {
                 clearTimeout(pending.timeout);
                 pendingIconRequests.delete(msg.id);
@@ -449,12 +423,9 @@ function createIconPipeline({
     function probeIconWorker(worker, attempt) {
         return new Promise((resolve) => {
             const probeId = `probe-${worker.pid}-${attempt}-${Date.now()}`;
-            console.log(`[MAIN][NODE-WORKER] Probing worker #${worker.__workerId} pid=${worker.pid} attempt=${attempt} probePath=${ICON_WORKER_PROBE_PATH}`);
-            console.log(`[MAIN][NODE-WORKER] Probe path summary=${JSON.stringify(summarizeWindowsPath(ICON_WORKER_PROBE_PATH))}`);
 
             const timeout = setTimeout(() => {
                 pendingIconRequests.delete(probeId);
-                console.error(`[MAIN][NODE-WORKER] Probe timed out for worker #${worker.__workerId} pid=${worker.pid}`);
                 resolve(false);
             }, 3000);
 
@@ -464,7 +435,6 @@ function createIconPipeline({
                 resolve: ({ meta }) => {
                     const rawLength = meta && typeof meta.rawLength === 'number' ? meta.rawLength : 0;
                     const ok = rawLength > 0;
-                    console.log(`[MAIN][NODE-WORKER] Probe result for worker #${worker.__workerId} pid=${worker.pid}: rawLength=${rawLength} ok=${ok}`);
                     resolve(ok);
                 }
             });
@@ -489,7 +459,6 @@ function createIconPipeline({
                 const ok = await probeIconWorker(worker, attempt);
                 if (ok) {
                     worker.__healthy = true;
-                    console.log(`[MAIN][NODE-WORKER] Worker #${worker.__workerId} pid=${worker.pid} passed probe on attempt ${attempt}`);
                     return worker;
                 }
                 recycleWorker(worker, `probe_failed_attempt_${attempt}`);
@@ -510,14 +479,11 @@ function createIconPipeline({
 
         const req = extractionQueue.shift();
         req.sentAt = Date.now();
-        console.log(`[MAIN][QUEUE] Preparing req #${req.id}; queuedForMs=${req.sentAt - req.enqueuedAt}; queueRemaining=${extractionQueue.length}`);
-        console.log(`[MAIN][QUEUE] req #${req.id} path summary=${JSON.stringify(summarizeWindowsPath(req.path))}`);
 
         try {
             const worker = await ensureHealthyIconWorker();
             req.worker = worker;
             activeExtractionReq = req;
-            console.log(`[MAIN][QUEUE] Sending req #${req.id} to healthy node worker pid=${worker.pid}`);
 
             req.timeout = setTimeout(() => {
                 console.error(`[MAIN][QUEUE] Request #${req.id} TIMED OUT after 10s`);
@@ -550,8 +516,6 @@ function createIconPipeline({
     }
 
     async function resolveIconDataUrl(targetPath) {
-        console.log(`[MAIN][IPC] get-icon requested for: ${targetPath}`);
-        console.log(`[MAIN][IPC] get-icon path summary=${JSON.stringify(summarizeWindowsPath(targetPath))}`);
         const dir = path.dirname(targetPath);
         const exts = ['png', 'jpg', 'jpeg', 'webp'];
         const names = ['icon', 'cover', 'folder'];
@@ -559,7 +523,6 @@ function createIconPipeline({
             for (const ext of exts) {
                 const imgPath = path.join(dir, `${name}.${ext}`);
                 if (fsSync.existsSync(imgPath)) {
-                    console.log(`[MAIN][IPC] Found local image: ${imgPath}`);
                     return createIconPayload(
                         `file:///${imgPath.replace(/\\/g, '/')}`,
                         'contain',
@@ -572,7 +535,6 @@ function createIconPipeline({
 
         const cachedIconDataUrl = await tryGetCachedIconDataUrl(targetPath);
         if (cachedIconDataUrl) {
-            console.log(`[MAIN][IPC] Returning cached high-res icon for: ${targetPath}`);
             return createIconPayload(cachedIconDataUrl, 'contain', 'cached-high-res');
         }
 
@@ -582,21 +544,15 @@ function createIconPipeline({
                 const extPath = buildExtractFileIconPath();
 
                 extractionQueue.push({ id, path: targetPath, extPath, resolve, enqueuedAt: Date.now() });
-                console.log(`[MAIN][IPC] Queued node-worker req #${id} (queueLengthNow=${extractionQueue.length}) extPath=${extPath}`);
                 processExtractionQueue();
             });
             if (result && result.base64) {
                 try {
                     await storeHighResIconInCache(targetPath, result.base64, result.meta || null);
                 } catch (cacheErr) {
-                    console.warn(`[MAIN][ICON-CACHE] STORE-FAIL path=${path.win32.normalize(targetPath)} error=${String((cacheErr && cacheErr.stack) || cacheErr)}`);
                 }
-                console.log(`[MAIN][IPC] Successfully resolved high-res icon for: ${targetPath}`);
                 const highResDataUrl = `data:image/png;base64,${result.base64}`;
                 const normalizedHighRes = cropTransparentPaddingFromDataUrl(highResDataUrl, { source: 'extracted-high-res' });
-                if (normalizedHighRes.cropped) {
-                    console.log(`[MAIN][IPC] Cropped transparent padding for high-res icon ${targetPath}: ${JSON.stringify(normalizedHighRes.summary)}`);
-                }
                 return createIconPayload(
                     normalizedHighRes.dataUrl,
                     'contain',
@@ -607,18 +563,12 @@ function createIconPipeline({
                     }
                 );
             }
-            console.warn(`[MAIN][IPC] High-res extraction did not yield usable data for: ${targetPath}`);
-            if (result && result.meta) {
-                console.warn(`[MAIN][IPC] Failure meta for ${targetPath}: ${JSON.stringify(result.meta)}`);
-            }
         } catch (error) {
             console.error('[MAIN][IPC] extract-file-icon node-worker error:', error);
         }
 
-        console.warn(`[MAIN][IPC] Falling back to app.getFileIcon for: ${targetPath}`);
         const icon = await app.getFileIcon(targetPath, { size: 'large' });
         const fallbackDebug = summarizeNativeImageForDebug(icon);
-        console.warn(`[MAIN][IPC] app.getFileIcon fallback summary for ${targetPath}: ${JSON.stringify(fallbackDebug)}`);
         return createIconPayload(icon.toDataURL(), 'cover', 'app-file-icon-fallback', fallbackDebug);
     }
 

@@ -1,5 +1,5 @@
 import { getGameKey } from './library-order.js';
-import { applyIconPayload, cacheIconPayload, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
+import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
 
 export function createSearchController({
     attachTooltip,
@@ -52,12 +52,16 @@ export function createSearchController({
             if (cachedIcon) {
                 applyIconPayload(game, cachedIcon);
             }
+            const gameKey = getGameKey(game);
+            console.log(
+                `[FRONTEND][SEARCH-ITEM] create key=${gameKey} hasIcon=${game.iconData ? 'true' : 'false'} source=${game.iconSource || 'none'} fit=${game.iconFit || 'none'}`
+            );
             const item = document.createElement('div');
             item.className = 'search-item';
             item.draggable = true;
             item.innerHTML = `
                 <div class="search-item-info">
-                    <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit) : '🎮'}</div>
+                    <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
                     <div class="search-item-title-container">
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
@@ -69,21 +73,32 @@ export function createSearchController({
                     </svg>
                 </div>
             `;
+            if (game.iconData) {
+                logIconRender('search-item-initial', gameKey, {
+                    dataUrl: game.iconData,
+                    fit: game.iconFit,
+                    source: game.iconSource,
+                    debug: game.iconDebug
+                }, item.querySelector('.search-item-icon img'));
+            }
 
             if (!game.iconData) {
                 electronAPI.getIcon(game.exePath).then((iconPayload) => {
                     const normalizedIcon = applyIconPayload(game, iconPayload);
                     if (!normalizedIcon) return;
+                    console.log(
+                        `[FRONTEND][SEARCH-ITEM] async-icon key=${gameKey} source=${normalizedIcon.source} fit=${normalizedIcon.fit}`
+                    );
                     cacheIconPayload(game.exePath, normalizedIcon);
                     const iconSpan = item.querySelector('.search-item-icon');
                     if (iconSpan) {
-                        iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit);
+                        iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
+                        logIconRender('search-item-async', gameKey, normalizedIcon, iconSpan.querySelector('img'));
                     }
                 });
             }
 
             item.ondragstart = (event) => {
-                const gameKey = getGameKey(game);
                 setDraggedGameFolder(gameKey);
                 event.dataTransfer.setData('gameKey', gameKey);
             };

@@ -5,13 +5,17 @@ export function normalizeIconPayload(payload) {
     if (typeof payload === 'string') {
         return {
             dataUrl: payload,
-            fit: 'contain'
+            fit: 'contain',
+            source: 'legacy-string',
+            debug: null
         };
     }
     if (typeof payload === 'object' && typeof payload.dataUrl === 'string') {
         return {
             dataUrl: payload.dataUrl,
-            fit: payload.fit === 'cover' ? 'cover' : 'contain'
+            fit: payload.fit === 'cover' ? 'cover' : 'contain',
+            source: typeof payload.source === 'string' ? payload.source : 'unknown',
+            debug: payload.debug || null
         };
     }
     return null;
@@ -31,6 +35,8 @@ export function applyIconPayload(target, payload) {
     }
     target.iconData = normalized.dataUrl;
     target.iconFit = normalized.fit;
+    target.iconSource = normalized.source;
+    target.iconDebug = normalized.debug;
     return normalized;
 }
 
@@ -48,7 +54,37 @@ export function cacheIconPayload(exePath, payload) {
     return normalized;
 }
 
-export function renderIconMarkup(dataUrl, fit = 'contain') {
+export function renderIconMarkup(dataUrl, fit = 'contain', source = 'unknown') {
     const normalizedFit = fit === 'cover' ? 'cover' : 'contain';
-    return `<img src="${dataUrl}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:${normalizedFit}; pointer-events:none;">`;
+    return `<img src="${dataUrl}" alt="icon" draggable="false" data-icon-fit="${normalizedFit}" data-icon-source="${source}" style="width:100%; height:100%; object-fit:${normalizedFit}; pointer-events:none;">`;
+}
+
+export function logIconRender(context, key, payload, imgElement) {
+    const normalized = normalizeIconPayload(payload);
+    if (!normalized) {
+        console.log(`[FRONTEND][ICON] ${context} key=${key} payload=missing`);
+        return;
+    }
+
+    const debugText = normalized.debug ? JSON.stringify(normalized.debug) : 'null';
+    console.log(
+        `[FRONTEND][ICON] ${context} key=${key} source=${normalized.source} fit=${normalized.fit} hasDebug=${normalized.debug ? 'true' : 'false'} debug=${debugText}`
+    );
+
+    if (!imgElement) {
+        return;
+    }
+
+    const logDimensions = () => {
+        console.log(
+            `[FRONTEND][ICON] ${context} key=${key} rendered natural=${imgElement.naturalWidth}x${imgElement.naturalHeight} client=${imgElement.clientWidth}x${imgElement.clientHeight} dataFit=${imgElement.dataset.iconFit || ''} dataSource=${imgElement.dataset.iconSource || ''}`
+        );
+    };
+
+    if (imgElement.complete) {
+        logDimensions();
+        return;
+    }
+
+    imgElement.addEventListener('load', logDimensions, { once: true });
 }

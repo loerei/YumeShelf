@@ -1,5 +1,5 @@
 import { getGameKey } from './library-order.js';
-import { applyIconPayload, cacheIconPayload, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
+import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
 
 export function createGameCardFactory({
     attachTooltip,
@@ -79,6 +79,9 @@ export function createGameCardFactory({
         if (cachedIcon) {
             applyIconPayload(game, cachedIcon);
         }
+        console.log(
+            `[FRONTEND][CARD] create key=${gameKey} hasIcon=${game.iconData ? 'true' : 'false'} source=${game.iconSource || 'none'} fit=${game.iconFit || 'none'}`
+        );
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = gameKey;
@@ -94,7 +97,7 @@ export function createGameCardFactory({
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
-            <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit) : '🎮'}</div>
+            <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
             <div class="game-status">${game.isRunning ? (d.status_playing || 'Playing') : timeSince(game.lastPlayed)}</div>
@@ -103,15 +106,27 @@ export function createGameCardFactory({
             ${contextLabel ? `<div class="game-context-label">${contextLabel}</div>` : ''}
         `;
         console.log(`[FRONTEND] Game card is updated for ${gameKey}, isRunning: ${game.isRunning}, status: ${game.isRunning ? 'Playing' : timeSince(game.lastPlayed)}`);
+        if (game.iconData) {
+            logIconRender('card-initial', gameKey, {
+                dataUrl: game.iconData,
+                fit: game.iconFit,
+                source: game.iconSource,
+                debug: game.iconDebug
+            }, card.querySelector('.game-icon img'));
+        }
 
         if (!game.iconData) {
             electronAPI.getIcon(game.exePath).then((iconPayload) => {
                 const normalizedIcon = applyIconPayload(game, iconPayload);
                 if (!normalizedIcon) return;
+                console.log(
+                    `[FRONTEND][CARD] async-icon key=${gameKey} source=${normalizedIcon.source} fit=${normalizedIcon.fit}`
+                );
                 cacheIconPayload(game.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {
-                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit);
+                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
+                    logIconRender('card-async', gameKey, normalizedIcon, iconDiv.querySelector('img'));
                 }
             });
         }

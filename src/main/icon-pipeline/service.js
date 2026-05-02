@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const crypto = require('crypto');
 const { fork, spawnSync } = require('child_process');
+const { nativeImage } = require('electron');
 
 function createSha1(input) {
     return crypto.createHash('sha1').update(input).digest('hex');
@@ -14,11 +15,152 @@ function createIconPipeline({
     ipcMain,
     sourceRootDir
 }) {
-    function createIconPayload(dataUrl, fit = 'contain') {
+    function createIconPayload(dataUrl, fit = 'contain', source = 'unknown', debug = null) {
         return {
             dataUrl,
-            fit: fit === 'cover' ? 'cover' : 'contain'
+            fit: fit === 'cover' ? 'cover' : 'contain',
+            source,
+            debug
         };
+    }
+
+    function summarizeNativeImageForDebug(image) {
+        if (!image || image.isEmpty()) {
+            return {
+                empty: true
+            };
+        }
+
+        const size = image.getSize();
+        const summary = {
+            empty: false,
+            width: size.width,
+            height: size.height
+        };
+
+        try {
+            const bitmap = image.toBitmap();
+            if (!bitmap || !size.width || !size.height) {
+                return summary;
+            }
+
+            let minX = size.width;
+            let minY = size.height;
+            let maxX = -1;
+            let maxY = -1;
+            let opaquePixels = 0;
+
+            for (let y = 0; y < size.height; y += 1) {
+                for (let x = 0; x < size.width; x += 1) {
+                    const alpha = bitmap[(y * size.width + x) * 4 + 3];
+                    if (alpha > 0) {
+                        opaquePixels += 1;
+                        if (x < minX) minX = x;
+                        if (y < minY) minY = y;
+                        if (x > maxX) maxX = x;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+
+            summary.opaquePixels = opaquePixels;
+            if (opaquePixels > 0) {
+                summary.opaqueBounds = {
+                    left: minX,
+                    top: minY,
+                    right: maxX,
+                    bottom: maxY,
+                    width: maxX - minX + 1,
+                    height: maxY - minY + 1
+                };
+            } else {
+                summary.opaqueBounds = null;
+            }
+        } catch (error) {
+            summary.bitmapError = String((error && error.message) || error);
+        }
+
+        return summary;
+    }
+
+    function cropTransparentPaddingFromDataUrl(dataUrl, options = {}) {
+        if (!dataUrl || typeof dataUrl !== 'string') {
+            return { dataUrl, cropped: false, summary: null };
+        }
+
+        let image;
+        try {
+            image = nativeImage.createFromDataURL(dataUrl);
+        } catch (error) {
+            return {
+                dataUrl,
+                cropped: false,
+                summary: {
+                    error: String((error && error.message) || error)
+                }
+            };
+        }
+
+        const summary = summarizeNativeImageForDebug(image);
+        const bounds = summary && summary.opaqueBounds;
+        if (!bounds || !summary || summary.empty) {
+            return { dataUrl, cropped: false, summary };
+        }
+
+        const fullWidth = summary.width || 0;
+        const fullHeight = summary.height || 0;
+        const contentWidth = bounds.width || 0;
+        const contentHeight = bounds.height || 0;
+        if (!fullWidth || !fullHeight || !contentWidth || !contentHeight) {
+            return { dataUrl, cropped: false, summary };
+        }
+
+        const widthRatio = contentWidth / fullWidth;
+        const heightRatio = contentHeight / fullHeight;
+        const shouldCrop = widthRatio < 0.82 || heightRatio < 0.82;
+        if (!shouldCrop) {
+            return { dataUrl, cropped: false, summary };
+        }
+
+        const padding = Math.max(2, Math.round(Math.min(fullWidth, fullHeight) * 0.02));
+        const cropLeft = Math.max(0, bounds.left - padding);
+        const cropTop = Math.max(0, bounds.top - padding);
+        const cropRight = Math.min(fullWidth, bounds.right + padding + 1);
+        const cropBottom = Math.min(fullHeight, bounds.bottom + padding + 1);
+        const cropWidth = Math.max(1, cropRight - cropLeft);
+        const cropHeight = Math.max(1, cropBottom - cropTop);
+
+        try {
+            const croppedImage = image.crop({
+                x: cropLeft,
+                y: cropTop,
+                width: cropWidth,
+                height: cropHeight
+            });
+            const croppedDataUrl = croppedImage.toDataURL();
+            return {
+                dataUrl: croppedDataUrl,
+                cropped: true,
+                summary: {
+                    ...summary,
+                    cropRect: {
+                        left: cropLeft,
+                        top: cropTop,
+                        width: cropWidth,
+                        height: cropHeight
+                    }
+                }
+            };
+        } catch (error) {
+            return {
+                dataUrl,
+                cropped: false,
+                summary: {
+                    ...summary,
+                    cropError: String((error && error.message) || error)
+                }
+            };
+        }
     }
 
     const iconWorkers = [];
@@ -133,7 +275,12 @@ function createIconPipeline({
         try {
             const buffer = await fs.readFile(cacheFilePath);
             console.log(`[MAIN][ICON-CACHE] HIT path=${normalizedPath} fingerprint=${fingerprint} bytes=${buffer.length} fileName=${entry.fileName}`);
-            return `data:image/png;base64,${buffer.toString('base64')}`;
+            const cachedDataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
+            const normalizedIcon = cropTransparentPaddingFromDataUrl(cachedDataUrl, { source: 'cache' });
+            if (normalizedIcon.cropped) {
+                console.log(`[MAIN][ICON-CACHE] CROPPED-HIT path=${normalizedPath} summary=${JSON.stringify(normalizedIcon.summary)}`);
+            }
+            return normalizedIcon.dataUrl;
         } catch (err) {
             console.warn(`[MAIN][ICON-CACHE] MISS reason=file_missing path=${normalizedPath} fingerprint=${fingerprint} fileName=${entry.fileName} error=${String((err && err.code) || (err && err.message) || err)}`);
             return null;
@@ -413,7 +560,12 @@ function createIconPipeline({
                 const imgPath = path.join(dir, `${name}.${ext}`);
                 if (fsSync.existsSync(imgPath)) {
                     console.log(`[MAIN][IPC] Found local image: ${imgPath}`);
-                    return createIconPayload(`file:///${imgPath.replace(/\\/g, '/')}`, 'contain');
+                    return createIconPayload(
+                        `file:///${imgPath.replace(/\\/g, '/')}`,
+                        'contain',
+                        'local-image',
+                        { imagePath: imgPath }
+                    );
                 }
             }
         }
@@ -421,7 +573,7 @@ function createIconPipeline({
         const cachedIconDataUrl = await tryGetCachedIconDataUrl(targetPath);
         if (cachedIconDataUrl) {
             console.log(`[MAIN][IPC] Returning cached high-res icon for: ${targetPath}`);
-            return createIconPayload(cachedIconDataUrl, 'contain');
+            return createIconPayload(cachedIconDataUrl, 'contain', 'cached-high-res');
         }
 
         try {
@@ -440,7 +592,20 @@ function createIconPipeline({
                     console.warn(`[MAIN][ICON-CACHE] STORE-FAIL path=${path.win32.normalize(targetPath)} error=${String((cacheErr && cacheErr.stack) || cacheErr)}`);
                 }
                 console.log(`[MAIN][IPC] Successfully resolved high-res icon for: ${targetPath}`);
-                return createIconPayload(`data:image/png;base64,${result.base64}`, 'contain');
+                const highResDataUrl = `data:image/png;base64,${result.base64}`;
+                const normalizedHighRes = cropTransparentPaddingFromDataUrl(highResDataUrl, { source: 'extracted-high-res' });
+                if (normalizedHighRes.cropped) {
+                    console.log(`[MAIN][IPC] Cropped transparent padding for high-res icon ${targetPath}: ${JSON.stringify(normalizedHighRes.summary)}`);
+                }
+                return createIconPayload(
+                    normalizedHighRes.dataUrl,
+                    'contain',
+                    'extracted-high-res',
+                    {
+                        extractor: result.meta || null,
+                        crop: normalizedHighRes.summary || null
+                    }
+                );
             }
             console.warn(`[MAIN][IPC] High-res extraction did not yield usable data for: ${targetPath}`);
             if (result && result.meta) {
@@ -452,7 +617,9 @@ function createIconPipeline({
 
         console.warn(`[MAIN][IPC] Falling back to app.getFileIcon for: ${targetPath}`);
         const icon = await app.getFileIcon(targetPath, { size: 'large' });
-        return createIconPayload(icon.toDataURL(), 'cover');
+        const fallbackDebug = summarizeNativeImageForDebug(icon);
+        console.warn(`[MAIN][IPC] app.getFileIcon fallback summary for ${targetPath}: ${JSON.stringify(fallbackDebug)}`);
+        return createIconPayload(icon.toDataURL(), 'cover', 'app-file-icon-fallback', fallbackDebug);
     }
 
     async function handleProtocolRequest(request) {

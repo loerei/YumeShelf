@@ -1,4 +1,4 @@
-import { applyIconPayload, cacheIconPayload, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
+import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
 
 export function createStackCardFactory({
     attachTooltip,
@@ -40,6 +40,9 @@ export function createStackCardFactory({
         if (cachedIcon) {
             applyIconPayload(primaryGame, cachedIcon);
         }
+        console.log(
+            `[FRONTEND][STACK-CARD] create key=${representativeKey} hasIcon=${primaryGame.iconData ? 'true' : 'false'} source=${primaryGame.iconSource || 'none'} fit=${primaryGame.iconFit || 'none'}`
+        );
         const card = document.createElement('div');
         card.className = `game-card stack-card ${stack.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = representativeKey;
@@ -49,22 +52,34 @@ export function createStackCardFactory({
         const isStackRunning = stack.games.some(g => g.isRunning);
         card.innerHTML = `
             <div class="fav-btn stack-fav-indicator ${stack.favorite ? 'active' : ''}">★</div>
-            <div class="game-icon">${primaryGame.iconData ? renderIconMarkup(primaryGame.iconData, primaryGame.iconFit) : '🎮'}</div>
+            <div class="game-icon">${primaryGame.iconData ? renderIconMarkup(primaryGame.iconData, primaryGame.iconFit, primaryGame.iconSource) : '🎮'}</div>
             <div class="game-duplicate-chip">${stackSize}x</div>
             <div class="game-title">${primaryGame.name}</div>
             <div class="game-status">${isStackRunning ? (d.status_playing || 'Playing') : timeSince(primaryGame.lastPlayed)}</div>
             <div class="game-playtime">${formatPlaytime(primaryGame.playtime)}</div>
             <div class="game-path">${locationSummary}</div>
         `;
+        if (primaryGame.iconData) {
+            logIconRender('stack-card-initial', representativeKey, {
+                dataUrl: primaryGame.iconData,
+                fit: primaryGame.iconFit,
+                source: primaryGame.iconSource,
+                debug: primaryGame.iconDebug
+            }, card.querySelector('.game-icon img'));
+        }
 
         if (!primaryGame.iconData) {
             window.electronAPI.getIcon(primaryGame.exePath).then((iconPayload) => {
                 const normalizedIcon = applyIconPayload(primaryGame, iconPayload);
                 if (!normalizedIcon) return;
+                console.log(
+                    `[FRONTEND][STACK-CARD] async-icon key=${representativeKey} source=${normalizedIcon.source} fit=${normalizedIcon.fit}`
+                );
                 cacheIconPayload(primaryGame.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {
-                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit);
+                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
+                    logIconRender('stack-card-async', representativeKey, normalizedIcon, iconDiv.querySelector('img'));
                 }
             });
         }

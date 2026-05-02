@@ -32,9 +32,7 @@ export function createAppUpdateController({
     const listeners = new Set();
 
     function logDebug(message) {
-        if (typeof electronAPI.logAppUpdateDebug === 'function') {
-            void electronAPI.logAppUpdateDebug(message);
-        }
+        void message;
     }
 
     function notifyStateChanged() {

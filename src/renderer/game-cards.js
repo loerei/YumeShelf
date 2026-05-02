@@ -79,9 +79,6 @@ export function createGameCardFactory({
         if (cachedIcon) {
             applyIconPayload(game, cachedIcon);
         }
-        console.log(
-            `[FRONTEND][CARD] create key=${gameKey} hasIcon=${game.iconData ? 'true' : 'false'} source=${game.iconSource || 'none'} fit=${game.iconFit || 'none'}`
-        );
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = gameKey;
@@ -105,7 +102,6 @@ export function createGameCardFactory({
             ${showPath ? `<div class="game-path">${game.relativePathDisplay || ''}</div>` : ''}
             ${contextLabel ? `<div class="game-context-label">${contextLabel}</div>` : ''}
         `;
-        console.log(`[FRONTEND] Game card is updated for ${gameKey}, isRunning: ${game.isRunning}, status: ${game.isRunning ? 'Playing' : timeSince(game.lastPlayed)}`);
         if (game.iconData) {
             logIconRender('card-initial', gameKey, {
                 dataUrl: game.iconData,
@@ -119,9 +115,6 @@ export function createGameCardFactory({
             electronAPI.getIcon(game.exePath).then((iconPayload) => {
                 const normalizedIcon = applyIconPayload(game, iconPayload);
                 if (!normalizedIcon) return;
-                console.log(
-                    `[FRONTEND][CARD] async-icon key=${gameKey} source=${normalizedIcon.source} fit=${normalizedIcon.fit}`
-                );
                 cacheIconPayload(game.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {
@@ -199,7 +192,6 @@ export function createGameCardFactory({
             }
         };
         const launchGame = () => {
-            console.log(`[FRONTEND] launchGame triggered for ${gameKey}, path: ${game.exePath}`);
             card.style.opacity = '0.5';
             electronAPI.launchYume({ gameKey, exePath: game.exePath });
             if (typeof onGameLaunched === 'function') {

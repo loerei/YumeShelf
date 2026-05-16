@@ -43,6 +43,9 @@ function getExecutableStem(exePath) {
 }
 
 export function buildDuplicateSignature(game) {
+    if (game?.duplicateSignature) {
+        return game.duplicateSignature;
+    }
     const signatureSource = `${game.name || ''} ${game.folderName || ''} ${game.exePath || ''}`;
     const idMatch = signatureSource.match(/(RJ\d{6,8}|\b\d{6,8}\b)/i);
     if (idMatch) {
@@ -60,36 +63,31 @@ export function buildDuplicateSignature(game) {
 
 export function annotateGamesForDisplay(games, libraryPath = '', locationDisplayMode = LOCATION_DISPLAY_MODES.PARENT) {
     const rootName = getLibraryRootName(libraryPath);
-    const duplicateGroups = new Map();
 
-    games.forEach((game) => {
-        const signature = buildDuplicateSignature(game);
-        if (!signature) return;
-        const nextGroup = duplicateGroups.get(signature) || [];
-        nextGroup.push(game);
-        duplicateGroups.set(signature, nextGroup);
-    });
-
-    return games.map((game) => {
+    function annotateRecord(game) {
         const relativePath = normalizePathSegment(game.relativePath || game.gameKey || game.folderName);
         const displayPath = normalizePathSegment([rootName, relativePath].filter(Boolean).join('/'));
         const parentLocationLabel = getParentLocationLabel(displayPath);
         const fullLocationLabel = displayPath;
-        const duplicateSignature = buildDuplicateSignature(game);
-        const duplicateCount = duplicateSignature ? (duplicateGroups.get(duplicateSignature) || []).length : 0;
         const useFullLocation = locationDisplayMode === LOCATION_DISPLAY_MODES.FULL;
         const relativePathDisplay = useFullLocation ? fullLocationLabel : parentLocationLabel;
         const locationLabel = useFullLocation ? fullLocationLabel : parentLocationLabel;
 
         return {
             ...game,
-            duplicateCount: duplicateCount > 1 ? duplicateCount : 0,
-            duplicateSignature,
             fullLocationLabel,
             locationLabel,
             parentLocationLabel,
             relativePathDisplay: relativePathDisplay ? `/${relativePathDisplay}` : '/',
             relativePathFullDisplay: fullLocationLabel ? `/${fullLocationLabel}` : '/'
+        };
+    }
+
+    return games.map((game) => {
+        return {
+            ...annotateRecord(game),
+            instances: Array.isArray(game.instances) ? game.instances.map(annotateRecord) : game.instances,
+            primaryInstance: game.primaryInstance ? annotateRecord(game.primaryInstance) : game.primaryInstance
         };
     });
 }

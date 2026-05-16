@@ -7,7 +7,8 @@ export function createLibraryRuntime({
     duplicateStackOverlayController,
     libraryGridController,
     createCard,
-    createStackCard
+    createStackCard,
+    getVisibleGames = () => state.getAllGames()
 }) {
     function setAllGames(games, config) {
         state.setCurrentLibraryConfig(config || state.getCurrentLibraryConfig());
@@ -26,17 +27,17 @@ export function createLibraryRuntime({
         ));
     }
 
-    function createLibraryItem(item) {
+    function createLibraryItem(item, options = {}) {
         if (item.isStack) {
-            return createStackCard(item);
+            return createStackCard(item, options);
         }
-        return createCard(item.primaryGame || item);
+        return createCard(item.primaryGame || item, options);
     }
 
     function refreshOpenDuplicateStack() {
         if (!duplicateStackOverlayController.isOpen()) return;
         const activeStackKey = duplicateStackOverlayController.getActiveStackKey();
-        const nextStack = buildLibraryViewItems(state.getAllGames(), state.getCurrentSort()).items
+        const nextStack = buildLibraryViewItems(getVisibleGames(), state.getCurrentSort()).items
             .find((item) => item.groupKey === activeStackKey);
         duplicateStackOverlayController.refresh(nextStack || null);
     }

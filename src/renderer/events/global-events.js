@@ -1,4 +1,5 @@
 export function bindGlobalUiEvents({
+    categoryFilterController,
     refs,
     settingsController,
     duplicateStackOverlayController,
@@ -21,6 +22,9 @@ export function bindGlobalUiEvents({
         }
         if (!event.target.closest('.sort-container')) {
             document.querySelectorAll('.sort-menu').forEach(menu => menu.classList.remove('show'));
+        }
+        if (!event.target.closest('.category-filter-container')) {
+            categoryFilterController.hideMenu();
         }
     });
 }
@@ -53,6 +57,7 @@ export function bindControlEvents({
     refs.buttons.settingsClose.onclick = () => { settingsController.closeSettings(); };
     refs.buttons.languagePackClose.onclick = () => languagePackController.closeLanguagePackModal();
     refs.quickFolder.onclick = () => startupController.handleQuickFolderOpen();
+    refs.refreshLibraryBtn.onclick = async () => { await startupController.handleRefreshLibrary(); };
     refs.moreLanguagesBtn.onclick = () => languagePackController.openLanguagePackModal();
     refs.languagePackListBtn.onclick = () => languagePackController.handleListClick();
     refs.languagePackRefreshBtn.onclick = async () => languagePackController.handleRefreshClick();

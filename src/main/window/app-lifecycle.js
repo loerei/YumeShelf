@@ -15,6 +15,7 @@ function attachProcessDiagnostics(app) {
 async function startMainRuntime({
     app,
     appUpdateServices,
+    categoryState,
     iconPipeline,
     ipcMain,
     languagePackServices,
@@ -42,6 +43,7 @@ async function startMainRuntime({
         ipcMain,
         shell,
         appUpdateServices,
+        categoryState,
         languagePackServices,
         libraryState,
         playtimeSessionManager,

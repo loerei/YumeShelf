@@ -36,6 +36,7 @@ function createStartupServices({
     buildLanguageState,
     fetchLanguageManifest,
     getLanguagePackUpdateCandidates,
+    getCategoryTree,
     isNetworkLikeError,
     loadGamesForConfig,
     resolveLibraryConfig,
@@ -124,6 +125,7 @@ function createStartupServices({
                 languageState,
                 config: null,
                 games: [],
+                categoryTree: [],
                 bootChecks: {
                     appUpdatesMode,
                     appUpdateCheck,
@@ -184,6 +186,7 @@ function createStartupServices({
                 languageState,
                 config: config || null,
                 games: [],
+                categoryTree: [],
                 bootChecks: {
                     appUpdatesMode,
                     appUpdateCheck,
@@ -277,6 +280,9 @@ function createStartupServices({
         const games = typeof overlayPlaytimeSessions === 'function'
             ? overlayPlaytimeSessions(loadedGames)
             : loadedGames;
+        const categoryTree = typeof getCategoryTree === 'function'
+            ? await getCategoryTree()
+            : [];
 
         emitBootStatus(webContents, {
             key: 'boot_preparing_interface',
@@ -288,6 +294,7 @@ function createStartupServices({
             languageState,
             config,
             games,
+            categoryTree,
             bootChecks: {
                 appUpdatesMode,
                 appUpdateCheck,

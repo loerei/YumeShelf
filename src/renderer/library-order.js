@@ -1,7 +1,10 @@
 const CUSTOM_ORDER_STORAGE_KEY = 'yumeshelf_custom_order';
 
 export function getGameKey(game) {
-    return game.gameKey || game.relativePath || game.folderName;
+    if (game?.instanceId && !Array.isArray(game?.instances) && !game?.primaryInstance) {
+        return game.gameKey || game.instanceId || game.relativePath || game.folderName;
+    }
+    return game.gameId || game.gameKey || game.relativePath || game.folderName;
 }
 
 function readStoredCustomOrder() {
@@ -24,8 +27,10 @@ export function normalizeCustomOrder(games) {
 
     games.forEach((game) => {
         const aliases = [
+            String(game.gameKey || '').trim(),
             String(game.folderName || '').trim(),
-            String(game.migratedFromGameKey || '').trim()
+            String(game.migratedFromGameKey || '').trim(),
+            String(game.primaryInstance?.gameKey || '').trim()
         ].filter(Boolean);
         aliases.forEach((alias) => {
             const matches = aliasMatches.get(alias) || [];

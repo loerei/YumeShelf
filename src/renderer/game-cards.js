@@ -63,6 +63,21 @@ export function createGameCardFactory({
                 </svg>
             `;
         }
+        if (action === 'checkbox-on') {
+            return `
+                <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+            `;
+        }
+        if (action === 'checkbox-off') {
+            return `
+                <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+            `;
+        }
         return '';
     }
 
@@ -92,6 +107,7 @@ export function createGameCardFactory({
             <div class="dropdown-menu">
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
+                <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
             <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
@@ -183,6 +199,13 @@ export function createGameCardFactory({
             event.stopPropagation();
             electronAPI.revealGame(game.exePath);
         };
+        card.querySelector('.action-background-run').onclick = async (event) => {
+            event.stopPropagation();
+            const nextRunInBackground = await electronAPI.toggleRunInBackground(gameKey);
+            game.runInBackground = nextRunInBackground;
+            const item = card.querySelector('.action-background-run');
+            item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
+        };
         card.querySelector('.action-delete').onclick = async (event) => {
             event.stopPropagation();
             if (confirm(d.confirm)) {
@@ -193,7 +216,7 @@ export function createGameCardFactory({
         };
         const launchGame = () => {
             card.style.opacity = '0.5';
-            electronAPI.launchYume({ gameKey, exePath: game.exePath });
+            electronAPI.launchYume({ gameKey, exePath: game.exePath, runInBackground: game.runInBackground });
             if (typeof onGameLaunched === 'function') {
                 onGameLaunched(gameKey);
             } else {

@@ -2,6 +2,7 @@ const { app, ipcMain, shell, dialog, protocol } = require('electron');
 const fs = require('fs/promises');
 
 const { createAppPaths } = require('./main/core/app-paths');
+const { createCategoryState } = require('./main/category-state');
 const { applyVersionOverride, registerPrivilegedSchemes, logBootDiagnostics } = require('./main/core/runtime-bootstrap');
 const { installSafeConsole } = require('./main/core/safe-console');
 const { downloadBuffer, ensureDir, isNetworkLikeError, readJsonFile, sha256Hex } = require('./main/core/shared-io');
@@ -56,7 +57,13 @@ const installHandoffService = createInstallHandoffService({
     logFile: paths.installerFirstLaunchLogFile
 });
 
+const categoryState = createCategoryState({
+    fs,
+    stateFile: paths.categoryStateFile
+});
+
 const libraryState = createLibraryState({
+    categoryState,
     defaultGamesDir: paths.defaultGamesDir,
     dialog,
     fs,
@@ -87,6 +94,7 @@ const startupServices = createStartupServices({
     isNetworkLikeError: languagePackServices.isNetworkLikeError,
     loadGamesForConfig: (config) => libraryState.loadGamesForConfig(config),
     resolveLibraryConfig: () => libraryState.resolveLibraryConfig(),
+    getCategoryTree: () => categoryState.getCategoryTree(),
     startupNetworkTimeoutMs: 3500
 });
 
@@ -112,6 +120,7 @@ app.whenReady().then(async () => {
         libraryState,
         playtimeSessionManager,
         startupServices,
+        categoryState,
         logStartupDiagnostics,
         paths,
         registerMainIpc,

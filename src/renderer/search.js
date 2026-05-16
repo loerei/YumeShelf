@@ -124,6 +124,7 @@ export function createSearchController({
                 subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || ''
             }));
             item.ondblclick = (event) => {
+                if (event.target.closest('.search-launch-icon-wrapper')) return;
                 event.stopPropagation();
                 electronAPI.launchYume({
                     gameKey: game.primaryInstance?.gameKey || game.gameKey || getGameKey(game),

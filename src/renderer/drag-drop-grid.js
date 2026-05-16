@@ -1,5 +1,7 @@
 import { getGameKey, normalizeCustomOrder, writeCustomOrder } from './library-order.js';
 import { getGroupedKeysForGame } from './library-stacks.js';
+import { getPointerDistanceToRect, isSameDragRow } from './utils/drag-math.js';
+import { flipAnimateDOMUpdate } from './utils/flip-animation.js';
 
 export function createDragDropGridController({
     dragPointerSlop,
@@ -16,59 +18,7 @@ export function createDragDropGridController({
     setDragTargetInfo,
     sortGames
 }) {
-    function getPointerDistanceToRect(pointerX, pointerY, rect, slop = dragPointerSlop) {
-        const left = rect.left - slop;
-        const right = rect.right + slop;
-        const top = rect.top - slop;
-        const bottom = rect.bottom + slop;
-        const dx = pointerX < left ? left - pointerX : (pointerX > right ? pointerX - right : 0);
-        const dy = pointerY < top ? top - pointerY : (pointerY > bottom ? pointerY - bottom : 0);
-        return Math.hypot(dx, dy);
-    }
 
-    function isSameDragRow(leftRect, rightRect) {
-        return Math.abs(leftRect.top - rightRect.top) <= dragRowTolerance;
-    }
-
-    function flipAnimateDOMUpdate(mutator, isDrop = false) {
-        const cards = [...document.querySelectorAll('.game-card')];
-        const firstRects = new Map();
-        cards.forEach((card) => {
-            firstRects.set(card.dataset.gameKey, card.getBoundingClientRect());
-        });
-
-        mutator();
-
-        [...document.querySelectorAll('.game-card')].forEach((card) => {
-            const first = firstRects.get(card.dataset.gameKey);
-            const last = card.getBoundingClientRect();
-            if (!first) return;
-
-            const deltaX = first.left - last.left;
-            const deltaY = first.top - last.top;
-
-            if (!deltaX && !deltaY) {
-                card.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
-                card.style.transform = '';
-                return;
-            }
-
-            card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-
-            // When a drag reorder causes CSS grid wrapping, skipping the animation
-            // avoids cards flying diagonally across the whole screen.
-            if (!isDrop && Math.abs(first.top - last.top) > 20) {
-                card.style.transition = 'none';
-                card.style.transform = '';
-                return;
-            }
-
-            requestAnimationFrame(() => {
-                card.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)';
-                card.style.transform = '';
-            });
-        });
-    }
 
     function startDrag(gameKey) {
         if (getActiveCategoryId()) {
@@ -134,7 +84,7 @@ export function createDragDropGridController({
                 let closest = null;
                 let minDist = Infinity;
                 cardsWithRects.forEach((item) => {
-                    const dist = getPointerDistanceToRect(event.clientX, event.clientY, item.rect);
+                    const dist = getPointerDistanceToRect(event.clientX, event.clientY, item.rect, dragPointerSlop);
                     if (dist < minDist) {
                         minDist = dist;
                         closest = item;
@@ -147,7 +97,7 @@ export function createDragDropGridController({
                 }
 
                 const { card: closestCard, rect } = closest;
-                const rowCards = cardsWithRects.filter(item => isSameDragRow(item.rect, rect));
+                const rowCards = cardsWithRects.filter(item => isSameDragRow(item.rect, rect, dragRowTolerance));
                 const rowRight = Math.max(...rowCards.map(item => item.rect.right));
                 const isAppendAfterLastCard =
                     closestCard === cardsWithRects[cardsWithRects.length - 1].card &&

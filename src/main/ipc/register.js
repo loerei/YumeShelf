@@ -3,6 +3,7 @@ function registerMainIpc({
     ipcMain,
     shell,
     appUpdateServices,
+    categoryState,
     languagePackServices,
     libraryState,
     playtimeSessionManager,
@@ -12,6 +13,12 @@ function registerMainIpc({
     ipcMain.handle('get-app-version', async () => app.getVersion());
     ipcMain.handle('get-language-state', async () => languagePackServices.buildLanguageState());
     ipcMain.handle('bootstrap-app', async (event, options = {}) => startupServices.bootstrapAppState(event.sender, options));
+    ipcMain.handle('log-app-update-debug', async (_event, message) => {
+        if (typeof appUpdateServices.logDebug === 'function') {
+            await appUpdateServices.logDebug(String(message || ''));
+        }
+        return { ok: true };
+    });
 
     ipcMain.handle('start-app-update-download', async () => appUpdateServices.startBackgroundDownload());
     ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices.restartAndInstallDownloadedUpdate());
@@ -51,9 +58,15 @@ function registerMainIpc({
             return rest;
         });
     });
-    ipcMain.on('launch-yume', async (_event, { gameKey, exePath }) => {
+    ipcMain.handle('get-category-tree', async () => categoryState.getCategoryTree());
+    ipcMain.handle('create-category', async (_event, payload = {}) => categoryState.createCategory(payload));
+    ipcMain.handle('rename-category', async (_event, { categoryId, name }) => categoryState.renameCategory(categoryId, name));
+    ipcMain.handle('delete-category', async (_event, categoryId) => categoryState.deleteCategory(categoryId));
+    ipcMain.handle('assign-game-categories', async (_event, { gameId, categoryIds }) => categoryState.assignGameCategories(gameId, categoryIds));
+    ipcMain.handle('remove-game-category', async (_event, { gameId, categoryId }) => categoryState.removeGameFromCategory(gameId, categoryId));
+    ipcMain.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
         try {
-            await playtimeSessionManager.launchTrackedGame(gameKey, exePath);
+            await playtimeSessionManager.launchTrackedGame(gameKey, exePath, runInBackground);
         } catch (error) {
             console.error(`[PLAYTIME][SESSIONS] failed to launch tracked game ${gameKey}:`, error);
         }
@@ -67,6 +80,7 @@ function registerMainIpc({
     });
     ipcMain.handle('rename-game', async (_event, { gameKey, newName }) => libraryState.renameGame(gameKey, newName));
     ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
+    ipcMain.handle('toggle-run-in-background', async (_event, gameKey) => libraryState.toggleRunInBackground(gameKey));
     ipcMain.on('reveal-game', (_event, targetPath) => shell.showItemInFolder(targetPath));
     ipcMain.handle('delete-game', async (_event, targetPath) => shell.trashItem(targetPath));
 }

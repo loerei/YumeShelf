@@ -11,6 +11,7 @@ function createAppPaths(app, sourceRootDir) {
             ? path.join(sourceRootDir, '..', 'YumeShelf')
             : path.join(path.dirname(app.getPath('exe')), 'YumeShelf'),
         dbFile: path.join(userDataDir, 'library_db.json'),
+        categoryStateFile: path.join(userDataDir, 'category_state.json'),
         installerFirstLaunchMarkerFile: path.join(userDataDir, 'install-handoff.ini'),
         installerFirstLaunchFallbackMarkerFiles: [
             path.join(appDataDir, appName, 'install-handoff.ini'),

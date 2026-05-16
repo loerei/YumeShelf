@@ -1,5 +1,7 @@
 export function createUiRuntimeState() {
     let allGames = [];
+    let categoryTree = [];
+    let activeCategoryId = localStorage.getItem('yumeshelf_active_category_id') || null;
     let currentLibraryConfig = null;
     let draggedGameFolder = null;
     let dragTargetInfo = null;
@@ -10,6 +12,19 @@ export function createUiRuntimeState() {
         getAllGames: () => allGames,
         setAllGames: (games) => {
             allGames = games;
+        },
+        getCategoryTree: () => categoryTree,
+        setCategoryTree: (tree) => {
+            categoryTree = Array.isArray(tree) ? tree : [];
+        },
+        getActiveCategoryId: () => activeCategoryId,
+        setActiveCategoryId: (value) => {
+            activeCategoryId = value || null;
+            if (activeCategoryId) {
+                localStorage.setItem('yumeshelf_active_category_id', activeCategoryId);
+            } else {
+                localStorage.removeItem('yumeshelf_active_category_id');
+            }
         },
         getCurrentLibraryConfig: () => currentLibraryConfig,
         setCurrentLibraryConfig: (config) => {

@@ -2,6 +2,7 @@ export function buildRendererRefs(documentRef = document) {
     return {
         favGrid: documentRef.getElementById('fav-grid'),
         unfavGrid: documentRef.getElementById('unfav-grid'),
+        gameGridWrapper: documentRef.getElementById('game-grid-wrapper'),
         separator: documentRef.getElementById('favorites-separator'),
         emptyContainer: documentRef.getElementById('empty-state-container'),
         duplicateStackOverlay: documentRef.getElementById('duplicate-stack-overlay'),
@@ -53,6 +54,11 @@ export function buildRendererRefs(documentRef = document) {
         languagePackHint: documentRef.getElementById('language-pack-hint'),
         languagePackListBtn: documentRef.getElementById('language-pack-list-btn'),
         languagePackRefreshBtn: documentRef.getElementById('language-pack-refresh-btn'),
+        categoryFilterContainer: documentRef.getElementById('category-filter-container'),
+        categoryFilterBtn: documentRef.getElementById('category-filter-btn'),
+        categoryFilterLabel: documentRef.getElementById('category-filter-label'),
+        categoryFilterMenu: documentRef.getElementById('category-filter-menu'),
+        refreshLibraryBtn: documentRef.getElementById('refresh-library-btn'),
         sortMenu: documentRef.getElementById('sort-menu'),
         sortBtn: documentRef.getElementById('sort-btn'),
         uiTextRefs: {

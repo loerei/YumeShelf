@@ -5,7 +5,8 @@ export function createSearchController({
     attachTooltip,
     advancePlaceholderIndex,
     electronAPI,
-    getAllGames,
+    getActiveCategoryId,
+    getVisibleGames,
     getDraggedGameFolder,
     getPlaceholderIndex,
     getPlaceholders,
@@ -31,7 +32,7 @@ export function createSearchController({
         }
 
         refs.searchPlaceholder.style.display = 'none';
-        const filtered = getAllGames().filter(game =>
+        const filtered = getVisibleGames().filter(game =>
             game.name.toLowerCase().includes(query.toLowerCase()) ||
             game.folderName.toLowerCase().includes(query.toLowerCase()) ||
             String(game.relativePath || '').toLowerCase().includes(query.toLowerCase())
@@ -55,7 +56,7 @@ export function createSearchController({
             const gameKey = getGameKey(game);
             const item = document.createElement('div');
             item.className = 'search-item';
-            item.draggable = true;
+            item.draggable = !getActiveCategoryId();
             item.innerHTML = `
                 <div class="search-item-info">
                     <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
@@ -92,24 +93,23 @@ export function createSearchController({
                 });
             }
 
-            item.ondragstart = (event) => {
-                setDraggedGameFolder(gameKey);
-                event.dataTransfer.setData('gameKey', gameKey);
-            };
-            item.ondragend = () => {
-                if (getDraggedGameFolder() === getGameKey(game)) {
-                    setDraggedGameFolder(null);
-                }
-            };
+            if (item.draggable) {
+                item.ondragstart = (event) => {
+                    setDraggedGameFolder(gameKey);
+                    event.dataTransfer.setData('gameKey', gameKey);
+                };
+                item.ondragend = () => {
+                    if (getDraggedGameFolder() === getGameKey(game)) {
+                        setDraggedGameFolder(null);
+                    }
+                };
+            }
 
             const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
             launchIconWrapper.onclick = (event) => {
                 event.stopPropagation();
                 const exactCard = document.querySelector(`.game-card[data-game-key="${getGameKey(game)}"]`);
-                const stackCard = !exactCard && game.duplicateSignature
-                    ? document.querySelector(`.game-card.stack-card[data-duplicate-signature="${game.duplicateSignature}"]`)
-                    : null;
-                const card = exactCard || stackCard;
+                const card = exactCard;
                 if (card) {
                     hideSearchDropdown();
                     refs.searchInput.value = '';
@@ -125,7 +125,10 @@ export function createSearchController({
             }));
             item.ondblclick = (event) => {
                 event.stopPropagation();
-                electronAPI.launchYume({ gameKey: getGameKey(game), exePath: game.exePath });
+                electronAPI.launchYume({
+                    gameKey: game.primaryInstance?.gameKey || game.gameKey || getGameKey(game),
+                    exePath: game.primaryInstance?.exePath || game.exePath
+                });
                 hideSearchDropdown();
                 refs.searchInput.value = '';
             };

@@ -36,7 +36,7 @@ function choosePrimaryGame(games, sortedGames) {
 }
 
 function buildGroupKey(game) {
-    return game.duplicateSignature ? `duplicate:${game.duplicateSignature}` : `single:${getGameKey(game)}`;
+    return `game:${getGameKey(game)}`;
 }
 
 export function buildLibraryViewItems(games, type) {
@@ -54,26 +54,27 @@ export function buildLibraryViewItems(games, type) {
     return {
         customOrder,
         items: [...grouped.entries()].map(([groupKey, groupGames]) => {
-            const orderedGames = [...groupGames].sort((a, b) => {
-                const depthA = (a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
-                const depthB = (b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
-                if (depthA !== depthB) return depthA - depthB;
-                return (a.relativePath || '').localeCompare(b.relativePath || '');
-            });
-            const primaryGame = choosePrimaryGame(orderedGames, sortedGames);
-            const groupFavorite = orderedGames.some((game) => game.favorite);
-            const representativeKey = getGameKey(primaryGame);
+            const logicalGame = groupGames[0];
+            const orderedGames = Array.isArray(logicalGame.instances)
+                ? [...logicalGame.instances].sort((a, b) => {
+                    const depthA = (a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+                    const depthB = (b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+                    if (depthA !== depthB) return depthA - depthB;
+                    return (a.relativePath || '').localeCompare(b.relativePath || '');
+                })
+                : [logicalGame];
+            const primaryGame = logicalGame.primaryInstance
+                ? (orderedGames.find((game) => getGameKey(game) === logicalGame.primaryInstance.gameId || game.gameKey === logicalGame.primaryInstance.gameKey) || logicalGame.primaryInstance)
+                : choosePrimaryGame(orderedGames, sortedGames);
+            const groupFavorite = !!logicalGame.favorite;
+            const representativeKey = getGameKey(logicalGame);
 
             return {
                 favorite: groupFavorite,
                 games: orderedGames,
                 groupKey,
                 isStack: orderedGames.length > 1,
-                primaryGame: {
-                    ...primaryGame,
-                    isRunning: orderedGames.some((g) => g.isRunning),
-                    playtime: orderedGames.reduce((sum, g) => sum + (g.playtime || 0), 0)
-                },
+                primaryGame: logicalGame,
                 representativeKey,
                 stackSize: orderedGames.length
             };
@@ -84,12 +85,7 @@ export function buildLibraryViewItems(games, type) {
 export function getGroupedKeysForGame(allGames, gameKey, order = normalizeCustomOrder(allGames)) {
     const targetGame = allGames.find((game) => getGameKey(game) === gameKey);
     if (!targetGame) return [];
-
-    const groupedGames = targetGame.duplicateSignature
-        ? allGames.filter((game) => game.duplicateSignature === targetGame.duplicateSignature)
-        : [targetGame];
-
-    return [...groupedGames]
+    return [targetGame]
         .sort((a, b) => order.indexOf(getGameKey(a)) - order.indexOf(getGameKey(b)))
         .map((game) => getGameKey(game));
 }

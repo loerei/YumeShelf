@@ -249,7 +249,85 @@ function normalizeGameRecord(gameKey, record) {
     };
 }
 
+function buildLogicalGameId(record) {
+    const signature = buildContinuitySignature(record);
+    if (signature) {
+        return `game:${signature}`;
+    }
+    const relativePath = normalizeRelativeGameKey(record?.relativePath || record?.gameKey || record?.folderName);
+    return `path:${relativePath}`;
+}
+
+function buildInstanceId(record) {
+    return `inst:${normalizeRelativeGameKey(record?.gameKey || record?.relativePath || record?.folderName)}`;
+}
+
+function compareLogicalRecordDepth(a, b) {
+    const depthA = String(a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+    const depthB = String(b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+    if (depthA !== depthB) return depthA - depthB;
+    return String(a.relativePath || '').localeCompare(String(b.relativePath || ''));
+}
+
+function choosePrimaryRecord(records) {
+    const recents = records
+        .filter((record) => (record.lastPlayed || 0) > 0)
+        .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+    if (recents.length > 0) {
+        return recents[0];
+    }
+    return [...records].sort(compareLogicalRecordDepth)[0];
+}
+
+function buildLogicalGames(records, assignments = {}) {
+    const grouped = new Map();
+
+    for (const record of records) {
+        const gameId = buildLogicalGameId(record);
+        const nextGroup = grouped.get(gameId) || [];
+        nextGroup.push(record);
+        grouped.set(gameId, nextGroup);
+    }
+
+    return [...grouped.entries()].map(([gameId, groupRecords]) => {
+        const orderedRecords = [...groupRecords].sort(compareLogicalRecordDepth);
+        const primaryRecord = choosePrimaryRecord(orderedRecords);
+        const continuitySignature = buildContinuitySignature(primaryRecord);
+        const duplicateSignature = orderedRecords.length > 1 && continuitySignature ? continuitySignature : null;
+        const categoryIds = Array.isArray(assignments[gameId]) ? [...assignments[gameId]] : [];
+        const instances = orderedRecords.map((record) => ({
+            ...record,
+            categoryIds,
+            gameId,
+            instanceId: buildInstanceId(record)
+        }));
+        const primaryInstance = instances.find((instance) => instance.gameKey === primaryRecord.gameKey) || instances[0];
+
+        return {
+            ...primaryRecord,
+            categoryIds,
+            dateAdded: orderedRecords.reduce((min, record) => Math.min(min, record.dateAdded || min), primaryRecord.dateAdded || Date.now()),
+            duplicateCount: orderedRecords.length > 1 ? orderedRecords.length : 0,
+            duplicateSignature,
+            exePath: primaryRecord.exePath,
+            favorite: orderedRecords.some((record) => !!record.favorite),
+            runInBackground: primaryRecord.runInBackground || false,
+            folderName: primaryRecord.folderName,
+            folderPath: primaryRecord.folderPath,
+            gameId,
+            gameKey: primaryRecord.gameKey,
+            instances,
+            lastPlayed: orderedRecords.reduce((max, record) => Math.max(max, record.lastPlayed || 0), 0),
+            name: primaryRecord.name,
+            playtime: orderedRecords.reduce((sum, record) => sum + (record.playtime || 0), 0),
+            primaryInstance,
+            relativePath: primaryRecord.relativePath
+        };
+    });
+}
+
 function createLibraryState({
+    categoryState,
     defaultGamesDir,
     dialog,
     fs,
@@ -321,7 +399,8 @@ function createLibraryState({
                     : undefined,
                 name: existingRecord?.name || getSmartName(candidate.exePath, folderName),
                 relativePath: gameKey,
-                playtime: existingRecord?.playtime || 0
+                playtime: existingRecord?.playtime || 0,
+                runInBackground: existingRecord?.runInBackground || false
             };
         }
 
@@ -329,8 +408,11 @@ function createLibraryState({
         db.games = nextGames;
         removeLegacyGames(db);
         await saveDB(db);
-
-        return Object.entries(nextGames).map(([gameKey, record]) => normalizeGameRecord(gameKey, record));
+        const normalizedGames = Object.entries(nextGames).map(([gameKey, record]) => normalizeGameRecord(gameKey, record));
+        const categorySnapshot = categoryState && typeof categoryState.loadCategoryState === 'function'
+            ? await categoryState.loadCategoryState()
+            : { assignments: {} };
+        return buildLogicalGames(normalizedGames, categorySnapshot.assignments || {});
     }
 
     async function setupLibrary(type) {
@@ -386,8 +468,21 @@ function createLibraryState({
     async function renameGame(gameKey, newName) {
         const db = await loadDB();
         const games = readStoredGames(db);
-        if (!games[gameKey]) return false;
-        games[gameKey].name = newName;
+        if (games[gameKey]) {
+            games[gameKey].name = newName;
+            db.games = games;
+            await saveDB(db);
+            return true;
+        }
+
+        const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+        const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
+        if (!targetGroup) return false;
+        targetGroup.instances.forEach((instance) => {
+            if (games[instance.gameKey]) {
+                games[instance.gameKey].name = newName;
+            }
+        });
         db.games = games;
         await saveDB(db);
         return true;
@@ -396,11 +491,49 @@ function createLibraryState({
     async function toggleFavorite(gameKey) {
         const db = await loadDB();
         const games = readStoredGames(db);
-        if (!games[gameKey]) return false;
-        games[gameKey].favorite = !games[gameKey].favorite;
+        if (games[gameKey]) {
+            games[gameKey].favorite = !games[gameKey].favorite;
+            db.games = games;
+            await saveDB(db);
+            return games[gameKey].favorite;
+        }
+
+        const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+        const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
+        if (!targetGroup) return false;
+        const nextFavorite = !targetGroup.favorite;
+        targetGroup.instances.forEach((instance) => {
+            if (games[instance.gameKey]) {
+                games[instance.gameKey].favorite = nextFavorite;
+            }
+        });
         db.games = games;
         await saveDB(db);
-        return games[gameKey].favorite;
+        return nextFavorite;
+    }
+
+    async function toggleRunInBackground(gameKey) {
+        const db = await loadDB();
+        const games = readStoredGames(db);
+        if (games[gameKey]) {
+            games[gameKey].runInBackground = !games[gameKey].runInBackground;
+            db.games = games;
+            await saveDB(db);
+            return games[gameKey].runInBackground;
+        }
+
+        const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+        const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
+        if (!targetGroup) return false;
+        const nextRunInBackground = !targetGroup.runInBackground;
+        targetGroup.instances.forEach((instance) => {
+            if (games[instance.gameKey]) {
+                games[instance.gameKey].runInBackground = nextRunInBackground;
+            }
+        });
+        db.games = games;
+        await saveDB(db);
+        return nextRunInBackground;
     }
 
     async function addPlaytime(gameKey, durationMs) {
@@ -431,6 +564,7 @@ function createLibraryState({
         resolveLibraryFolderToOpen,
         setupLibrary,
         toggleFavorite,
+        toggleRunInBackground,
         updateLibraryConfig
     };
 }
@@ -439,6 +573,7 @@ module.exports = {
     MAX_LIBRARY_MAX_DEPTH,
     MIN_LIBRARY_MAX_DEPTH,
     DEFAULT_LIBRARY_MAX_DEPTH,
+    buildLogicalGameId,
     clampLibraryMaxDepth,
     createLibraryState
 };

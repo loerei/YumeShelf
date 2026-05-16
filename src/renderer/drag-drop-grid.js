@@ -5,6 +5,7 @@ export function createDragDropGridController({
     dragPointerSlop,
     dragRowTolerance,
     electronAPI,
+    getActiveCategoryId,
     getAllGames,
     getCurrentSort,
     getDraggedGameFolder,
@@ -70,8 +71,24 @@ export function createDragDropGridController({
     }
 
     function startDrag(gameKey) {
+        if (getActiveCategoryId()) {
+            return false;
+        }
         setDraggedGameFolder(gameKey);
         setDragTargetInfo(null);
+        return true;
+    }
+
+    function applyFavoriteToLogicalGame(game, favorite) {
+        game.favorite = favorite;
+        if (Array.isArray(game.instances)) {
+            game.instances.forEach((instance) => {
+                instance.favorite = favorite;
+            });
+        }
+        if (game.primaryInstance) {
+            game.primaryInstance.favorite = favorite;
+        }
     }
 
     function resetDragState() {
@@ -86,6 +103,9 @@ export function createDragDropGridController({
     function attachZoneHandlers() {
         [refs.favGrid, refs.unfavGrid, refs.separator].forEach((zone) => {
             zone.ondragover = (event) => {
+                if (getActiveCategoryId()) {
+                    return;
+                }
                 event.preventDefault();
                 zone.classList.add('drag-over');
                 if (zone === refs.separator) {
@@ -162,6 +182,11 @@ export function createDragDropGridController({
             };
 
             zone.ondrop = (event) => {
+                if (getActiveCategoryId()) {
+                    event.preventDefault();
+                    zone.classList.remove('drag-over');
+                    return;
+                }
                 event.preventDefault();
                 zone.classList.remove('drag-over');
                 const draggedGameKey = event.dataTransfer.getData('gameKey');
@@ -182,7 +207,7 @@ export function createDragDropGridController({
                     favoriteGroupKeys.forEach((key) => {
                         const game = allGames.find((entry) => getGameKey(entry) === key);
                         if (!game || game.favorite === isFavZone) return;
-                        game.favorite = isFavZone;
+                        applyFavoriteToLogicalGame(game, isFavZone);
                         electronAPI.toggleFavorite(key);
                     });
                     needsSave = true;

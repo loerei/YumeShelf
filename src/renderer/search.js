@@ -1,10 +1,12 @@
 import { getGameKey } from './library-order.js';
+import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
 
 export function createSearchController({
     attachTooltip,
     advancePlaceholderIndex,
     electronAPI,
-    getAllGames,
+    getActiveCategoryId,
+    getVisibleGames,
     getDraggedGameFolder,
     getPlaceholderIndex,
     getPlaceholders,
@@ -30,7 +32,7 @@ export function createSearchController({
         }
 
         refs.searchPlaceholder.style.display = 'none';
-        const filtered = getAllGames().filter(game =>
+        const filtered = getVisibleGames().filter(game =>
             game.name.toLowerCase().includes(query.toLowerCase()) ||
             game.folderName.toLowerCase().includes(query.toLowerCase()) ||
             String(game.relativePath || '').toLowerCase().includes(query.toLowerCase())
@@ -47,16 +49,17 @@ export function createSearchController({
         }
 
         filtered.forEach((game) => {
-            if (!window.iconCache) window.iconCache = new Map();
-            if (!game.iconData && window.iconCache.has(game.exePath)) {
-                game.iconData = window.iconCache.get(game.exePath);
+            const cachedIcon = !game.iconData ? readCachedIconPayload(game.exePath) : null;
+            if (cachedIcon) {
+                applyIconPayload(game, cachedIcon);
             }
+            const gameKey = getGameKey(game);
             const item = document.createElement('div');
             item.className = 'search-item';
-            item.draggable = true;
+            item.draggable = !getActiveCategoryId();
             item.innerHTML = `
                 <div class="search-item-info">
-                    <div class="search-item-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">` : '🎮'}</div>
+                    <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
                     <div class="search-item-title-container">
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
@@ -68,39 +71,45 @@ export function createSearchController({
                     </svg>
                 </div>
             `;
+            if (game.iconData) {
+                logIconRender('search-item-initial', gameKey, {
+                    dataUrl: game.iconData,
+                    fit: game.iconFit,
+                    source: game.iconSource,
+                    debug: game.iconDebug
+                }, item.querySelector('.search-item-icon img'));
+            }
 
             if (!game.iconData) {
-                electronAPI.getIcon(game.exePath).then((iconData) => {
-                    if (iconData) {
-                        game.iconData = iconData;
-                        if (window.iconCache) window.iconCache.set(game.exePath, iconData);
-                        const iconSpan = item.querySelector('.search-item-icon');
-                        if (iconSpan) {
-                            iconSpan.innerHTML = `<img src="${iconData}" alt="icon" draggable="false" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
-                        }
+                electronAPI.getIcon(game.exePath).then((iconPayload) => {
+                    const normalizedIcon = applyIconPayload(game, iconPayload);
+                    if (!normalizedIcon) return;
+                    cacheIconPayload(game.exePath, normalizedIcon);
+                    const iconSpan = item.querySelector('.search-item-icon');
+                    if (iconSpan) {
+                        iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
+                        logIconRender('search-item-async', gameKey, normalizedIcon, iconSpan.querySelector('img'));
                     }
                 });
             }
 
-            item.ondragstart = (event) => {
-                const gameKey = getGameKey(game);
-                setDraggedGameFolder(gameKey);
-                event.dataTransfer.setData('gameKey', gameKey);
-            };
-            item.ondragend = () => {
-                if (getDraggedGameFolder() === getGameKey(game)) {
-                    setDraggedGameFolder(null);
-                }
-            };
+            if (item.draggable) {
+                item.ondragstart = (event) => {
+                    setDraggedGameFolder(gameKey);
+                    event.dataTransfer.setData('gameKey', gameKey);
+                };
+                item.ondragend = () => {
+                    if (getDraggedGameFolder() === getGameKey(game)) {
+                        setDraggedGameFolder(null);
+                    }
+                };
+            }
 
             const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
             launchIconWrapper.onclick = (event) => {
                 event.stopPropagation();
                 const exactCard = document.querySelector(`.game-card[data-game-key="${getGameKey(game)}"]`);
-                const stackCard = !exactCard && game.duplicateSignature
-                    ? document.querySelector(`.game-card.stack-card[data-duplicate-signature="${game.duplicateSignature}"]`)
-                    : null;
-                const card = exactCard || stackCard;
+                const card = exactCard;
                 if (card) {
                     hideSearchDropdown();
                     refs.searchInput.value = '';
@@ -116,7 +125,10 @@ export function createSearchController({
             }));
             item.ondblclick = (event) => {
                 event.stopPropagation();
-                electronAPI.launchYume({ gameKey: getGameKey(game), exePath: game.exePath });
+                electronAPI.launchYume({
+                    gameKey: game.primaryInstance?.gameKey || game.gameKey || getGameKey(game),
+                    exePath: game.primaryInstance?.exePath || game.exePath
+                });
                 hideSearchDropdown();
                 refs.searchInput.value = '';
             };

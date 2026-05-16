@@ -4,6 +4,16 @@
     gap: 20px;
 }
 
+#game-grid-wrapper {
+    transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+#game-grid-wrapper.is-refreshing {
+    opacity: 0.72;
+    filter: saturate(0.92);
+    pointer-events: none;
+}
+
 .drop-zone {
     min-height: 40px;
     border: 2px dashed transparent;
@@ -34,11 +44,11 @@
 }
 
 .stack-card .menu-btn {
-    display: none;
+    display: flex;
 }
 
 .stack-card .fav-btn {
-    pointer-events: none;
+    pointer-events: auto;
 }
 
 .game-card.drag-over {

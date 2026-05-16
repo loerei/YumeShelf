@@ -296,6 +296,36 @@ function createPlaytimeSessionManager({
         return journals;
     }
 
+    async function injectRunInBackgroundDll(journalPath) {
+        const { execFile } = require('child_process');
+        const injectorPath = path.join(app.getAppPath(), 'native/background-injector/build/injector.exe');
+        const payloadPath = path.join(app.getAppPath(), 'native/background-injector/build/payload.dll');
+        
+        for (let i = 0; i < 30; i++) {
+            await delay(500);
+            try {
+                const journal = await readSessionJournal(journalPath);
+                if (journal.rootPid && journal.rootPid > 0) {
+                    log(`Injecting background DLL into rootPid=${journal.rootPid}`);
+                    execFile(injectorPath, [journal.rootPid.toString(), payloadPath], (error, stdout, stderr) => {
+                        if (error) {
+                            console.error('[PLAYTIME][SESSIONS] DLL injection failed:', error, stderr);
+                        } else {
+                            log(`DLL injection successful: ${stdout}`);
+                        }
+                    });
+                    return;
+                }
+                if (journal.status === 'failed' || journal.status === 'completed') {
+                    return;
+                }
+            } catch (e) {
+                // Keep polling
+            }
+        }
+        log(`Timed out waiting for rootPid to inject background DLL`);
+    }
+
     async function initialize() {
         await refreshSessions({ recover: true, emit: false });
         if (!refreshTimer) {
@@ -307,7 +337,7 @@ function createPlaytimeSessionManager({
         }
     }
 
-    async function launchTrackedGame(gameKey, exePath) {
+    async function launchTrackedGame(gameKey, exePath, runInBackground = false) {
         if (!refreshTimer) {
             await initialize();
         }
@@ -338,6 +368,12 @@ function createPlaytimeSessionManager({
                     ...initialJournal,
                     helperPid
                 });
+                
+                if (runInBackground) {
+                    injectRunInBackgroundDll(journalPath).catch(err => {
+                        console.error('[PLAYTIME][SESSIONS] Failed to inject background DLL:', err);
+                    });
+                }
             }
         } catch (error) {
             await writeSessionJournal(journalPath, {
@@ -354,8 +390,15 @@ function createPlaytimeSessionManager({
 
     function overlayGames(games) {
         return games.map((game) => {
-            const runtime = currentGameState.get(game.gameKey);
-            if (!runtime || !runtime.active) {
+            const instanceGameKeys = Array.isArray(game.instances) && game.instances.length > 0
+                ? game.instances.map((instance) => instance.gameKey)
+                : [game.gameKey];
+            const runtimes = instanceGameKeys
+                .map((gameKey) => currentGameState.get(gameKey))
+                .filter(Boolean);
+            const accruedMs = runtimes.reduce((sum, runtime) => sum + Math.max(0, runtime.accruedMs || 0), 0);
+            const isRunning = runtimes.some((runtime) => runtime.active);
+            if (!isRunning) {
                 return {
                     ...game,
                     isRunning: false
@@ -364,7 +407,7 @@ function createPlaytimeSessionManager({
             return {
                 ...game,
                 isRunning: true,
-                playtime: (game.playtime || 0) + runtime.accruedMs
+                playtime: (game.playtime || 0) + accruedMs
             };
         });
     }

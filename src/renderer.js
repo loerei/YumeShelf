@@ -24,7 +24,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         getCurrentSort: () => state.getCurrentSort(),
         setAllGames: composition.libraryRuntime.setAllGames,
         setRunningFlag: (gameKey, isRunning) => {
-            const target = state.getAllGames().find(g => (g.gameKey || g.exePath) === gameKey);
+            const target = state.getAllGames().find((game) => (
+                game.gameKey === gameKey
+                || (Array.isArray(game.instances) && game.instances.some((instance) => instance.gameKey === gameKey))
+            ));
             if (target) {
                 target.isRunning = isRunning;
             }
@@ -45,6 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setCurrentLanguage: (code) => composition.localeController.setCurrentLanguage(code)
     });
     bindGlobalUiEvents({
+        categoryFilterController: composition.categoryFilterController,
         refs,
         settingsController: composition.settingsController,
         duplicateStackOverlayController: composition.duplicateStackOverlayController,

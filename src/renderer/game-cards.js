@@ -1,4 +1,5 @@
 import { getGameKey } from './library-order.js';
+import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload.js';
 
 export function createGameCardFactory({
     attachTooltip,
@@ -62,6 +63,21 @@ export function createGameCardFactory({
                 </svg>
             `;
         }
+        if (action === 'checkbox-on') {
+            return `
+                <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+            `;
+        }
+        if (action === 'checkbox-off') {
+            return `
+                <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+            `;
+        }
         return '';
     }
 
@@ -74,9 +90,9 @@ export function createGameCardFactory({
         const showDuplicateChip = options.showDuplicateChip !== false;
         const showPath = options.showPath !== false;
         const contextLabel = options.contextLabel || '';
-        if (!window.iconCache) window.iconCache = new Map();
-        if (!game.iconData && window.iconCache.has(game.exePath)) {
-            game.iconData = window.iconCache.get(game.exePath);
+        const cachedIcon = !game.iconData ? readCachedIconPayload(game.exePath) : null;
+        if (cachedIcon) {
+            applyIconPayload(game, cachedIcon);
         }
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
@@ -91,9 +107,10 @@ export function createGameCardFactory({
             <div class="dropdown-menu">
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
+                <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
-            <div class="game-icon">${game.iconData ? `<img src="${game.iconData}" alt="icon" draggable="false">` : '🎮'}</div>
+            <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
             <div class="game-status">${game.isRunning ? (d.status_playing || 'Playing') : timeSince(game.lastPlayed)}</div>
@@ -101,17 +118,24 @@ export function createGameCardFactory({
             ${showPath ? `<div class="game-path">${game.relativePathDisplay || ''}</div>` : ''}
             ${contextLabel ? `<div class="game-context-label">${contextLabel}</div>` : ''}
         `;
-        console.log(`[FRONTEND] Game card is updated for ${gameKey}, isRunning: ${game.isRunning}, status: ${game.isRunning ? 'Playing' : timeSince(game.lastPlayed)}`);
+        if (game.iconData) {
+            logIconRender('card-initial', gameKey, {
+                dataUrl: game.iconData,
+                fit: game.iconFit,
+                source: game.iconSource,
+                debug: game.iconDebug
+            }, card.querySelector('.game-icon img'));
+        }
 
         if (!game.iconData) {
-            electronAPI.getIcon(game.exePath).then((iconData) => {
-                if (iconData) {
-                    game.iconData = iconData;
-                    if (window.iconCache) window.iconCache.set(game.exePath, iconData);
-                    const iconDiv = card.querySelector('.game-icon');
-                    if (iconDiv) {
-                        iconDiv.innerHTML = `<img src="${iconData}" alt="icon" draggable="false">`;
-                    }
+            electronAPI.getIcon(game.exePath).then((iconPayload) => {
+                const normalizedIcon = applyIconPayload(game, iconPayload);
+                if (!normalizedIcon) return;
+                cacheIconPayload(game.exePath, normalizedIcon);
+                const iconDiv = card.querySelector('.game-icon');
+                if (iconDiv) {
+                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
+                    logIconRender('card-async', gameKey, normalizedIcon, iconDiv.querySelector('img'));
                 }
             });
         }
@@ -175,6 +199,13 @@ export function createGameCardFactory({
             event.stopPropagation();
             electronAPI.revealGame(game.exePath);
         };
+        card.querySelector('.action-background-run').onclick = async (event) => {
+            event.stopPropagation();
+            const nextRunInBackground = await electronAPI.toggleRunInBackground(gameKey);
+            game.runInBackground = nextRunInBackground;
+            const item = card.querySelector('.action-background-run');
+            item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
+        };
         card.querySelector('.action-delete').onclick = async (event) => {
             event.stopPropagation();
             if (confirm(d.confirm)) {
@@ -184,9 +215,8 @@ export function createGameCardFactory({
             }
         };
         const launchGame = () => {
-            console.log(`[FRONTEND] launchGame triggered for ${gameKey}, path: ${game.exePath}`);
             card.style.opacity = '0.5';
-            electronAPI.launchYume({ gameKey, exePath: game.exePath });
+            electronAPI.launchYume({ gameKey, exePath: game.exePath, runInBackground: game.runInBackground });
             if (typeof onGameLaunched === 'function') {
                 onGameLaunched(gameKey);
             } else {

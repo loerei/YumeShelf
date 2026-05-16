@@ -7,9 +7,6 @@ Var installerShellDeleteSetupFile
 Var installerShellLocale
 
 Function LaunchInstallerShell
-  FileOpen $9 "$TEMP\YumeShelf-installer-debug.log" a
-  FileWrite $9 "LaunchInstallerShell begin$\r$\n"
-  FileClose $9
   StrCpy $installerShellCompleted "0"
   StrCpy $installerShellDeleteSetupFile "true"
   StrCpy $installerShellLocale ""
@@ -28,9 +25,6 @@ Function LaunchInstallerShell
 
   ClearErrors
   ExecWait '"$PLUGINSDIR\YumeShelfInstallerShell.exe" --installer-handshake "$0"' $1
-  FileOpen $9 "$TEMP\YumeShelf-installer-debug.log" a
-  FileWrite $9 "LaunchInstallerShell returned$\r$\n"
-  FileClose $9
   ${If} ${Errors}
     MessageBox MB_ICONSTOP|MB_OK "YumeShelf could not start the setup experience."
     SetErrorLevel 0
@@ -38,9 +32,6 @@ Function LaunchInstallerShell
   ${EndIf}
 
   ReadINIStr $2 "$0" "result" "action"
-  FileOpen $9 "$TEMP\YumeShelf-installer-debug.log" a
-  FileWrite $9 "LaunchInstallerShell action=$2$\r$\n"
-  FileClose $9
   ${If} "$2" == "cancel"
     SetErrorLevel 0
     Quit
@@ -61,9 +52,6 @@ Function LaunchInstallerShell
 
   ReadINIStr $installerShellDeleteSetupFile "$0" "result" "deleteSetupFile"
   ReadINIStr $installerShellLocale "$0" "result" "locale"
-  FileOpen $9 "$TEMP\YumeShelf-installer-debug.log" a
-  FileWrite $9 "LaunchInstallerShell installDir=$3 deleteSetupFile=$installerShellDeleteSetupFile locale=$installerShellLocale$\r$\n"
-  FileClose $9
   StrCpy $INSTDIR "$3"
   StrCpy $installerShellCompleted "1"
 FunctionEnd
@@ -81,9 +69,6 @@ Function WriteInstallerFirstLaunchMarker
 FunctionEnd
 
 !macro customInit
-  FileOpen $9 "$TEMP\YumeShelf-installer-debug.log" a
-  FileWrite $9 "customInit begin$\r$\n"
-  FileClose $9
   !ifndef ONE_CLICK
   StrCpy $isForceCurrentInstall "1"
   !endif
@@ -91,14 +76,12 @@ FunctionEnd
   ${AndIfNot} ${isUpdated}
     Call LaunchInstallerShell
   ${EndIf}
-  FileOpen $9 "$TEMP\YumeShelf-installer-debug.log" a
-  FileWrite $9 "customInit end installerShellCompleted=$installerShellCompleted INSTDIR=$INSTDIR$\r$\n"
-  FileClose $9
 !macroend
 
 !macro customInstall
   ${IfNot} ${isUpdated}
     Call WriteInstallerFirstLaunchMarker
+    !insertmacro copyFile "$EXEPATH" "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"
   ${EndIf}
 !macroend
 

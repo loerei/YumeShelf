@@ -20,6 +20,7 @@
 
 /* SORTING UI */
 .sort-container { position: relative; }
+.category-filter-container { position: relative; }
 .header-icon-btn {
     cursor: pointer;
     display: flex;
@@ -36,8 +37,65 @@
     opacity: 1;
     transform: scale(1.1);
 }
+.header-icon-btn:disabled {
+    cursor: default;
+    opacity: 0.45;
+    transform: none;
+}
 .sort-btn { position: relative; }
  /* Icon 3 gạch */
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.category-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 150px;
+    max-width: 220px;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--field-bg);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.category-filter-btn:hover {
+    background: var(--field-hover-bg);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+}
+
+.category-filter-btn .icon-svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.category-filter-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.refresh-library-btn {
+    border: 0;
+    padding: 0;
+    background: transparent;
+}
+
+.refresh-library-btn.is-refreshing .icon-svg {
+    animation: header-icon-spin 0.85s linear infinite;
+}
 
 .sort-menu {
     position: absolute; top: 45px; right: 0;
@@ -47,6 +105,22 @@
 .sort-menu.show { display: block; }
 .sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); }
 .sort-item:hover { background: var(--menu-hover-bg); color: var(--text-main); }
+
+.category-filter-menu {
+    min-width: 220px;
+    max-width: 320px;
+}
+
+.category-filter-item {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes header-icon-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
 
 /* HIỆU ỨNG ACTIVE CHO SORT ITEM */
 .sort-item {

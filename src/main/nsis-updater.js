@@ -1,10 +1,18 @@
 const fs = require('fs/promises');
+const fsSync = require('fs');
+const path = require('path');
+const { CancellationToken } = require('builder-util-runtime');
+const { load } = require('js-yaml');
 const { NsisUpdater } = require('electron-updater');
 const { createInstallerHandoff } = require('./nsis-updater/installer-handoff');
 const { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } = require('./nsis-updater/runtime');
 const { createStateFiles } = require('./nsis-updater/state-files');
 const { buildDownloadedState, normalizeDownloadedState, pickReleaseName, pickReleaseNotes, sha512FileBase64 } = require('./nsis-updater/update-info');
 const { attachUpdaterEventLogging } = require('./nsis-updater/updater-events');
+const { downloadBuffer } = require('./core/shared-io');
+
+const GITHUB_RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/loerei/YumeShelf/releases/download';
+const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 
 function createNsisUpdaterService({
     app,
@@ -25,6 +33,186 @@ function createNsisUpdaterService({
 
     function resolveRuntime() {
         return resolveUpdaterRuntime(app, isFakeVersionRun);
+    }
+
+    function createUpdaterLogger() {
+        function forward(level, message) {
+            if (level === 'debug' && !VERBOSE_UPDATE_LOG) return;
+            const text = normalizeText(message, '');
+            if (!text) return;
+            void appendUpdateLog(`nsis-updater:${level} ${text}`);
+        }
+
+        return {
+            debug(message) {
+                forward('debug', message);
+            },
+            error(message) {
+                forward('error', message);
+            },
+            info(message) {
+                forward('info', message);
+            },
+            warn(message) {
+                forward('warn', message);
+            }
+        };
+    }
+
+    function normalizeReleaseTagName(version) {
+        const normalizedVersion = normalizeText(version, '').replace(/^v/i, '');
+        return normalizedVersion ? `v${normalizedVersion}` : '';
+    }
+
+    function buildGitHubReleaseDownloadBaseUrl(version) {
+        const tagName = normalizeReleaseTagName(version);
+        return tagName ? `${GITHUB_RELEASE_DOWNLOAD_BASE_URL}/${tagName}` : '';
+    }
+
+    function buildGitHubReleaseManifestUrl(version) {
+        const baseUrl = buildGitHubReleaseDownloadBaseUrl(version);
+        return baseUrl ? `${baseUrl}/latest.yml` : '';
+    }
+
+    async function resolveCurrentReleaseCacheInputs(version) {
+        const manifestUrl = buildGitHubReleaseManifestUrl(version);
+        if (!manifestUrl) {
+            return null;
+        }
+
+        const manifestBuffer = await downloadBuffer(manifestUrl, 0, 15000, null, app.getVersion());
+        const manifest = load(manifestBuffer.toString('utf8'));
+        const installerName = normalizeText(manifest?.path, '');
+        const installerSha512 = normalizeText(manifest?.sha512, '');
+        if (!installerName || !installerSha512) {
+            throw new Error(`latest.yml for ${version} did not contain both path and sha512.`);
+        }
+
+        const releaseBaseUrl = buildGitHubReleaseDownloadBaseUrl(version);
+        return {
+            blockmapUrl: `${releaseBaseUrl}/${installerName}.blockmap`,
+            installerName,
+            installerSha512,
+            installerUrl: `${releaseBaseUrl}/${installerName}`,
+            manifestUrl
+        };
+    }
+
+    async function ensureCurrentInstallerCacheState(activeUpdater, currentVersion) {
+        const downloadHelper = typeof activeUpdater.getOrCreateDownloadHelper === 'function'
+            ? await activeUpdater.getOrCreateDownloadHelper()
+            : null;
+        const cacheDir = normalizeText(downloadHelper?.cacheDir, '');
+        if (!cacheDir) {
+            if (VERBOSE_UPDATE_LOG) {
+                await appendUpdateLog(`nsis-updater current-cache skip current=${currentVersion} reason=no-cache-dir`);
+            }
+            return null;
+        }
+
+        const cachedInstallerPath = path.join(cacheDir, 'installer.exe');
+        const cachedBlockmapPath = path.join(cacheDir, 'current.blockmap');
+        const releaseInputs = await resolveCurrentReleaseCacheInputs(currentVersion);
+        if (!releaseInputs) {
+            if (VERBOSE_UPDATE_LOG) {
+                await appendUpdateLog(`nsis-updater current-cache skip current=${currentVersion} reason=no-release-inputs`);
+            }
+            return {
+                cacheDir,
+                cachedBlockmapPath,
+                cachedInstallerPath
+            };
+        }
+
+        let cachedInstallerSha512 = '';
+        if (fsSync.existsSync(cachedInstallerPath)) {
+            try {
+                cachedInstallerSha512 = await sha512FileBase64(cachedInstallerPath);
+            } catch (error) {
+                await appendUpdateLog(`nsis-updater current-cache hash-error current=${currentVersion} installer=${cachedInstallerPath} error=${String((error && error.stack) || error || '')}`);
+            }
+        }
+
+        const installerMatches = cachedInstallerSha512 === releaseInputs.installerSha512;
+        if (VERBOSE_UPDATE_LOG) {
+            await appendUpdateLog(
+                `nsis-updater current-cache probe current=${currentVersion}`
+                + ` manifest=${releaseInputs.manifestUrl}`
+                + ` installer=${cachedInstallerPath}`
+                + ` installerExists=${fsSync.existsSync(cachedInstallerPath)}`
+                + ` installerMatches=${installerMatches}`
+                + ` cachedInstallerSha512=${cachedInstallerSha512 || 'missing'}`
+                + ` expectedInstallerSha512=${releaseInputs.installerSha512}`
+                + ` blockmapExists=${fsSync.existsSync(cachedBlockmapPath)}`
+            );
+        }
+
+        if (!installerMatches) {
+            const tempInstallerPath = `${cachedInstallerPath}.download`;
+            await ensureDir(path.dirname(cachedInstallerPath));
+            try {
+                await fs.unlink(tempInstallerPath);
+            } catch {}
+            await activeUpdater.httpExecutor.download(new URL(releaseInputs.installerUrl), tempInstallerPath, {
+                cancellationToken: new CancellationToken(),
+                headers: activeUpdater.requestHeaders || undefined,
+                sha512: releaseInputs.installerSha512
+            });
+            await fs.rm(cachedInstallerPath, { force: true });
+            await fs.rename(tempInstallerPath, cachedInstallerPath);
+            cachedInstallerSha512 = await sha512FileBase64(cachedInstallerPath);
+            if (VERBOSE_UPDATE_LOG) {
+                await appendUpdateLog(`nsis-updater current-cache refreshed-installer current=${currentVersion} installer=${cachedInstallerPath} sha512=${cachedInstallerSha512}`);
+            }
+        }
+
+        const blockmapBuffer = await downloadBuffer(releaseInputs.blockmapUrl, 0, 15000, null, app.getVersion());
+        await ensureDir(path.dirname(cachedBlockmapPath));
+        await fs.writeFile(cachedBlockmapPath, blockmapBuffer);
+        if (VERBOSE_UPDATE_LOG) {
+            await appendUpdateLog(`nsis-updater current-cache refreshed-blockmap current=${currentVersion} blockmap=${cachedBlockmapPath} bytes=${blockmapBuffer.length}`);
+        }
+
+        return {
+            cacheDir,
+            cachedBlockmapPath,
+            cachedInstallerPath,
+            cachedInstallerSha512
+        };
+    }
+
+    function resolvePreviousBlockmapBaseUrl({ currentVersion, feedOverride, runtime }) {
+        const overrideBaseUrl = buildGitHubReleaseDownloadBaseUrl(currentVersion);
+        if (!overrideBaseUrl) {
+            return null;
+        }
+
+        const isGitHubGenericOverride = feedOverride?.provider === 'generic'
+            && /^https:\/\/github\.com\/loerei\/YumeShelf\/releases\/download\/[^/]+$/i.test(normalizeText(feedOverride.url, ''));
+        if (isGitHubGenericOverride || runtime?.provider === 'github') {
+            return overrideBaseUrl;
+        }
+
+        return null;
+    }
+
+    async function configureDifferentialDownload(nsisUpdater, { currentVersion, feedOverride, runtime }) {
+        const previousBlockmapBaseUrlOverride = resolvePreviousBlockmapBaseUrl({
+            currentVersion,
+            feedOverride,
+            runtime
+        });
+        nsisUpdater.previousBlockmapBaseUrlOverride = previousBlockmapBaseUrlOverride;
+
+        if (VERBOSE_UPDATE_LOG) {
+            await appendUpdateLog(
+                `nsis-updater differential-config current=${currentVersion}`
+                + ` runtime=${normalizeText(runtime?.channel, '')}`
+                + ` provider=${normalizeText(feedOverride?.provider || runtime?.provider, '')}`
+                + ` previousBlockmapBaseUrlOverride=${previousBlockmapBaseUrlOverride || 'default'}`
+                + ` disableDifferentialDownload=${nsisUpdater.disableDifferentialDownload}`
+            );
+        }
     }
 
     function summarizeUpdateState(state = {}) {
@@ -105,10 +293,12 @@ function createNsisUpdaterService({
         if (updater) return updater;
 
         updater = new NsisUpdater();
+        updater.logger = createUpdaterLogger();
         updater.autoDownload = false;
         updater.autoInstallOnAppQuit = false;
         updater.autoRunAppAfterInstall = true;
         updater.allowPrerelease = String(app.getVersion() || '').includes('-');
+        updater.disableWebInstaller = true;
 
         const runtime = resolveUpdaterRuntime(app, isFakeVersionRun);
         if (runtime.usesDevConfig) {
@@ -116,7 +306,9 @@ function createNsisUpdaterService({
         }
         updater.__yumeshelfRuntime = runtime;
 
-        void appendUpdateLog(`nsis-updater created current=${app.getVersion()} allowPrerelease=${updater.allowPrerelease}`);
+        if (VERBOSE_UPDATE_LOG) {
+            void appendUpdateLog(`nsis-updater created current=${app.getVersion()} allowPrerelease=${updater.allowPrerelease}`);
+        }
         attachUpdaterEventLogging({
             appendUpdateLog,
             emitStatus,
@@ -160,12 +352,20 @@ function createNsisUpdaterService({
             if (updaterFeedKey !== desiredFeedKey) {
                 nsisUpdater.setFeedURL({
                     provider: 'generic',
-                    url: feedOverride.url
+                    url: feedOverride.url,
+                    useMultipleRangeRequest: false
                 });
                 updaterFeedKey = desiredFeedKey;
             }
 
-            await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=generic url=${feedOverride.url} target=${normalizeText(feedOverride.release?.version, '')} tag=${normalizeText(feedOverride.release?.tagName, '')}`);
+            await configureDifferentialDownload(nsisUpdater, {
+                currentVersion: app.getVersion(),
+                feedOverride,
+                runtime
+            });
+            if (VERBOSE_UPDATE_LOG) {
+                await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=generic url=${feedOverride.url} target=${normalizeText(feedOverride.release?.version, '')} tag=${normalizeText(feedOverride.release?.tagName, '')}`);
+            }
             return {
                 feedOverride,
                 updater: nsisUpdater
@@ -175,7 +375,14 @@ function createNsisUpdaterService({
         if (updaterFeedKey == null) {
             updaterFeedKey = runtime.usesDevConfig ? 'dev-config' : `publish:${runtime.provider}`;
         }
-        await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=${runtime.provider} mode=${runtime.usesDevConfig ? 'dev-config' : 'publish-config'}`);
+        await configureDifferentialDownload(nsisUpdater, {
+            currentVersion: app.getVersion(),
+            feedOverride: null,
+            runtime
+        });
+        if (VERBOSE_UPDATE_LOG) {
+            await appendUpdateLog(`nsis-updater feed-config current=${app.getVersion()} runtime=${runtime.channel} provider=${runtime.provider} mode=${runtime.usesDevConfig ? 'dev-config' : 'publish-config'}`);
+        }
         return {
             feedOverride: null,
             updater: nsisUpdater
@@ -204,12 +411,16 @@ function createNsisUpdaterService({
         const { updater: nsisUpdater, feedOverride } = await configureUpdaterFeed(runtime);
         const result = await nsisUpdater.checkForUpdates();
         const updateInfo = result?.updateInfo || null;
-        await appendUpdateLog(`nsis-updater check-result current=${app.getVersion()} candidate=${normalizeText(updateInfo?.version, '')} releaseName=${normalizeText(updateInfo?.releaseName, '')} releaseDate=${normalizeText(updateInfo?.releaseDate, '')} feed=${feedOverride?.url || runtime.provider}`);
+        if (VERBOSE_UPDATE_LOG) {
+            await appendUpdateLog(`nsis-updater check-result current=${app.getVersion()} candidate=${normalizeText(updateInfo?.version, '')} releaseName=${normalizeText(updateInfo?.releaseName, '')} releaseDate=${normalizeText(updateInfo?.releaseDate, '')} feed=${feedOverride?.url || runtime.provider}`);
+        }
         if (!updateInfo?.version || compareVersions(updateInfo.version, app.getVersion()) <= 0) {
             latestUpdateInfo = null;
             latestDownloadedEvent = null;
             await clearDeferredInstallState();
-            await appendUpdateLog(`nsis-updater no-newer-update current=${app.getVersion()} candidate=${normalizeText(updateInfo?.version, '')}`);
+            if (VERBOSE_UPDATE_LOG) {
+                await appendUpdateLog(`nsis-updater no-newer-update current=${app.getVersion()} candidate=${normalizeText(updateInfo?.version, '')}`);
+            }
             return {
                 available: false,
                 canSelfUpdate: true,
@@ -290,7 +501,29 @@ function createNsisUpdaterService({
 
         activeDownloadPromise = (async () => {
             try {
-                const paths = await createUpdater().downloadUpdate();
+                const activeUpdater = createUpdater();
+                let cachedInstallerPath = '';
+                let hasCachedInstaller = false;
+                try {
+                    const currentCacheState = await ensureCurrentInstallerCacheState(activeUpdater, app.getVersion());
+                    cachedInstallerPath = normalizeText(currentCacheState?.cachedInstallerPath, '');
+                    hasCachedInstaller = cachedInstallerPath ? fsSync.existsSync(cachedInstallerPath) : false;
+                } catch (error) {
+                    await appendUpdateLog(`nsis-updater cache-state-error error=${String((error && error.stack) || error || '')}`);
+                }
+                if (VERBOSE_UPDATE_LOG) {
+                    await appendUpdateLog(
+                        `nsis-updater download-begin current=${app.getVersion()}`
+                        + ` target=${normalizeText(updateState.updateInfo?.version, '')}`
+                        + ` previousBlockmapBaseUrlOverride=${normalizeText(activeUpdater.previousBlockmapBaseUrlOverride, '') || 'default'}`
+                        + ` cachedInstaller=${cachedInstallerPath || 'unknown'}`
+                        + ` cachedInstallerExists=${hasCachedInstaller}`
+                    );
+                }
+                const paths = await activeUpdater.downloadUpdate();
+                if (VERBOSE_UPDATE_LOG) {
+                    await appendUpdateLog(`nsis-updater download-paths paths=${JSON.stringify(Array.isArray(paths) ? paths : [])}`);
+                }
                 const installerPath = normalizeText(
                     latestDownloadedEvent?.downloadedFile
                     || (Array.isArray(paths) ? paths.find(candidate => String(candidate || '').toLowerCase().endsWith('.exe')) : '')
@@ -331,7 +564,9 @@ function createNsisUpdaterService({
                     phase: 'download-ready',
                     update: readyUpdate
                 });
-                await appendUpdateLog(`nsis-updater ready version=${downloadedState.version} installer=${downloadedState.installerPath}`);
+                if (VERBOSE_UPDATE_LOG) {
+                    await appendUpdateLog(`nsis-updater ready version=${downloadedState.version} installer=${downloadedState.installerPath}`);
+                }
                 return {
                     ok: true,
                     installerPath: downloadedState.installerPath,
@@ -433,7 +668,9 @@ function createNsisUpdaterService({
             releaseUrl: releaseMetadata.releaseUrl || downloadedState.releaseUrl
         };
         await writeDeferredInstallState(deferredState);
-        await appendUpdateLog(`nsis-updater deferred-install version=${deferredState.version} installer=${deferredState.installerPath}`);
+        if (VERBOSE_UPDATE_LOG) {
+            await appendUpdateLog(`nsis-updater deferred-install version=${deferredState.version} installer=${deferredState.installerPath}`);
+        }
 
         const scheduledUpdate = summarizeUpdateState({
             available: true,

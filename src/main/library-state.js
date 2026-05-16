@@ -400,7 +400,8 @@ function createLibraryState({
                 name: existingRecord?.name || getSmartName(candidate.exePath, folderName),
                 relativePath: gameKey,
                 playtime: existingRecord?.playtime || 0,
-                runInBackground: existingRecord?.runInBackground || false
+                runInBackground: existingRecord?.runInBackground || false,
+                saveFolderOverride: existingRecord?.saveFolderOverride || undefined
             };
         }
 
@@ -555,13 +556,56 @@ function createLibraryState({
         await saveDB(db);
     }
 
+    async function getGameRecord(gameKey) {
+        const db = await loadDB();
+        const games = readStoredGames(db);
+        
+        // 1. Direct internal key lookup
+        if (games[gameKey]) return games[gameKey];
+
+        // 2. Resolve logical ID (game:* or path:*)
+        for (const [internalKey, record] of Object.entries(games)) {
+            const logicalId = buildLogicalGameId({ ...record, gameKey: internalKey });
+            if (logicalId === gameKey) {
+                return record;
+            }
+        }
+
+        return null;
+    }
+
+    async function setSaveFolderOverride(gameKey, folderPath) {
+        const db = await loadDB();
+        const games = readStoredGames(db);
+        
+        let targetKey = gameKey;
+        if (!games[gameKey]) {
+            // Try to resolve logical ID to internal key
+            for (const [internalKey, record] of Object.entries(games)) {
+                const logicalId = buildLogicalGameId({ ...record, gameKey: internalKey });
+                if (logicalId === gameKey) {
+                    targetKey = internalKey;
+                    break;
+                }
+            }
+        }
+
+        if (!games[targetKey]) return null;
+        games[targetKey].saveFolderOverride = folderPath || undefined;
+        db.games = games;
+        await saveDB(db);
+        return { ok: true, saveFolderOverride: games[targetKey].saveFolderOverride || null };
+    }
+
     return {
         addPlaytime,
         finalizeTrackedSession,
+        getGameRecord,
         loadGamesForConfig,
         renameGame,
         resolveLibraryConfig,
         resolveLibraryFolderToOpen,
+        setSaveFolderOverride,
         setupLibrary,
         toggleFavorite,
         toggleRunInBackground,

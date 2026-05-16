@@ -1,0 +1,435 @@
+.save-editor-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.save-editor-panel {
+    background: #121212;
+    width: 95vw;
+    height: 95vh;
+    max-width: 1400px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+    animation: editor-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes editor-pop {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.save-editor-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.save-editor-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #eee;
+}
+
+.save-editor-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.save-editor-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.save-editor-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.save-editor-sidebar {
+    width: 200px;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.save-file-item {
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: transparent;
+    font-size: 0.9rem;
+    color: #999;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.save-file-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: #ccc;
+}
+
+.save-file-item.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-weight: 500;
+}
+
+.save-editor-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.save-editor-tabs-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    background: rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.save-editor-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.save-editor-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-end;
+    padding: 16px 0;
+}
+
+.save-editor-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.save-editor-search-wrapper {
+    flex: 1;
+}
+
+.save-editor-filters {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.filter-divider {
+    width: 1px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 4px;
+}
+
+.translate-btn {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: #aaa;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.translate-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: var(--accent-color, #4f46e5);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.save-editor-filter-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #888;
+    font-size: 0.8rem;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.save-editor-filter-check:hover {
+    color: #ccc;
+}
+
+.save-editor-filter-check input {
+    margin: 0;
+    cursor: pointer;
+}
+
+.translate-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #eee;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.translate-btn svg {
+    opacity: 0.6;
+}
+
+.translate-btn.loading svg {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.is-translated {
+    color: #eee !important;
+    position: relative;
+    padding-left: 12px;
+}
+
+.is-translated::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    background: #4ade80; /* Subtle green */
+    border-radius: 50%;
+}
+
+.save-editor-search-wrapper {
+    padding: 10px 0;
+}
+
+.save-editor-search {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #eee;
+    font-size: 0.85rem;
+    width: 240px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.save-editor-search:focus {
+    width: 320px;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--accent-color, #4f46e5);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    outline: none;
+}
+
+.save-tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: #777;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.save-tab:hover {
+    color: #aaa;
+}
+
+.save-tab.active {
+    color: var(--accent-color, #4f46e5);
+    border-bottom-color: var(--accent-color, #4f46e5);
+}
+
+.save-editor-content {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.save-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.data-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.data-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.data-id {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent-color, #4f46e5);
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.data-label {
+    font-size: 0.85rem;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.data-value {
+    background: #0a0a0a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #fff;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.data-value:focus {
+    border-color: var(--accent-color, #4f46e5);
+    background: #000;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    outline: none;
+}
+
+/* Switch specific row */
+.checkbox-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
+.checkbox-row .data-label {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.checkbox-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-color, #4f46e5);
+    cursor: pointer;
+}
+
+.save-editor-footer {
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.primary-btn {
+    background: var(--accent-color, #4f46e5);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.secondary-btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: #999;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.secondary-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+}
+
+/* Custom Scrollbar */
+.save-editor-content::-webkit-scrollbar,
+.save-editor-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.save-editor-content::-webkit-scrollbar-thumb,
+.save-editor-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #444;
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+}

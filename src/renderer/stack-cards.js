@@ -107,6 +107,8 @@ export function createStackCardFactory({
             onSaveData: (nextName) => { primaryGame.name = nextName; }
         });
 
+
+
         let suppressNextClick = false;
         card.onclick = (event) => {
             if (event.target.closest(interactiveSelector)) return;

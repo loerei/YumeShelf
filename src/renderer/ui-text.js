@@ -35,6 +35,7 @@ export function createUITextController({
 
     async function applyUIStrings() {
         const d = getStrings();
+        window.currentUIStrings = d;
         const defPath = await electronAPI.getDefaultPath();
         refs.uiTitle.innerText = d.title;
         refs.uiWelcomeTitle.innerText = d.welcome;

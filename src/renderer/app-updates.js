@@ -4,18 +4,9 @@ import {
     createAppUpdateScheduledNotification,
     createPostUpdateInstalledNotification
 } from './update-notification-presets.js';
-import {
-    isPostUpdateNoticeSuppressed,
-    setPostUpdateNoticeSuppressed
-} from './post-update-preferences.js';
-
-function normalizeUpdate(update, patch = {}) {
-    if (!update || (!update.available && !update.installed)) return null;
-    return {
-        ...update,
-        ...patch
-    };
-}
+import { isPostUpdateNoticeSuppressed } from './post-update-preferences.js';
+import { createUpdateState } from './updates/update-state.js';
+import { createUpdateInstallFlow } from './updates/update-install-flow.js';
 
 export function createAppUpdateController({
     bootController,
@@ -25,137 +16,38 @@ export function createAppUpdateController({
     reloadWindow = () => window.location.reload(),
     updateNotificationFeature
 }) {
-    let currentUpdate = null;
-    let recentInstalledUpdate = null;
     let reviewActionInFlight = false;
-    let installShellTimers = [];
-    const listeners = new Set();
+    const state = createUpdateState();
+    const installFlow = createUpdateInstallFlow({ bootController });
 
     function logDebug(message) {
         void message;
     }
 
-    function notifyStateChanged() {
-        listeners.forEach((listener) => {
-            listener({
-                currentUpdate,
-                recentInstalledUpdate
-            });
-        });
-    }
-
-    function setCurrentUpdate(update, patch = {}) {
-        currentUpdate = normalizeUpdate(update, patch);
-        notifyStateChanged();
-        return currentUpdate;
-    }
-
-    function patchCurrentUpdate(patch = {}) {
-        if (!currentUpdate) return null;
-        currentUpdate = {
-            ...currentUpdate,
-            ...patch
-        };
-        notifyStateChanged();
-        return currentUpdate;
-    }
-
-    function getCurrentUpdateState() {
-        return currentUpdate || recentInstalledUpdate;
-    }
-
-    function getAppUpdateState(mode = 'auto') {
-        if (mode === 'available') return currentUpdate;
-        if (mode === 'installed') return recentInstalledUpdate;
-        return currentUpdate || recentInstalledUpdate;
-    }
-
-    function setRecentInstalledUpdate(update, patch = {}) {
-        recentInstalledUpdate = normalizeUpdate(update, patch);
-        notifyStateChanged();
-        return recentInstalledUpdate;
-    }
-
-    function suppressPostUpdateNotice() {
-        setPostUpdateNoticeSuppressed(true);
-        recentInstalledUpdate = null;
-        notifyStateChanged();
-    }
-
-    function subscribe(listener) {
-        listeners.add(listener);
-        return () => {
-            listeners.delete(listener);
-        };
-    }
-
-    function clearInstallShellTimers() {
-        installShellTimers.forEach(timer => clearTimeout(timer));
-        installShellTimers = [];
-    }
-
-    function showInstallShellPhase(phase = 'install-preparing') {
-        const stageMap = {
-            'install-preparing': {
-                fallbackText: 'Preparing installation',
-                key: 'boot_update_preparing_install'
-            },
-            'install-handoff': {
-                fallbackText: 'Installing update',
-                key: 'boot_update_installing'
-            },
-            restarting: {
-                fallbackText: 'Restarting YumeShelf',
-                key: 'boot_update_restarting'
-            }
-        };
-        const stage = stageMap[phase] || stageMap['install-preparing'];
-        bootController.show({
-            fallbackText: stage.fallbackText,
-            key: stage.key,
-            mode: 'update',
-            showProgress: true,
-            titleKey: 'boot_update_title',
-            titleText: 'Installing YumeShelf update'
-        });
-    }
-
-    function beginInstallShellSequence(initialPhase = 'install-preparing') {
-        clearInstallShellTimers();
-        showInstallShellPhase(initialPhase);
-        installShellTimers = [
-            setTimeout(() => showInstallShellPhase('install-handoff'), 520),
-            setTimeout(() => showInstallShellPhase('restarting'), 1080)
-        ];
-    }
-
-    async function waitForNextPaint() {
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    }
-
     async function runRestartAndInstall() {
+        const currentUpdate = state.getCurrentUpdateState();
         if (!currentUpdate?.available) {
             return { ok: false, reason: 'no-update' };
         }
 
         const fallbackActionState = currentUpdate.deferredUntilNextLaunch ? 'scheduled' : (currentUpdate.downloadReady ? 'ready' : 'idle');
-        patchCurrentUpdate({
+        state.patchCurrentUpdate({
             actionState: 'installing',
             installPhase: 'install-preparing'
         });
-        beginInstallShellSequence('install-preparing');
-        await waitForNextPaint();
+        installFlow.beginInstallShellSequence('install-preparing');
+        await installFlow.waitForNextPaint();
         const installResult = await electronAPI.restartAndInstallAppUpdate();
         if (!installResult || !installResult.ok) {
-            clearInstallShellTimers();
+            installFlow.clearInstallShellTimers();
             bootController.hide();
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: fallbackActionState,
                 installPhase: null
             });
             return installResult || { ok: false, reason: 'install' };
         }
-        patchCurrentUpdate({
+        state.patchCurrentUpdate({
             actionState: 'installing',
             installPhase: 'install-handoff'
         });
@@ -163,19 +55,20 @@ export function createAppUpdateController({
     }
 
     async function scheduleInstallOnNextLaunch() {
+        const currentUpdate = state.getCurrentUpdateState();
         if (!currentUpdate?.available || !currentUpdate.downloadReady) {
             return { ok: false, reason: 'no-downloaded-update' };
         }
 
         const scheduleResult = await electronAPI.scheduleAppUpdateNextLaunch();
         if (!scheduleResult || !scheduleResult.ok) {
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: currentUpdate.downloadReady ? 'ready' : 'idle'
             });
             return scheduleResult || { ok: false, reason: 'schedule' };
         }
 
-        setCurrentUpdate(scheduleResult.update || currentUpdate, {
+        state.setCurrentUpdate(scheduleResult.update || currentUpdate, {
             actionState: 'scheduled',
             deferredUntilNextLaunch: true,
             downloadReady: true
@@ -184,17 +77,17 @@ export function createAppUpdateController({
     }
 
     async function beginDeferredInstallFlow(update) {
-        setCurrentUpdate(update, {
+        state.setCurrentUpdate(update, {
             actionState: 'installing',
             deferredUntilNextLaunch: true,
             downloadReady: true,
             installPhase: 'install-preparing'
         });
-        beginInstallShellSequence('install-preparing');
-        await waitForNextPaint();
+        installFlow.beginInstallShellSequence('install-preparing');
+        await installFlow.waitForNextPaint();
         const result = await electronAPI.beginDeferredAppUpdateInstall();
         if (result && result.launched) {
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: 'installing',
                 installPhase: 'install-handoff'
             });
@@ -204,9 +97,9 @@ export function createAppUpdateController({
             };
         }
 
-        clearInstallShellTimers();
+        installFlow.clearInstallShellTimers();
         bootController.hide();
-        patchCurrentUpdate({
+        state.patchCurrentUpdate({
             actionState: 'failed',
             deferredUntilNextLaunch: false,
             installPhase: null
@@ -231,6 +124,7 @@ export function createAppUpdateController({
     }
 
     async function performReviewUpdate() {
+        const currentUpdate = state.getCurrentUpdateState();
         if (!currentUpdate?.available) {
             return { ok: false, reason: 'no-update' };
         }
@@ -238,7 +132,7 @@ export function createAppUpdateController({
         reviewActionInFlight = true;
 
         if (!currentUpdate.downloadable) {
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: 'manual'
             });
             try {
@@ -249,19 +143,19 @@ export function createAppUpdateController({
         }
 
         if (!currentUpdate.downloadReady) {
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: 'downloading',
                 deferredUntilNextLaunch: false
             });
             const downloadResult = await electronAPI.startAppUpdateDownload();
             if (!downloadResult || !downloadResult.ok) {
-                patchCurrentUpdate({
+                state.patchCurrentUpdate({
                     actionState: 'failed'
                 });
                 reviewActionInFlight = false;
                 return downloadResult || { ok: false, reason: 'download' };
             }
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: 'ready',
                 deferredUntilNextLaunch: false,
                 downloadReady: true
@@ -287,7 +181,7 @@ export function createAppUpdateController({
         if (!update) return;
 
         if (payload.phase === 'download-started') {
-            setCurrentUpdate(update, {
+            state.setCurrentUpdate(update, {
                 actionState: 'downloading',
                 deferredUntilNextLaunch: false,
                 progress: null
@@ -296,7 +190,7 @@ export function createAppUpdateController({
         }
 
         if (payload.phase === 'download-progress') {
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: 'downloading',
                 deferredUntilNextLaunch: false,
                 progress: {
@@ -310,7 +204,7 @@ export function createAppUpdateController({
         }
 
         if (payload.phase === 'download-ready') {
-            setCurrentUpdate(update, {
+            state.setCurrentUpdate(update, {
                 actionState: 'ready',
                 deferredUntilNextLaunch: false,
                 downloadReady: true,
@@ -323,27 +217,27 @@ export function createAppUpdateController({
         }
 
         if (payload.phase === 'install-preparing') {
-            setCurrentUpdate(update, {
+            state.setCurrentUpdate(update, {
                 actionState: 'installing',
                 installPhase: 'install-preparing',
                 progress: null
             });
-            showInstallShellPhase('install-preparing');
+            installFlow.showInstallShellPhase('install-preparing');
             return;
         }
 
         if (payload.phase === 'install-handoff') {
-            patchCurrentUpdate({
+            state.patchCurrentUpdate({
                 actionState: 'installing',
                 installPhase: 'install-handoff',
                 progress: null
             });
-            showInstallShellPhase('install-handoff');
+            installFlow.showInstallShellPhase('install-handoff');
             return;
         }
 
         if (payload.phase === 'install-deferred') {
-            setCurrentUpdate(update, {
+            state.setCurrentUpdate(update, {
                 actionState: 'scheduled',
                 deferredUntilNextLaunch: true,
                 downloadReady: true,
@@ -360,7 +254,7 @@ export function createAppUpdateController({
         }
 
         if (payload.phase === 'download-failed') {
-            setCurrentUpdate(update, {
+            state.setCurrentUpdate(update, {
                 actionState: 'failed',
                 deferredUntilNextLaunch: false,
                 error: payload.error || '',
@@ -396,54 +290,32 @@ export function createAppUpdateController({
             version: postUpdateNotice.version || ''
         } : null)} suppressed=${postUpdateSuppressed}`);
         if (postUpdateNotice?.version && !postUpdateSuppressed) {
-            const installedState = setRecentInstalledUpdate(postUpdateNotice, {
+            const installedState = state.setRecentInstalledUpdate(postUpdateNotice, {
                 actionState: 'installed',
                 installed: true
             });
-            presentedPostUpdate = updateNotificationFeature.present(createPostUpdateInstalledNotification({
+            updateNotificationFeature.present(createPostUpdateInstalledNotification({
                 getText,
-                openUpdatesReviewModal: (options = {}) => openUpdatesReviewModal(options),
-                suppressPostUpdateNotice: () => suppressPostUpdateNotice(),
+                openUpdatesReviewModal: () => openReview(),
+                suppressPostUpdateNotice: state.suppressPostUpdateNotice,
                 update: installedState
-            })) || presentedPostUpdate;
-            logDebug(`initialize presentedPostUpdate=${presentedPostUpdate} installedVersion=${installedState?.version || ''}`);
-        } else {
-            setRecentInstalledUpdate(null);
+            }));
+            presentedPostUpdate = true;
         }
 
-        const bootChecks = bootstrapData?.bootChecks || null;
-        const appUpdateCheck = bootChecks?.appUpdateCheck || null;
-        if (!appUpdateCheck?.available) {
-            setCurrentUpdate(null);
-            logDebug(`initialize appUpdateCheck=none presentedPostUpdate=${presentedPostUpdate}`);
-            return {
-                presentedPostUpdate
-            };
-        }
-
-        setCurrentUpdate(appUpdateCheck, {
-            actionState: appUpdateCheck.deferredUntilNextLaunch
-                ? 'scheduled'
-                : (appUpdateCheck.downloadReady ? 'ready' : 'idle'),
-            deferredUntilNextLaunch: !!appUpdateCheck.deferredUntilNextLaunch,
-            progress: null
-        });
-
-        if (
-            bootChecks?.appUpdatesMode === 'automatic'
-            && appUpdateCheck.downloadable
-            && !appUpdateCheck.downloadReady
-        ) {
-            logDebug(`initialize auto-download-trigger version=${appUpdateCheck.version || ''} downloadable=${!!appUpdateCheck.downloadable} downloadReady=${!!appUpdateCheck.downloadReady}`);
-            void electronAPI.startAppUpdateDownload();
+        const appUpdateCheck = bootstrapData?.bootChecks?.appUpdateCheck || null;
+        if (appUpdateCheck) {
+            state.setCurrentUpdate(appUpdateCheck, {
+                actionState: appUpdateCheck.deferredUntilNextLaunch ? 'scheduled' : (appUpdateCheck.downloadReady ? 'ready' : (appUpdateCheck.available ? 'available' : 'idle'))
+            });
         }
 
         logDebug(`initialize appUpdateCheck=${JSON.stringify({
-            available: !!appUpdateCheck.available,
-            deferredUntilNextLaunch: !!appUpdateCheck.deferredUntilNextLaunch,
-            downloadReady: !!appUpdateCheck.downloadReady,
-            downloadable: !!appUpdateCheck.downloadable,
-            version: appUpdateCheck.version || ''
+            available: !!appUpdateCheck?.available,
+            deferredUntilNextLaunch: !!appUpdateCheck?.deferredUntilNextLaunch,
+            downloadReady: !!appUpdateCheck?.downloadReady,
+            downloadable: !!appUpdateCheck?.downloadable,
+            version: appUpdateCheck?.version || ''
         })} presentedPostUpdate=${presentedPostUpdate}`);
 
         return {
@@ -452,13 +324,13 @@ export function createAppUpdateController({
     }
 
     return {
-        getAppUpdateState,
-        getCurrentUpdateState,
+        getAppUpdateState: state.getAppUpdateState,
+        getCurrentUpdateState: state.getCurrentUpdateState,
         initialize,
         openReview,
         performReviewUpdate,
         scheduleInstallOnNextLaunch,
-        suppressPostUpdateNotice,
-        subscribe
+        suppressPostUpdateNotice: state.suppressPostUpdateNotice,
+        subscribe: state.subscribe
     };
 }

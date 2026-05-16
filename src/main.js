@@ -14,10 +14,12 @@ const { createLanguagePackServices } = require('./main/language-packs/service');
 const { createAppUpdateServices } = require('./main/app-updates');
 const { createLibraryState } = require('./main/library-state');
 const { createPlaytimeSessionManager } = require('./main/playtime-session-manager');
+const saveFolderResolver = require('./main/save-folder-resolver/index');
 const { createStartupServices } = require('./main/startup');
 const { startMainRuntime, attachProcessDiagnostics } = require('./main/window/app-lifecycle');
 const { createStatusBroadcaster } = require('./main/window/broadcast-status');
 const { createMainWindow, logStartupDiagnostics } = require('./main/window/main-window');
+const { createSaveEditorService } = require('./main/save-editor-service');
 
 applyVersionOverride(app);
 registerPrivilegedSchemes(protocol);
@@ -98,6 +100,11 @@ const startupServices = createStartupServices({
     startupNetworkTimeoutMs: 3500
 });
 
+const saveEditorService = createSaveEditorService({
+    libraryState,
+    saveFolderResolver
+});
+
 const iconPipeline = createIconPipeline({
     app,
     protocol: require('electron').protocol,
@@ -119,8 +126,10 @@ app.whenReady().then(async () => {
         languagePackServices,
         libraryState,
         playtimeSessionManager,
+        saveFolderResolver,
         startupServices,
         categoryState,
+        saveEditorService,
         logStartupDiagnostics,
         paths,
         registerMainIpc,

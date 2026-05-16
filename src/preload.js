@@ -14,7 +14,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     launchYume: (data) => ipcRenderer.send('launch-yume', data),
     renameGame: (data) => ipcRenderer.invoke('rename-game', data),
     revealGame: (path) => ipcRenderer.send('reveal-game', path),
+    openPath: (path) => ipcRenderer.send('open-path', path),
     deleteGame: (path) => ipcRenderer.invoke('delete-game', path),
+    getSaveFolder: (gameKey) => ipcRenderer.invoke('get-save-folder', gameKey),
+    setSaveFolderOverride: (data) => ipcRenderer.invoke('set-save-folder-override', data),
     toggleFavorite: (gameKey) => ipcRenderer.invoke('toggle-favorite', gameKey),
     toggleRunInBackground: (gameKey) => ipcRenderer.invoke('toggle-run-in-background', gameKey),
     openFolder: () => ipcRenderer.send('open-folder'),
@@ -45,5 +48,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     onGamePlaytimeUpdated: (callback) => {
         ipcRenderer.on('game-playtime-updated', (_event, payload) => callback(payload));
-    }
+    },
+    // Save Editor
+    listSaveFiles: (gameKey) => ipcRenderer.invoke('save-editor:list-files', gameKey),
+    loadSaveData: (data) => ipcRenderer.invoke('save-editor:load-data', data),
+    writeSaveData: (data) => ipcRenderer.invoke('save-editor:write-data', data)
 });

@@ -42,6 +42,8 @@ export function createGameCardFactory({
             <div class="dropdown-menu">
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
+                <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>Open Save Folder</span></div>
+                <div class="dropdown-item action-save-editor">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor}</span></div>
                 <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
@@ -109,6 +111,34 @@ export function createGameCardFactory({
         card.querySelector('.action-reveal').onclick = (event) => {
             event.stopPropagation();
             electronAPI.revealGame(game.exePath);
+        };
+        card.querySelector('.action-save-folder').onclick = async (event) => {
+            event.stopPropagation();
+            console.log(`[FRONTEND][ACTION] Open Save Folder clicked for ${gameKey}`);
+            card.querySelector('.dropdown-menu').classList.remove('show');
+            const result = await electronAPI.getSaveFolder(gameKey);
+            if (result && result.path) {
+                electronAPI.openPath(result.path);
+            } else {
+                const item = card.querySelector('.action-save-folder');
+                const originalText = item.querySelector('span').textContent;
+                item.querySelector('span').textContent = 'No save folder found';
+                item.style.opacity = '0.5';
+                setTimeout(() => {
+                    item.querySelector('span').textContent = originalText;
+                    item.style.opacity = '';
+                }, 2000);
+            }
+        };
+        card.querySelector('.action-save-editor').onclick = async (event) => {
+            event.stopPropagation();
+            console.log(`[FRONTEND][ACTION] Open Save Editor clicked for ${gameKey}`);
+            card.querySelector('.dropdown-menu').classList.remove('show');
+            
+            // We'll call a global editor UI handler that we'll define later
+            if (window.showSaveEditor) {
+                window.showSaveEditor(gameKey);
+            }
         };
         card.querySelector('.action-background-run').onclick = async (event) => {
             event.stopPropagation();

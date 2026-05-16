@@ -88,6 +88,9 @@
     "status_recent": "刚刚",
     "status_mins": " 分钟前",
     "status_hours": " 小时前",
+    "status_days": " 天前",
+    "status_months": " 个月前",
+    "status_years": " 年前",
     "sort_date": "最新添加",
     "sort_played": "最近游玩",
     "sort_az": "名称 A-Z",
@@ -181,6 +184,18 @@
     "update_notification_language_pack_installed_title_one": "{name} 已自动更新",
     "update_notification_language_pack_installed_title_many": "{count} 个语言包已自动更新",
     "update_notification_language_pack_installed_message_one": "YumeShelf 已在启动时安装版本 {version}。",
-    "update_notification_language_pack_installed_message_many": "YumeShelf 已在启动时安装最新的语言包更新。"
+    "update_notification_language_pack_installed_message_many": "YumeShelf 已在启动时安装最新的语言包更新。",
+    "action_save_editor": "存档编辑器",
+    "save_editor_select_title": "选择存档文件",
+    "save_editor_items": "物品",
+    "save_editor_gold": "金钱",
+    "save_editor_variables": "变量",
+    "save_editor_switches": "开关",
+    "save_editor_save": "保存修改",
+    "save_editor_cancel": "取消",
+    "save_editor_weapons": "武器",
+    "save_editor_armors": "防具",
+    "save_editor_no_saves": "未发现存档文件",
+    "save_editor_loading": "正在加载存档数据..."
   }
 }

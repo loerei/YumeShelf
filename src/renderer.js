@@ -4,6 +4,7 @@ import { bindControlEvents, bindGlobalUiEvents, bindWindowStatusEvents } from '.
 import { bindIpcEvents } from './renderer/events/ipc-events.js';
 import { runRendererBootstrap } from './renderer/lifecycle/bootstrap.js';
 import { createUiRuntimeState } from './renderer/state/ui-runtime-state.js';
+import { initSaveEditorUI } from './renderer/save-editor-ui.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const refs = buildRendererRefs(document);
@@ -55,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         closeLanguagePackModal: () => composition.languagePackController.closeLanguagePackModal()
     });
     bindWindowStatusEvents(composition.uiTextController);
+    initSaveEditorUI();
 
     await runRendererBootstrap({
         refs,

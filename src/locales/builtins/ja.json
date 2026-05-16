@@ -87,6 +87,9 @@
     "status_recent": "たった今",
     "status_mins": " 分前",
     "status_hours": " 時間前",
+    "status_days": " 日前",
+    "status_months": " ヶ月前",
+    "status_years": " 年前",
     "sort_date": "追加日",
     "sort_played": "最近プレイ",
     "sort_az": "名前順 A-Z",
@@ -180,6 +183,18 @@
     "update_notification_language_pack_installed_title_one": "{name} を自動更新しました",
     "update_notification_language_pack_installed_title_many": "{count} 件の言語パックを自動更新しました",
     "update_notification_language_pack_installed_message_one": "起動中にバージョン {version} をインストールしました。",
-    "update_notification_language_pack_installed_message_many": "起動中に最新の言語パック更新をインストールしました。"
+    "update_notification_language_pack_installed_message_many": "起動中に最新の言語パック更新をインストールしました。",
+    "action_save_editor": "セーブエディター",
+    "save_editor_select_title": "セーブファイルを選択",
+    "save_editor_items": "アイテム",
+    "save_editor_weapons": "武器",
+    "save_editor_armors": "防具",
+    "save_editor_gold": "所持金",
+    "save_editor_variables": "変数",
+    "save_editor_switches": "スイッチ",
+    "save_editor_save": "変更を保存",
+    "save_editor_cancel": "キャンセル",
+    "save_editor_no_saves": "セーブファイルが見つかりません",
+    "save_editor_loading": "データを読み込み中..."
   }
 }

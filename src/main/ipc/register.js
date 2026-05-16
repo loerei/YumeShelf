@@ -7,6 +7,8 @@ function registerMainIpc({
     languagePackServices,
     libraryState,
     playtimeSessionManager,
+    saveFolderResolver,
+    saveEditorService,
     startupServices,
     defaultGamesDir
 }) {
@@ -82,7 +84,40 @@ function registerMainIpc({
     ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
     ipcMain.handle('toggle-run-in-background', async (_event, gameKey) => libraryState.toggleRunInBackground(gameKey));
     ipcMain.on('reveal-game', (_event, targetPath) => shell.showItemInFolder(targetPath));
+    ipcMain.on('open-path', (_event, targetPath) => shell.openPath(targetPath));
     ipcMain.handle('delete-game', async (_event, targetPath) => shell.trashItem(targetPath));
+
+    ipcMain.handle('get-save-folder', async (_event, gameKey) => {
+        console.log(`[IPC][get-save-folder] Received request for: ${gameKey}`);
+        const record = await libraryState.getGameRecord(gameKey);
+        if (!record) {
+            console.warn(`[IPC][get-save-folder] Could not resolve record for key: ${gameKey}`);
+            return { path: null, engine: null, confidence: 'none' };
+        }
+        if (!record.exePath) {
+            console.warn(`[IPC][get-save-folder] Record found but has no exePath: ${record.name}`);
+            return { path: null, engine: null, confidence: 'none' };
+        }
+        console.log(`[IPC][get-save-folder] Resolved to record: ${record.name} (${record.exePath})`);
+        return saveFolderResolver.resolveSaveFolder(record.exePath, record.saveFolderOverride);
+    });
+    ipcMain.handle('set-save-folder-override', async (_event, { gameKey, folderPath }) => {
+        return libraryState.setSaveFolderOverride(gameKey, folderPath);
+    });
+
+    // Save Editor
+    ipcMain.handle('save-editor:list-files', async (_event, gameKey) => {
+        console.log(`[IPC] save-editor:list-files gameKey: ${gameKey}`);
+        return saveEditorService.listSaveFiles(gameKey);
+    });
+    ipcMain.handle('save-editor:load-data', async (_event, { gameKey, fileName }) => {
+        console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
+        return saveEditorService.loadSaveData(gameKey, fileName);
+    });
+    ipcMain.handle('save-editor:write-data', async (_event, { gameKey, fileName, data }) => {
+        console.log(`[IPC] save-editor:write-data gameKey: ${gameKey}, fileName: ${fileName}`);
+        return saveEditorService.writeSaveData(gameKey, fileName, data);
+    });
 }
 
 module.exports = {

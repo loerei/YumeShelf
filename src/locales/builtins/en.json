@@ -77,6 +77,9 @@
     "status_recent": "Just now",
     "status_mins": " mins ago",
     "status_hours": " hours ago",
+    "status_days": " days ago",
+    "status_months": " months ago",
+    "status_years": " years ago",
     "sort_date": "Newest",
     "sort_played": "Recently Played",
     "sort_az": "Name A-Z",
@@ -205,6 +208,18 @@
     "update_notification_language_pack_installed_title_one": "{name} updated automatically",
     "update_notification_language_pack_installed_title_many": "{count} language packs updated automatically",
     "update_notification_language_pack_installed_message_one": "YumeShelf installed version {version} during startup.",
-    "update_notification_language_pack_installed_message_many": "YumeShelf finished installing the latest language packs during startup."
+    "update_notification_language_pack_installed_message_many": "YumeShelf finished installing the latest language packs during startup.",
+    "action_save_editor": "Open Save Editor",
+    "save_editor_select_title": "Select Save File",
+    "save_editor_items": "Items",
+    "save_editor_gold": "Gold",
+    "save_editor_variables": "Variables",
+    "save_editor_switches": "Switches",
+    "save_editor_save": "Save Changes",
+    "save_editor_cancel": "Cancel",
+    "save_editor_weapons": "Weapons",
+    "save_editor_armors": "Armors",
+    "save_editor_no_saves": "No save files found",
+    "save_editor_loading": "Loading save data..."
   }
 }

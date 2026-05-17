@@ -370,12 +370,19 @@ export function initSaveEditorUI() {
                 const translated = translator.translationCache[name];
                 
                 const isNamed = metaSource[id] && metaSource[id].trim() !== '';
-                const isEmpty = isNumeric ? (val === 0 || val === "" || val === null) : !val;
+                const isUninitialized = val === undefined || val === null || val === '';
+                const isZeroOrFalse = isNumeric ? val === 0 : val === false;
 
                 // Important variables for specific games
                 const isImportant = activeTab === 'variables' && [12, 15, 16, 17, 18, 19, 20, 21, 25, 26, 61, 62, 63, 64, 65, 66].includes(Number(id));
 
-                if (!showEmpty && !isImportant && !isNamed && isEmpty) return;
+                if (!showEmpty && !isImportant) {
+                    // Always hide truly uninitialized/blank values if showEmpty is false
+                    if (isUninitialized) return;
+                    // For zero/false values, hide them if they are not named in System.json
+                    if (isZeroOrFalse && !isNamed) return;
+                }
+
                 if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;
 
                 if (isNumeric) {

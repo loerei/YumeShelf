@@ -211,6 +211,81 @@ fn pid_tree_has_live_members(root_pid: u32) -> Result<bool> {
     Ok(false)
 }
 
+fn get_pid_tree_members(root_pid: u32) -> Result<HashSet<u32>> {
+    let mut members = HashSet::new();
+    if root_pid == 0 {
+        return Ok(members);
+    }
+
+    let relations = list_process_relations()?;
+    let alive: HashSet<u32> = relations.iter().map(|(pid, _)| *pid).collect();
+    let mut by_parent: HashMap<u32, Vec<u32>> = HashMap::new();
+    for (pid, parent_pid) in relations {
+        by_parent.entry(parent_pid).or_default().push(pid);
+    }
+
+    let mut queue = VecDeque::from([root_pid]);
+    let mut visited = HashSet::new();
+    while let Some(current_pid) = queue.pop_front() {
+        if !visited.insert(current_pid) {
+            continue;
+        }
+        if alive.contains(&current_pid) {
+            members.insert(current_pid);
+        }
+        if let Some(children) = by_parent.get(&current_pid) {
+            for child_pid in children {
+                queue.push_back(*child_pid);
+            }
+        }
+    }
+
+    Ok(members)
+}
+
+fn bring_game_to_foreground_async(root_pid: u32) {
+    thread::spawn(move || {
+        struct EnumData<'a> {
+            target_pids: &'a HashSet<u32>,
+            found: bool,
+        }
+        
+        unsafe extern "system" fn enum_callback(hwnd: windows_sys::Win32::Foundation::HWND, lparam: isize) -> i32 {
+            let data = &mut *(lparam as *mut EnumData);
+            let mut process_id = 0;
+            windows_sys::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId(hwnd, &mut process_id);
+            
+            if data.target_pids.contains(&process_id) {
+                if windows_sys::Win32::UI::WindowsAndMessaging::IsWindowVisible(hwnd) != 0 {
+                    windows_sys::Win32::UI::WindowsAndMessaging::ShowWindow(hwnd, 5); // SW_SHOW = 5
+                    windows_sys::Win32::UI::WindowsAndMessaging::SetForegroundWindow(hwnd);
+                    data.found = true;
+                }
+            }
+            1 // Continue enumeration
+        }
+
+        // Poll for up to 10 seconds (50 iterations * 200ms)
+        for _ in 0..50 {
+            if let Ok(pids) = get_pid_tree_members(root_pid) {
+                if !pids.is_empty() {
+                    let mut data = EnumData {
+                        target_pids: &pids,
+                        found: false,
+                    };
+                    unsafe {
+                        windows_sys::Win32::UI::WindowsAndMessaging::EnumWindows(Some(enum_callback), &mut data as *mut _ as isize);
+                    }
+                    if data.found {
+                        break;
+                    }
+                }
+            }
+            thread::sleep(Duration::from_millis(200));
+        }
+    });
+}
+
 fn open_process_for_job(pid: u32) -> Result<HANDLE> {
     unsafe {
         let handle = OpenProcess(
@@ -362,6 +437,8 @@ fn run_launch_mode(config: &HelperConfig) -> Result<()> {
             return Err(error);
         }
     };
+
+    bring_game_to_foreground_async(root_pid);
 
     let job_handle = create_job_object()?;
     let process_handle = open_process_for_job(root_pid)?;

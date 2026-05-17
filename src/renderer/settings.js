@@ -18,6 +18,8 @@ export function createSettingsController({
     let currentLanguagePackUpdates = localStorage.getItem('yumeshelf_language_pack_updates_pref') || 'automatic';
     let currentLocationDisplayMode = localStorage.getItem('yumeshelf_location_display_mode') || DEFAULT_LOCATION_DISPLAY_MODE;
     let currentMaxDepth = DEFAULT_MAX_DEPTH;
+    let currentAutoLaunch = false;
+    let currentMinimizeToTray = false;
 
     function openSettings() {
         if (typeof onOpen === 'function') {
@@ -41,6 +43,12 @@ export function createSettingsController({
         refs.appUpdatesSelect.value = currentAppUpdates;
         refs.languagePackUpdatesSelect.value = currentLanguagePackUpdates;
         refs.locationDisplaySelect.value = currentLocationDisplayMode;
+        if (refs.autoLaunchSelect) {
+            refs.autoLaunchSelect.value = currentAutoLaunch ? 'on' : 'off';
+        }
+        if (refs.minimizeToTraySelect) {
+            refs.minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
+        }
     }
 
     function handleThemeChange(nextTheme) {
@@ -71,16 +79,44 @@ export function createSettingsController({
         refs.maxDepthInput.value = String(currentMaxDepth);
         refs.maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
         refs.maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
+        if (libraryConfig) {
+            currentAutoLaunch = !!libraryConfig.autoLaunch;
+            currentMinimizeToTray = !!libraryConfig.minimizeToTray;
+            if (refs.autoLaunchSelect) {
+                refs.autoLaunchSelect.value = currentAutoLaunch ? 'on' : 'off';
+            }
+            if (refs.minimizeToTraySelect) {
+                refs.minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
+            }
+        }
     }
 
     function handleMaxDepthChange(nextValue) {
         currentMaxDepth = clampMaxDepth(nextValue);
-        applyLibraryConfig({ maxDepth: currentMaxDepth });
+        applyLibraryConfig({
+            maxDepth: currentMaxDepth,
+            autoLaunch: currentAutoLaunch,
+            minimizeToTray: currentMinimizeToTray
+        });
         return currentMaxDepth;
     }
 
     function handleMaxDepthStep(delta) {
         return handleMaxDepthChange(currentMaxDepth + delta);
+    }
+
+    async function handleAutoLaunchChange(nextValue) {
+        const enabled = nextValue === 'on';
+        currentAutoLaunch = enabled;
+        await window.electronAPI.setAutoLaunch(enabled);
+        return enabled;
+    }
+
+    function handleMinimizeToTrayChange(nextValue) {
+        const enabled = nextValue === 'on';
+        currentMinimizeToTray = enabled;
+        window.electronAPI.setMinimizeToTray(enabled);
+        return enabled;
     }
 
     function getBootstrapPreferences() {
@@ -101,6 +137,8 @@ export function createSettingsController({
         handleMaxDepthChange,
         handleMaxDepthStep,
         handleThemeChange,
+        handleAutoLaunchChange,
+        handleMinimizeToTrayChange,
         initializeSettingsUI,
         isSettingsOpen,
         openSettings

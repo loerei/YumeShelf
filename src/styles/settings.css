@@ -85,6 +85,8 @@
 .setting-control-zone #location-display-select,
 .setting-control-zone #app-updates-select,
 .setting-control-zone #language-pack-updates-select,
+.setting-control-zone #auto-launch-select,
+.setting-control-zone #minimize-to-tray-select,
 .setting-control-zone .max-depth-stepper,
 .wide-setting-btn {
     width: 196px;

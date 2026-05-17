@@ -148,10 +148,10 @@ function createLibraryState({
             nextLibraryPath = result.filePaths[0];
         }
 
-        const nextConfig = {
-            libraryPath: nextLibraryPath,
-            maxDepth: currentConfig.maxDepth
-        };
+        const nextConfig = normalizeLibraryConfigShape({
+            ...currentConfig,
+            libraryPath: nextLibraryPath
+        });
         db.config = nextConfig;
         await saveDB(db);
         return nextConfig;
@@ -160,12 +160,10 @@ function createLibraryState({
     async function updateLibraryConfig(updates = {}) {
         const db = await loadDB();
         const currentConfig = normalizeLibraryConfigShape(db.config);
-        const nextConfig = {
-            libraryPath: typeof updates.libraryPath === 'string' ? updates.libraryPath : currentConfig.libraryPath,
-            maxDepth: Object.prototype.hasOwnProperty.call(updates, 'maxDepth')
-                ? clampLibraryMaxDepth(updates.maxDepth)
-                : currentConfig.maxDepth
-        };
+        const nextConfig = normalizeLibraryConfigShape({
+            ...currentConfig,
+            ...updates
+        });
         db.config = nextConfig;
         await saveDB(db);
         return nextConfig;

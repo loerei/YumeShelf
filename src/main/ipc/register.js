@@ -154,6 +154,28 @@ function registerMainIpc({
             });
         }
     });
+
+    ipcMain.handle('set-auto-launch', async (_event, enabled) => {
+        try {
+            app.setLoginItemSettings({
+                openAtLogin: enabled,
+                path: app.getPath('exe')
+            });
+            return { success: true };
+        } catch (error) {
+            console.error('[AUTO-LAUNCH] Failed to set startup settings:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('get-auto-launch', async () => {
+        try {
+            const settings = app.getLoginItemSettings();
+            return settings.openAtLogin;
+        } catch {
+            return false;
+        }
+    });
 }
 
 module.exports = {

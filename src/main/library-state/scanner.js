@@ -20,7 +20,9 @@ function normalizeLibraryConfigShape(config) {
     const base = isPlainObject(config) ? config : {};
     return {
         libraryPath: typeof base.libraryPath === 'string' ? base.libraryPath : '',
-        maxDepth: clampLibraryMaxDepth(base.maxDepth)
+        maxDepth: clampLibraryMaxDepth(base.maxDepth),
+        autoLaunch: typeof base.autoLaunch === 'boolean' ? base.autoLaunch : false,
+        minimizeToTray: typeof base.minimizeToTray === 'boolean' ? base.minimizeToTray : false
     };
 }
 

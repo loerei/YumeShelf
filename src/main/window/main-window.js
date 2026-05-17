@@ -1,6 +1,14 @@
 const path = require('path');
 const fsSync = require('fs');
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, Tray, Menu, ipcMain } = require('electron');
+
+let tray = null;
+let minimizeToTray = false;
+let isQuitting = false;
+
+ipcMain.on('set-minimize-to-tray', (_event, enabled) => {
+    minimizeToTray = !!enabled;
+});
 
 function startupPathSummary(app) {
     return {
@@ -56,6 +64,18 @@ function createMainWindow({
     paths,
     launchedAfterUpdate
 }) {
+    // Read initial DB config for minimizeToTray
+    try {
+        if (paths && paths.dbFile && fsSync.existsSync(paths.dbFile)) {
+            const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
+            if (db && db.config && typeof db.config.minimizeToTray === 'boolean') {
+                minimizeToTray = db.config.minimizeToTray;
+            }
+        }
+    } catch (e) {
+        console.error('[TRAY] Failed to read initial minimizeToTray config:', e);
+    }
+
     const win = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -73,6 +93,51 @@ function createMainWindow({
     win.setMenuBarVisibility(false);
     win.webContents.on('console-message', (_event, _level, message) => {
         console.log(`[RENDERER-LOG] ${message}`);
+    });
+
+    // Initialize System Tray
+    if (!tray && paths && paths.mainWindowIconPath) {
+        try {
+            tray = new Tray(paths.mainWindowIconPath);
+            const contextMenu = Menu.buildFromTemplate([
+                {
+                    label: 'Show YumeShelf',
+                    click: () => {
+                        win.show();
+                        win.focus();
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Quit',
+                    click: () => {
+                        isQuitting = true;
+                        app.quit();
+                    }
+                }
+            ]);
+            tray.setToolTip('YumeShelf');
+            tray.setContextMenu(contextMenu);
+
+            tray.on('double-click', () => {
+                win.show();
+                win.focus();
+            });
+        } catch (e) {
+            console.error('[TRAY] Failed to initialize tray:', e);
+        }
+    }
+
+    // Override close event to minimize to tray
+    win.on('close', (event) => {
+        if (!isQuitting && minimizeToTray) {
+            event.preventDefault();
+            win.hide();
+        }
+    });
+
+    app.on('before-quit', () => {
+        isQuitting = true;
     });
 
     win.loadFile(paths.indexHtmlPath);

@@ -92,6 +92,18 @@ export function bindControlEvents({
     refs.languagePackUpdatesSelect.onchange = (event) => {
         settingsController.handleLanguagePackUpdatesChange(event.target.value);
     };
+    if (refs.autoLaunchSelect) {
+        refs.autoLaunchSelect.onchange = async (event) => {
+            const autoLaunch = await settingsController.handleAutoLaunchChange(event.target.value);
+            await startupController.handleLibraryConfigChange({ autoLaunch });
+        };
+    }
+    if (refs.minimizeToTraySelect) {
+        refs.minimizeToTraySelect.onchange = async (event) => {
+            const minimizeToTray = settingsController.handleMinimizeToTrayChange(event.target.value);
+            await startupController.handleLibraryConfigChange({ minimizeToTray });
+        };
+    }
     refs.locationDisplaySelect.onchange = (event) => {
         settingsController.handleLocationDisplayModeChange(event.target.value);
         reannotateGames();

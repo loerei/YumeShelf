@@ -4,7 +4,7 @@
   "englishName": "English",
   "nativeName": "English",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.4.7",
+  "reviewedForAppVersion": "1.5.0",
   "aliases": [
     "en",
     "english"
@@ -220,6 +220,10 @@
     "save_editor_weapons": "Weapons",
     "save_editor_armors": "Armors",
     "save_editor_no_saves": "No save files found",
-    "save_editor_loading": "Loading save data..."
+    "save_editor_loading": "Loading save data...",
+    "auto_launch_label": "Auto-launch on startup",
+    "minimize_to_tray_label": "Minimize to System Tray",
+    "option_on": "On",
+    "option_off": "Off"
   }
 }

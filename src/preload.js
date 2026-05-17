@@ -54,5 +54,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadSaveData: (data) => ipcRenderer.invoke('save-editor:load-data', data),
     writeSaveData: (data) => ipcRenderer.invoke('save-editor:write-data', data),
     updateMapping: (data) => ipcRenderer.invoke('save-editor:update-mapping', data),
-    openSaveEditorWindow: (gameKey) => ipcRenderer.send('open-save-editor-window', gameKey)
+    openSaveEditorWindow: (gameKey) => ipcRenderer.send('open-save-editor-window', gameKey),
+    // System Startup & Tray Settings
+    setAutoLaunch: (enabled) => ipcRenderer.invoke('set-auto-launch', enabled),
+    getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
+    setMinimizeToTray: (enabled) => ipcRenderer.send('set-minimize-to-tray', enabled)
 });

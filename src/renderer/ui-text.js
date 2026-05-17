@@ -52,6 +52,12 @@ export function createUITextController({
         refs.uiMaxDepthLabel.innerText = d.max_depth_label || getEnglishStrings().max_depth_label;
         refs.uiAppUpdatesLabel.innerText = d.app_updates_label || getEnglishStrings().app_updates_label;
         refs.uiLanguagePackUpdatesLabel.innerText = d.language_pack_updates_label || getEnglishStrings().language_pack_updates_label;
+        refs.uiAutoLaunchLabel.innerText = d.auto_launch_label || getEnglishStrings().auto_launch_label;
+        refs.uiAutoLaunchOff.innerText = d.option_off || getEnglishStrings().option_off;
+        refs.uiAutoLaunchOn.innerText = d.option_on || getEnglishStrings().option_on;
+        refs.uiMinimizeToTrayLabel.innerText = d.minimize_to_tray_label || getEnglishStrings().minimize_to_tray_label;
+        refs.uiMinimizeToTrayOff.innerText = d.option_off || getEnglishStrings().option_off;
+        refs.uiMinimizeToTrayOn.innerText = d.option_on || getEnglishStrings().option_on;
         refs.btnChangePath.innerText = d.change;
         refs.uiFooterDesc.innerText = d.footer_desc || getEnglishStrings().footer_desc;
         renderAppVersionLink();

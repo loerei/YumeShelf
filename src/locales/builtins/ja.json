@@ -4,7 +4,7 @@
   "englishName": "Japanese",
   "nativeName": "日本語",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.4.7",
+  "reviewedForAppVersion": "1.5.0",
   "aliases": [
     "ja",
     "japanese",
@@ -195,6 +195,10 @@
     "save_editor_save": "変更を保存",
     "save_editor_cancel": "キャンセル",
     "save_editor_no_saves": "セーブファイルが見つかりません",
-    "save_editor_loading": "データを読み込み中..."
+    "save_editor_loading": "データを読み込み中...",
+    "auto_launch_label": "起動時に自動実行",
+    "minimize_to_tray_label": "システムトレイに最小化",
+    "option_on": "オン",
+    "option_off": "オフ"
   }
 }

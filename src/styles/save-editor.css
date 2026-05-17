@@ -435,6 +435,12 @@
 }
 
 /* Standalone Window Save Editor Styles */
+body.standalone-save-editor {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
 .standalone-save-editor #welcome-screen,
 .standalone-save-editor .header,
 .standalone-save-editor #game-grid-wrapper,
@@ -446,7 +452,11 @@
 }
 
 .standalone-save-editor .save-editor-overlay {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     width: 100vw;
     height: 100vh;
     background: transparent;

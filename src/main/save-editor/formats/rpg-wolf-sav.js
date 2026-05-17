@@ -172,6 +172,7 @@ class RpgWolfSavFormat {
     }
 
     decode(rawData, paths, fileName) {
+        console.log(`[WOLF-SAV] decode called for file: ${fileName}, length: ${rawData.length}`);
         if (rawData.length < 20) {
             throw new Error("File too short to be a valid WOLF RPG save.");
         }
@@ -179,9 +180,12 @@ class RpgWolfSavFormat {
         const header = rawData.subarray(0, 20);
         const payload = rawData.subarray(20);
         const seeds = [header[0], header[3], header[9]];
+        console.log(`[WOLF-SAV] decode header: ${header.toString('hex')}`);
+        console.log(`[WOLF-SAV] decode seeds: ${JSON.stringify(seeds)}`);
         
         // Decrypt payload
         const decrypted = this._crypt(payload, seeds);
+        console.log(`[WOLF-SAV] decrypted payload length: ${decrypted.length}`);
         
         // Search for the global variable array length (usually 800)
         // In Little Endian: 800 = 0x0320 -> [0x20, 0x03, 0x00, 0x00]
@@ -192,6 +196,7 @@ class RpgWolfSavFormat {
                 break;
             }
         }
+        console.log(`[WOLF-SAV] varArrayOffset found at: ${varArrayOffset}`);
         
         const variables = {};
         if (varArrayOffset !== -1) {
@@ -200,6 +205,7 @@ class RpgWolfSavFormat {
                 variables[i] = decrypted.readInt32LE(varArrayOffset + i * 4);
             }
         }
+        console.log(`[WOLF-SAV] decode finished. variables[7] (Gold) = ${variables[7]}`);
 
         return {
             $type: 'RpgWolfSavBinaryInspection',
@@ -218,6 +224,7 @@ class RpgWolfSavFormat {
     }
 
     encode(jsonData) {
+        console.log(`[WOLF-SAV] encode called for file: ${jsonData.fileName}`);
         if (!jsonData || jsonData.$type !== 'RpgWolfSavBinaryInspection') {
             throw new Error('Invalid RPG/Wolf .sav inspection payload');
         }
@@ -228,8 +235,12 @@ class RpgWolfSavFormat {
         
         const decrypted = Buffer.from(jsonData._decryptedBase64 || '', 'base64');
         const varArrayOffset = jsonData._varArrayOffset;
+        console.log(`[WOLF-SAV] encode seeds: ${JSON.stringify(seeds)}`);
+        console.log(`[WOLF-SAV] encode varArrayOffset: ${varArrayOffset}`);
         
         if (varArrayOffset !== -1 && jsonData.variables) {
+            console.log(`[WOLF-SAV] encode writing variables...`);
+            console.log(`[WOLF-SAV] variables[7] value to write: ${jsonData.variables[7]}`);
             for (const [key, value] of Object.entries(jsonData.variables)) {
                 const index = parseInt(key);
                 if (!isNaN(index) && index < 800) {
@@ -250,10 +261,15 @@ class RpgWolfSavFormat {
         for (let i = 0; i < decrypted.length; i++) {
             sum = (sum + decrypted[i]) & 0xFF;
         }
+        console.log(`[WOLF-SAV] decrypted payload byte sum (lower 8 bits): 0x${sum.toString(16).toUpperCase()}`);
+        console.log(`[WOLF-SAV] original header checksum byte:        0x${header[2].toString(16).toUpperCase()}`);
+        console.log(`[WOLF-SAV] writing new checksum byte to header:  0x${sum.toString(16).toUpperCase()}`);
         headerCopy[2] = sum;
         
         // Construct final file
-        return Buffer.concat([headerCopy, reEncryptedPayload]);
+        const finalFile = Buffer.concat([headerCopy, reEncryptedPayload]);
+        console.log(`[WOLF-SAV] final encoded file length: ${finalFile.length}`);
+        return finalFile;
     }
 
     async metadata(jsonData, paths, fileName) {

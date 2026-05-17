@@ -1,6 +1,6 @@
 /**
  * Save Editor Data Engine
- * Handles searching, filtering, and data manipulation logic.
+ * Handles searching, filtering, and RPG Maker save data manipulation logic.
  */
 
 export class DataEngine {
@@ -67,11 +67,47 @@ export class DataEngine {
     }
 
     /**
-     * Sorts and filters data based on the current state
+     * Extracts the root object from various RPG Maker save formats
      */
-    filterData(data, metadata, type) {
-        // This is a placeholder for more complex filtering if needed
-        // For now, the UI handles the loop, but we can centralize it here later
-        return data;
+    extractRoot(save) {
+        if (!save) return null;
+        if (save.contents && typeof save.contents === 'object') return save.contents;
+        if (save.data && typeof save.data === 'object' && !save.data['@a']) return save.data;
+        return save;
+    }
+
+    /**
+     * Safely retrieves property, case and underscore insensitively
+     */
+    getProp(obj, prop) {
+        if (!obj) return null;
+        const p = prop.toLowerCase();
+        const keys = Object.keys(obj);
+        const match = keys.find(k => k === p || k === '_' + p || k.toLowerCase() === p || k.toLowerCase() === '_' + p);
+        return match ? obj[match] : null;
+    }
+
+    /**
+     * Resolves the location of gold inside the RPG Maker save root
+     */
+    findGold(root, party) {
+        const targets = [party, root, root?.system, root?._system];
+        for (const t of targets) {
+            if (!t) continue;
+            if (t._gold !== undefined) return { obj: t, key: '_gold', val: t._gold };
+            if (t.gold !== undefined) return { obj: t, key: 'gold', val: t.gold };
+        }
+        return null;
+    }
+
+    /**
+     * Unwraps RPG Maker data arrays/objects
+     */
+    extractData(obj) {
+        if (!obj) return null;
+        if (obj._data !== undefined) return this.extractData(obj._data);
+        if (obj.data !== undefined) return this.extractData(obj.data);
+        if (obj['@a'] !== undefined) return obj['@a'];
+        return obj;
     }
 }

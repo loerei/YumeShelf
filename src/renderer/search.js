@@ -6,7 +6,7 @@ export function createSearchController({
     advancePlaceholderIndex,
     electronAPI,
     getActiveCategoryId,
-    getVisibleGames,
+    getAllGames,
     getDraggedGameFolder,
     getPlaceholderIndex,
     getPlaceholders,
@@ -32,11 +32,13 @@ export function createSearchController({
         }
 
         refs.searchPlaceholder.style.display = 'none';
-        const filtered = getVisibleGames().filter(game =>
-            game.name.toLowerCase().includes(query.toLowerCase()) ||
-            game.folderName.toLowerCase().includes(query.toLowerCase()) ||
-            String(game.relativePath || '').toLowerCase().includes(query.toLowerCase())
-        );
+        const filtered = getAllGames().filter(game => {
+            const name = (game.name || '').toLowerCase();
+            const folderName = (game.folderName || '').toLowerCase();
+            const relativePath = String(game.relativePath || '').toLowerCase();
+            const q = query.toLowerCase();
+            return name.includes(q) || folderName.includes(q) || relativePath.includes(q);
+        });
 
         refs.searchDropdown.innerHTML = '';
         if (filtered.length === 0) {

@@ -40,7 +40,16 @@
     position: relative;
     transition: transform 0.2s, border-color 0.2s, box-shadow 0.3s ease;
     cursor: pointer;
-    overflow: hidden;
+    overflow: visible;
+}
+
+.game-card:hover,
+.game-card:focus-within {
+    z-index: 50;
+}
+
+.game-card:has(.dropdown-menu.show) {
+    z-index: 100;
 }
 
 .stack-card .menu-btn {
@@ -98,8 +107,9 @@
     opacity: 0; /* Ẩn đi khi chưa hover */
 }
 
-.game-card:hover .menu-btn {
-    opacity: 1; /* Chỉ hiện nút khi di chuột vào Game Card */
+.game-card:hover .menu-btn,
+.game-card:has(.dropdown-menu.show) .menu-btn {
+    opacity: 1; /* Chỉ hiện nút khi di chuột vào Game Card hoặc khi menu đang mở */
 }
 
 .menu-btn:hover {

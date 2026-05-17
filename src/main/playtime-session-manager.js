@@ -1,125 +1,25 @@
 const fs = require('fs/promises');
-const fsSync = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
-const { assertPlaytimeHelperExists, resolvePlaytimeHelperPath } = require('./playtime-helper-paths');
 
-const SESSION_SCHEMA_VERSION = 1;
+const {
+    SESSION_SCHEMA_VERSION,
+    isActiveJournal,
+    readSessionJournal,
+    writeSessionJournal,
+    removeSessionJournal,
+    aggregateActiveGameState,
+    delay
+} = require('./playtime-session-manager/journal');
+
+const {
+    isPidAlive,
+    spawnHelper,
+    injectRunInBackgroundDll
+} = require('./playtime-session-manager/injector');
+
 const SESSION_REFRESH_INTERVAL_MS = 5000;
 const SESSION_ATTACH_RETRY_GRACE_MS = 15000;
-const SESSION_READ_RETRY_DELAY_MS = 40;
-const SESSION_READ_RETRY_COUNT = 3;
-const ACTIVE_SESSION_STATUSES = new Set(['launching', 'running', 'finalizing']);
-
-function isPidAlive(pid) {
-    if (!Number.isInteger(pid) || pid <= 0) {
-        return false;
-    }
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
-
-function toInteger(value, fallback = 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function normalizeSessionJournal(raw, filePath) {
-    const sessionId = String(raw?.sessionId || path.basename(filePath, path.extname(filePath))).trim();
-    const startedAt = toInteger(raw?.startedAt, Date.now());
-    const lastHeartbeatAt = toInteger(raw?.lastHeartbeatAt, startedAt);
-    return {
-        schemaVersion: toInteger(raw?.schemaVersion, SESSION_SCHEMA_VERSION),
-        sessionId,
-        gameKey: String(raw?.gameKey || '').trim(),
-        exePath: String(raw?.exePath || '').trim(),
-        cwd: String(raw?.cwd || '').trim(),
-        mode: raw?.mode === 'attach' ? 'attach' : 'launch',
-        helperPid: toInteger(raw?.helperPid, 0),
-        rootPid: toInteger(raw?.rootPid, 0),
-        startedAt,
-        lastHeartbeatAt,
-        accruedMs: Math.max(0, toInteger(raw?.accruedMs, 0)),
-        status: String(raw?.status || 'launching').trim() || 'launching',
-        endedAt: raw?.endedAt ? toInteger(raw.endedAt, 0) : 0,
-        failureReason: raw?.failureReason ? String(raw.failureReason) : '',
-        filePath
-    };
-}
-
-function isActiveJournal(journal) {
-    return ACTIVE_SESSION_STATUSES.has(journal.status);
-}
-
-function isTransientSessionReadError(error) {
-    if (!error) return false;
-    if (error.code === 'ENOENT') return true;
-    return error instanceof SyntaxError;
-}
-
-function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function readSessionJournal(filePath) {
-    let lastError = null;
-    for (let attempt = 0; attempt < SESSION_READ_RETRY_COUNT; attempt += 1) {
-        try {
-            const raw = JSON.parse(await fs.readFile(filePath, 'utf8'));
-            return normalizeSessionJournal(raw, filePath);
-        } catch (error) {
-            lastError = error;
-            if (!isTransientSessionReadError(error) || attempt === SESSION_READ_RETRY_COUNT - 1) {
-                throw error;
-            }
-            await delay(SESSION_READ_RETRY_DELAY_MS);
-        }
-    }
-    throw lastError;
-}
-
-async function writeSessionJournal(filePath, journal) {
-    const nextPayload = {
-        ...journal,
-        schemaVersion: SESSION_SCHEMA_VERSION
-    };
-    const tempPath = `${filePath}.tmp`;
-    await fs.writeFile(tempPath, `${JSON.stringify(nextPayload, null, 2)}\n`, 'utf8');
-    await fs.rename(tempPath, filePath);
-    return normalizeSessionJournal(nextPayload, filePath);
-}
-
-async function removeSessionJournal(filePath) {
-    try {
-        await fs.unlink(filePath);
-    } catch (error) {
-        if (error && error.code !== 'ENOENT') {
-            throw error;
-        }
-    }
-}
-
-function aggregateActiveGameState(journals) {
-    const stateByGameKey = new Map();
-    journals.filter(isActiveJournal).forEach((journal) => {
-        if (!journal.gameKey) return;
-        const current = stateByGameKey.get(journal.gameKey) || {
-            active: false,
-            accruedMs: 0,
-            sessionIds: []
-        };
-        current.active = true;
-        current.accruedMs += Math.max(0, journal.accruedMs || 0);
-        current.sessionIds.push(journal.sessionId);
-        stateByGameKey.set(journal.gameKey, current);
-    });
-    return stateByGameKey;
-}
 
 function createPlaytimeSessionManager({
     app,
@@ -167,30 +67,6 @@ function createPlaytimeSessionManager({
         return journals;
     }
 
-    function buildHelperArgs(mode, journalPath) {
-        return [
-            mode,
-            '--journal',
-            journalPath,
-            '--db',
-            dbFilePath,
-            '--log',
-            helperLogPath
-        ];
-    }
-
-    function spawnHelper(mode, journalPath) {
-        const helperPath = assertPlaytimeHelperExists(resolvePlaytimeHelperPath({ app }));
-        const args = buildHelperArgs(mode, journalPath);
-        log(`spawning helper mode=${mode} journal=${journalPath}`);
-        const child = spawn(helperPath, args, {
-            detached: true,
-            stdio: 'ignore'
-        });
-        child.unref();
-        return child.pid || 0;
-    }
-
     async function finalizeStaleJournal(journal, reason = 'stale-session-finalized') {
         const endedAt = journal.lastHeartbeatAt || journal.startedAt || Date.now();
         log(`finalizing stale session gameKey=${journal.gameKey} sessionId=${journal.sessionId} accruedMs=${journal.accruedMs} endedAt=${endedAt} reason=${reason}`);
@@ -232,7 +108,7 @@ function createPlaytimeSessionManager({
         if (!helperAlive && rootAlive) {
             if (shouldRetryAttach(journal.sessionId)) {
                 log(`helper missing for sessionId=${journal.sessionId}; spawning attach helper for rootPid=${journal.rootPid}`);
-                spawnHelper('attach', journal.filePath);
+                spawnHelper({ app, dbFilePath, helperLogPath, log }, 'attach', journal.filePath);
                 return { changed: true };
             }
             return { changed: false };
@@ -296,36 +172,6 @@ function createPlaytimeSessionManager({
         return journals;
     }
 
-    async function injectRunInBackgroundDll(journalPath) {
-        const { execFile } = require('child_process');
-        const injectorPath = path.join(app.getAppPath(), 'native/background-injector/build/injector.exe');
-        const payloadPath = path.join(app.getAppPath(), 'native/background-injector/build/payload.dll');
-        
-        for (let i = 0; i < 30; i++) {
-            await delay(500);
-            try {
-                const journal = await readSessionJournal(journalPath);
-                if (journal.rootPid && journal.rootPid > 0) {
-                    log(`Injecting background DLL into rootPid=${journal.rootPid}`);
-                    execFile(injectorPath, [journal.rootPid.toString(), payloadPath], (error, stdout, stderr) => {
-                        if (error) {
-                            console.error('[PLAYTIME][SESSIONS] DLL injection failed:', error, stderr);
-                        } else {
-                            log(`DLL injection successful: ${stdout}`);
-                        }
-                    });
-                    return;
-                }
-                if (journal.status === 'failed' || journal.status === 'completed') {
-                    return;
-                }
-            } catch (e) {
-                // Keep polling
-            }
-        }
-        log(`Timed out waiting for rootPid to inject background DLL`);
-    }
-
     async function initialize() {
         await refreshSessions({ recover: true, emit: false });
         if (!refreshTimer) {
@@ -362,7 +208,7 @@ function createPlaytimeSessionManager({
         await ensureSessionInfrastructure();
         await writeSessionJournal(journalPath, initialJournal);
         try {
-            const helperPid = spawnHelper('launch', journalPath);
+            const helperPid = spawnHelper({ app, dbFilePath, helperLogPath, log }, 'launch', journalPath);
             if (helperPid > 0) {
                 await writeSessionJournal(journalPath, {
                     ...initialJournal,
@@ -370,7 +216,7 @@ function createPlaytimeSessionManager({
                 });
                 
                 if (runInBackground) {
-                    injectRunInBackgroundDll(journalPath).catch(err => {
+                    injectRunInBackgroundDll({ app, log, readSessionJournal, delay }, journalPath).catch(err => {
                         console.error('[PLAYTIME][SESSIONS] Failed to inject background DLL:', err);
                     });
                 }

@@ -113,17 +113,6 @@ export function initSaveEditorUI() {
         let currentFileName = null;
         let activeTab = 'gold';
         let showEmpty = false;
-        let translationCache = {};
-        try {
-            translationCache = JSON.parse(localStorage.getItem('yumeshelf_translation_cache') || '{}') || {};
-        } catch (e) {
-            translationCache = {};
-        }
-        let isTranslating = false;
-
-        function saveTranslations() {
-            localStorage.setItem('yumeshelf_translation_cache', JSON.stringify(translationCache));
-        }
 
         // Initialize engine options from UI defaults
         engine.setSearchOptions({
@@ -173,7 +162,6 @@ export function initSaveEditorUI() {
         overlay.querySelector('.switch-true-check').onchange = (e) => {
             engine.setSearchOptions({ switchOnlyTrue: e.target.checked });
             if (e.target.checked) {
-                // Uncheck the other one
                 const other = overlay.querySelector('.switch-false-check');
                 if (other.checked) {
                     other.checked = false;
@@ -186,7 +174,6 @@ export function initSaveEditorUI() {
         overlay.querySelector('.switch-false-check').onchange = (e) => {
             engine.setSearchOptions({ switchOnlyFalse: e.target.checked });
             if (e.target.checked) {
-                // Uncheck the other one
                 const other = overlay.querySelector('.switch-true-check');
                 if (other.checked) {
                     other.checked = false;
@@ -202,40 +189,15 @@ export function initSaveEditorUI() {
 
         async function translateVisibleLabels() {
             console.log('[SAVE-EDITOR] Starting translation of visible labels...');
-            if (isTranslating || !currentSaveData) {
-                console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + isTranslating + ', hasData=' + !!currentSaveData);
+            if (translator.isTranslating || !currentSaveData) {
+                console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + translator.isTranslating + ', hasData=' + !!currentSaveData);
                 return;
             }
             
             const targetLang = (window.appConfig?.language || 'en').split('-')[0];
             const labels = Array.from(content.querySelectorAll('.data-label'));
             console.log(`[SAVE-EDITOR] Found ${labels.length} labels to check for translation.`);
-            
-            const textsToTranslate = [];
-            const labelMap = [];
 
-            labels.forEach(label => {
-                const originalName = label.getAttribute('title') || label.textContent;
-                if (!originalName || /^\d+$/.test(originalName) || originalName.length < 2) return;
-                
-                if (translationCache[originalName]) {
-                    label.textContent = translationCache[originalName];
-                    label.classList.add('is-translated');
-                } else {
-                    textsToTranslate.push(originalName);
-                    labelMap.push({ el: label, original: originalName });
-                }
-            });
-
-            const uniqueTexts = [...new Set(textsToTranslate)];
-            console.log(`[SAVE-EDITOR] ${uniqueTexts.length} unique labels require external translation.`);
-            
-            if (uniqueTexts.length === 0) {
-                console.log('[SAVE-EDITOR] No new labels to translate.');
-                return;
-            }
-
-            isTranslating = true;
             translateBtn.classList.add('loading');
             const originalBtnText = translateBtn.querySelector('span').textContent;
             translateBtn.querySelector('span').textContent = '...';
@@ -243,53 +205,12 @@ export function initSaveEditorUI() {
             progressBar.style.width = '0%';
 
             try {
-                const batchSize = 15; 
-                for (let i = 0; i < uniqueTexts.length; i += batchSize) {
-                    const chunk = uniqueTexts.slice(i, i + batchSize);
-                    const combined = chunk.join('\n');
-                    console.log(`[SAVE-EDITOR] Translating batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(uniqueTexts.length/batchSize)}...`);
-                    
-                    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(combined)}`;
-                    
-                    const response = await fetch(url);
-                    if (!response.ok) {
-                        console.error(`[SAVE-EDITOR] Translation API error: ${response.status} ${response.statusText}`);
-                        continue;
-                    }
-                    const result = await response.json();
-                    
-                    if (result && result[0]) {
-                        let translatedFull = "";
-                        result[0].forEach(part => {
-                            if (part[0]) translatedFull += part[0];
-                        });
-                        
-                        const translatedLines = translatedFull.split('\n');
-                        chunk.forEach((original, idx) => {
-                            if (translatedLines[idx]) {
-                                const translatedText = translatedLines[idx].trim();
-                                translationCache[original] = translatedText;
-                                console.log(`[SAVE-EDITOR] Translated: "${original}" -> "${translatedText}"`);
-                            }
-                        });
-                    }
-
-                    const progress = Math.round(((i + chunk.length) / uniqueTexts.length) * 100);
+                await translator.translateLabels(labels, targetLang, (progress) => {
                     progressBar.style.width = `${progress}%`;
-                }
-                saveTranslations();
-
-                labelMap.forEach(item => {
-                    if (translationCache[item.original]) {
-                        item.el.textContent = translationCache[item.original];
-                        item.el.classList.add('is-translated');
-                    }
                 });
-                console.log('[SAVE-EDITOR] Translation complete.');
             } catch (err) {
                 console.error('[SAVE-EDITOR] Translation failed:', err);
             } finally {
-                isTranslating = false;
                 translateBtn.classList.remove('loading');
                 translateBtn.querySelector('span').textContent = originalBtnText;
                 setTimeout(() => { progressBar.style.width = '0%'; }, 500);
@@ -379,17 +300,16 @@ export function initSaveEditorUI() {
         }
 
         function renderTabContent() {
-            // Buffer rendering to prevent flicker
             const grid = document.createElement('div');
             grid.className = 'save-grid';
             
-            const root = extractRoot(currentSaveData);
-            const party = root.party || root._party || getProp(root, 'party');
-            const variables = root.variables || root._variables || getProp(root, 'variables');
-            const switches = root.switches || root._switches || getProp(root, 'switches');
+            const root = engine.extractRoot(currentSaveData);
+            const party = root ? (root.party || root._party || engine.getProp(root, 'party')) : null;
+            const variables = root ? (root.variables || root._variables || engine.getProp(root, 'variables')) : null;
+            const switches = root ? (root.switches || root._switches || engine.getProp(root, 'switches')) : null;
 
-            if (activeTab === 'gold') {
-                const goldInfo = findGold(root, party);
+            if (activeTab === 'gold' && root) {
+                const goldInfo = engine.findGold(root, party);
                 if (goldInfo) {
                     const row = UIComponents.createDataRow('GOLD', goldInfo.val, d.save_editor_gold || 'Gold', (val) => {
                         goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
@@ -398,7 +318,7 @@ export function initSaveEditorUI() {
                     row.style.maxWidth = '300px';
                     grid.appendChild(row);
                 }
-            } else if (['items', 'weapons', 'armors'].includes(activeTab)) {
+            } else if (['items', 'weapons', 'armors'].includes(activeTab) && root) {
                 renderInventory(party || root, activeTab, currentMetadata[activeTab], grid);
             } else if (activeTab === 'variables' && variables) {
                 renderBitset(variables, currentMetadata.variables, grid, (id, val, newVal) => {
@@ -420,44 +340,19 @@ export function initSaveEditorUI() {
                 // Apply UI-level translations
                 translator.applyTranslations(content);
                 // Apply cached translations for labels
-                applyCachedLabels(content);
+                translator.applyCachedLabels(content);
             }
-        }
-
-        // --- Helpers ---
-
-        function extractRoot(save) {
-            if (save.contents && typeof save.contents === 'object') return save.contents;
-            if (save.data && typeof save.data === 'object' && !save.data['@a']) return save.data;
-            return save;
-        }
-
-        function getProp(obj, prop) {
-            const p = prop.toLowerCase();
-            const keys = Object.keys(obj);
-            const match = keys.find(k => k === p || k === '_' + p || k.toLowerCase() === p || k.toLowerCase() === '_' + p);
-            return match ? obj[match] : null;
-        }
-
-        function findGold(root, party) {
-            const targets = [party, root, root.system, root._system];
-            for (const t of targets) {
-                if (!t) continue;
-                if (t._gold !== undefined) return { obj: t, key: '_gold', val: t._gold };
-                if (t.gold !== undefined) return { obj: t, key: 'gold', val: t.gold };
-            }
-            return null;
         }
 
         function renderInventory(target, key, metaSource, grid) {
             const actualKey = target['_' + key] !== undefined ? '_' + key : key;
-            const items = extractData(target[actualKey]);
+            const items = engine.extractData(target[actualKey]);
             if (!items || typeof items !== 'object') return;
 
             Object.entries(items).forEach(([id, val]) => {
                 if (id.startsWith('@') || id === '@c') return;
                 const meta = metaSource[id] || { name: `${key.slice(0,-1)} #${id}` };
-                const translated = translationCache[meta.name];
+                const translated = translator.translationCache[meta.name];
                 
                 if (!engine.matchesQuery(id, val, meta.name) && !engine.matchesQuery(id, val, translated)) return;
 
@@ -468,16 +363,16 @@ export function initSaveEditorUI() {
         }
 
         function renderBitset(data, metaSource, grid, onUpdate, isNumeric) {
-            const raw = extractData(data);
+            const raw = engine.extractData(data);
             const process = (id, val) => {
                 if (id == 0 || id === '0' || id === '@c') return;
                 const name = metaSource[id] || `ID #${id}`;
-                const translated = translationCache[name];
+                const translated = translator.translationCache[name];
                 
                 const isNamed = metaSource[id] && metaSource[id].trim() !== '';
                 const isEmpty = isNumeric ? (val === 0 || val === "" || val === null) : !val;
 
-                // Important variables for specific games (like Fallen Priestess)
+                // Important variables for specific games
                 const isImportant = activeTab === 'variables' && [12, 15, 16, 17, 18, 19, 20, 21, 25, 26, 61, 62, 63, 64, 65, 66].includes(Number(id));
 
                 if (!showEmpty && !isImportant && !isNamed && isEmpty) return;
@@ -486,7 +381,6 @@ export function initSaveEditorUI() {
                 if (isNumeric) {
                     grid.appendChild(UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv)));
                 } else {
-                    // For switches, we use a simple checkbox wrapper
                     const row = document.createElement('div');
                     row.className = 'data-row checkbox-row';
                     row.innerHTML = `
@@ -501,25 +395,6 @@ export function initSaveEditorUI() {
 
             if (Array.isArray(raw)) raw.forEach((val, id) => process(id, val));
             else if (typeof raw === 'object') Object.entries(raw).forEach(([id, val]) => process(id, val));
-        }
-
-        function extractData(obj) {
-            if (!obj) return null;
-            if (obj._data !== undefined) return extractData(obj._data);
-            if (obj.data !== undefined) return extractData(obj.data);
-            if (obj['@a'] !== undefined) return obj['@a'];
-            return obj;
-        }
-
-        function applyCachedLabels(container) {
-            const labels = container.querySelectorAll('.data-label');
-            labels.forEach(label => {
-                const fullText = label.getAttribute('title') || label.textContent;
-                if (translationCache[fullText]) {
-                    label.textContent = translationCache[fullText];
-                    label.classList.add('is-translated');
-                }
-            });
         }
 
         saveBtn.onclick = async () => {

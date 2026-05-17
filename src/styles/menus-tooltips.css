@@ -9,7 +9,7 @@
     padding: 5px 0;
     box-shadow: var(--menu-shadow);
     display: none;
-    z-index: 100;
+    z-index: 2000;
     min-width: 170px;
     text-align: left;
 }

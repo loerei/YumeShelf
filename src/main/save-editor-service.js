@@ -1,10 +1,12 @@
 const fs = require('fs/promises');
 const path = require('path');
+const SaveMappingManager = require('./save-editor/mapping-manager');
 
 // Registered save file formats
 const formats = [
     require('./save-editor/formats/rpg-maker-mz'),
     require('./save-editor/formats/rpg-maker-mv'),
+    require('./save-editor/formats/rpg-wolf-sav'),
     require('./save-editor/formats/unity-mono-bin')
 ];
 
@@ -101,7 +103,13 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             const format = getFormat(fileName);
             const jsonData = await format.decode(rawData, paths, fileName);
             
-            const metadata = await loadMetadata(paths.dataDir, paths.langDataDir);
+            // Inject user mappings
+            const mappingMgr = new SaveMappingManager(gameKey);
+            jsonData._userMappings = mappingMgr.mappings.variables;
+            
+            const metadata = typeof format.metadata === 'function'
+                ? await format.metadata(jsonData, paths, fileName)
+                : await loadMetadata(paths.dataDir, paths.langDataDir);
             
             return {
                 data: jsonData,
@@ -111,6 +119,12 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             console.error(`[SAVE-EDITOR] Error loading save data:`, err);
             throw err;
         }
+    }
+
+    async function updateMapping(gameKey, name, offset, dataType) {
+        const mappingMgr = new SaveMappingManager(gameKey);
+        mappingMgr.addMapping(name, offset, dataType);
+        return { ok: true };
     }
 
     async function loadMetadata(dataDir, langDataDir) {
@@ -195,7 +209,8 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
     return {
         listSaveFiles,
         loadSaveData,
-        writeSaveData
+        writeSaveData,
+        updateMapping
     };
 }
 

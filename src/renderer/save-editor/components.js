@@ -7,7 +7,7 @@ export const UIComponents = {
     /**
      * Creates a data row for variables/switches/items
      */
-    createDataRow(id, value, label, onUpdate) {
+    createDataRow(id, value, label, onUpdate, originalValue = undefined) {
         const row = document.createElement('div');
         row.className = 'data-row';
         
@@ -19,10 +19,44 @@ export const UIComponents = {
         labelSpan.className = 'data-label';
         labelSpan.textContent = label || '';
         
+        const valueWrapper = document.createElement('div');
+        valueWrapper.className = 'data-value-wrapper';
+        valueWrapper.style.display = 'flex';
+        valueWrapper.style.alignItems = 'center';
+        valueWrapper.style.gap = '8px';
+        
         const valueInput = document.createElement('input');
         valueInput.type = typeof value === 'number' ? 'number' : 'text';
         valueInput.value = value;
         valueInput.className = 'data-value';
+        
+        valueWrapper.appendChild(valueInput);
+
+        // Delta indicator
+        if (originalValue !== undefined && originalValue !== value) {
+            const deltaSpan = document.createElement('span');
+            deltaSpan.className = 'data-delta';
+            deltaSpan.style.fontSize = '0.85em';
+            deltaSpan.style.fontWeight = 'bold';
+            
+            if (typeof value === 'number' && typeof originalValue === 'number') {
+                const diff = value - originalValue;
+                if (diff > 0) {
+                    deltaSpan.textContent = `+${diff}`;
+                    deltaSpan.style.color = '#4ade80'; // green
+                } else if (diff < 0) {
+                    deltaSpan.textContent = `${diff}`;
+                    deltaSpan.style.color = '#f87171'; // red
+                }
+            } else if (typeof value === 'boolean') {
+                deltaSpan.textContent = `(was: ${originalValue})`;
+                deltaSpan.style.color = '#fbbf24'; // yellow
+            } else {
+                deltaSpan.textContent = '(changed)';
+                deltaSpan.style.color = '#fbbf24'; // yellow
+            }
+            valueWrapper.appendChild(deltaSpan);
+        }
         
         valueInput.onchange = (e) => {
             let newVal = e.target.value;
@@ -33,7 +67,7 @@ export const UIComponents = {
         
         row.appendChild(idSpan);
         row.appendChild(labelSpan);
-        row.appendChild(valueInput);
+        row.appendChild(valueWrapper);
         
         return row;
     },

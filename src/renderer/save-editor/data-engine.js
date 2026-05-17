@@ -1,5 +1,6 @@
 import { RpgMakerEngine } from './engines/rpg-maker.js';
 import { UnityMonoEngine } from './engines/unity-mono.js';
+import { RpgWolfSavEngine } from './engines/rpg-wolf-sav.js';
 
 /**
  * Save Editor Data Engine Orchestrator
@@ -19,6 +20,7 @@ export class DataEngine {
 
         // Registered engine strategies
         this.engines = [
+            new RpgWolfSavEngine(),
             new RpgMakerEngine(),
             new UnityMonoEngine()
         ];

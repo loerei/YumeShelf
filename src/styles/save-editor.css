@@ -156,7 +156,7 @@
     margin: 0 4px;
 }
 
-.translate-btn {
+.translate-btn, .refresh-save-btn {
     position: relative;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.03);
@@ -202,13 +202,13 @@
     cursor: pointer;
 }
 
-.translate-btn:hover {
+.translate-btn:hover, .refresh-save-btn:hover {
     background: rgba(255, 255, 255, 0.06);
     color: #eee;
     border-color: rgba(255, 255, 255, 0.15);
 }
 
-.translate-btn svg {
+.translate-btn svg, .refresh-save-btn svg {
     opacity: 0.6;
 }
 

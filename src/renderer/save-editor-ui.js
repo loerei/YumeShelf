@@ -28,6 +28,12 @@ export function initSaveEditorUI() {
                                     <div class="save-editor-search-wrapper">
                                         <input type="text" class="save-editor-search" data-i18n-placeholder="save_editor_search_placeholder" placeholder="${d.save_editor_search_placeholder || 'Search...'}">
                                     </div>
+                                    <button class="refresh-save-btn" title="Reload from disk">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                            <path d="M23 4v6h-6M1 20v-6h6"/>
+                                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                        </svg>
+                                    </button>
                                     <button class="translate-btn" title="Translate to app language">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                                             <path d="M5 8l6 6"/>
@@ -93,6 +99,7 @@ export function initSaveEditorUI() {
                     </div>
                 </div>
                 <div class="save-editor-footer">
+                    <button class="secondary-btn map-variable-btn" style="display: none;" data-i18n="save_editor_map">Map Variable</button>
                     <button class="secondary-btn cancel-btn" data-i18n="save_editor_cancel">${d.save_editor_cancel || 'Cancel'}</button>
                     <button class="primary-btn save-btn" style="display: none;" data-i18n="save_editor_save">${d.save_editor_save || 'Save Changes'}</button>
                 </div>
@@ -115,6 +122,7 @@ export function initSaveEditorUI() {
         let currentSaveData = null;
         let currentMetadata = null;
         let currentFileName = null;
+        let originalSnapshot = null;
         let activeTab = 'gold';
         let showEmpty = false;
         let showImportant = true;
@@ -243,6 +251,16 @@ export function initSaveEditorUI() {
             });
         }
 
+        const refreshBtn = overlay.querySelector('.refresh-save-btn');
+        if (refreshBtn) {
+            refreshBtn.onclick = () => {
+                if (currentFileName) {
+                    const activeItem = overlay.querySelector('.save-file-item.active');
+                    if (activeItem) loadSave(currentFileName, activeItem);
+                }
+            };
+        }
+
         // Load file list
         try {
             const files = await window.electronAPI.listSaveFiles(gameKey);
@@ -274,6 +292,7 @@ export function initSaveEditorUI() {
             try {
                 const { data, metadata } = await window.electronAPI.loadSaveData({ gameKey, fileName });
                 currentSaveData = data;
+                originalSnapshot = JSON.parse(JSON.stringify(data));
                 currentMetadata = metadata;
                 currentFileName = fileName;
                 
@@ -305,10 +324,14 @@ export function initSaveEditorUI() {
                 el.setAttribute('data-i18n', tab.i18n);
                 el.onclick = () => {
                     activeTab = tab.id;
-                    overlay.querySelectorAll('.save-tab').forEach(t => t.classList.remove('active'));
-                    el.classList.add('active');
-                    
-                    // Show/hide switch-only filters
+                overlay.querySelectorAll('.save-tab').forEach(t => t.classList.remove('active'));
+                el.classList.add('active');
+                
+                // Logic to show Map button if we are in an engine that supports mapping
+                const mapBtn = overlay.querySelector('.map-variable-btn');
+                if (mapBtn) mapBtn.style.display = (tab.id === 'variables') ? 'block' : 'none';
+                
+                // Show/hide switch-only filters
                     const switchFilters = overlay.querySelectorAll('.switch-filters-only');
                     switchFilters.forEach(f => f.style.display = (tab.id === 'switches') ? 'flex' : 'none');
                     if (tab.id !== 'switches') {
@@ -334,27 +357,35 @@ export function initSaveEditorUI() {
             const variables = root ? (root.variables || root._variables || engine.getProp(root, 'variables')) : null;
             const switches = root ? (root.switches || root._switches || engine.getProp(root, 'switches')) : null;
 
+            const originalRoot = originalSnapshot ? engine.extractRoot(originalSnapshot) : null;
+            const originalParty = originalRoot ? (originalRoot.party || originalRoot._party || engine.getProp(originalRoot, 'party')) : null;
+            const originalVariables = originalRoot ? (originalRoot.variables || originalRoot._variables || engine.getProp(originalRoot, 'variables')) : null;
+            const originalSwitches = originalRoot ? (originalRoot.switches || originalRoot._switches || engine.getProp(originalRoot, 'switches')) : null;
+
             if (activeTab === 'gold' && root) {
                 const goldInfo = engine.findGold(root, party);
+                const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
+                const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
+                
                 if (goldInfo) {
                     const row = UIComponents.createDataRow('GOLD', goldInfo.val, d.save_editor_gold || 'Gold', (val) => {
                         goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
-                    });
+                    }, originalGoldVal);
                     row.style.gridColumn = '1 / -1';
                     row.style.maxWidth = '300px';
                     grid.appendChild(row);
                 }
             } else if (['items', 'weapons', 'armors'].includes(activeTab) && root) {
-                renderInventory(party || root, activeTab, currentMetadata[activeTab], grid);
+                renderInventory(party || root, activeTab, currentMetadata[activeTab], grid, originalParty || originalRoot);
             } else if (activeTab === 'variables' && variables) {
                 renderBitset(variables, currentMetadata.variables, grid, (id, val, newVal) => {
                     const num = Number(newVal);
                     variables[id] = isNaN(num) ? newVal : num;
-                }, true);
+                }, true, originalVariables);
             } else if (activeTab === 'switches' && switches) {
                 renderBitset(switches, currentMetadata.switches, grid, (id, val, newVal) => {
                     switches[id] = newVal;
-                }, false);
+                }, false, originalSwitches);
             }
 
             content.innerHTML = '';
@@ -370,9 +401,11 @@ export function initSaveEditorUI() {
             }
         }
 
-        function renderInventory(target, key, metaSource, grid) {
+        function renderInventory(target, key, metaSource, grid, originalTarget) {
             const actualKey = target['_' + key] !== undefined ? '_' + key : key;
             const items = engine.extractData(target[actualKey]);
+            const originalItems = originalTarget ? engine.extractData(originalTarget[actualKey]) : null;
+            
             if (!items || typeof items !== 'object') return;
 
             // Collect all potential item IDs
@@ -400,6 +433,7 @@ export function initSaveEditorUI() {
 
             sortedIds.forEach(id => {
                 const val = items[id] !== undefined ? items[id] : 0;
+                const originalVal = originalItems && originalItems[id] !== undefined ? originalItems[id] : undefined;
                 
                 // If showEmpty is unchecked, hide items with quantity <= 0
                 if (!showEmpty && val <= 0) return;
@@ -416,14 +450,16 @@ export function initSaveEditorUI() {
                     } else {
                         items[id] = parsedVal;
                     }
-                });
+                }, originalVal);
                 attachSaveEditorTooltip(row, () => ({ title: meta.name }));
                 grid.appendChild(row);
             });
         }
 
-        function renderBitset(data, metaSource, grid, onUpdate, isNumeric) {
+        function renderBitset(data, metaSource, grid, onUpdate, isNumeric, originalData) {
             const raw = engine.extractData(data);
+            const originalRaw = originalData ? engine.extractData(originalData) : null;
+            
             const process = (id, val) => {
                 if (id == 0 || id === '0' || id === '@c') return;
                 const name = metaSource[id] || `ID #${id}`;
@@ -450,16 +486,25 @@ export function initSaveEditorUI() {
 
                 if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;
 
+                const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
+
                 if (isNumeric) {
-                    const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv));
+                    const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv), originalVal);
                     attachSaveEditorTooltip(row, () => ({ title: name }));
                     grid.appendChild(row);
                 } else {
                     const row = document.createElement('div');
                     row.className = 'data-row checkbox-row';
+                    
+                    let deltaHTML = '';
+                    if (originalVal !== undefined && originalVal !== val) {
+                        deltaHTML = `<span class="data-delta" style="font-size:0.85em; font-weight:bold; color:#fbbf24; margin-left:auto;">(was: ${originalVal})</span>`;
+                    }
+                    
                     row.innerHTML = `
                         <span class="data-id">#${id}</span>
                         <label class="data-label" title="${name}">${name}</label>
+                        ${deltaHTML}
                         <input type="checkbox" ${val ? 'checked' : ''}>
                     `;
                     row.querySelector('input').onchange = (e) => onUpdate(id, val, e.target.checked);
@@ -482,6 +527,11 @@ export function initSaveEditorUI() {
                     fileName: currentFileName,
                     data: currentSaveData
                 });
+                
+                // Update snapshot to reflect newly saved state
+                originalSnapshot = JSON.parse(JSON.stringify(currentSaveData));
+                renderTabContent(); // Re-render to clear deltas
+                
                 saveBtn.textContent = 'Saved!';
                 setTimeout(() => { saveBtn.textContent = originalText; }, 2000);
             } catch (err) {

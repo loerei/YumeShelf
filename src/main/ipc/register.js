@@ -118,6 +118,10 @@ function registerMainIpc({
         console.log(`[IPC] save-editor:write-data gameKey: ${gameKey}, fileName: ${fileName}`);
         return saveEditorService.writeSaveData(gameKey, fileName, data);
     });
+    ipcMain.handle('save-editor:update-mapping', async (_event, { gameKey, name, offset, dataType }) => {
+        console.log(`[IPC] save-editor:update-mapping gameKey: ${gameKey}`);
+        return saveEditorService.updateMapping(gameKey, name, offset, dataType);
+    });
 }
 
 module.exports = {

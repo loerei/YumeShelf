@@ -24,3 +24,6 @@ Thumbs.db
 
 tests/refs/
 scratch/
+scripts/test-*.js
+scripts/wolf-*.js
+scripts/save-converter/

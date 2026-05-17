@@ -1,8 +1,9 @@
-/**
- * Save Editor Data Engine
- * Handles searching, filtering, and RPG Maker save data manipulation logic.
- */
+import { RpgMakerEngine } from './engines/rpg-maker.js';
 
+/**
+ * Save Editor Data Engine Orchestrator
+ * Detects the appropriate engine strategy and coordinates search, filter, and save data operations.
+ */
 export class DataEngine {
     constructor() {
         this.searchOptions = {
@@ -14,6 +15,14 @@ export class DataEngine {
             switchOnlyTrue: false,
             switchOnlyFalse: false
         };
+
+        // Registered engine strategies
+        this.engines = [
+            new RpgMakerEngine()
+        ];
+
+        // Fallback default strategy
+        this.activeEngine = this.engines[0];
     }
 
     setSearchOptions(options) {
@@ -67,47 +76,36 @@ export class DataEngine {
     }
 
     /**
-     * Extracts the root object from various RPG Maker save formats
+     * Auto-detects the engine strategy based on save data characteristics and extracts the root object
      */
     extractRoot(save) {
-        if (!save) return null;
-        if (save.contents && typeof save.contents === 'object') return save.contents;
-        if (save.data && typeof save.data === 'object' && !save.data['@a']) return save.data;
-        return save;
+        if (save) {
+            const matched = this.engines.find(e => e.detect(save));
+            if (matched) {
+                this.activeEngine = matched;
+            }
+        }
+        return this.activeEngine.extractRoot(save);
     }
 
     /**
-     * Safely retrieves property, case and underscore insensitively
+     * Safely retrieves property case- and underscore-insensitively from the active engine
      */
     getProp(obj, prop) {
-        if (!obj) return null;
-        const p = prop.toLowerCase();
-        const keys = Object.keys(obj);
-        const match = keys.find(k => k === p || k === '_' + p || k.toLowerCase() === p || k.toLowerCase() === '_' + p);
-        return match ? obj[match] : null;
+        return this.activeEngine.getProp(obj, prop);
     }
 
     /**
-     * Resolves the location of gold inside the RPG Maker save root
+     * Resolves the location of gold inside the save root from the active engine
      */
     findGold(root, party) {
-        const targets = [party, root, root?.system, root?._system];
-        for (const t of targets) {
-            if (!t) continue;
-            if (t._gold !== undefined) return { obj: t, key: '_gold', val: t._gold };
-            if (t.gold !== undefined) return { obj: t, key: 'gold', val: t.gold };
-        }
-        return null;
+        return this.activeEngine.findGold(root, party);
     }
 
     /**
-     * Unwraps RPG Maker data arrays/objects
+     * Unwraps engine-specific data arrays/objects from the active engine
      */
     extractData(obj) {
-        if (!obj) return null;
-        if (obj._data !== undefined) return this.extractData(obj._data);
-        if (obj.data !== undefined) return this.extractData(obj.data);
-        if (obj['@a'] !== undefined) return obj['@a'];
-        return obj;
+        return this.activeEngine.extractData(obj);
     }
 }

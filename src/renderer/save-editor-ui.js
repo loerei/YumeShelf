@@ -376,11 +376,11 @@ export function initSaveEditorUI() {
                 // Important variables for specific games
                 const isImportant = activeTab === 'variables' && [12, 15, 16, 17, 18, 19, 20, 21, 25, 26, 61, 62, 63, 64, 65, 66].includes(Number(id));
 
-                if (!showEmpty && !isImportant) {
+                if (!showEmpty) {
                     // Always hide truly uninitialized/blank values if showEmpty is false
                     if (isUninitialized) return;
-                    // For zero/false values, hide them if they are not named in System.json
-                    if (isZeroOrFalse && !isNamed) return;
+                    // For zero/false values, hide them if they are not named and not important
+                    if (isZeroOrFalse && !isNamed && !isImportant) return;
                 }
 
                 if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;

@@ -244,8 +244,16 @@ class RpgWolfSavFormat {
         // Re-encrypt the payload
         const reEncryptedPayload = this._crypt(decrypted, seeds);
         
+        // Construct a safe, mutable copy of the header and update the checksum (payload sum LSB)
+        const headerCopy = Buffer.from(header);
+        let sum = 0;
+        for (let i = 0; i < decrypted.length; i++) {
+            sum = (sum + decrypted[i]) & 0xFF;
+        }
+        headerCopy[2] = sum;
+        
         // Construct final file
-        return Buffer.concat([header, reEncryptedPayload]);
+        return Buffer.concat([headerCopy, reEncryptedPayload]);
     }
 
     async metadata(jsonData, paths, fileName) {

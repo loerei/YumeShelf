@@ -1,6 +1,26 @@
 const fs = require('fs/promises');
 const path = require('path');
+const zlib = require('zlib');
 const LZString = require('./core/lz-string');
+
+function decodeRmmzSave(rawData) {
+    const rawBytes = Buffer.alloc(rawData.length);
+    for (let i = 0; i < rawData.length; i++) {
+        rawBytes[i] = rawData.charCodeAt(i);
+    }
+    const decompressedBuffer = zlib.inflateSync(rawBytes);
+    return JSON.parse(decompressedBuffer.toString('utf8'));
+}
+
+function encodeRmmzSave(jsonData) {
+    const jsonStr = JSON.stringify(jsonData);
+    const compressedBuffer = zlib.deflateSync(Buffer.from(jsonStr, 'utf8'), { level: 1 });
+    let compressedStr = '';
+    for (let i = 0; i < compressedBuffer.length; i++) {
+        compressedStr += String.fromCharCode(compressedBuffer[i]);
+    }
+    return compressedStr;
+}
 
 function createSaveEditorService({ libraryState, saveFolderResolver }) {
     
@@ -63,7 +83,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
 
             const files = await fs.readdir(paths.saveDir);
             const saveFiles = files
-                .filter(f => f.endsWith('.rpgsave'))
+                .filter(f => f.endsWith('.rpgsave') || f.endsWith('.rmmzsave'))
                 .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
             
             return saveFiles;
@@ -82,11 +102,15 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             const rawData = await fs.readFile(savePath, 'utf8');
             
             let jsonData;
-            try {
-                const decompressed = LZString.decompressFromBase64(rawData);
-                jsonData = JSON.parse(decompressed);
-            } catch (err) {
-                jsonData = JSON.parse(rawData);
+            if (fileName.endsWith('.rmmzsave')) {
+                jsonData = decodeRmmzSave(rawData);
+            } else {
+                try {
+                    const decompressed = LZString.decompressFromBase64(rawData);
+                    jsonData = JSON.parse(decompressed);
+                } catch (err) {
+                    jsonData = JSON.parse(rawData);
+                }
             }
             
             const metadata = await loadMetadata(paths.dataDir, paths.langDataDir);
@@ -164,13 +188,19 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             if (!paths) throw new Error('Could not resolve game paths');
             
             const savePath = path.join(paths.saveDir, fileName);
-            const compressed = LZString.compressToBase64(JSON.stringify(jsonData));
+            
+            let outputData;
+            if (fileName.endsWith('.rmmzsave')) {
+                outputData = encodeRmmzSave(jsonData);
+            } else {
+                outputData = LZString.compressToBase64(JSON.stringify(jsonData));
+            }
             
             try {
                 await fs.copyFile(savePath, savePath + '.bak');
             } catch {}
             
-            await fs.writeFile(savePath, compressed, 'utf8');
+            await fs.writeFile(savePath, outputData, 'utf8');
             return { ok: true };
         } catch (err) {
             console.error(`[SAVE-EDITOR] Error writing save data:`, err);

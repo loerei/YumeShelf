@@ -251,35 +251,73 @@ export function initSaveEditorUI() {
             });
         }
 
+        async function reloadFileList(selectFile = currentFileName) {
+            try {
+                const files = await window.electronAPI.listSaveFiles(gameKey);
+                sidebar.innerHTML = '';
+                if (files.length === 0) {
+                    sidebar.innerHTML = `<div class="save-editor-empty" data-i18n="save_editor_no_saves">${d.save_editor_no_saves || 'No saves found'}</div>`;
+                    currentSaveData = null;
+                    originalSnapshot = null;
+                    currentFileName = null;
+                    tabsWrapper.style.display = 'none';
+                    saveBtn.style.display = 'none';
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                <polyline points="17 21 17 13 7 13 7 21"/>
+                                <polyline points="7 3 7 8 15 8"/>
+                            </svg>
+                            <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
+                        </div>
+                    `;
+                } else {
+                    let activeItem = null;
+                    files.forEach(file => {
+                        const item = document.createElement('div');
+                        item.className = 'save-file-item';
+                        item.textContent = file;
+                        item.title = file;
+                        item.onclick = () => loadSave(file, item);
+                        sidebar.appendChild(item);
+                        if (file === selectFile) {
+                            activeItem = item;
+                        }
+                    });
+                    
+                    if (activeItem) {
+                        await loadSave(selectFile, activeItem);
+                    } else if (selectFile) {
+                        currentSaveData = null;
+                        originalSnapshot = null;
+                        currentFileName = null;
+                        tabsWrapper.style.display = 'none';
+                        saveBtn.style.display = 'none';
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                    <polyline points="17 21 17 13 7 13 7 21"/>
+                                    <polyline points="7 3 7 8 15 8"/>
+                                </svg>
+                                <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (err) {
+                sidebar.innerHTML = `<div class="error">Failed to list saves</div>`;
+            }
+        }
+
         const refreshBtn = overlay.querySelector('.refresh-save-btn');
         if (refreshBtn) {
-            refreshBtn.onclick = () => {
-                if (currentFileName) {
-                    const activeItem = overlay.querySelector('.save-file-item.active');
-                    if (activeItem) loadSave(currentFileName, activeItem);
-                }
-            };
+            refreshBtn.onclick = () => reloadFileList(currentFileName);
         }
 
         // Load file list
-        try {
-            const files = await window.electronAPI.listSaveFiles(gameKey);
-            sidebar.innerHTML = '';
-            if (files.length === 0) {
-                sidebar.innerHTML = `<div class="save-editor-empty" data-i18n="save_editor_no_saves">${d.save_editor_no_saves || 'No saves found'}</div>`;
-            } else {
-                files.forEach(file => {
-                    const item = document.createElement('div');
-                    item.className = 'save-file-item';
-                    item.textContent = file;
-                    item.title = file;
-                    item.onclick = () => loadSave(file, item);
-                    sidebar.appendChild(item);
-                });
-            }
-        } catch (err) {
-            sidebar.innerHTML = `<div class="error">Failed to list saves</div>`;
-        }
+        reloadFileList(null);
 
         async function loadSave(fileName, element) {
             content.innerHTML = `<div class="loading" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading save data...'}</div>`;

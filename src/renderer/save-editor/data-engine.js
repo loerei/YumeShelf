@@ -48,6 +48,44 @@ export class DataEngine {
 
         if (!query) return true;
         
+        // Relational numeric search support: e.g. ">170", ">=170", "<50", "=10", "!=0"
+        const relMatch = query.trim().match(/^(>=|<=|>|<|==|=|!=)\s*(-?\d+(\.\d+)?)$/);
+        if (relMatch) {
+            const op = relMatch[1];
+            const target = parseFloat(relMatch[2]);
+            
+            const compare = (val, op, targetVal) => {
+                switch (op) {
+                    case '>': return val > targetVal;
+                    case '>=': return val >= targetVal;
+                    case '<': return val < targetVal;
+                    case '<=': return val <= targetVal;
+                    case '=':
+                    case '==': return val === targetVal;
+                    case '!=': return val !== targetVal;
+                    default: return false;
+                }
+            };
+
+            // Evaluate on index
+            if (searchIndex && id !== null && id !== undefined) {
+                const numericId = Number(id);
+                if (!isNaN(numericId) && compare(numericId, op, target)) {
+                    return true;
+                }
+            }
+
+            // Evaluate on value
+            if (searchValue && value !== null && value !== undefined) {
+                const numericVal = Number(value);
+                if (!isNaN(numericVal) && compare(numericVal, op, target)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         const q = query.toLowerCase();
         
         // Search by Index (ID)

@@ -43,6 +43,10 @@ export function initSaveEditorUI() {
                                         <input type="checkbox" class="show-empty-check">
                                         <span data-i18n="save_editor_show_empty">${d.save_editor_show_empty || 'Show empty'}</span>
                                     </label>
+                                    <label class="save-editor-filter-check" title="Always show important variables, even if they have zero or no value">
+                                        <input type="checkbox" class="show-important-check" checked>
+                                        <span data-i18n="save_editor_show_important">${d.save_editor_show_important || 'Show important'}</span>
+                                    </label>
                                     <label class="save-editor-filter-check" title="Only show entries where the value matches your search exactly">
                                         <input type="checkbox" class="exact-match-check">
                                         <span data-i18n="save_editor_exact">${d.save_editor_exact || 'Exact'}</span>
@@ -113,6 +117,7 @@ export function initSaveEditorUI() {
         let currentFileName = null;
         let activeTab = 'gold';
         let showEmpty = false;
+        let showImportant = true;
 
         // Initialize engine options from UI defaults
         engine.setSearchOptions({
@@ -136,6 +141,11 @@ export function initSaveEditorUI() {
         // Filter Toggles
         overlay.querySelector('.show-empty-check').onchange = (e) => {
             showEmpty = e.target.checked;
+            renderTabContent();
+        };
+
+        overlay.querySelector('.show-important-check').onchange = (e) => {
+            showImportant = e.target.checked;
             renderTabContent();
         };
 
@@ -377,10 +387,15 @@ export function initSaveEditorUI() {
                 const isImportant = activeTab === 'variables' && [12, 15, 16, 17, 18, 19, 20, 21, 25, 26, 61, 62, 63, 64, 65, 66].includes(Number(id));
 
                 if (!showEmpty) {
-                    // Always hide truly uninitialized/blank values if showEmpty is false
-                    if (isUninitialized) return;
-                    // For zero/false values, hide them if they are not named and not important
-                    if (isZeroOrFalse && !isNamed && !isImportant) return;
+                    // Always hide truly uninitialized/blank values if showEmpty is false,
+                    // UNLESS showImportant is enabled and the variable is marked important.
+                    if (isUninitialized) {
+                        if (!showImportant || !isImportant) return;
+                    }
+                    // For zero/false values, hide them if they are not named.
+                    // If showImportant is enabled, we keep important zero/false values visible.
+                    const treatAsImportant = showImportant && isImportant;
+                    if (isZeroOrFalse && !isNamed && !treatAsImportant) return;
                 }
 
                 if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;

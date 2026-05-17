@@ -1,8 +1,10 @@
 export function bindDropdownToggle(card) {
     const menuButton = card.querySelector('.menu-btn');
     if (!menuButton) return;
-    menuButton.onclick = (event) => {
+
+    const toggleMenu = (event) => {
         event.stopPropagation();
+        event.preventDefault(); // Prevent native browser context menu
         document.querySelectorAll('.dropdown-menu').forEach((menu) => {
             if (menu !== card.querySelector('.dropdown-menu')) {
                 menu.classList.remove('show');
@@ -10,6 +12,9 @@ export function bindDropdownToggle(card) {
         });
         card.querySelector('.dropdown-menu').classList.toggle('show');
     };
+
+    menuButton.onclick = toggleMenu;
+    card.oncontextmenu = toggleMenu;
 }
 
 export function bindRenameAction({

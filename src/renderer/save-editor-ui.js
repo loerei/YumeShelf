@@ -359,15 +359,47 @@ export function initSaveEditorUI() {
             const items = engine.extractData(target[actualKey]);
             if (!items || typeof items !== 'object') return;
 
-            Object.entries(items).forEach(([id, val]) => {
+            // Collect all potential item IDs
+            const allIds = new Set();
+            
+            // Add items currently in save
+            Object.keys(items).forEach(id => {
                 if (id.startsWith('@') || id === '@c') return;
+                allIds.add(id);
+            });
+
+            // Add items from metadata database if showEmpty is checked
+            if (showEmpty) {
+                Object.keys(metaSource).forEach(id => {
+                    if (id == 0 || id === '0') return;
+                    const meta = metaSource[id];
+                    if (meta && meta.name && meta.name.trim() !== '') {
+                        allIds.add(id);
+                    }
+                });
+            }
+
+            // Sort IDs numerically for a neat, sequential experience!
+            const sortedIds = Array.from(allIds).sort((a, b) => Number(a) - Number(b));
+
+            sortedIds.forEach(id => {
+                const val = items[id] !== undefined ? items[id] : 0;
+                
+                // If showEmpty is unchecked, hide items with quantity <= 0
+                if (!showEmpty && val <= 0) return;
+
                 const meta = metaSource[id] || { name: `${key.slice(0,-1)} #${id}` };
                 const translated = translator.translationCache[meta.name];
                 
                 if (!engine.matchesQuery(id, val, meta.name) && !engine.matchesQuery(id, val, translated)) return;
 
                 grid.appendChild(UIComponents.createDataRow(id, val, meta.name, (newVal) => {
-                    items[id] = parseInt(newVal) || 0;
+                    const parsedVal = parseInt(newVal) || 0;
+                    if (parsedVal === 0 && !showEmpty) {
+                        delete items[id]; // Delete if value is 0 and showEmpty is false to keep save file clean
+                    } else {
+                        items[id] = parsedVal;
+                    }
                 }));
             });
         }

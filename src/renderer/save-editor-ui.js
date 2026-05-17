@@ -3,18 +3,33 @@ import { UIComponents } from './save-editor/components.js';
 import { Translator } from './save-editor/translator.js';
 
 export function initSaveEditorUI() {
-    window.showSaveEditor = async (gameKey) => {
+    window.showSaveEditor = async (gameKey, options = {}) => {
         const d = window.currentUIStrings || {};
         const engine = new DataEngine();
         const translator = new Translator(window.electronAPI);
+        const isStandalone = !!options.isStandaloneWindow;
         
         const overlay = document.createElement('div');
-        overlay.className = 'save-editor-overlay';
+        overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`;
+        
+        const popoutBtnHTML = isStandalone ? '' : `
+            <button class="save-editor-popout" title="Open in separate window" style="background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            </button>
+        `;
+
         overlay.innerHTML = `
             <div class="save-editor-panel">
                 <div class="save-editor-header">
                     <h2 data-i18n="action_save_editor">${d.action_save_editor || 'Save Editor'}</h2>
-                    <button class="save-editor-close">×</button>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
+                        ${popoutBtnHTML}
+                        <button class="save-editor-close">×</button>
+                    </div>
                 </div>
                 <div class="save-editor-body">
                     <div class="save-editor-sidebar">
@@ -108,9 +123,27 @@ export function initSaveEditorUI() {
 
         document.body.appendChild(overlay);
 
-        const close = () => document.body.removeChild(overlay);
+        const close = () => {
+            if (isStandalone) {
+                window.close();
+            } else {
+                document.body.removeChild(overlay);
+            }
+        };
         overlay.querySelector('.save-editor-close').onclick = close;
         overlay.querySelector('.cancel-btn').onclick = close;
+
+        if (!isStandalone) {
+            const popoutBtn = overlay.querySelector('.save-editor-popout');
+            if (popoutBtn) {
+                popoutBtn.onclick = () => {
+                    window.electronAPI.openSaveEditorWindow(gameKey);
+                    close();
+                };
+                popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
+                popoutBtn.addEventListener('mouseleave', () => { popoutBtn.style.color = '#9ca3af'; });
+            }
+        }
 
         const sidebar = overlay.querySelector('.save-editor-sidebar');
         const content = overlay.querySelector('.save-editor-content');

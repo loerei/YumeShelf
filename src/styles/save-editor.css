@@ -433,3 +433,35 @@
     height: 100%;
     color: #666;
 }
+
+/* Standalone Window Save Editor Styles */
+.standalone-save-editor #welcome-screen,
+.standalone-save-editor .header,
+.standalone-save-editor #game-grid-wrapper,
+.standalone-save-editor .loading-overlay,
+.standalone-save-editor .update-notification-host,
+.standalone-save-editor .settings-overlay,
+.standalone-save-editor .stack-overlay {
+    display: none !important;
+}
+
+.standalone-save-editor .save-editor-overlay {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+    backdrop-filter: none;
+    z-index: 1;
+    display: flex;
+    animation: none;
+}
+
+.standalone-save-editor .save-editor-panel {
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    animation: none;
+}

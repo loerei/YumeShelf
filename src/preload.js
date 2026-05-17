@@ -53,5 +53,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     listSaveFiles: (gameKey) => ipcRenderer.invoke('save-editor:list-files', gameKey),
     loadSaveData: (data) => ipcRenderer.invoke('save-editor:load-data', data),
     writeSaveData: (data) => ipcRenderer.invoke('save-editor:write-data', data),
-    updateMapping: (data) => ipcRenderer.invoke('save-editor:update-mapping', data)
+    updateMapping: (data) => ipcRenderer.invoke('save-editor:update-mapping', data),
+    openSaveEditorWindow: (gameKey) => ipcRenderer.send('open-save-editor-window', gameKey)
 });

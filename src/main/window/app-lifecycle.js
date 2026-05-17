@@ -52,7 +52,8 @@ async function startMainRuntime({
         saveFolderResolver,
         saveEditorService,
         startupServices,
-        defaultGamesDir: paths.defaultGamesDir
+        defaultGamesDir: paths.defaultGamesDir,
+        paths
     });
     iconPipeline.registerIpcHandler();
 }

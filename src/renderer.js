@@ -7,6 +7,20 @@ import { createUiRuntimeState } from './renderer/state/ui-runtime-state.js';
 import { initSaveEditorUI } from './renderer/save-editor-ui.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isStandaloneSaveEditor = urlParams.get('mode') === 'save-editor';
+    if (isStandaloneSaveEditor) {
+        document.body.classList.add('standalone-save-editor');
+        const gameKey = urlParams.get('gameKey');
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) {
+            loadingEl.style.display = 'none';
+        }
+        initSaveEditorUI();
+        window.showSaveEditor(gameKey, { isStandaloneWindow: true });
+        return;
+    }
+
     const refs = buildRendererRefs(document);
     const state = createUiRuntimeState();
     const composition = createRendererComposition({

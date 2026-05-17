@@ -10,7 +10,8 @@ function registerMainIpc({
     saveFolderResolver,
     saveEditorService,
     startupServices,
-    defaultGamesDir
+    defaultGamesDir,
+    paths
 }) {
     ipcMain.handle('get-app-version', async () => app.getVersion());
     ipcMain.handle('get-language-state', async () => languagePackServices.buildLanguageState());
@@ -121,6 +122,37 @@ function registerMainIpc({
     ipcMain.handle('save-editor:update-mapping', async (_event, { gameKey, name, offset, dataType }) => {
         console.log(`[IPC] save-editor:update-mapping gameKey: ${gameKey}`);
         return saveEditorService.updateMapping(gameKey, name, offset, dataType);
+    });
+
+    ipcMain.on('open-save-editor-window', (_event, gameKey) => {
+        const { BrowserWindow } = require('electron');
+        const saveEditorWin = new BrowserWindow({
+            width: 1000,
+            height: 700,
+            backgroundColor: '#121212',
+            autoHideMenuBar: true,
+            icon: paths ? paths.mainWindowIconPath : undefined,
+            webPreferences: {
+                preload: paths ? paths.preloadPath : undefined,
+                contextIsolation: true,
+                nodeIntegration: false
+            }
+        });
+        saveEditorWin.removeMenu();
+        saveEditorWin.setMenuBarVisibility(false);
+        
+        saveEditorWin.webContents.on('console-message', (_event, _level, message) => {
+            console.log(`[STANDALONE-EDITOR-LOG] ${message}`);
+        });
+
+        if (paths) {
+            saveEditorWin.loadFile(paths.indexHtmlPath, {
+                query: {
+                    mode: 'save-editor',
+                    gameKey: gameKey
+                }
+            });
+        }
     });
 }
 

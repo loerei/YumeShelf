@@ -69,9 +69,27 @@ export function createTooltipController() {
 
     function attachTooltip(element, getContent) {
         element.addEventListener('mouseenter', (event) => {
+            const dropdown = element.querySelector('.dropdown-menu');
+            if (dropdown && dropdown.classList.contains('show')) {
+                hide();
+                return;
+            }
+            if (event.target && event.target.closest && event.target.closest('.dropdown-menu')) {
+                hide();
+                return;
+            }
             show(getContent(), event, element);
         });
         element.addEventListener('mousemove', (event) => {
+            const dropdown = element.querySelector('.dropdown-menu');
+            if (dropdown && dropdown.classList.contains('show')) {
+                hide();
+                return;
+            }
+            if (event.target && event.target.closest && event.target.closest('.dropdown-menu')) {
+                hide();
+                return;
+            }
             if (!tooltip.classList.contains('show')) return;
             position(event.clientX, event.clientY);
         });

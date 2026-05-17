@@ -6,22 +6,27 @@ class RpgMakerMzFormat {
     }
 
     decode(rawData) {
-        const rawBytes = Buffer.alloc(rawData.length);
-        for (let i = 0; i < rawData.length; i++) {
-            rawBytes[i] = rawData.charCodeAt(i);
+        try {
+            // Try standard raw binary decompression first (correct format)
+            const decompressedBuffer = zlib.inflateSync(rawData);
+            return JSON.parse(decompressedBuffer.toString('utf8'));
+        } catch (err) {
+            console.warn('[SAVE-EDITOR-MZ] Standard decompression failed, falling back to legacy UTF-8 charCode decoding...', err.message);
+            // Fallback for saves written by previous mangled YumeShelf versions
+            const str = rawData.toString('utf8');
+            const rawBytes = Buffer.alloc(str.length);
+            for (let i = 0; i < str.length; i++) {
+                rawBytes[i] = str.charCodeAt(i);
+            }
+            const decompressedBuffer = zlib.inflateSync(rawBytes);
+            return JSON.parse(decompressedBuffer.toString('utf8'));
         }
-        const decompressedBuffer = zlib.inflateSync(rawBytes);
-        return JSON.parse(decompressedBuffer.toString('utf8'));
     }
 
     encode(jsonData) {
         const jsonStr = JSON.stringify(jsonData);
-        const compressedBuffer = zlib.deflateSync(Buffer.from(jsonStr, 'utf8'), { level: 1 });
-        let compressedStr = '';
-        for (let i = 0; i < compressedBuffer.length; i++) {
-            compressedStr += String.fromCharCode(compressedBuffer[i]);
-        }
-        return compressedStr;
+        // Return standard zlib-compressed binary buffer
+        return zlib.deflateSync(Buffer.from(jsonStr, 'utf8'), { level: 1 });
     }
 }
 

@@ -1,4 +1,5 @@
 import { RpgMakerEngine } from './engines/rpg-maker.js';
+import { UnityMonoEngine } from './engines/unity-mono.js';
 
 /**
  * Save Editor Data Engine Orchestrator
@@ -18,7 +19,8 @@ export class DataEngine {
 
         // Registered engine strategies
         this.engines = [
-            new RpgMakerEngine()
+            new RpgMakerEngine(),
+            new UnityMonoEngine()
         ];
 
         // Fallback default strategy

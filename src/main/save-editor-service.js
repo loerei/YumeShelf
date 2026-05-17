@@ -4,7 +4,8 @@ const path = require('path');
 // Registered save file formats
 const formats = [
     require('./save-editor/formats/rpg-maker-mz'),
-    require('./save-editor/formats/rpg-maker-mv')
+    require('./save-editor/formats/rpg-maker-mv'),
+    require('./save-editor/formats/unity-mono-bin')
 ];
 
 /**
@@ -95,10 +96,10 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             if (!paths) throw new Error('Could not resolve game paths');
             
             const savePath = path.join(paths.saveDir, fileName);
-            const rawData = await fs.readFile(savePath, 'utf8');
+            const rawData = await fs.readFile(savePath);
             
             const format = getFormat(fileName);
-            const jsonData = format.decode(rawData);
+            const jsonData = await format.decode(rawData, paths, fileName);
             
             const metadata = await loadMetadata(paths.dataDir, paths.langDataDir);
             
@@ -177,13 +178,13 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             const savePath = path.join(paths.saveDir, fileName);
             
             const format = getFormat(fileName);
-            const outputData = format.encode(jsonData);
+            const outputData = await format.encode(jsonData, paths, fileName);
             
             try {
                 await fs.copyFile(savePath, savePath + '.bak');
             } catch {}
             
-            await fs.writeFile(savePath, outputData, 'utf8');
+            await fs.writeFile(savePath, outputData);
             return { ok: true };
         } catch (err) {
             console.error(`[SAVE-EDITOR] Error writing save data:`, err);

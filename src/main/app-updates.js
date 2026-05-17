@@ -1,22 +1,22 @@
 const fs = require('fs/promises');
 const path = require('path');
-const { downloadBuffer, ensureDir, isNetworkLikeError } = require('./core/shared-io');
+const { ensureDir, isNetworkLikeError } = require('./core/shared-io');
 const {
     compareAppReleaseVersions,
     formatStackedReleaseNotes,
     getReleaseDisplayName,
-    normalizeRelease,
     normalizeReleaseNotesForReview,
-    readAssetName,
-    shouldIncludePrereleaseReleases,
-    isPrereleaseVersion
+    shouldIncludePrereleaseReleases
 } = require('./app-updates/release-utils');
 const { resolveRuntimeUpdateStrategy } = require('./app-updates/runtime-strategy');
 const { createNsisUpdaterService, isFakeVersionRun } = require('./nsis-updater');
 
-const APP_UPDATE_RELEASES_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases?per_page=25';
-const APP_UPDATE_RELEASE_PAGE_URL = 'https://github.com/loerei/YumeShelf/releases/latest';
+// Import modular submodules
+const { setupFeedResolver, APP_UPDATE_RELEASE_PAGE_URL } = require('./app-updates/feed-resolver');
+const { setupPostUpdateMarker } = require('./app-updates/post-update');
+
 const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
+
 function createAppUpdateServices({
     app,
     broadcastStatus,
@@ -44,6 +44,22 @@ function createAppUpdateServices({
         await appendVerboseUpdateLog(`debug ${message}`);
     }
 
+    // Initialize Resolver Module
+    const resolver = setupFeedResolver({
+        startupNetworkTimeoutMs,
+        appendVerboseUpdateLog
+    });
+
+    // Initialize Post-Update Module
+    const { consumePostUpdateMarker } = setupPostUpdateMarker({
+        app,
+        postUpdateMarkerFile,
+        compareVersions,
+        resolver,
+        appendUpdateLog,
+        appendVerboseUpdateLog
+    });
+
     const nsisUpdaterService = createNsisUpdaterService({
         app,
         appendUpdateLog,
@@ -51,7 +67,7 @@ function createAppUpdateServices({
         compareVersions: compareAppReleaseVersions,
         ensureDir,
         releasePageUrl: APP_UPDATE_RELEASE_PAGE_URL,
-        resolveFeedOverride: resolvePackagedFeedOverride,
+        resolveFeedOverride: resolver.resolvePackagedFeedOverride,
         updateCacheDir,
         postUpdateMarkerFile
     });
@@ -69,166 +85,6 @@ function createAppUpdateServices({
             selfApplicable: !!update?.selfApplicable,
             version: update?.version ? String(update.version) : ''
         });
-    }
-
-    async function consumePostUpdateMarker() {
-        const markerExists = await fs.access(postUpdateMarkerFile).then(() => true).catch(() => false);
-        await appendVerboseUpdateLog(`consumePostUpdateMarker begin exists=${markerExists}`);
-        if (!markerExists) {
-            return null;
-        }
-
-        let marker = null;
-        try {
-            const rawText = await fs.readFile(postUpdateMarkerFile, 'utf8');
-            const sanitizedText = rawText.replace(/^\uFEFF/, '');
-            const hasBom = rawText.charCodeAt(0) === 0xFEFF;
-            await appendVerboseUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
-            marker = JSON.parse(sanitizedText);
-        } catch (error) {
-            await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String((error && error.stack) || error || '')}`);
-        }
-
-        try {
-            await fs.unlink(postUpdateMarkerFile);
-            await appendVerboseUpdateLog('consumePostUpdateMarker deleted-marker-file');
-        } catch (error) {
-            await appendUpdateLog(`consumePostUpdateMarker delete-failed error=${String((error && error.message) || error || '')}`);
-        }
-
-        if (!marker || typeof marker !== 'object') {
-            await appendUpdateLog('consumePostUpdateMarker invalid-marker');
-            return null;
-        }
-
-        const notice = {
-            actionState: 'installed',
-            available: false,
-            deferredUntilNextLaunch: false,
-            fromVersion: marker.fromVersion ? String(marker.fromVersion) : '',
-            installed: true,
-            installedAt: marker.installedAt ? String(marker.installedAt) : null,
-            releaseName: marker.releaseName ? String(marker.releaseName) : '',
-            releaseNotes: normalizeReleaseNotesForReview(marker.releaseNotes || ''),
-            releaseUrl: marker.releaseUrl ? String(marker.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
-            selfApplicable: true,
-            version: marker.toVersion ? String(marker.toVersion) : (marker.version ? String(marker.version) : '')
-        };
-
-        if (!notice.version) {
-            await appendUpdateLog('consumePostUpdateMarker missing-version');
-            return null;
-        }
-
-        const currentVersion = app.getVersion();
-        if (compareVersions(currentVersion, notice.version) !== 0) {
-            await appendUpdateLog(`consumePostUpdateMarker version-mismatch current=${currentVersion} marker=${notice.version}`);
-            return null;
-        }
-
-        try {
-            const includePrerelease = shouldIncludePrereleaseReleases(notice.fromVersion, notice.version);
-            const newerReleases = notice.fromVersion
-                ? await resolveNewerReleases(notice.fromVersion, notice.version, { includePrerelease })
-                : [];
-            if (newerReleases.length > 0) {
-                notice.releaseName = getReleaseDisplayName(newerReleases[0]);
-                notice.releaseNotes = formatStackedReleaseNotes(newerReleases);
-                notice.releaseUrl = newerReleases[0].htmlUrl || notice.releaseUrl;
-            } else {
-                const latestRelease = await resolveLatestRelease({ includePrerelease });
-                if (latestRelease?.version === notice.version) {
-                    notice.releaseName = getReleaseDisplayName(latestRelease);
-                    notice.releaseNotes = formatStackedReleaseNotes([latestRelease]);
-                    notice.releaseUrl = latestRelease.htmlUrl || notice.releaseUrl;
-                }
-            }
-        } catch (error) {
-            await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String((error && error.stack) || error || '')}`);
-        }
-
-        await appendVerboseUpdateLog(`consumePostUpdateMarker notice=${JSON.stringify({
-            fromVersion: notice.fromVersion,
-            installedAt: notice.installedAt,
-            releaseUrl: notice.releaseUrl,
-            version: notice.version
-        })}`);
-
-        return notice;
-    }
-
-    async function resolveReleaseFeed(options = {}) {
-        const includePrerelease = options.includePrerelease === true;
-        const buffer = await downloadBuffer(APP_UPDATE_RELEASES_API_URL, 0, startupNetworkTimeoutMs);
-        const raw = JSON.parse(buffer.toString('utf8'));
-        const releases = Array.isArray(raw)
-            ? raw
-                .filter(release => !release?.draft && (includePrerelease || !release?.prerelease))
-                .map(release => normalizeRelease(release, APP_UPDATE_RELEASE_PAGE_URL))
-                .filter(release => !!release.version)
-                .sort((left, right) => {
-                    const versionDelta = compareAppReleaseVersions(right.version, left.version);
-                    if (versionDelta !== 0) return versionDelta;
-                    const publishedDelta = new Date(right.publishedAt || 0).getTime() - new Date(left.publishedAt || 0).getTime();
-                    if (publishedDelta !== 0) return publishedDelta;
-                    return String(right.tagName || '').localeCompare(String(left.tagName || ''));
-                })
-            : [];
-
-        await appendVerboseUpdateLog(`resolveReleaseFeed includePrerelease=${includePrerelease} count=${releases.length} tags=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
-        return releases;
-    }
-
-    async function resolveLatestRelease(options = {}) {
-        const releases = await resolveReleaseFeed(options);
-        return releases[0] || null;
-    }
-
-    async function resolveNewerReleases(fromVersion, toVersion = null, options = {}) {
-        const releases = await resolveReleaseFeed(options);
-        return releases.filter((release) => {
-            if (compareAppReleaseVersions(release.version, fromVersion) <= 0) {
-                return false;
-            }
-            if (toVersion && compareAppReleaseVersions(release.version, toVersion) > 0) {
-                return false;
-            }
-            return true;
-        });
-    }
-
-    async function resolvePackagedFeedOverride({ currentVersion, runtime }) {
-        if (runtime?.channel !== 'nsis') {
-            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-non-nsis current=${currentVersion} runtime=${JSON.stringify(runtime || null)}`);
-            return null;
-        }
-        if (!isPrereleaseVersion(currentVersion)) {
-            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-non-prerelease current=${currentVersion}`);
-            return null;
-        }
-
-        const releases = await resolveReleaseFeed({ includePrerelease: true });
-        await appendVerboseUpdateLog(`resolvePackagedFeedOverride candidates current=${currentVersion} releases=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
-        const targetRelease = releases.find(release => compareAppReleaseVersions(release.version, currentVersion) > 0);
-        if (!targetRelease) {
-            await appendVerboseUpdateLog(`resolvePackagedFeedOverride none current=${currentVersion}`);
-            return null;
-        }
-
-        const hasLatestManifest = targetRelease.assets.some(asset => readAssetName(asset).toLowerCase() === 'latest.yml');
-        if (!hasLatestManifest) {
-            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-missing-latest current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName}`);
-            return null;
-        }
-
-        const override = {
-            channel: 'prerelease-github-generic',
-            provider: 'generic',
-            release: targetRelease,
-            url: `https://github.com/loerei/YumeShelf/releases/download/${targetRelease.tagName}`
-        };
-        await appendVerboseUpdateLog(`resolvePackagedFeedOverride selected current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName} url=${override.url}`);
-        return override;
     }
 
     async function enrichUpdateInfo(update, runtimeStrategy) {
@@ -254,7 +110,7 @@ function createAppUpdateServices({
 
         if (runtimeStrategy.channel === 'nsis') {
             try {
-                const newerReleases = await resolveNewerReleases(
+                const newerReleases = await resolver.resolveNewerReleases(
                     app.getVersion(),
                     enriched.version,
                     { includePrerelease: shouldIncludePrereleaseReleases(app.getVersion(), enriched.version) }

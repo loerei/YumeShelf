@@ -1,6 +1,8 @@
 import { DataEngine } from './save-editor/data-engine.js';
-import { UIComponents } from './save-editor/components.js';
 import { Translator } from './save-editor/translator.js';
+import { setupSidebar } from './save-editor/sidebar.js';
+import { setupGridRenderer } from './save-editor/grid-renderer.js';
+import { setupSearchBar } from './save-editor/search-bar.js';
 
 export function initSaveEditorUI() {
     window.showSaveEditor = async (gameKey, options = {}) => {
@@ -152,110 +154,53 @@ export function initSaveEditorUI() {
         const searchInput = overlay.querySelector('.save-editor-search');
         const saveBtn = overlay.querySelector('.save-btn');
 
-        let currentSaveData = null;
-        let currentMetadata = null;
-        let currentFileName = null;
-        let originalSnapshot = null;
-        let activeTab = 'gold';
-        let showEmpty = false;
-        let showImportant = true;
+        // Central shared state context
+        const state = {
+            currentSaveData: null,
+            currentMetadata: null,
+            currentFileName: null,
+            originalSnapshot: null,
+            activeTab: 'gold',
+            showEmpty: false,
+            showImportant: true,
+            gameKey,
+            isStandalone,
+            d
+        };
 
-        // Save Editor Tooltip Controller (disabled globally by default)
-        const enableSaveEditorTooltips = false;
-        function attachSaveEditorTooltip(element, getContent) {
-            if (!enableSaveEditorTooltips) return;
-            
-            // To enable in the future, set enableSaveEditorTooltips to true.
-            // You can easily plug in the main app's tooltipController,
-            // or bind custom hover listeners to show a tooltip element.
-            if (typeof getContent === 'function') {
-                const content = getContent();
-                element.setAttribute('title', content.title || '');
+        const refs = {
+            overlay,
+            sidebar,
+            content,
+            tabsWrapper,
+            tabsContainer,
+            searchInput,
+            saveBtn
+        };
+
+        // Initialize grid rendering module
+        const { setupTabs, renderTabContent } = setupGridRenderer(refs, state, engine, translator);
+
+        // Initialize search bar module
+        setupSearchBar(refs, state, engine, renderTabContent);
+
+        // Initialize sidebar module
+        const { reloadFileList } = setupSidebar(refs, state, engine, translator, {
+            onSaveLoaded: () => {
+                setupTabs();
+                renderTabContent();
             }
-        }
-
-        // Initialize engine options from UI defaults
-        engine.setSearchOptions({
-            query: '',
-            exact: false,
-            searchName: true,
-            searchValue: true,
-            searchIndex: false
         });
 
-        // Search Input with Debounce
-        let searchDebounce = null;
-        searchInput.oninput = (e) => {
-            clearTimeout(searchDebounce);
-            searchDebounce = setTimeout(() => {
-                engine.setSearchOptions({ query: e.target.value });
-                renderTabContent();
-            }, 150);
-        };
+        // Load initial file list
+        reloadFileList(null);
 
-        // Filter Toggles
-        overlay.querySelector('.show-empty-check').onchange = (e) => {
-            showEmpty = e.target.checked;
-            renderTabContent();
-        };
-
-        overlay.querySelector('.show-important-check').onchange = (e) => {
-            showImportant = e.target.checked;
-            renderTabContent();
-        };
-
-        overlay.querySelector('.exact-match-check').onchange = (e) => {
-            engine.setSearchOptions({ exact: e.target.checked });
-            renderTabContent();
-        };
-
-        overlay.querySelector('.search-name-check').onchange = (e) => {
-            engine.setSearchOptions({ searchName: e.target.checked });
-            renderTabContent();
-        };
-
-        overlay.querySelector('.search-value-check').onchange = (e) => {
-            engine.setSearchOptions({ searchValue: e.target.checked });
-            renderTabContent();
-        };
-
-        overlay.querySelector('.search-index-check').onchange = (e) => {
-            engine.setSearchOptions({ searchIndex: e.target.checked });
-            renderTabContent();
-        };
-
-        overlay.querySelector('.switch-true-check').onchange = (e) => {
-            engine.setSearchOptions({ switchOnlyTrue: e.target.checked });
-            if (e.target.checked) {
-                const other = overlay.querySelector('.switch-false-check');
-                if (other.checked) {
-                    other.checked = false;
-                    engine.setSearchOptions({ switchOnlyFalse: false });
-                }
-            }
-            renderTabContent();
-        };
-
-        overlay.querySelector('.switch-false-check').onchange = (e) => {
-            engine.setSearchOptions({ switchOnlyFalse: e.target.checked });
-            if (e.target.checked) {
-                const other = overlay.querySelector('.switch-true-check');
-                if (other.checked) {
-                    other.checked = false;
-                    engine.setSearchOptions({ switchOnlyTrue: false });
-                }
-            }
-            renderTabContent();
-        };
-
-        // Translation Button
+        // Translation Button Trigger
         const translateBtn = overlay.querySelector('.translate-btn');
-        translateBtn.onclick = translateVisibleLabels;
-
-        function translateVisibleLabels() {
+        translateBtn.onclick = () => {
             console.log('[SAVE-EDITOR] Starting translation of visible labels in background...');
-            if (translator.isTranslating || !currentSaveData) {
-                console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + translator.isTranslating + ', hasData=' + !!currentSaveData);
+            if (translator.isTranslating || !state.currentSaveData) {
+                console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + translator.isTranslating + ', hasData=' + !!state.currentSaveData);
                 return;
             }
             
@@ -269,7 +214,6 @@ export function initSaveEditorUI() {
             const progressBar = translateBtn.querySelector('.translate-progress');
             progressBar.style.width = '0%';
 
-            // Trigger translation asynchronously in background
             translator.translateLabels(labels, targetLang, (progress) => {
                 progressBar.style.width = `${progress}%`;
                 translateBtn.querySelector('span').textContent = `Translating (${progress}%)`;
@@ -282,360 +226,9 @@ export function initSaveEditorUI() {
                 translateBtn.querySelector('span').textContent = originalBtnText;
                 setTimeout(() => { progressBar.style.width = '0%'; }, 500);
             });
-        }
+        };
 
-        async function reloadFileList(selectFile = currentFileName) {
-            try {
-                const files = await window.electronAPI.listSaveFiles(gameKey);
-                sidebar.innerHTML = '';
-                if (files.length === 0) {
-                    sidebar.innerHTML = `<div class="save-editor-empty" data-i18n="save_editor_no_saves">${d.save_editor_no_saves || 'No saves found'}</div>`;
-                    currentSaveData = null;
-                    originalSnapshot = null;
-                    currentFileName = null;
-                    tabsWrapper.style.display = 'none';
-                    saveBtn.style.display = 'none';
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                <polyline points="17 21 17 13 7 13 7 21"/>
-                                <polyline points="7 3 7 8 15 8"/>
-                            </svg>
-                            <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
-                        </div>
-                    `;
-                } else {
-                    let activeItem = null;
-                    files.forEach(file => {
-                        const item = document.createElement('div');
-                        item.className = 'save-file-item';
-                        item.textContent = file;
-                        item.title = file;
-                        item.onclick = () => loadSave(file, item);
-                        sidebar.appendChild(item);
-                        if (file === selectFile) {
-                            activeItem = item;
-                        }
-                    });
-                    
-                    if (activeItem) {
-                        await loadSave(selectFile, activeItem);
-                    } else if (selectFile) {
-                        currentSaveData = null;
-                        originalSnapshot = null;
-                        currentFileName = null;
-                        tabsWrapper.style.display = 'none';
-                        saveBtn.style.display = 'none';
-                        content.innerHTML = `
-                            <div class="empty-state">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                    <polyline points="17 21 17 13 7 13 7 21"/>
-                                    <polyline points="7 3 7 8 15 8"/>
-                                </svg>
-                                <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
-                            </div>
-                        `;
-                    }
-                }
-            } catch (err) {
-                sidebar.innerHTML = `<div class="error">Failed to list saves</div>`;
-            }
-        }
-
-        const refreshBtn = overlay.querySelector('.refresh-save-btn');
-        if (refreshBtn) {
-            refreshBtn.onclick = () => reloadFileList(currentFileName);
-        }
-
-        // Load file list
-        reloadFileList(null);
-
-        async function loadSave(fileName, element) {
-            content.innerHTML = `<div class="loading" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading save data...'}</div>`;
-            overlay.querySelectorAll('.save-file-item').forEach(el => el.classList.remove('active'));
-            element.classList.add('active');
-            tabsWrapper.style.display = 'none';
-            searchInput.value = '';
-            engine.setSearchOptions({ query: '' });
-            
-            try {
-                const { data, metadata } = await window.electronAPI.loadSaveData({ gameKey, fileName });
-                currentSaveData = data;
-                originalSnapshot = JSON.parse(JSON.stringify(data));
-                currentMetadata = metadata;
-                currentFileName = fileName;
-                
-                setupTabs();
-                renderTabContent();
-                
-                tabsWrapper.style.display = 'flex';
-                saveBtn.style.display = 'block';
-            } catch (err) {
-                content.innerHTML = `<div class="error">Failed to load save: ${err.message}</div>`;
-            }
-        }
-
-        function setupTabs() {
-            tabsContainer.innerHTML = '';
-            
-            const root = engine.extractRoot(currentSaveData);
-            const party = root ? (root.party || root._party || engine.getProp(root, 'party')) : null;
-            const variables = root ? (root.variables || root._variables || engine.getProp(root, 'variables')) : null;
-            const switches = root ? (root.switches || root._switches || engine.getProp(root, 'switches')) : null;
-
-            const hasCategoryData = (tabId) => {
-                if (!root) return false;
-                if (tabId === 'gold') {
-                    return !!engine.findGold(root, party);
-                }
-                if (['items', 'weapons', 'armors'].includes(tabId)) {
-                    const target = party || root;
-                    if (!target) return false;
-                    const actualKey = target['_' + tabId] !== undefined ? '_' + tabId : tabId;
-                    const items = engine.extractData(target[actualKey]);
-                    if (!items || typeof items !== 'object') return false;
-                    return Object.keys(items).some(id => id !== '@c' && !id.startsWith('@'));
-                }
-                if (tabId === 'variables') {
-                    if (!variables) return false;
-                    const raw = engine.extractData(variables);
-                    if (!raw || typeof raw !== 'object') return false;
-                    return Object.keys(raw).some(id => id !== '@c' && !id.startsWith('@'));
-                }
-                if (tabId === 'switches') {
-                    if (!switches) return false;
-                    const raw = engine.extractData(switches);
-                    if (!raw || typeof raw !== 'object') return false;
-                    return Object.keys(raw).some(id => id !== '@c' && !id.startsWith('@'));
-                }
-                return false;
-            };
-
-            const tabs = [
-                { id: 'gold', label: d.save_editor_gold || 'Gold', i18n: 'save_editor_gold' },
-                { id: 'items', label: d.save_editor_items || 'Items', i18n: 'save_editor_items' },
-                { id: 'weapons', label: d.save_editor_weapons || 'Weapons', i18n: 'save_editor_weapons' },
-                { id: 'armors', label: d.save_editor_armors || 'Armors', i18n: 'save_editor_armors' },
-                { id: 'variables', label: d.save_editor_variables || 'Variables', i18n: 'save_editor_variables' },
-                { id: 'switches', label: d.save_editor_switches || 'Switches', i18n: 'save_editor_switches' }
-            ];
-
-            const visibleTabs = tabs.filter(tab => {
-                const hasData = hasCategoryData(tab.id);
-                if (!hasData) {
-                    console.log(`[SAVE-EDITOR] Tab '${tab.id}' has no data, hiding it.`);
-                }
-                return hasData;
-            });
-
-            // Adjust activeTab if the currently active one is now hidden
-            if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
-                console.log(`[SAVE-EDITOR] Current activeTab '${activeTab}' is hidden. Auto-switching to '${visibleTabs[0].id}'.`);
-                activeTab = visibleTabs[0].id;
-            }
-
-            visibleTabs.forEach(tab => {
-                const el = document.createElement('div');
-                el.className = `save-tab ${activeTab === tab.id ? 'active' : ''}`;
-                el.textContent = tab.label;
-                el.setAttribute('data-i18n', tab.i18n);
-                el.onclick = () => {
-                    activeTab = tab.id;
-                    overlay.querySelectorAll('.save-tab').forEach(t => t.classList.remove('active'));
-                    el.classList.add('active');
-                    
-                    // Logic to show Map button if we are in an engine that supports mapping
-                    const mapBtn = overlay.querySelector('.map-variable-btn');
-                    if (mapBtn) mapBtn.style.display = (tab.id === 'variables') ? 'block' : 'none';
-                    
-                    // Show/hide switch-only filters
-                    const switchFilters = overlay.querySelectorAll('.switch-filters-only');
-                    switchFilters.forEach(f => f.style.display = (tab.id === 'switches') ? 'flex' : 'none');
-                    if (tab.id !== 'switches') {
-                        // Reset switch filters when leaving the tab
-                        overlay.querySelector('.switch-true-check').checked = false;
-                        overlay.querySelector('.switch-false-check').checked = false;
-                        engine.setSearchOptions({ switchOnlyTrue: false, switchOnlyFalse: false });
-                    }
-
-                    content.scrollTop = 0;
-                    renderTabContent();
-                };
-                tabsContainer.appendChild(el);
-            });
-        }
-
-        function renderTabContent() {
-            const grid = document.createElement('div');
-            grid.className = 'save-grid';
-            
-            const root = engine.extractRoot(currentSaveData);
-            const party = root ? (root.party || root._party || engine.getProp(root, 'party')) : null;
-            const variables = root ? (root.variables || root._variables || engine.getProp(root, 'variables')) : null;
-            const switches = root ? (root.switches || root._switches || engine.getProp(root, 'switches')) : null;
-
-            const originalRoot = originalSnapshot ? engine.extractRoot(originalSnapshot) : null;
-            const originalParty = originalRoot ? (originalRoot.party || originalRoot._party || engine.getProp(originalRoot, 'party')) : null;
-            const originalVariables = originalRoot ? (originalRoot.variables || originalRoot._variables || engine.getProp(originalRoot, 'variables')) : null;
-            const originalSwitches = originalRoot ? (originalRoot.switches || originalRoot._switches || engine.getProp(originalRoot, 'switches')) : null;
-
-            if (activeTab === 'gold' && root) {
-                const goldInfo = engine.findGold(root, party);
-                const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
-                const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
-                
-                if (goldInfo) {
-                    const row = UIComponents.createDataRow('GOLD', goldInfo.val, d.save_editor_gold || 'Gold', (val) => {
-                        goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
-                    }, originalGoldVal);
-                    row.style.gridColumn = '1 / -1';
-                    row.style.maxWidth = '300px';
-                    grid.appendChild(row);
-                }
-            } else if (['items', 'weapons', 'armors'].includes(activeTab) && root) {
-                renderInventory(party || root, activeTab, currentMetadata[activeTab], grid, originalParty || originalRoot);
-            } else if (activeTab === 'variables' && variables) {
-                renderBitset(variables, currentMetadata.variables, grid, (id, val, newVal) => {
-                    const num = Number(newVal);
-                    variables[id] = isNaN(num) ? newVal : num;
-                }, true, originalVariables);
-            } else if (activeTab === 'switches' && switches) {
-                renderBitset(switches, currentMetadata.switches, grid, (id, val, newVal) => {
-                    switches[id] = newVal;
-                }, false, originalSwitches);
-            }
-
-            content.innerHTML = '';
-            if (grid.children.length === 0) {
-                const msg = engine.searchOptions.query ? 'No results found' : 'No data found in this category';
-                content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
-            } else {
-                content.appendChild(grid);
-                // Apply UI-level translations
-                translator.applyTranslations(content);
-                // Apply cached translations for labels
-                translator.applyCachedLabels(content);
-            }
-        }
-
-        function renderInventory(target, key, metaSource, grid, originalTarget) {
-            const actualKey = target['_' + key] !== undefined ? '_' + key : key;
-            const items = engine.extractData(target[actualKey]);
-            const originalItems = originalTarget ? engine.extractData(originalTarget[actualKey]) : null;
-            
-            if (!items || typeof items !== 'object') return;
-
-            // Collect all potential item IDs
-            const allIds = new Set();
-            
-            // Add items currently in save
-            Object.keys(items).forEach(id => {
-                if (id.startsWith('@') || id === '@c') return;
-                allIds.add(id);
-            });
-
-            // Add items from metadata database if showEmpty is checked
-            if (showEmpty) {
-                Object.keys(metaSource).forEach(id => {
-                    if (id == 0 || id === '0') return;
-                    const meta = metaSource[id];
-                    if (meta && meta.name && meta.name.trim() !== '') {
-                        allIds.add(id);
-                    }
-                });
-            }
-
-            // Sort IDs numerically for a neat, sequential experience!
-            const sortedIds = Array.from(allIds).sort((a, b) => Number(a) - Number(b));
-
-            sortedIds.forEach(id => {
-                const val = items[id] !== undefined ? items[id] : 0;
-                const originalVal = originalItems && originalItems[id] !== undefined ? originalItems[id] : undefined;
-                
-                // If showEmpty is unchecked, hide items with quantity <= 0
-                if (!showEmpty && val <= 0) return;
-
-                const meta = metaSource[id] || { name: `${key.slice(0,-1)} #${id}` };
-                const translated = translator.translationCache[meta.name];
-                
-                if (!engine.matchesQuery(id, val, meta.name) && !engine.matchesQuery(id, val, translated)) return;
-
-                const row = UIComponents.createDataRow(id, val, meta.name, (newVal) => {
-                    const parsedVal = parseInt(newVal) || 0;
-                    if (parsedVal === 0 && !showEmpty) {
-                        delete items[id]; // Delete if value is 0 and showEmpty is false to keep save file clean
-                    } else {
-                        items[id] = parsedVal;
-                    }
-                }, originalVal);
-                attachSaveEditorTooltip(row, () => ({ title: meta.name }));
-                grid.appendChild(row);
-            });
-        }
-
-        function renderBitset(data, metaSource, grid, onUpdate, isNumeric, originalData) {
-            const raw = engine.extractData(data);
-            const originalRaw = originalData ? engine.extractData(originalData) : null;
-            
-            const process = (id, val) => {
-                if (id == 0 || id === '0' || id === '@c') return;
-                const name = metaSource[id] || `ID #${id}`;
-                const translated = translator.translationCache[name];
-                
-                const isNamed = metaSource[id] && metaSource[id].trim() !== '';
-                const isUninitialized = val === undefined || val === null || val === '';
-                const isZeroOrFalse = isNumeric ? val === 0 : val === false;
-
-                // Important variables for specific games
-                const isImportant = activeTab === 'variables' && [12, 15, 16, 17, 18, 19, 20, 21, 25, 26, 61, 62, 63, 64, 65, 66].includes(Number(id));
-
-                if (!showEmpty) {
-                    // Always hide truly uninitialized/blank values if showEmpty is false,
-                    // UNLESS showImportant is enabled and the variable is marked important.
-                    if (isUninitialized) {
-                        if (!showImportant || !isImportant) return;
-                    }
-                    // For zero/false values, hide them if they are not named.
-                    // If showImportant is enabled, we keep important zero/false values visible.
-                    const treatAsImportant = showImportant && isImportant;
-                    if (isZeroOrFalse && !isNamed && !treatAsImportant) return;
-                }
-
-                if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;
-
-                const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
-
-                if (isNumeric) {
-                    const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv), originalVal);
-                    attachSaveEditorTooltip(row, () => ({ title: name }));
-                    grid.appendChild(row);
-                } else {
-                    const row = document.createElement('div');
-                    row.className = 'data-row checkbox-row';
-                    
-                    let deltaHTML = '';
-                    if (originalVal !== undefined && originalVal !== val) {
-                        deltaHTML = `<span class="data-delta" style="font-size:0.85em; font-weight:bold; color:#fbbf24; margin-left:auto;">(was: ${originalVal})</span>`;
-                    }
-                    
-                    row.innerHTML = `
-                        <span class="data-id">#${id}</span>
-                        <label class="data-label" title="${name}">${name}</label>
-                        ${deltaHTML}
-                        <input type="checkbox" ${val ? 'checked' : ''}>
-                    `;
-                    row.querySelector('input').onchange = (e) => onUpdate(id, val, e.target.checked);
-                    attachSaveEditorTooltip(row, () => ({ title: name }));
-                    grid.appendChild(row);
-                }
-            };
-
-            if (Array.isArray(raw)) raw.forEach((val, id) => process(id, val));
-            else if (typeof raw === 'object') Object.entries(raw).forEach(([id, val]) => process(id, val));
-        }
-
+        // Save Button Trigger
         saveBtn.onclick = async () => {
             saveBtn.disabled = true;
             const originalText = saveBtn.textContent;
@@ -643,12 +236,11 @@ export function initSaveEditorUI() {
             try {
                 await window.electronAPI.writeSaveData({
                     gameKey,
-                    fileName: currentFileName,
-                    data: currentSaveData
+                    fileName: state.currentFileName,
+                    data: state.currentSaveData
                 });
                 
-                // Update snapshot to reflect newly saved state
-                originalSnapshot = JSON.parse(JSON.stringify(currentSaveData));
+                state.originalSnapshot = JSON.parse(JSON.stringify(state.currentSaveData));
                 renderTabContent(); // Re-render to clear deltas
                 
                 saveBtn.textContent = 'Saved!';

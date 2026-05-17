@@ -28,8 +28,15 @@
 }
 
 @keyframes editor-pop {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .save-editor-header {
@@ -156,7 +163,8 @@
     margin: 0 4px;
 }
 
-.translate-btn, .refresh-save-btn {
+.translate-btn,
+.refresh-save-btn {
     position: relative;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.03);
@@ -202,13 +210,15 @@
     cursor: pointer;
 }
 
-.translate-btn:hover, .refresh-save-btn:hover {
+.translate-btn:hover,
+.refresh-save-btn:hover {
     background: rgba(255, 255, 255, 0.06);
     color: #eee;
     border-color: rgba(255, 255, 255, 0.15);
 }
 
-.translate-btn svg, .refresh-save-btn svg {
+.translate-btn svg,
+.refresh-save-btn svg {
     opacity: 0.6;
 }
 
@@ -217,8 +227,13 @@
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .is-translated {
@@ -235,7 +250,8 @@
     transform: translateY(-50%);
     width: 4px;
     height: 4px;
-    background: #4ade80; /* Subtle green */
+    background: #4ade80;
+    /* Subtle green */
     border-radius: 50%;
 }
 
@@ -413,8 +429,13 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .empty-state {

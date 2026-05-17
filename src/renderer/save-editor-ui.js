@@ -346,6 +346,40 @@ export function initSaveEditorUI() {
 
         function setupTabs() {
             tabsContainer.innerHTML = '';
+            
+            const root = engine.extractRoot(currentSaveData);
+            const party = root ? (root.party || root._party || engine.getProp(root, 'party')) : null;
+            const variables = root ? (root.variables || root._variables || engine.getProp(root, 'variables')) : null;
+            const switches = root ? (root.switches || root._switches || engine.getProp(root, 'switches')) : null;
+
+            const hasCategoryData = (tabId) => {
+                if (!root) return false;
+                if (tabId === 'gold') {
+                    return !!engine.findGold(root, party);
+                }
+                if (['items', 'weapons', 'armors'].includes(tabId)) {
+                    const target = party || root;
+                    if (!target) return false;
+                    const actualKey = target['_' + tabId] !== undefined ? '_' + tabId : tabId;
+                    const items = engine.extractData(target[actualKey]);
+                    if (!items || typeof items !== 'object') return false;
+                    return Object.keys(items).some(id => id !== '@c' && !id.startsWith('@'));
+                }
+                if (tabId === 'variables') {
+                    if (!variables) return false;
+                    const raw = engine.extractData(variables);
+                    if (!raw || typeof raw !== 'object') return false;
+                    return Object.keys(raw).some(id => id !== '@c' && !id.startsWith('@'));
+                }
+                if (tabId === 'switches') {
+                    if (!switches) return false;
+                    const raw = engine.extractData(switches);
+                    if (!raw || typeof raw !== 'object') return false;
+                    return Object.keys(raw).some(id => id !== '@c' && !id.startsWith('@'));
+                }
+                return false;
+            };
+
             const tabs = [
                 { id: 'gold', label: d.save_editor_gold || 'Gold', i18n: 'save_editor_gold' },
                 { id: 'items', label: d.save_editor_items || 'Items', i18n: 'save_editor_items' },
@@ -355,21 +389,35 @@ export function initSaveEditorUI() {
                 { id: 'switches', label: d.save_editor_switches || 'Switches', i18n: 'save_editor_switches' }
             ];
 
-            tabs.forEach(tab => {
+            const visibleTabs = tabs.filter(tab => {
+                const hasData = hasCategoryData(tab.id);
+                if (!hasData) {
+                    console.log(`[SAVE-EDITOR] Tab '${tab.id}' has no data, hiding it.`);
+                }
+                return hasData;
+            });
+
+            // Adjust activeTab if the currently active one is now hidden
+            if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === activeTab)) {
+                console.log(`[SAVE-EDITOR] Current activeTab '${activeTab}' is hidden. Auto-switching to '${visibleTabs[0].id}'.`);
+                activeTab = visibleTabs[0].id;
+            }
+
+            visibleTabs.forEach(tab => {
                 const el = document.createElement('div');
                 el.className = `save-tab ${activeTab === tab.id ? 'active' : ''}`;
                 el.textContent = tab.label;
                 el.setAttribute('data-i18n', tab.i18n);
                 el.onclick = () => {
                     activeTab = tab.id;
-                overlay.querySelectorAll('.save-tab').forEach(t => t.classList.remove('active'));
-                el.classList.add('active');
-                
-                // Logic to show Map button if we are in an engine that supports mapping
-                const mapBtn = overlay.querySelector('.map-variable-btn');
-                if (mapBtn) mapBtn.style.display = (tab.id === 'variables') ? 'block' : 'none';
-                
-                // Show/hide switch-only filters
+                    overlay.querySelectorAll('.save-tab').forEach(t => t.classList.remove('active'));
+                    el.classList.add('active');
+                    
+                    // Logic to show Map button if we are in an engine that supports mapping
+                    const mapBtn = overlay.querySelector('.map-variable-btn');
+                    if (mapBtn) mapBtn.style.display = (tab.id === 'variables') ? 'block' : 'none';
+                    
+                    // Show/hide switch-only filters
                     const switchFilters = overlay.querySelectorAll('.switch-filters-only');
                     switchFilters.forEach(f => f.style.display = (tab.id === 'switches') ? 'flex' : 'none');
                     if (tab.id !== 'switches') {

@@ -118,6 +118,16 @@ export class Translator {
                             console.log(`[SAVE-EDITOR] Translated: "${original}" -> "${translatedText}"`);
                         }
                     });
+
+                    // Immediately update any matching labels currently visible in the DOM
+                    const activeLabels = document.querySelectorAll('.data-label');
+                    activeLabels.forEach(label => {
+                        const originalName = label.getAttribute('title') || label.textContent;
+                        if (this.translationCache[originalName]) {
+                            label.textContent = this.translationCache[originalName];
+                            label.classList.add('is-translated');
+                        }
+                    });
                 }
 
                 if (typeof onProgressChange === 'function') {
@@ -126,13 +136,6 @@ export class Translator {
                 }
             }
             this.saveTranslations();
-
-            labelMap.forEach(item => {
-                if (this.translationCache[item.original]) {
-                    item.el.textContent = this.translationCache[item.original];
-                    item.el.classList.add('is-translated');
-                }
-            });
             console.log('[SAVE-EDITOR] Translation complete.');
         } finally {
             this.isTranslating = false;

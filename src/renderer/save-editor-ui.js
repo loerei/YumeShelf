@@ -211,8 +211,8 @@ export function initSaveEditorUI() {
         const translateBtn = overlay.querySelector('.translate-btn');
         translateBtn.onclick = translateVisibleLabels;
 
-        async function translateVisibleLabels() {
-            console.log('[SAVE-EDITOR] Starting translation of visible labels...');
+        function translateVisibleLabels() {
+            console.log('[SAVE-EDITOR] Starting translation of visible labels in background...');
             if (translator.isTranslating || !currentSaveData) {
                 console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + translator.isTranslating + ', hasData=' + !!currentSaveData);
                 return;
@@ -224,21 +224,23 @@ export function initSaveEditorUI() {
 
             translateBtn.classList.add('loading');
             const originalBtnText = translateBtn.querySelector('span').textContent;
-            translateBtn.querySelector('span').textContent = '...';
+            translateBtn.querySelector('span').textContent = 'Translating (0%)';
             const progressBar = translateBtn.querySelector('.translate-progress');
             progressBar.style.width = '0%';
 
-            try {
-                await translator.translateLabels(labels, targetLang, (progress) => {
-                    progressBar.style.width = `${progress}%`;
-                });
-            } catch (err) {
-                console.error('[SAVE-EDITOR] Translation failed:', err);
-            } finally {
+            // Trigger translation asynchronously in background
+            translator.translateLabels(labels, targetLang, (progress) => {
+                progressBar.style.width = `${progress}%`;
+                translateBtn.querySelector('span').textContent = `Translating (${progress}%)`;
+            }).then(() => {
+                console.log('[SAVE-EDITOR] Background translation complete successfully.');
+            }).catch(err => {
+                console.error('[SAVE-EDITOR] Background translation failed:', err);
+            }).finally(() => {
                 translateBtn.classList.remove('loading');
                 translateBtn.querySelector('span').textContent = originalBtnText;
                 setTimeout(() => { progressBar.style.width = '0%'; }, 500);
-            }
+            });
         }
 
         // Load file list

@@ -7,9 +7,17 @@ export function bindGlobalUiEvents({
 }) {
     window.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
-            if (refs.languagePackOverlay.style.display === 'flex') closeLanguagePackModal();
-            else if (duplicateStackOverlayController.isOpen()) duplicateStackOverlayController.close();
-            else settingsController.closeSettings();
+            const saveEditorOverlay = document.querySelector('.save-editor-overlay');
+            if (saveEditorOverlay) {
+                const closeBtn = saveEditorOverlay.querySelector('.save-editor-close');
+                if (closeBtn) closeBtn.click();
+            } else if (refs.languagePackOverlay.style.display === 'flex') {
+                closeLanguagePackModal();
+            } else if (duplicateStackOverlayController.isOpen()) {
+                duplicateStackOverlayController.close();
+            } else if (settingsController.isSettingsOpen()) {
+                settingsController.closeSettings();
+            }
         }
     });
 

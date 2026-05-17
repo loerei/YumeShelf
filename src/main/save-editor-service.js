@@ -1,25 +1,21 @@
 const fs = require('fs/promises');
 const path = require('path');
-const zlib = require('zlib');
-const LZString = require('./core/lz-string');
 
-function decodeRmmzSave(rawData) {
-    const rawBytes = Buffer.alloc(rawData.length);
-    for (let i = 0; i < rawData.length; i++) {
-        rawBytes[i] = rawData.charCodeAt(i);
-    }
-    const decompressedBuffer = zlib.inflateSync(rawBytes);
-    return JSON.parse(decompressedBuffer.toString('utf8'));
-}
+// Registered save file formats
+const formats = [
+    require('./save-editor/formats/rpg-maker-mz'),
+    require('./save-editor/formats/rpg-maker-mv')
+];
 
-function encodeRmmzSave(jsonData) {
-    const jsonStr = JSON.stringify(jsonData);
-    const compressedBuffer = zlib.deflateSync(Buffer.from(jsonStr, 'utf8'), { level: 1 });
-    let compressedStr = '';
-    for (let i = 0; i < compressedBuffer.length; i++) {
-        compressedStr += String.fromCharCode(compressedBuffer[i]);
+/**
+ * Resolves the appropriate save file format strategy by file name
+ */
+function getFormat(fileName) {
+    const matched = formats.find(f => f.match(fileName));
+    if (!matched) {
+        throw new Error(`Unsupported save file format for file: ${fileName}`);
     }
-    return compressedStr;
+    return matched;
 }
 
 function createSaveEditorService({ libraryState, saveFolderResolver }) {
@@ -83,7 +79,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
 
             const files = await fs.readdir(paths.saveDir);
             const saveFiles = files
-                .filter(f => f.endsWith('.rpgsave') || f.endsWith('.rmmzsave'))
+                .filter(f => formats.some(fmt => fmt.match(f)))
                 .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
             
             return saveFiles;
@@ -101,17 +97,8 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             const savePath = path.join(paths.saveDir, fileName);
             const rawData = await fs.readFile(savePath, 'utf8');
             
-            let jsonData;
-            if (fileName.endsWith('.rmmzsave')) {
-                jsonData = decodeRmmzSave(rawData);
-            } else {
-                try {
-                    const decompressed = LZString.decompressFromBase64(rawData);
-                    jsonData = JSON.parse(decompressed);
-                } catch (err) {
-                    jsonData = JSON.parse(rawData);
-                }
-            }
+            const format = getFormat(fileName);
+            const jsonData = format.decode(rawData);
             
             const metadata = await loadMetadata(paths.dataDir, paths.langDataDir);
             
@@ -189,12 +176,8 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             
             const savePath = path.join(paths.saveDir, fileName);
             
-            let outputData;
-            if (fileName.endsWith('.rmmzsave')) {
-                outputData = encodeRmmzSave(jsonData);
-            } else {
-                outputData = LZString.compressToBase64(JSON.stringify(jsonData));
-            }
+            const format = getFormat(fileName);
+            const outputData = format.encode(jsonData);
             
             try {
                 await fs.copyFile(savePath, savePath + '.bak');

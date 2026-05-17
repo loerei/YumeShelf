@@ -119,6 +119,20 @@ export function initSaveEditorUI() {
         let showEmpty = false;
         let showImportant = true;
 
+        // Save Editor Tooltip Controller (disabled globally by default)
+        const enableSaveEditorTooltips = false;
+        function attachSaveEditorTooltip(element, getContent) {
+            if (!enableSaveEditorTooltips) return;
+            
+            // To enable in the future, set enableSaveEditorTooltips to true.
+            // You can easily plug in the main app's tooltipController,
+            // or bind custom hover listeners to show a tooltip element.
+            if (typeof getContent === 'function') {
+                const content = getContent();
+                element.setAttribute('title', content.title || '');
+            }
+        }
+
         // Initialize engine options from UI defaults
         engine.setSearchOptions({
             query: '',
@@ -393,14 +407,16 @@ export function initSaveEditorUI() {
                 
                 if (!engine.matchesQuery(id, val, meta.name) && !engine.matchesQuery(id, val, translated)) return;
 
-                grid.appendChild(UIComponents.createDataRow(id, val, meta.name, (newVal) => {
+                const row = UIComponents.createDataRow(id, val, meta.name, (newVal) => {
                     const parsedVal = parseInt(newVal) || 0;
                     if (parsedVal === 0 && !showEmpty) {
                         delete items[id]; // Delete if value is 0 and showEmpty is false to keep save file clean
                     } else {
                         items[id] = parsedVal;
                     }
-                }));
+                });
+                attachSaveEditorTooltip(row, () => ({ title: meta.name }));
+                grid.appendChild(row);
             });
         }
 
@@ -433,7 +449,9 @@ export function initSaveEditorUI() {
                 if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;
 
                 if (isNumeric) {
-                    grid.appendChild(UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv)));
+                    const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv));
+                    attachSaveEditorTooltip(row, () => ({ title: name }));
+                    grid.appendChild(row);
                 } else {
                     const row = document.createElement('div');
                     row.className = 'data-row checkbox-row';
@@ -443,6 +461,7 @@ export function initSaveEditorUI() {
                         <input type="checkbox" ${val ? 'checked' : ''}>
                     `;
                     row.querySelector('input').onchange = (e) => onUpdate(id, val, e.target.checked);
+                    attachSaveEditorTooltip(row, () => ({ title: name }));
                     grid.appendChild(row);
                 }
             };

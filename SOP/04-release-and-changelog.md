@@ -11,7 +11,7 @@ Upon completing any feature task, bug fix, or codebase modification, you **MUST*
 ### Format & Classification Rules:
 1. **Developer Language:** Use English strictly for all developer logs, code comments, and technical documentation.
 2. **"For the Nerds" Structuring:**
-   * If a change is purely technical or system-oriented (e.g., modularizing source files, refactoring logic, linter updates, or modifying these `/SOP` guidelines) without changing end-user features or Renderer UI:
+   * If a change is purely technical, non-functional, or system-oriented (including but not limited to code modularization, structural refactoring, helper scripts, dependency updates, linter configurations, build settings, workspace tooling, documentation/SOP updates, or test suites) without altering end-user features or Renderer UI:
    * **MANDATORY:** Log these under the **`## For the Nerds`** section at the bottom of the changelog file. Do not mix technical refactoring into the user-facing `What's New` section.
 3. **No Manual Release Note Cleaning:**
    * **NEVER** clean up markdown brackets or YAML frontmatter manually when creating a release. Always run:

@@ -23,6 +23,9 @@ Immediately following any code modification (via raw-text replacement or Python 
     python -c "import json; json.load(open('<absolute-file-path>', encoding='utf-8'))"
     ```
 
+> [!NOTE]
+> **Anti-Anchoring Guideline:** The verification commands above are standard examples for JS/Python/JSON environments. If you are working in a different language ecosystem (e.g., Rust, Go, C#, C++, Java, Ren'Py, etc.), you **MUST** replace these commands with their corresponding native toolchain equivalent (such as `cargo check`, `go build`, `dotnet build`, etc.) rather than attempting to apply Node/Python checks blindly.
+
 ---
 
 ## 🔄 2. The Self-Healing Loop

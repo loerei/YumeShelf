@@ -44,9 +44,13 @@ with open(target_file, "w", encoding="utf-8") as f:
     f.write(new_content)
 ```
 
+> [!NOTE]
+> **Anti-Anchoring Guideline:** The blueprint above is for structural demonstration only. You **MUST** adapt the script's `target_file`, opening mode, regex target, and replacement block to suit the exact language (JavaScript, Python, JSON, HTML, CSS, Markdown) and structure of your active task. Do not copy the target path or function name above unless they are the actual targets of your task.
+
 ### Measured Advantages:
 * Reduces LLM output token footprint by **91.60%** (LLM outputs 10 lines of script instead of 150+ lines of redundant source code).
 * Eliminates Windows line-ending issues as Regex matches across both `\r\n` and `\n` formats natively.
+
 
 ---
 

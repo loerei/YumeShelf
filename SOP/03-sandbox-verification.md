@@ -45,22 +45,24 @@ If the syntax check returns a non-zero exit code (syntax error):
 
 ## 🛑 3. Anti-Blind-Fixing & Active Diagnostic Handoff
 
-When facing a complex bug, silent runtime error, or parsing mismatch that cannot be verified locally via syntax check, you **MUST** resist the urge to perform "blind-fixing" (iterative patching based on unverified assumptions).
+When facing a complex bug, silent runtime error, or data parsing mismatch, you **MUST** resist the urge to perform "blind-fixing" (iterative patching based on speculative assumptions).
 
 ### The Anti-Blind-Fixing Rule:
 *   **DO NOT GUESS:** Making multiple speculative code mutations without physical confirmation of runtime behavior introduces code bloat, wastes token window limits, and creates hidden regression bugs.
 *   **COLLABORATE STRATEGICALLY:** The USER is your execution partner. Leverage the physical environment division of labor by actively stopping to delegate runtime diagnostics.
 
-### Illustrative Diagnostic Handoff Examples:
-1.  **Obfuscated or Obscure Save Files / Parsers:**
-    *   *Action:* Stop guessing the byte or JSON offsets. Ask the user: *"Please create a clean save file with only [Variable Name] changed by 1 unit, so I can perform a deterministic diff."*
-2.  **Unreproducible Runtime Errors:**
-    *   *Action:* Stop guessing race conditions. Ask the user: *"Please run the application manually, reproduce the issue, and provide the raw console/terminal logs so I can identify the exact trace."*
-3.  **Visual or UI Layout Mismatches:**
-    *   *Action:* Stop speculating on CSS behaviors. Ask the user: *"Please verify if the layout renders correctly on your display size. If not, please describe the spacing or run [visual command] so I can read the layout metrics."*
+### Universal Handoff Thresholds:
+You **MUST** halt execution and transfer diagnostic control to the user if you cross any of the following three abstract boundaries:
 
-> [!NOTE]
-> **Anti-Anchoring Guideline:** The three scenarios above are purely illustrative examples of collaborative diagnostics. You **MUST** apply this handoff protocol universally to **ANY** situation (including database connections, API integrations, build pipelines, dependency issues, permission errors, etc.) where you lack direct verification capabilities or empirical feedback. Do not restrict your strategic stop-and-ask decisions to these specific domains.
+1.  **Observability Blackout:**
+    *   *Condition:* The code compiles syntactically, but you cannot execute the runtime environment locally to verify its visual layouts, timing/race behaviors, network payloads, or state side-effects.
+    *   *Handoff Action:* Stop speculating on state outputs. Force the user to act as your physical execution interface (e.g. run the environment, execute specific interactions, and capture console buffers or screen states).
+2.  **Information Entropy Boundary:**
+    *   *Condition:* The data boundary, third-party API contract, byte structure, database schema, or external file format is undocumented, obfuscated, or structurally ambiguous.
+    *   *Handoff Action:* Stop guessing offsets or schema configurations via trial-and-error. Force the user to supply high-contrast test states (e.g., generating minimum-entropy delta states, capturing isolated packets, or performing a single isolated manual database action).
+3.  **Logical Indeterminism:**
+    *   *Condition:* Local mock syntax validations pass, but functional correctness depends on complex local timing conditions, user system configurations, or external environment parameters.
+    *   *Handoff Action:* Stop guessing logical pathways. Ask the user to reproduce the flow manually, verify state transitions step-by-step, and provide the raw empirical terminal trace.
 
 ### Measured Advantages:
 *   Converts costly speculative thinking into highly precise, deterministic data analysis.

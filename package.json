@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
@@ -19,7 +19,8 @@
     "checksum:release": "node .\\scripts\\write-release-checksum.js",
     "mock:app-update": "node .\\scripts\\write-dev-app-update-manifest.js",
     "mock:app-update:serve": "node .\\scripts\\serve-dev-app-update-feed.js",
-    "sync:release-metadata": "node .\\scripts\\sync-release-metadata.js"
+    "sync:release-metadata": "node .\\scripts\\sync-release-metadata.js",
+    "compile:release-notes": "node .\\scripts\\compile-release-notes.js"
   },
   "build": {
     "appId": "com.loerei.yumeshelf",

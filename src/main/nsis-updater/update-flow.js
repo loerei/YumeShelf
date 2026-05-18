@@ -12,6 +12,7 @@ function setupUpdateFlow({
     ensureDir,
     releasePageUrl,
     postUpdateMarkerFile,
+    updateCacheDir,
     state,
     stateFiles,
     installerHandoff,
@@ -142,57 +143,169 @@ function setupUpdateFlow({
             };
         }
 
+        const readyCandidate = summarizeUpdateState({
+            ...updateState,
+            releaseName: releaseMetadata.releaseName || updateState.releaseName,
+            releaseNotes: releaseMetadata.releaseNotes || updateState.releaseNotes,
+            releaseUrl: releaseMetadata.releaseUrl || updateState.releaseUrl
+        });
+
         emitStatus({
             phase: 'download-started',
-            update: summarizeUpdateState({
-                ...updateState,
-                releaseName: releaseMetadata.releaseName || updateState.releaseName,
-                releaseNotes: releaseMetadata.releaseNotes || updateState.releaseNotes,
-                releaseUrl: releaseMetadata.releaseUrl || updateState.releaseUrl
-            })
+            update: readyCandidate
         });
 
         state.activeDownloadPromise = (async () => {
             try {
-                const activeUpdater = createUpdater();
-                let cachedInstallerPath = '';
-                let hasCachedInstaller = false;
-                try {
-                    const currentCacheState = await ensureCurrentInstallerCacheState(activeUpdater, app.getVersion(), {
-                        fs,
-                        fsSync,
-                        path,
-                        ensureDir,
-                        sha512FileBase64,
-                        downloadBuffer,
-                        appVersion: app.getVersion(),
-                        VERBOSE_UPDATE_LOG,
-                        appendUpdateLog
-                    });
-                    cachedInstallerPath = currentCacheState?.cachedInstallerPath || '';
-                    hasCachedInstaller = cachedInstallerPath ? fsSync.existsSync(cachedInstallerPath) : false;
-                } catch (error) {
-                    await appendUpdateLog(`nsis-updater cache-state-error error=${String((error && error.stack) || error || '')}`);
+                const version = updateState.updateInfo.version;
+                const files = Array.isArray(updateState.updateInfo.files) ? updateState.updateInfo.files : [];
+                const fileEntry = files.find((entry) => {
+                    const candidate = String(entry?.url || entry?.name || entry?.path || '').toLowerCase();
+                    return candidate.endsWith('.exe');
+                }) || files[0];
+
+                const fileName = fileEntry?.url || fileEntry?.name || fileEntry?.path || `YumeShelf-Setup-${version}.exe`;
+                const expectedSha512 = fileEntry?.sha512 || updateState.updateInfo.sha512 || null;
+
+                const runtime = resolveRuntime();
+                const { feedOverride } = await configureUpdaterFeed(runtime);
+
+                let downloadUrl = fileName;
+                if (!/^https?:\/\//i.test(downloadUrl)) {
+                    const base = feedOverride?.url || `https://github.com/loerei/YumeShelf/releases/download/v${version}`;
+                    const encodedFileName = encodeURIComponent(fileName).replace(/%2B/g, '+');
+                    downloadUrl = `${base.replace(/\/$/, '')}/${encodedFileName}`;
                 }
+
+                const installerPath = path.join(updateCacheDir, fileName);
+                await ensureDir(path.dirname(installerPath));
+
                 if (VERBOSE_UPDATE_LOG) {
-                    await appendUpdateLog(
-                        `nsis-updater download-begin current=${app.getVersion()}`
-                        + ` target=${updateState.updateInfo?.version || ''}`
-                        + ` previousBlockmapBaseUrlOverride=${activeUpdater.previousBlockmapBaseUrlOverride || 'default'}`
-                        + ` cachedInstaller=${cachedInstallerPath || 'unknown'}`
-                        + ` cachedInstallerExists=${hasCachedInstaller}`
-                    );
+                    await appendUpdateLog(`nsis-updater parallel-download started url=${downloadUrl} target=${installerPath} sha512=${expectedSha512 || 'none'}`);
                 }
-                const paths = await activeUpdater.downloadUpdate();
+
+                // 1. Fetch download size and check range support
+                const headRes = await fetch(downloadUrl, { method: 'HEAD', redirect: 'follow' });
+                if (!headRes.ok) {
+                    throw new Error(`Failed to query download headers: ${headRes.status} ${headRes.statusText}`);
+                }
+
+                const acceptRanges = headRes.headers.get('accept-ranges');
+                const contentLength = parseInt(headRes.headers.get('content-length'), 10);
+
                 if (VERBOSE_UPDATE_LOG) {
-                    await appendUpdateLog(`nsis-updater download-paths paths=${JSON.stringify(Array.isArray(paths) ? paths : [])}`);
+                    await appendUpdateLog(`nsis-updater parallel-download info accept-ranges=${acceptRanges} content-length=${contentLength}`);
                 }
-                const installerPath = state.latestDownloadedEvent?.downloadedFile
-                    || (Array.isArray(paths) ? paths.find(candidate => String(candidate || '').toLowerCase().endsWith('.exe')) : '')
-                    || (Array.isArray(paths) ? paths[0] : '')
-                    || '';
-                if (!installerPath) {
-                    throw new Error('No downloaded NSIS installer path was returned by electron-updater.');
+
+                let downloadedTotal = 0;
+                let lastBytes = 0;
+                let lastTime = Date.now();
+
+                // Helper to emit progress securely and throttle IPC messages
+                function reportProgress(bytesRead) {
+                    downloadedTotal += bytesRead;
+                    const now = Date.now();
+                    const elapsed = now - lastTime;
+                    if (elapsed >= 300) {
+                        const speed = Math.round(((downloadedTotal - lastBytes) / elapsed) * 1000);
+                        emitStatus({
+                            phase: 'download-progress',
+                            downloaded: downloadedTotal,
+                            total: contentLength || downloadedTotal,
+                            bytesPerSecond: speed,
+                            update: readyCandidate
+                        });
+                        lastBytes = downloadedTotal;
+                        lastTime = now;
+                    }
+                }
+
+                // Fallback to single-stream sequential if accepts-ranges is not supported or content length is missing
+                if (acceptRanges !== 'bytes' || isNaN(contentLength) || contentLength <= 0) {
+                    if (VERBOSE_UPDATE_LOG) {
+                        await appendUpdateLog(`nsis-updater parallel-download range-requests unsupported, falling back to single stream`);
+                    }
+                    const res = await fetch(downloadUrl, { redirect: 'follow' });
+                    if (!res.ok) {
+                        throw new Error(`Failed to download installer stream: ${res.status} ${res.statusText}`);
+                    }
+                    if (!res.body) {
+                        throw new Error('Response returned empty body');
+                    }
+
+                    const fileStream = fsSync.createWriteStream(installerPath);
+                    try {
+                        for await (const chunk of res.body) {
+                            const chunkBuf = Buffer.from(chunk);
+                            fileStream.write(chunkBuf);
+                            reportProgress(chunkBuf.length);
+                        }
+                    } finally {
+                        fileStream.end();
+                    }
+                } else {
+                    // Pre-allocate the target installer file
+                    const fileHandle = await fs.open(installerPath, 'w');
+                    try {
+                        await fileHandle.truncate(contentLength);
+
+                        const connections = 8;
+                        const chunkSize = Math.ceil(contentLength / connections);
+                        const chunkPromises = [];
+
+                        if (VERBOSE_UPDATE_LOG) {
+                            await appendUpdateLog(`nsis-updater parallel-download downloading via ${connections} parallel connections...`);
+                        }
+
+                        for (let i = 0; i < connections; i++) {
+                            const start = i * chunkSize;
+                            const end = Math.min(start + chunkSize - 1, contentLength - 1);
+
+                            chunkPromises.push((async () => {
+                                const res = await fetch(downloadUrl, {
+                                    headers: {
+                                        'Range': `bytes=${start}-${end}`
+                                    },
+                                    redirect: 'follow'
+                                });
+                                if (!res.ok) {
+                                    throw new Error(`Connection ${i} failed with status ${res.status}`);
+                                }
+                                if (!res.body) {
+                                    throw new Error(`Connection ${i} returned empty body`);
+                                }
+
+                                let offset = start;
+                                for await (const chunk of res.body) {
+                                    const chunkBuf = Buffer.from(chunk);
+                                    await fileHandle.write(chunkBuf, 0, chunkBuf.length, offset);
+                                    offset += chunkBuf.length;
+                                    reportProgress(chunkBuf.length);
+                                }
+                            })());
+                        }
+
+                        await Promise.all(chunkPromises);
+                    } finally {
+                        await fileHandle.close();
+                    }
+                }
+
+                // Final integrity verification check
+                if (expectedSha512) {
+                    if (VERBOSE_UPDATE_LOG) {
+                        await appendUpdateLog(`nsis-updater parallel-download verifying SHA-512...`);
+                    }
+                    const actualSha = await sha512FileBase64(installerPath);
+                    if (actualSha !== expectedSha512) {
+                        try {
+                            await fs.unlink(installerPath);
+                        } catch {}
+                        throw new Error(`Integrity mismatch. Expected SHA-512 ${expectedSha512}, but calculated ${actualSha}`);
+                    }
+                    if (VERBOSE_UPDATE_LOG) {
+                        await appendUpdateLog(`nsis-updater parallel-download SHA-512 validation passed!`);
+                    }
                 }
 
                 const downloadedState = buildDownloadedState(
@@ -221,13 +334,16 @@ function setupUpdateFlow({
                     selfApplicable: true,
                     version: downloadedState.version
                 });
+
                 emitStatus({
                     phase: 'download-ready',
                     update: readyUpdate
                 });
+
                 if (VERBOSE_UPDATE_LOG) {
                     await appendUpdateLog(`nsis-updater ready version=${downloadedState.version} installer=${downloadedState.installerPath}`);
                 }
+
                 return {
                     ok: true,
                     installerPath: downloadedState.installerPath,
@@ -236,6 +352,13 @@ function setupUpdateFlow({
             } catch (error) {
                 const reason = classifyErrorReason(error);
                 await appendUpdateLog(`nsis-updater download-failed reason=${reason} error=${String((error && error.stack) || error || '')}`);
+                
+                // Cleanup partial file on failure to avoid corruption in next check
+                try {
+                    const fileName = `YumeShelf-Setup-${updateState.updateInfo?.version}.exe`;
+                    await fs.unlink(path.join(updateCacheDir, fileName));
+                } catch {}
+
                 emitStatus({
                     error: String((error && error.message) || error || ''),
                     phase: 'download-failed',

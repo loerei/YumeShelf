@@ -40,7 +40,11 @@ export function initSaveEditorUI() {
                     </div>
                     <div class="save-editor-main">
                         <div class="save-editor-tabs-wrapper" style="display: none;">
-                            <div class="save-editor-tabs"></div>
+                            <div class="save-editor-tabs-container">
+                                <div class="save-editor-tabs"></div>
+                                <div class="tabs-shadow tabs-shadow-left"></div>
+                                <div class="tabs-shadow tabs-shadow-right"></div>
+                            </div>
                             <div class="save-editor-actions">
                                 <div class="save-editor-top-bar">
                                     <div class="save-editor-search-wrapper">
@@ -155,6 +159,38 @@ export function initSaveEditorUI() {
         const searchInput = overlay.querySelector('.save-editor-search');
         const saveBtn = overlay.querySelector('.save-btn');
 
+        const leftShadow = overlay.querySelector('.tabs-shadow-left');
+        const rightShadow = overlay.querySelector('.tabs-shadow-right');
+
+        const updateTabShadows = () => {
+            if (!tabsContainer || !leftShadow || !rightShadow) return;
+            const scrollLeft = tabsContainer.scrollLeft;
+            const scrollWidth = tabsContainer.scrollWidth;
+            const clientWidth = tabsContainer.clientWidth;
+            
+            if (scrollLeft > 2) {
+                leftShadow.classList.add('visible');
+            } else {
+                leftShadow.classList.remove('visible');
+            }
+            
+            if (scrollWidth - clientWidth - scrollLeft > 2) {
+                rightShadow.classList.add('visible');
+            } else {
+                rightShadow.classList.remove('visible');
+            }
+        };
+
+        if (tabsContainer) {
+            tabsContainer.addEventListener('scroll', updateTabShadows);
+            if (typeof ResizeObserver !== 'undefined') {
+                const resizeObserver = new ResizeObserver(() => {
+                    updateTabShadows();
+                });
+                resizeObserver.observe(tabsContainer);
+            }
+        }
+
         // Central shared state context
         const state = {
             currentSaveData: null,
@@ -190,6 +226,7 @@ export function initSaveEditorUI() {
             onSaveLoaded: () => {
                 setupTabs();
                 renderTabContent();
+                setTimeout(updateTabShadows, 50);
             }
         });
 

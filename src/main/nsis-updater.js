@@ -245,6 +245,7 @@ function createNsisUpdaterService({
         ensureDir,
         releasePageUrl,
         postUpdateMarkerFile,
+        updateCacheDir,
         state,
         stateFiles,
         installerHandoff,

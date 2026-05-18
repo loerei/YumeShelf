@@ -5,9 +5,80 @@ const { BrowserWindow, Tray, Menu, ipcMain } = require('electron');
 let tray = null;
 let minimizeToTray = false;
 let isQuitting = false;
+let mainWindow = null;
+let pathsConfig = null;
+let electronApp = null;
+
+function createTrayIcon() {
+    if (tray) return;
+    if (!pathsConfig || !pathsConfig.mainWindowIconPath) return;
+
+    try {
+        tray = new Tray(pathsConfig.mainWindowIconPath);
+        const contextMenu = Menu.buildFromTemplate([
+            {
+                label: 'Show YumeShelf',
+                click: () => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.show();
+                        mainWindow.focus();
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: 'Quit',
+                click: () => {
+                    isQuitting = true;
+                    destroyTrayIcon();
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.close();
+                    } else if (electronApp) {
+                        electronApp.quit();
+                    }
+                }
+            }
+        ]);
+        tray.setToolTip('YumeShelf');
+        tray.setContextMenu(contextMenu);
+
+        tray.on('double-click', () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.show();
+                mainWindow.focus();
+            }
+        });
+    } catch (e) {
+        console.error('[TRAY] Failed to initialize tray:', e);
+    }
+}
+
+function destroyTrayIcon() {
+    if (tray) {
+        try {
+            tray.destroy();
+        } catch (e) {
+            console.error('[TRAY] Failed to destroy tray:', e);
+        }
+        tray = null;
+    }
+}
+
+function updateTrayState() {
+    if (minimizeToTray) {
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+            createTrayIcon();
+        } else {
+            destroyTrayIcon();
+        }
+    } else {
+        destroyTrayIcon();
+    }
+}
 
 ipcMain.on('set-minimize-to-tray', (_event, enabled) => {
     minimizeToTray = !!enabled;
+    updateTrayState();
 });
 
 function startupPathSummary(app) {
@@ -101,38 +172,18 @@ function createMainWindow({
         console.log(`[RENDERER-LOG] ${message}`);
     });
 
-    // Initialize System Tray
-    if (!tray && paths && paths.mainWindowIconPath) {
-        try {
-            tray = new Tray(paths.mainWindowIconPath);
-            const contextMenu = Menu.buildFromTemplate([
-                {
-                    label: 'Show YumeShelf',
-                    click: () => {
-                        win.show();
-                        win.focus();
-                    }
-                },
-                { type: 'separator' },
-                {
-                    label: 'Quit',
-                    click: () => {
-                        isQuitting = true;
-                        app.quit();
-                    }
-                }
-            ]);
-            tray.setToolTip('YumeShelf');
-            tray.setContextMenu(contextMenu);
+    mainWindow = win;
+    pathsConfig = paths;
+    electronApp = app;
 
-            tray.on('double-click', () => {
-                win.show();
-                win.focus();
-            });
-        } catch (e) {
-            console.error('[TRAY] Failed to initialize tray:', e);
-        }
-    }
+    // Listen to visibility and close events to update tray
+    win.on('show', () => {
+        updateTrayState();
+    });
+
+    win.on('hide', () => {
+        updateTrayState();
+    });
 
     // Override close event to minimize to tray
     win.on('close', (event) => {
@@ -144,7 +195,11 @@ function createMainWindow({
 
     app.on('before-quit', () => {
         isQuitting = true;
+        destroyTrayIcon();
     });
+
+    // Initialize/Update tray state at startup
+    updateTrayState();
 
     if (startMinimized) {
         if (!minimizeToTray) {

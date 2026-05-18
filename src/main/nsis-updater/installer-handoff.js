@@ -25,6 +25,18 @@ function createInstallerHandoff({
             await onBeforeLaunch();
         }
 
+        // Hide all active windows to avoid visual glitches or frozen white screens during handover
+        try {
+            const { BrowserWindow } = require('electron');
+            BrowserWindow.getAllWindows().forEach(w => {
+                if (w && !w.isDestroyed()) {
+                    w.hide();
+                }
+            });
+        } catch (hideError) {
+            await appendUpdateLog(`${logPrefix} window-hide-error error=${String(hideError)}`);
+        }
+
         try {
             const child = spawn(installerPath, ['--updated', '/S', '--force-run'], {
                 detached: true,

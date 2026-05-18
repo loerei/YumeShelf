@@ -27,4 +27,6 @@ scratch/
 scripts/test-*.js
 scripts/wolf-*.js
 scripts/save-converter/
-local/
+local/changelogs/
+local/*
+!local/*.md

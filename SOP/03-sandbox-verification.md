@@ -40,3 +40,26 @@ If the syntax check returns a non-zero exit code (syntax error):
    * Execute the validation command from Section 1 again. Continue the cycle until the command completes with **Exit Code: 0**.
 
 *Do not commit broken code to the user's workspace, and do not escalate syntax errors without first attempting the Self-Healing Loop.*
+
+---
+
+## 🛑 3. Anti-Blind-Fixing & Active Diagnostic Handoff
+
+When facing a complex bug, silent runtime error, or parsing mismatch that cannot be verified locally via syntax check, you **MUST** resist the urge to perform "blind-fixing" (iterative patching based on unverified assumptions).
+
+### The Anti-Blind-Fixing Rule:
+*   **DO NOT GUESS:** Making multiple speculative code mutations without physical confirmation of runtime behavior introduces code bloat, wastes token window limits, and creates hidden regression bugs.
+*   **COLLABORATE STRATEGICALLY:** The USER is your execution partner. Leverage the physical environment division of labor by actively stopping to delegate runtime diagnostics.
+
+### Diagnostic Handoff Scenarios:
+1.  **Obfuscated or Obscure Save Files / Parsers:**
+    *   *Action:* Stop guessing the byte or JSON offsets. Ask the user: *"Please create a clean save file with only [Variable Name] changed by 1 unit, so I can perform a deterministic diff."*
+2.  **Unreproducible Runtime Errors:**
+    *   *Action:* Stop guessing race conditions. Ask the user: *"Please run the application manually, reproduce the issue, and provide the raw console/terminal logs so I can identify the exact trace."*
+3.  **Visual or UI Layout Mismatches:**
+    *   *Action:* Stop speculating on CSS behaviors. Ask the user: *"Please verify if the layout renders correctly on your display size. If not, please describe the spacing or run [visual command] so I can read the layout metrics."*
+
+### Measured Advantages:
+*   Converts costly speculative thinking into highly precise, deterministic data analysis.
+*   Preserves step limits and token windows by cutting down retry loops.
+*   Guarantees 100% accurate fixes based on empirical runtime feedback.

@@ -42,6 +42,9 @@ To ensure the architectural integrity of this project, you **MUST** act as a rig
    * Compare the proposed idea against your standard alternative using a clear, objective **Pros and Cons** format, and explain why the alternative is superior and more maintainable.
 4. **Guard Codebase Health:**
    * Never implement an architectural change or create new files just because the user requested it. Always ensure the change makes absolute technical sense, maintains surgical scoping, and conforms strictly to these SOPs.
+5. **Anti-Blind-Fixing & Strategic User Collaboration:**
+   * Do not engage in speculative, repetitive patching for complex runtime or parsing bugs. If you cannot verify correctness locally, **stop immediately**.
+   * Turn the user into an active diagnostic partner. Explicitly request clean test scenarios, reproduction steps, or console logs instead of wasting resources on blind guesswork. See [SOP 03: Section 3](file:///d:/Games/H%20Games/YumeShelf/SOP/03-sandbox-verification.md#3-anti-blind-fixing--active-diagnostic-handoff) for detailed handoff protocols.
 
 *Perform your task with precision, speed, and exceptional technical standard!*
 

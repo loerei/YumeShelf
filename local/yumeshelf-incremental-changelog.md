@@ -62,11 +62,11 @@ last_updated_at: "2026-05-19T02:11:18+07:00"
 ## 🔍 How to Determine the Active Version using Git
 
 When starting a new session or task, run the following steps to self-determine the current version:
-1. Propose `git tag -n` using `run_command`. Note the highest tag number (e.g. `v1.5.2`).
+1. Propose `git tag -n` (or `git describe --tags --abbrev=0`) using `run_command` to discover the highest released tag in Git.
 2. Read `package.json` to get the current project version.
-3. Compare them:
-   - If the `package.json` version matches the latest tag, you may be preparing a hotfix or minor bump. Confirm with the user.
-   - If the `package.json` version (e.g., `1.5.3`) is higher than the latest tag (e.g., `v1.5.2`), you are working on the next development cycle version (`1.5.3`).
+3. Check the changelog file `local/changelogs/changelog.<version>.md` for the current version:
+   - **CRITICAL**: If the changelog file exists and is marked as `status: "released"`, or if `package.json` version matches a released tag, **DO NOT** edit this changelog and **DO NOT** automatically bump the version (e.g. from 1.5.3 to 1.5.4) yourself! In practice, the next version could be a patch (`1.5.4`) or a minor/major release (`1.6.0`). You **MUST** halt and ask the user immediately to confirm the next active development version.
+   - If the changelog has `status: "working"`, then you are safe to continue working on that version.
 
 ---
 
@@ -83,10 +83,13 @@ Strictly follow the section definitions from [yumeshelf-release-notes.md](./yume
 ## 🛠️ Workflow
 
 ### Step 1: Confirm Active Version
-- Look at current context, or run the **Git Discovery** step (Step 1 of active version determination).
-- If still in doubt, ask the user directly:
-  > *"Confirm: Which YumeShelf version are we currently targetting for the changelog?"*
-- **Verify & Bump Codebase Version**: Check the current version declared in `package.json` at the root. If it is lower than the confirmed active version, update the `"version"` field in `package.json` to match the confirmed version immediately.
+- Look at the current context, or run the **Git Discovery** step using `git describe --tags --abbrev=0` or `git tag -n`.
+- Check if the changelog for the version declared in `package.json` already has `status: "released"` in its frontmatter:
+  - > [!WARNING]
+  - > If the local version's changelog is marked as **"released"**, **DO NOT** automatically assume the next version is a simple patch bump (+1) and **DO NOT** auto-edit the version. Stop and ask the user immediately:
+  - > *"Confirm: I detected that version v<version> has been released. Which version should we target for the next development cycle (e.g., v1.5.4, v1.6.0)?"*
+- If still in doubt, ask the user directly to confirm.
+- **Verify & Bump Codebase Version**: Once the user has explicitly confirmed the new target version, check the `"version"` field in `package.json`. If it is lower than the confirmed active version, update it to match the confirmed version.
 
 ### Step 2: Check or Initialize the Changelog File
 - Targeted path: `local/changelogs/changelog.<version>.md` (e.g., `local/changelogs/changelog.1.5.3.md`).
@@ -123,7 +126,7 @@ last_updated_at: "2026-05-19T02:11:18+07:00"
 
 ## ✨ What's New
 
-- [initial-initializer] Initialized version v1.5.3 changelog tracker.
+- ...
 
 ## 🔧 What Changed
 
@@ -150,7 +153,7 @@ last_updated_at: "2026-05-19T02:15:30+07:00"
 
 ## ✨ What's New
 
-- [initial-initializer] Initialized version v1.5.3 changelog tracker.
+- ...
 
 ## 🔧 What Changed
 

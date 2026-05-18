@@ -38,7 +38,7 @@ const { createStartupServices } = require('./main/startup');
 const { startMainRuntime, attachProcessDiagnostics } = require('./main/window/app-lifecycle');
 const { createStatusBroadcaster } = require('./main/window/broadcast-status');
 const { createMainWindow, logStartupDiagnostics } = require('./main/window/main-window');
-const { createSaveEditorService } = require('./main/save-editor-service');
+const { createSaveEditorService } = require('./main/save-editor');
 
 applyVersionOverride(app);
 registerPrivilegedSchemes(protocol);

@@ -1,14 +1,14 @@
 const fs = require('fs/promises');
 const path = require('path');
-const SaveMappingManager = require('./save-editor/mapping-manager');
+const SaveMappingManager = require('./mapping-manager');
 
 // Registered save file formats
 const formats = [
-    require('./save-editor/formats/rpg-maker-mz'),
-    require('./save-editor/formats/rpg-maker-mv'),
-    require('./save-editor/formats/rpg-wolf-sav'),
-    require('./save-editor/formats/unity-mono-bin'),
-    require('./save-editor/formats/renpy')
+    require('./formats/rpg-maker-mz'),
+    require('./formats/rpg-maker-mv'),
+    require('./formats/rpg-wolf-sav'),
+    require('./formats/unity-mono-bin'),
+    require('./formats/renpy')
 ];
 
 /**

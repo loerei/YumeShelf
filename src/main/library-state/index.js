@@ -1,6 +1,6 @@
 const path = require('path');
-const scanner = require('./library-state/scanner');
-const continuity = require('./library-state/continuity');
+const scanner = require('./scanner');
+const continuity = require('./continuity');
 
 const {
     DEFAULT_LIBRARY_MAX_DEPTH,

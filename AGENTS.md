@@ -24,6 +24,10 @@ Before performing any research, reading large files, or writing code, you must l
    - **When**: Creating new features, refactoring existing code, or adding new UI components/modules.
    - **Focus**: Ensuring strict process isolation (Main vs Renderer), proper preload IPC bridging, and decoupled CSS/JS architecture.
 
+5. **[yumeshelf-bug-finding-guide.md](./local/yumeshelf-bug-finding-guide.md) (Bug-Finding & Systematic Diagnostics Guide)**:
+   - **When**: Stuck in a console-logging loop (3+ iterations) or encountering complex async timing, resource leaks, data schemas, or regressions.
+   - **Focus**: Decision tree and implementation checklists for Git Bisect, Fuzz Testing, Chrome Profiling, Breakpoint stepping, and Structured Tracing.
+
 ---
 
 ## 📌 2. Core Operational Commandments

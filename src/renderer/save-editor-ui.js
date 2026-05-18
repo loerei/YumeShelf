@@ -6,9 +6,10 @@ import { setupSearchBar } from './save-editor/search-bar.js';
 
 export function initSaveEditorUI() {
     window.showSaveEditor = async (gameKey, options = {}) => {
-        const d = window.currentUIStrings || {};
         const engine = new DataEngine();
         const translator = new Translator(window.electronAPI);
+        await translator.initialize();
+        const d = window.currentUIStrings || {};
         const isStandalone = !!options.isStandaloneWindow;
         
         const overlay = document.createElement('div');
@@ -204,7 +205,7 @@ export function initSaveEditorUI() {
                 return;
             }
             
-            const targetLang = (window.appConfig?.language || 'en').split('-')[0];
+            const targetLang = translator.resolvedBcp47 || localStorage.getItem('yumeshelf_lang') || 'en';
             const labels = Array.from(content.querySelectorAll('.data-label'));
             console.log(`[SAVE-EDITOR] Found ${labels.length} labels to check for translation.`);
 

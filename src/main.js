@@ -1,4 +1,23 @@
-const { app, ipcMain, shell, dialog, protocol } = require('electron');
+const { app, ipcMain, shell, dialog, protocol, BrowserWindow } = require('electron');
+
+if (!app.isPackaged) {
+    app.setName('YumeShelfDev');
+}
+
+const isSingleInstance = app.requestSingleInstanceLock();
+if (!isSingleInstance) {
+    app.quit();
+    process.exit(0);
+}
+
+app.on('second-instance', () => {
+    const mainWin = BrowserWindow.getAllWindows()[0];
+    if (mainWin) {
+        if (mainWin.isMinimized()) mainWin.restore();
+        mainWin.show();
+        mainWin.focus();
+    }
+});
 const fs = require('fs/promises');
 
 const { createAppPaths } = require('./main/core/app-paths');
@@ -135,4 +154,11 @@ app.whenReady().then(async () => {
         registerMainIpc,
         createMainWindow
     });
+});
+
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
 });

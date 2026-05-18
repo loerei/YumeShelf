@@ -70,7 +70,7 @@ function createPlaytimeSessionManager({
     async function finalizeStaleJournal(journal, reason = 'stale-session-finalized') {
         const endedAt = journal.lastHeartbeatAt || journal.startedAt || Date.now();
         log(`finalizing stale session gameKey=${journal.gameKey} sessionId=${journal.sessionId} accruedMs=${journal.accruedMs} endedAt=${endedAt} reason=${reason}`);
-        await libraryState.finalizeTrackedSession(journal.gameKey, journal.accruedMs, endedAt);
+        await libraryState.finalizeTrackedSession(journal.gameKey, journal.accruedMs, endedAt, journal.exePath);
         await removeSessionJournal(journal.filePath);
     }
 
@@ -236,11 +236,11 @@ function createPlaytimeSessionManager({
 
     function overlayGames(games) {
         return games.map((game) => {
-            const instanceGameKeys = Array.isArray(game.instances) && game.instances.length > 0
-                ? game.instances.map((instance) => instance.gameKey)
-                : [game.gameKey];
-            const runtimes = instanceGameKeys
-                .map((gameKey) => currentGameState.get(gameKey))
+            const instanceGameIds = Array.isArray(game.instances) && game.instances.length > 0
+                ? game.instances.map((instance) => instance.gameId)
+                : [game.gameId || game.gameKey];
+            const runtimes = instanceGameIds
+                .map((gameId) => currentGameState.get(gameId))
                 .filter(Boolean);
             const accruedMs = runtimes.reduce((sum, runtime) => sum + Math.max(0, runtime.accruedMs || 0), 0);
             const isRunning = runtimes.some((runtime) => runtime.active);

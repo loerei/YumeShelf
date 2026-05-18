@@ -254,18 +254,52 @@ function createLibraryState({
     async function addPlaytime(gameKey, durationMs) {
         const db = await loadDB();
         const games = readStoredGames(db);
-        if (!games[gameKey]) return;
-        games[gameKey].playtime = (games[gameKey].playtime || 0) + durationMs;
+        
+        let targetKey = null;
+        if (games[gameKey]) {
+            targetKey = gameKey;
+        } else {
+            const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+            const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
+            if (targetGroup) {
+                targetKey = targetGroup.gameKey;
+            }
+        }
+        
+        if (!targetKey || !games[targetKey]) return;
+        games[targetKey].playtime = (games[targetKey].playtime || 0) + Math.max(0, durationMs || 0);
         db.games = games;
         await saveDB(db);
     }
 
-    async function finalizeTrackedSession(gameKey, durationMs, endedAt) {
+    async function finalizeTrackedSession(gameKey, durationMs, endedAt, exePath) {
         const db = await loadDB();
         const games = readStoredGames(db);
-        if (!games[gameKey]) return;
-        games[gameKey].playtime = (games[gameKey].playtime || 0) + Math.max(0, durationMs || 0);
-        games[gameKey].lastPlayed = endedAt || Date.now();
+        
+        let targetKey = null;
+        if (games[gameKey]) {
+            targetKey = gameKey;
+        } else {
+            const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+            const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
+            if (targetGroup) {
+                if (exePath) {
+                    const matchedInstance = targetGroup.instances.find(
+                        (inst) => inst.exePath && path.resolve(inst.exePath) === path.resolve(exePath)
+                    );
+                    if (matchedInstance) {
+                        targetKey = matchedInstance.gameKey;
+                    }
+                }
+                if (!targetKey) {
+                    targetKey = targetGroup.gameKey;
+                }
+            }
+        }
+        
+        if (!targetKey || !games[targetKey]) return;
+        games[targetKey].playtime = (games[targetKey].playtime || 0) + Math.max(0, durationMs || 0);
+        games[targetKey].lastPlayed = endedAt || Date.now();
         db.games = games;
         await saveDB(db);
     }

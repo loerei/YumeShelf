@@ -37,7 +37,8 @@ export function createUITextController({
         const d = getStrings();
         window.currentUIStrings = d;
         const defPath = await electronAPI.getDefaultPath();
-        refs.uiTitle.innerText = d.title;
+        const isDev = await electronAPI.isDev();
+        refs.uiTitle.innerText = isDev ? 'YumeShelf (Develop)' : d.title;
         refs.uiWelcomeTitle.innerText = d.welcome;
         refs.uiWelcomeDesc.innerText = d.welcome_desc;
         refs.uiOptChoose.innerText = d.opt_choose;
@@ -55,6 +56,9 @@ export function createUITextController({
         refs.uiAutoLaunchLabel.innerText = d.auto_launch_label || getEnglishStrings().auto_launch_label;
         refs.uiAutoLaunchOff.innerText = d.option_off || getEnglishStrings().option_off;
         refs.uiAutoLaunchOn.innerText = d.option_on || getEnglishStrings().option_on;
+        if (refs.uiAutoLaunchMinimized) {
+            refs.uiAutoLaunchMinimized.innerText = d.option_minimized || getEnglishStrings().option_minimized;
+        }
         refs.uiMinimizeToTrayLabel.innerText = d.minimize_to_tray_label || getEnglishStrings().minimize_to_tray_label;
         refs.uiMinimizeToTrayOff.innerText = d.option_off || getEnglishStrings().option_off;
         refs.uiMinimizeToTrayOn.innerText = d.option_on || getEnglishStrings().option_on;

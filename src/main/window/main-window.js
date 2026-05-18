@@ -44,12 +44,10 @@ function logStartupDiagnostics(app) {
     const summary = startupPathSummary(app);
     console.log(`[MAIN][STARTUP] path summary=${JSON.stringify(summary)}`);
 
-    const dirsToProbe = [
+        const dirsToProbe = [
         ['userData', summary.userData],
         ['sessionData', summary.sessionData],
-        ['cache', summary.cache],
-        ['gpuCache', path.join(summary.userData, 'GPUCache')],
-        ['codeCache', path.join(summary.userData, 'Code Cache')]
+        ['cache', summary.cache]
     ];
 
     for (const [label, dirPath] of dirsToProbe) {
@@ -76,12 +74,14 @@ function createMainWindow({
         console.error('[TRAY] Failed to read initial minimizeToTray config:', e);
     }
 
+    const startMinimized = process.argv.includes('--minimized');
     const win = new BrowserWindow({
         width: 1200,
         height: 800,
         backgroundColor: '#121212',
         autoHideMenuBar: true,
         icon: paths.mainWindowIconPath,
+        show: !startMinimized,
         webPreferences: {
             preload: paths.preloadPath,
             contextIsolation: true,
@@ -91,6 +91,12 @@ function createMainWindow({
 
     win.removeMenu();
     win.setMenuBarVisibility(false);
+    win.on('page-title-updated', (event) => {
+        if (!app.isPackaged) {
+            event.preventDefault();
+            win.setTitle('YumeShelf (Develop)');
+        }
+    });
     win.webContents.on('console-message', (_event, _level, message) => {
         console.log(`[RENDERER-LOG] ${message}`);
     });
@@ -139,6 +145,12 @@ function createMainWindow({
     app.on('before-quit', () => {
         isQuitting = true;
     });
+
+    if (startMinimized) {
+        if (!minimizeToTray) {
+            win.minimize();
+        }
+    }
 
     win.loadFile(paths.indexHtmlPath);
     if (launchedAfterUpdate) {

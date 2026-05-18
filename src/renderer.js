@@ -40,8 +40,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         setAllGames: composition.libraryRuntime.setAllGames,
         setRunningFlag: (gameKey, isRunning) => {
             const target = state.getAllGames().find((game) => (
-                game.gameKey === gameKey
-                || (Array.isArray(game.instances) && game.instances.some((instance) => instance.gameKey === gameKey))
+                game.gameId === gameKey
+                || game.gameKey === gameKey
+                || (Array.isArray(game.instances) && game.instances.some((instance) => (
+                    instance.gameId === gameKey
+                    || instance.gameKey === gameKey
+                )))
             ));
             if (target) {
                 target.isRunning = isRunning;

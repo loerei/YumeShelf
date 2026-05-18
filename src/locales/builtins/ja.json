@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "code": "ja",
+  "bcp47": "ja",
   "englishName": "Japanese",
   "nativeName": "日本語",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.0",
+  "reviewedForAppVersion": "1.5.1",
   "aliases": [
     "ja",
     "japanese",
@@ -199,6 +200,7 @@
     "auto_launch_label": "起動時に自動実行",
     "minimize_to_tray_label": "システムトレイに最小化",
     "option_on": "オン",
-    "option_off": "オフ"
+    "option_off": "オフ",
+    "option_minimized": "最小化で起動"
   }
 }

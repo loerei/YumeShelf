@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "code": "en",
+  "bcp47": "en",
   "englishName": "English",
   "nativeName": "English",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.0",
+  "reviewedForAppVersion": "1.5.1",
   "aliases": [
     "en",
     "english"
@@ -224,6 +225,7 @@
     "auto_launch_label": "Auto-launch on startup",
     "minimize_to_tray_label": "Minimize to System Tray",
     "option_on": "On",
-    "option_off": "Off"
+    "option_off": "Off",
+    "option_minimized": "Start Minimized"
   }
 }

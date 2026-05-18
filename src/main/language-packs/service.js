@@ -131,6 +131,7 @@ function normalizeLocalePack(raw, options = {}) {
 
     return {
         code,
+        bcp47: raw.bcp47 ? String(raw.bcp47) : null,
         englishName: String(raw.englishName),
         nativeName: String(raw.nativeName),
         packVersion: String(raw.packVersion || raw.version || '1.0.0'),
@@ -156,6 +157,7 @@ function normalizeManifest(raw) {
 
         return {
             code,
+            bcp47: entry.bcp47 ? String(entry.bcp47) : null,
             englishName: String(entry.englishName),
             nativeName: String(entry.nativeName),
             packVersion: String(entry.packVersion || entry.version || '1.0.0'),

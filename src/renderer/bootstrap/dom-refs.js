@@ -78,6 +78,7 @@ export function buildRendererRefs(documentRef = document) {
             uiAutoLaunchLabel: documentRef.getElementById('ui-auto-launch-label'),
             uiAutoLaunchOff: documentRef.getElementById('ui-auto-launch-off'),
             uiAutoLaunchOn: documentRef.getElementById('ui-auto-launch-on'),
+            uiAutoLaunchMinimized: documentRef.getElementById('ui-auto-launch-minimized'),
             uiMinimizeToTrayLabel: documentRef.getElementById('ui-minimize-to-tray-label'),
             uiMinimizeToTrayOff: documentRef.getElementById('ui-minimize-to-tray-off'),
             uiMinimizeToTrayOn: documentRef.getElementById('ui-minimize-to-tray-on'),

@@ -2,6 +2,7 @@ import { UIComponents } from './components.js';
 
 export function setupGridRenderer(refs, state, engine, translator) {
     const { overlay, content, tabsContainer, tabsWrapper } = refs;
+    let activeVisibleTabs = [];
 
     // Save Editor Tooltip Controller (disabled globally by default)
     const enableSaveEditorTooltips = false;
@@ -24,6 +25,9 @@ export function setupGridRenderer(refs, state, engine, translator) {
 
         const hasCategoryData = (tabId) => {
             if (!root) return false;
+            if (tabId.startsWith('prefix_')) {
+                return true;
+            }
             if (tabId === 'gold') {
                 return !!engine.findGold(root, party);
             }
@@ -50,16 +54,23 @@ export function setupGridRenderer(refs, state, engine, translator) {
             return false;
         };
 
-        const tabs = [
-            { id: 'gold', label: d.save_editor_gold || 'Gold', i18n: 'save_editor_gold' },
-            { id: 'items', label: d.save_editor_items || 'Items', i18n: 'save_editor_items' },
-            { id: 'weapons', label: d.save_editor_weapons || 'Weapons', i18n: 'save_editor_weapons' },
-            { id: 'armors', label: d.save_editor_armors || 'Armors', i18n: 'save_editor_armors' },
-            { id: 'variables', label: d.save_editor_variables || 'Variables', i18n: 'save_editor_variables' },
-            { id: 'switches', label: d.save_editor_switches || 'Switches', i18n: 'save_editor_switches' }
-        ];
+        let tabs = engine.getTabs(root, d);
+        if (!tabs) {
+            tabs = [
+                { id: 'gold', label: d.save_editor_gold || 'Gold', i18n: 'save_editor_gold' },
+                { id: 'items', label: d.save_editor_items || 'Items', i18n: 'save_editor_items' },
+                { id: 'weapons', label: d.save_editor_weapons || 'Weapons', i18n: 'save_editor_weapons' },
+                { id: 'armors', label: d.save_editor_armors || 'Armors', i18n: 'save_editor_armors' },
+                { id: 'variables', label: d.save_editor_variables || 'Variables', i18n: 'save_editor_variables' },
+                { id: 'switches', label: d.save_editor_switches || 'Switches', i18n: 'save_editor_switches' }
+            ];
+        }
+        
+        // Unshift 'all' tab to the front
+        tabs.unshift({ id: 'all', label: d.save_editor_all || 'All', i18n: 'save_editor_all' });
 
         const visibleTabs = tabs.filter(tab => {
+            if (tab.id === 'all') return true;
             const hasData = hasCategoryData(tab.id);
             if (!hasData) {
                 console.log(`[SAVE-EDITOR] Tab '${tab.id}' has no data, hiding it.`);
@@ -67,10 +78,14 @@ export function setupGridRenderer(refs, state, engine, translator) {
             return hasData;
         });
 
+        // Hide 'all' tab if no other categories have data
+        const actualVisibleTabs = visibleTabs.filter(t => t.id !== 'all');
+        activeVisibleTabs = actualVisibleTabs.length > 0 ? visibleTabs : [];
+
         // Adjust activeTab if the currently active one is now hidden
-        if (visibleTabs.length > 0 && !visibleTabs.some(t => t.id === state.activeTab)) {
-            console.log(`[SAVE-EDITOR] Current activeTab '${state.activeTab}' is hidden. Auto-switching to '${visibleTabs[0].id}'.`);
-            state.activeTab = visibleTabs[0].id;
+        if (activeVisibleTabs.length > 0 && !activeVisibleTabs.some(t => t.id === state.activeTab)) {
+            console.log(`[SAVE-EDITOR] Current activeTab '${state.activeTab}' is hidden. Auto-switching to '${activeVisibleTabs[0].id}'.`);
+            state.activeTab = activeVisibleTabs[0].id;
         }
 
         visibleTabs.forEach(tab => {
@@ -106,8 +121,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
 
     function renderTabContent() {
         const d = state.d || {};
-        const grid = document.createElement('div');
-        grid.className = 'save-grid';
+        content.innerHTML = '';
         
         const root = engine.extractRoot(state.currentSaveData);
         const party = root ? (root.party || root._party || engine.getProp(root, 'party')) : null;
@@ -119,42 +133,153 @@ export function setupGridRenderer(refs, state, engine, translator) {
         const originalVariables = originalRoot ? (originalRoot.variables || originalRoot._variables || engine.getProp(originalRoot, 'variables')) : null;
         const originalSwitches = originalRoot ? (originalRoot.switches || originalRoot._switches || engine.getProp(originalRoot, 'switches')) : null;
 
-        if (state.activeTab === 'gold' && root) {
-            const goldInfo = engine.findGold(root, party);
-            const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
-            const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
-            
-            if (goldInfo) {
-                const row = UIComponents.createDataRow('GOLD', goldInfo.val, d.save_editor_gold || 'Gold', (val) => {
-                    goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
-                }, originalGoldVal);
-                row.style.gridColumn = '1 / -1';
-                row.style.maxWidth = '300px';
-                grid.appendChild(row);
-            }
-        } else if (['items', 'weapons', 'armors'].includes(state.activeTab) && root) {
-            renderInventory(party || root, state.activeTab, state.currentMetadata[state.activeTab], grid, originalParty || originalRoot);
-        } else if (state.activeTab === 'variables' && variables) {
-            renderBitset(variables, state.currentMetadata.variables, grid, (id, val, newVal) => {
-                const num = Number(newVal);
-                variables[id] = isNaN(num) ? newVal : num;
-            }, true, originalVariables);
-        } else if (state.activeTab === 'switches' && switches) {
-            renderBitset(switches, state.currentMetadata.switches, grid, (id, val, newVal) => {
-                switches[id] = newVal;
-            }, false, originalSwitches);
-        }
+        const renderSingleCategory = (tabId, grid) => {
+            if (tabId === 'gold' && root) {
+                const goldInfo = engine.findGold(root, party);
+                const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
+                const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
+                
+                if (goldInfo) {
+                    const label = d.save_editor_gold || 'Gold';
+                    // Apply query filtering to Gold so it obeys search parameters
+                    if (!engine.matchesQuery('GOLD', goldInfo.val, label)) return;
 
-        content.innerHTML = '';
-        if (grid.children.length === 0) {
-            const msg = engine.searchOptions.query ? 'No results found' : 'No data found in this category';
-            content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+                    const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
+                        goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
+                    }, originalGoldVal);
+                    row.style.gridColumn = '1 / -1';
+                    row.style.maxWidth = '300px';
+                    grid.appendChild(row);
+                }
+            } else if (['items', 'weapons', 'armors'].includes(tabId) && root) {
+                renderInventory(party || root, tabId, state.currentMetadata[tabId], grid, originalParty || originalRoot);
+            } else if (tabId.startsWith('prefix_') && variables) {
+                const activePrefix = tabId.replace('prefix_', '');
+                const filteredVars = new Proxy(root, {
+                    ownKeys(target) {
+                        return Object.keys(target).filter(k => k.startsWith(`store.${activePrefix}_`));
+                    },
+                    get(target, key) { return target[key]; },
+                    set(target, key, val) { target[key] = val; return true; },
+                    getOwnPropertyDescriptor(target, key) {
+                        return { enumerable: true, configurable: true, writable: true };
+                    }
+                });
+                renderBitset(filteredVars, state.currentMetadata.variables, grid, (id, val, newVal) => {
+                    const num = Number(newVal);
+                    variables[id] = isNaN(num) ? newVal : num;
+                }, true, originalVariables);
+            } else if (tabId === 'variables' && variables) {
+                renderBitset(variables, state.currentMetadata.variables, grid, (id, val, newVal) => {
+                    const num = Number(newVal);
+                    variables[id] = isNaN(num) ? newVal : num;
+                }, true, originalVariables);
+            } else if (tabId === 'switches' && switches) {
+                renderBitset(switches, state.currentMetadata.switches, grid, (id, val, newVal) => {
+                    switches[id] = newVal;
+                }, false, originalSwitches);
+            }
+        };
+
+        if (state.activeTab === 'all') {
+            let hasAnyData = false;
+            const categories = activeVisibleTabs.filter(t => t.id !== 'all');
+            
+            // Create and append Expand All / Collapse All controls at the top
+            const controls = document.createElement('div');
+            controls.className = 'all-tab-controls';
+            
+            const expandAllBtn = document.createElement('button');
+            expandAllBtn.className = 'all-tab-btn';
+            expandAllBtn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                </svg>
+                <span>Expand All</span>
+            `;
+            expandAllBtn.onclick = () => {
+                content.querySelectorAll('.save-section').forEach(sec => {
+                    sec.classList.remove('collapsed');
+                });
+            };
+            
+            const collapseAllBtn = document.createElement('button');
+            collapseAllBtn.className = 'all-tab-btn';
+            collapseAllBtn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 14 10 14 10 20"></polyline>
+                    <polyline points="20 10 14 10 14 4"></polyline>
+                    <line x1="14" y1="10" x2="21" y2="3"></line>
+                    <line x1="10" y1="14" x2="3" y2="21"></line>
+                </svg>
+                <span>Collapse All</span>
+            `;
+            collapseAllBtn.onclick = () => {
+                content.querySelectorAll('.save-section').forEach(sec => {
+                    sec.classList.add('collapsed');
+                });
+            };
+            
+            controls.appendChild(expandAllBtn);
+            controls.appendChild(collapseAllBtn);
+            content.appendChild(controls);
+            
+            categories.forEach(cat => {
+                const section = document.createElement('div');
+                section.className = 'save-section';
+                
+                const header = document.createElement('div');
+                header.className = 'save-section-header';
+                header.textContent = cat.label;
+                if (cat.i18n) {
+                    header.setAttribute('data-i18n', cat.i18n);
+                }
+                
+                // Click to toggle collapsed state on this section
+                header.onclick = () => {
+                    section.classList.toggle('collapsed');
+                };
+                
+                section.appendChild(header);
+                
+                const grid = document.createElement('div');
+                grid.className = 'save-grid';
+                
+                renderSingleCategory(cat.id, grid);
+                
+                if (grid.children.length > 0) {
+                    section.appendChild(grid);
+                    content.appendChild(section);
+                    hasAnyData = true;
+                }
+            });
+            
+            if (!hasAnyData) {
+                // Remove controls if there is no data at all
+                controls.remove();
+                const msg = engine.searchOptions.query ? 'No results found' : 'No data found';
+                content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+            } else {
+                translator.applyTranslations(content);
+                translator.applyCachedLabels(content);
+            }
         } else {
-            content.appendChild(grid);
-            // Apply UI-level translations
-            translator.applyTranslations(content);
-            // Apply cached translations for labels
-            translator.applyCachedLabels(content);
+            const grid = document.createElement('div');
+            grid.className = 'save-grid';
+            
+            renderSingleCategory(state.activeTab, grid);
+            
+            if (grid.children.length === 0) {
+                const msg = engine.searchOptions.query ? 'No results found' : 'No data found in this category';
+                content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+            } else {
+                content.appendChild(grid);
+                translator.applyTranslations(content);
+                translator.applyCachedLabels(content);
+            }
         }
     }
 

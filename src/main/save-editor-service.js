@@ -7,7 +7,8 @@ const formats = [
     require('./save-editor/formats/rpg-maker-mz'),
     require('./save-editor/formats/rpg-maker-mv'),
     require('./save-editor/formats/rpg-wolf-sav'),
-    require('./save-editor/formats/unity-mono-bin')
+    require('./save-editor/formats/unity-mono-bin'),
+    require('./save-editor/formats/renpy')
 ];
 
 /**
@@ -206,11 +207,91 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
     }
 
+    const { app } = require('electron');
+
+    function getTranslationFilePath(lang = 'en') {
+        const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_\-]/g, '');
+        return path.join(app.getPath('userData'), `save_editor_translations_${cleanLang}.json`);
+    }
+
+    async function loadTranslations(lang = 'en') {
+        const filePath = getTranslationFilePath(lang);
+        const legacyPath = path.join(app.getPath('userData'), 'save_editor_translations.json');
+        try {
+            // Backward compatibility fallback for English users
+            if (lang === 'en' && !(await exists(filePath)) && (await exists(legacyPath))) {
+                try {
+                    await fs.rename(legacyPath, filePath);
+                    console.log(`[SAVE-EDITOR] Migrated legacy translations file to: ${filePath}`);
+                } catch (e) {
+                    console.warn(`[SAVE-EDITOR] Failed to migrate legacy translations, reading directly:`, e);
+                    const raw = await fs.readFile(legacyPath, 'utf8');
+                    return JSON.parse(raw) || {};
+                }
+            }
+
+            if (await exists(filePath)) {
+                const raw = await fs.readFile(filePath, 'utf8');
+                const cache = JSON.parse(raw) || {};
+                console.log(`[SAVE-EDITOR] Loaded translations from AppData: ${filePath} (${Object.keys(cache).length} keys)`);
+                return cache;
+            }
+        } catch (err) {
+            console.error('[SAVE-EDITOR] Error loading translations from AppData:', err);
+        }
+        return {};
+    }
+
+    async function saveTranslations(lang = 'en', translations = {}) {
+        const filePath = getTranslationFilePath(lang);
+        const tempPath = filePath + '.tmp';
+        
+        // Strip off "Identical":"Identical" results from translations dictionary BEFORE writing to disk
+        const strippedTranslations = {};
+        for (const [k, v] of Object.entries(translations)) {
+            if (k !== v) {
+                strippedTranslations[k] = v;
+            }
+        }
+
+        try {
+            await fs.writeFile(tempPath, JSON.stringify(strippedTranslations, null, 2), 'utf8');
+            try {
+                if (await exists(filePath)) {
+                    await fs.unlink(filePath);
+                }
+            } catch (unlinkErr) {
+                console.warn('[SAVE-EDITOR] Could not unlink existing translation file during atomic save:', unlinkErr);
+            }
+            await fs.rename(tempPath, filePath);
+            console.log(`[SAVE-EDITOR] Successfully persisted atomically ${Object.keys(strippedTranslations).length} translations to AppData: ${filePath}`);
+            return { ok: true };
+        } catch (err) {
+            console.error('[SAVE-EDITOR] Error saving translations atomically, falling back to direct write:', err);
+            try {
+                await fs.writeFile(filePath, JSON.stringify(strippedTranslations, null, 2), 'utf8');
+                console.log('[SAVE-EDITOR] Successfully wrote translations directly after atomic failure');
+                return { ok: true };
+            } catch (directWriteErr) {
+                console.error('[SAVE-EDITOR] Fallback direct write failed:', directWriteErr);
+                return { ok: false, error: directWriteErr.message };
+            } finally {
+                try {
+                    if (await exists(tempPath)) {
+                        await fs.unlink(tempPath);
+                    }
+                } catch {}
+            }
+        }
+    }
+
     return {
         listSaveFiles,
         loadSaveData,
         writeSaveData,
-        updateMapping
+        updateMapping,
+        loadTranslations,
+        saveTranslations
     };
 }
 

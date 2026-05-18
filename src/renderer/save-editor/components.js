@@ -18,6 +18,9 @@ export const UIComponents = {
         const labelSpan = document.createElement('span');
         labelSpan.className = 'data-label';
         labelSpan.textContent = label || '';
+        if (label) {
+            labelSpan.setAttribute('title', label);
+        }
         
         const valueWrapper = document.createElement('div');
         valueWrapper.className = 'data-value-wrapper';

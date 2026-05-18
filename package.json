@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "src/main.js",
@@ -9,7 +9,7 @@
     "ensure:installer-shell": "node .\\scripts\\ensure-installer-shell.js",
     "ensure:installer-shell:fast": "node .\\scripts\\ensure-installer-shell.js --fast",
     "organize:build-output": "node .\\scripts\\organize-build-output.js",
-    "start": "npm run ensure:playtime-helper && electron .",
+    "start": "node -e \"if(process.platform==='win32')require('child_process').execSync('chcp 65001')\" && npm run ensure:playtime-helper && electron .",
     "build": "npm run ensure:playtime-helper && npm run ensure:installer-shell && electron-builder --win && npm run organize:build-output",
     "build:fast": "npm run ensure:playtime-helper && npm run ensure:installer-shell:fast && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js && npm run organize:build-output",
     "build:fast:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:fast",

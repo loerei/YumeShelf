@@ -1,6 +1,7 @@
 import { RpgMakerEngine } from './engines/rpg-maker.js';
 import { UnityMonoEngine } from './engines/unity-mono.js';
 import { RpgWolfSavEngine } from './engines/rpg-wolf-sav.js';
+import { RenpyEngine } from './engines/renpy.js';
 
 /**
  * Save Editor Data Engine Orchestrator
@@ -20,6 +21,7 @@ export class DataEngine {
 
         // Registered engine strategies
         this.engines = [
+            new RenpyEngine(),
             new RpgWolfSavEngine(),
             new RpgMakerEngine(),
             new UnityMonoEngine()
@@ -120,7 +122,14 @@ export class DataEngine {
     /**
      * Auto-detects the engine strategy based on save data characteristics and extracts the root object
      */
-    extractRoot(save) {
+        getTabs(root, d) {
+        if (this.activeEngine && typeof this.activeEngine.getTabs === 'function') {
+            return this.activeEngine.getTabs(root, d);
+        }
+        return null;
+    }
+
+extractRoot(save) {
         if (save) {
             const matched = this.engines.find(e => e.detect(save));
             if (matched) {

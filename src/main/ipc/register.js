@@ -124,6 +124,16 @@ function registerMainIpc({
         return saveEditorService.updateMapping(gameKey, name, offset, dataType);
     });
 
+    ipcMain.handle('save-editor:load-translations', async (_event, lang) => {
+        console.log(`[IPC] save-editor:load-translations for lang: ${lang}`);
+        return saveEditorService.loadTranslations(lang);
+    });
+
+    ipcMain.handle('save-editor:save-translations', async (_event, { lang, translations }) => {
+        console.log(`[IPC] save-editor:save-translations for lang: ${lang} (${Object.keys(translations || {}).length} keys)`);
+        return saveEditorService.saveTranslations(lang, translations);
+    });
+
     ipcMain.on('open-save-editor-window', (_event, gameKey) => {
         const { BrowserWindow } = require('electron');
         const saveEditorWin = new BrowserWindow({
@@ -155,11 +165,16 @@ function registerMainIpc({
         }
     });
 
-    ipcMain.handle('set-auto-launch', async (_event, enabled) => {
+    ipcMain.handle('is-dev', () => !app.isPackaged);
+
+    ipcMain.handle('set-auto-launch', async (_event, value) => {
         try {
+            const openAtLogin = (value === 'on' || value === 'minimized' || value === true);
+            const args = (value === 'minimized') ? ['--minimized'] : [];
             app.setLoginItemSettings({
-                openAtLogin: enabled,
-                path: app.getPath('exe')
+                openAtLogin: openAtLogin,
+                path: app.getPath('exe'),
+                args: args
             });
             return { success: true };
         } catch (error) {
@@ -171,9 +186,13 @@ function registerMainIpc({
     ipcMain.handle('get-auto-launch', async () => {
         try {
             const settings = app.getLoginItemSettings();
-            return settings.openAtLogin;
+            if (!settings.openAtLogin) return 'off';
+            if (settings.args && settings.args.includes('--minimized')) {
+                return 'minimized';
+            }
+            return 'on';
         } catch {
-            return false;
+            return 'off';
         }
     });
 }

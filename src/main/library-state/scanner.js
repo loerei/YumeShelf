@@ -21,7 +21,7 @@ function normalizeLibraryConfigShape(config) {
     return {
         libraryPath: typeof base.libraryPath === 'string' ? base.libraryPath : '',
         maxDepth: clampLibraryMaxDepth(base.maxDepth),
-        autoLaunch: typeof base.autoLaunch === 'boolean' ? base.autoLaunch : false,
+        autoLaunch: (base.autoLaunch === 'minimized') ? 'minimized' : (base.autoLaunch === 'on' || base.autoLaunch === 'true' || base.autoLaunch === true),
         minimizeToTray: typeof base.minimizeToTray === 'boolean' ? base.minimizeToTray : false
     };
 }

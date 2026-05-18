@@ -47,6 +47,7 @@ Rules:
 - Be specific.
 - Mention architecture, refactors, pipelines, metadata, fallbacks, packaging, or internal constraints when relevant.
 - This is the right place for implementation detail.
+- **Purely internal system or infrastructure updates that DO NOT alter user-facing functionality (e.g., codebase file modularization, process isolation refactors, IPC bridge setup, or decoupled CSS/JS architecture) MUST be placed here, not in user-facing sections.**
 
 ---
 

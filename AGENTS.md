@@ -20,6 +20,10 @@ Before performing any research, reading large files, or writing code, you must l
    - **When**: Drafting user-facing summaries or public GitHub Release announcements.
    - **Focus**: Formatting guidelines, section separation (`What's New`, `What Changed`, `For the Nerds`), tone checks, and language rules.
 
+4. **[yumeshelf-code-modularization.md](./local/yumeshelf-code-modularization.md) (Code Modularization Guidelines)**:
+   - **When**: Creating new features, refactoring existing code, or adding new UI components/modules.
+   - **Focus**: Ensuring strict process isolation (Main vs Renderer), proper preload IPC bridging, and decoupled CSS/JS architecture.
+
 ---
 
 ## 📌 2. Core Operational Commandments

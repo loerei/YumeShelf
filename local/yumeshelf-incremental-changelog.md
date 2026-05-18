@@ -76,7 +76,7 @@ Strictly follow the section definitions from [yumeshelf-release-notes.md](./yume
 
 - **`## ✨ What's New`**: For completely new, user-visible capabilities that the end-user can directly notice and experience.
 - **`## 🔧 What Changed`**: For modifications, bug fixes, UI polish, or updates to existing behaviors.
-- **`## 🛠️ For the Nerds`**: Low-level technical details for developer/agent continuity (refactoring, API changes, caching mechanisms, fallback pipelines, structural modifications).
+- **`## 🛠️ For the Nerds`**: Low-level technical details for developer/agent continuity. This covers refactoring, API changes, caching, fallback pipelines, and structural modifications. **Importantly, any purely internal system or infrastructure updates that DO NOT alter any user-facing functionality (e.g., codebase file modularization, process isolation refactors, IPC bridge setup, or decoupled CSS/JS architecture) MUST be placed strictly here to avoid cluttering user-facing logs.**
 
 ---
 

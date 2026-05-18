@@ -27,3 +27,4 @@ scratch/
 scripts/test-*.js
 scripts/wolf-*.js
 scripts/save-converter/
+local/

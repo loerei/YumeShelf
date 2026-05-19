@@ -1,12 +1,16 @@
 export function createDuplicateStackOverlayController({
     createCard,
     onOpen,
-    refs
+    container
 }) {
+    // Controller owns its DOM scope.
+    const overlay = container;
+    const grid    = container.querySelector('#duplicate-stack-grid');
+
     let activeStackKey = null;
 
     function renderStack(stack) {
-        refs.grid.innerHTML = '';
+        grid.innerHTML = '';
 
         stack.games.forEach((game, index) => {
             const shell = document.createElement('div');
@@ -27,21 +31,21 @@ export function createDuplicateStackOverlayController({
             location.innerText = game.locationLabel;
             shell.appendChild(location);
 
-            refs.grid.appendChild(shell);
+            grid.appendChild(shell);
         });
     }
 
     function isOpen() {
-        return refs.overlay.style.display === 'flex';
+        return overlay.style.display === 'flex';
     }
 
     function close() {
         if (!isOpen()) return;
-        refs.overlay.classList.remove('show');
+        overlay.classList.remove('show');
         const finalize = () => {
-            if (refs.overlay.classList.contains('show')) return;
-            refs.overlay.style.display = 'none';
-            refs.grid.innerHTML = '';
+            if (overlay.classList.contains('show')) return;
+            overlay.style.display = 'none';
+            grid.innerHTML = '';
             activeStackKey = null;
         };
         window.setTimeout(finalize, 220);
@@ -54,13 +58,13 @@ export function createDuplicateStackOverlayController({
         if (typeof onOpen === 'function') {
             onOpen();
         }
-        refs.overlay.style.display = 'flex';
+        overlay.style.display = 'flex';
         requestAnimationFrame(() => {
-            refs.overlay.classList.add('show');
+            overlay.classList.add('show');
         });
     }
 
-    refs.overlay.addEventListener('click', (event) => {
+    overlay.addEventListener('click', (event) => {
         if (event.target.closest('.stack-overlay-item')) return;
         close();
     });

@@ -1,6 +1,39 @@
 import { createLanguagePackActions } from './language-packs/actions.js';
 import { createLanguagePackResultsController } from './language-packs/results.js';
 
+/**
+ * Build an internal refs object by querying within the provided container.
+ * This keeps sub-modules (actions.js, results.js, review-surface.js) unchanged
+ * while eliminating the need for external ref registration in dom-refs.js.
+ */
+function buildLanguagePackRefs(container) {
+    return {
+        appUpdateReviewActionBtn:  container.querySelector('#app-update-review-action-btn'),
+        appUpdateReviewEyebrow:    container.querySelector('#app-update-review-eyebrow'),
+        appUpdateReviewMeta:       container.querySelector('#app-update-review-meta'),
+        appUpdateReviewNotes:      container.querySelector('#app-update-review-notes'),
+        appUpdateReviewOptOutBtn:  container.querySelector('#app-update-review-opt-out-btn'),
+        appUpdateReviewSection:    container.querySelector('#app-update-review-section'),
+        appUpdateReviewStatus:     container.querySelector('#app-update-review-status'),
+        appUpdateReviewTitle:      container.querySelector('#app-update-review-title'),
+        languagePackBanner:        container.querySelector('#language-pack-banner'),
+        languagePackEmpty:         container.querySelector('#language-pack-empty'),
+        languagePackEmptyDesc:     container.querySelector('#language-pack-empty-desc'),
+        languagePackEmptyTitle:    container.querySelector('#language-pack-empty-title'),
+        languagePackHint:          container.querySelector('#language-pack-hint'),
+        languagePackListBtn:       container.querySelector('#language-pack-list-btn'),
+        languagePackTitle:         container.querySelector('#ui-language-pack-title'),
+        languagePackOverlay:       container,
+        languagePackRefreshBtn:    container.querySelector('#language-pack-refresh-btn'),
+        languagePackRepoLink:      container.querySelector('#language-pack-repo-link'),
+        languagePackResults:       container.querySelector('#language-pack-results'),
+        languagePackSearch:        container.querySelector('#language-pack-search'),
+        languagePackSectionTitle:  container.querySelector('#language-pack-section-title'),
+        languagePackSource:        container.querySelector('#language-pack-source'),
+        languagePackToolbar:       container.querySelector('#language-pack-toolbar')
+    };
+}
+
 export function createLanguagePackController({
     electronAPI,
     getAppUpdateState,
@@ -8,10 +41,13 @@ export function createLanguagePackController({
     onOverlayOpen,
     onPackInstalled,
     performAppUpdateAction,
-    refs,
+    container,
     suppressPostUpdateReview,
     subscribeAppUpdateState
 }) {
+    // Build internal refs from container scope – no external ref registration needed.
+    const refs = buildLanguagePackRefs(container);
+
     let remoteManifestState = {
         loaded: false,
         loading: false,

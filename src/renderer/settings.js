@@ -11,8 +11,20 @@ function clampMaxDepth(value) {
 
 export function createSettingsController({
     onOpen,
-    refs
+    container
 }) {
+    // Controller owns its DOM scope – querySelector within container only.
+    const settingsOverlay       = container;
+    const themeSelect           = container.querySelector('#theme-select');
+    const appUpdatesSelect      = container.querySelector('#app-updates-select');
+    const languagePackUpdatesSelect = container.querySelector('#language-pack-updates-select');
+    const locationDisplaySelect = container.querySelector('#location-display-select');
+    const maxDepthInput         = container.querySelector('#max-depth-input');
+    const maxDepthDecreaseBtn   = container.querySelector('#max-depth-decrease-btn');
+    const maxDepthIncreaseBtn   = container.querySelector('#max-depth-increase-btn');
+    const autoLaunchSelect      = container.querySelector('#auto-launch-select');
+    const minimizeToTraySelect  = container.querySelector('#minimize-to-tray-select');
+
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
     let currentAppUpdates = localStorage.getItem('yumeshelf_app_updates_pref') || 'notify';
     let currentLanguagePackUpdates = localStorage.getItem('yumeshelf_language_pack_updates_pref') || 'automatic';
@@ -43,30 +55,26 @@ export function createSettingsController({
         } catch (error) {
             console.error('[SETTINGS] Failed to sync config on open:', error);
         }
-        refs.settingsOverlay.style.display = 'flex';
+        settingsOverlay.style.display = 'flex';
     }
 
     function closeSettings() {
-        refs.settingsOverlay.style.display = 'none';
+        settingsOverlay.style.display = 'none';
     }
 
     function isSettingsOpen() {
-        return refs.settingsOverlay.style.display === 'flex';
+        return settingsOverlay.style.display === 'flex';
     }
 
     function initializeSettingsUI(initialLibraryConfig = null) {
         applyLibraryConfig(initialLibraryConfig);
         document.body.className = `${currentTheme}-theme`;
-        refs.themeSelect.value = currentTheme;
-        refs.appUpdatesSelect.value = currentAppUpdates;
-        refs.languagePackUpdatesSelect.value = currentLanguagePackUpdates;
-        refs.locationDisplaySelect.value = currentLocationDisplayMode;
-        if (refs.autoLaunchSelect) {
-            refs.autoLaunchSelect.value = currentAutoLaunch;
-        }
-        if (refs.minimizeToTraySelect) {
-            refs.minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
-        }
+        themeSelect.value = currentTheme;
+        appUpdatesSelect.value = currentAppUpdates;
+        languagePackUpdatesSelect.value = currentLanguagePackUpdates;
+        locationDisplaySelect.value = currentLocationDisplayMode;
+        autoLaunchSelect.value = currentAutoLaunch;
+        minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
     }
 
     function handleThemeChange(nextTheme) {
@@ -88,15 +96,15 @@ export function createSettingsController({
     function handleLocationDisplayModeChange(nextMode) {
         currentLocationDisplayMode = nextMode === 'full' ? 'full' : DEFAULT_LOCATION_DISPLAY_MODE;
         localStorage.setItem('yumeshelf_location_display_mode', currentLocationDisplayMode);
-        refs.locationDisplaySelect.value = currentLocationDisplayMode;
+        locationDisplaySelect.value = currentLocationDisplayMode;
         return currentLocationDisplayMode;
     }
 
     function applyLibraryConfig(libraryConfig = null) {
         currentMaxDepth = clampMaxDepth(libraryConfig?.maxDepth);
-        refs.maxDepthInput.value = String(currentMaxDepth);
-        refs.maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
-        refs.maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
+        maxDepthInput.value = String(currentMaxDepth);
+        maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
+        maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
         if (libraryConfig) {
             if (libraryConfig.autoLaunch === 'minimized') {
                 currentAutoLaunch = 'minimized';
@@ -106,12 +114,8 @@ export function createSettingsController({
                 currentAutoLaunch = 'off';
             }
             currentMinimizeToTray = !!libraryConfig.minimizeToTray;
-            if (refs.autoLaunchSelect) {
-                refs.autoLaunchSelect.value = currentAutoLaunch;
-            }
-            if (refs.minimizeToTraySelect) {
-                refs.minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
-            }
+            autoLaunchSelect.value = currentAutoLaunch;
+            minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
         }
     }
 
@@ -132,13 +136,15 @@ export function createSettingsController({
     async function handleAutoLaunchChange(nextValue) {
         currentAutoLaunch = nextValue;
         await window.electronAPI.setAutoLaunch(nextValue);
+        await window.electronAPI.updateLibraryConfig({ autoLaunch: nextValue });
         return nextValue;
     }
 
-    function handleMinimizeToTrayChange(nextValue) {
+    async function handleMinimizeToTrayChange(nextValue) {
         const enabled = nextValue === 'on';
         currentMinimizeToTray = enabled;
         window.electronAPI.setMinimizeToTray(enabled);
+        await window.electronAPI.updateLibraryConfig({ minimizeToTray: enabled });
         return enabled;
     }
 

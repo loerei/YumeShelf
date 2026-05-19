@@ -11,9 +11,14 @@ export function createSearchController({
     getPlaceholderIndex,
     getPlaceholders,
     getStrings,
-    refs,
+    container,
     setDraggedGameFolder
 }) {
+    // Controller owns its DOM scope (.search-container).
+    const searchInput       = container.querySelector('#search-input');
+    const searchDropdown    = container.querySelector('#search-dropdown');
+    const searchPlaceholder = container.querySelector('#search-placeholder');
+
     function highlightMatch(text, query) {
         if (!query) return text;
         const parts = text.split(new RegExp(`(${query})`, 'gi'));
@@ -21,17 +26,17 @@ export function createSearchController({
     }
 
     function hideSearchDropdown() {
-        refs.searchDropdown.classList.remove('show');
+        searchDropdown.classList.remove('show');
     }
 
     function updateSearch(query) {
         if (!query.trim()) {
             hideSearchDropdown();
-            refs.searchPlaceholder.style.display = 'block';
+            searchPlaceholder.style.display = 'block';
             return;
         }
 
-        refs.searchPlaceholder.style.display = 'none';
+        searchPlaceholder.style.display = 'none';
         const filtered = getAllGames().filter(game => {
             const name = (game.name || '').toLowerCase();
             const folderName = (game.folderName || '').toLowerCase();
@@ -40,13 +45,13 @@ export function createSearchController({
             return name.includes(q) || folderName.includes(q) || relativePath.includes(q);
         });
 
-        refs.searchDropdown.innerHTML = '';
+        searchDropdown.innerHTML = '';
         if (filtered.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'search-item empty-search';
             empty.innerText = getStrings().no_results;
-            refs.searchDropdown.appendChild(empty);
-            refs.searchDropdown.classList.add('show');
+            searchDropdown.appendChild(empty);
+            searchDropdown.classList.add('show');
             return;
         }
 
@@ -114,7 +119,7 @@ export function createSearchController({
                 const card = exactCard;
                 if (card) {
                     hideSearchDropdown();
-                    refs.searchInput.value = '';
+                    searchInput.value = '';
                     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     card.classList.add('glow');
                     setTimeout(() => card.classList.remove('glow'), 2000);
@@ -133,23 +138,23 @@ export function createSearchController({
                     exePath: game.primaryInstance?.exePath || game.exePath
                 });
                 hideSearchDropdown();
-                refs.searchInput.value = '';
+                searchInput.value = '';
             };
 
-            refs.searchDropdown.appendChild(item);
+            searchDropdown.appendChild(item);
         });
 
-        refs.searchDropdown.classList.add('show');
+        searchDropdown.classList.add('show');
     }
 
     function rotatePlaceholder() {
-        if (refs.searchInput.value.trim()) return;
-        refs.searchPlaceholder.style.opacity = '0';
+        if (searchInput.value.trim()) return;
+        searchPlaceholder.style.opacity = '0';
         setTimeout(() => {
             advancePlaceholderIndex();
             const placeholders = getPlaceholders();
-            refs.searchPlaceholder.innerText = placeholders[getPlaceholderIndex()];
-            refs.searchPlaceholder.style.opacity = '0.5';
+            searchPlaceholder.innerText = placeholders[getPlaceholderIndex()];
+            searchPlaceholder.style.opacity = '0.5';
         }, 2000);
     }
 

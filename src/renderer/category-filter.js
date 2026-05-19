@@ -19,10 +19,16 @@ export function createCategoryFilterController({
     getActiveCategoryId,
     getCategoryTree,
     getVisibleGames,
-    refs,
+    container,
     setActiveCategoryId,
     sortGames
 }) {
+    // Controller owns its DOM scope.
+    const categoryFilterContainer = container;
+    const categoryFilterBtn   = container.querySelector('#category-filter-btn');
+    const categoryFilterLabel = container.querySelector('#category-filter-label');
+    const categoryFilterMenu  = container.querySelector('#category-filter-menu');
+
     function getFlattenedCategories() {
         return flattenCategoryTree(getCategoryTree());
     }
@@ -46,18 +52,18 @@ export function createCategoryFilterController({
 
     function updateTriggerLabel() {
         const activeCategory = getActiveCategory();
-        refs.categoryFilterLabel.innerText = activeCategory ? activeCategory.label : 'All categories';
-        refs.categoryFilterBtn.title = activeCategory ? `Category: ${activeCategory.trailLabel}` : 'All categories';
+        categoryFilterLabel.innerText = activeCategory ? activeCategory.label : 'All categories';
+        categoryFilterBtn.title = activeCategory ? `Category: ${activeCategory.trailLabel}` : 'All categories';
     }
 
     function hideMenu() {
-        refs.categoryFilterMenu.classList.remove('show');
+        categoryFilterMenu.classList.remove('show');
     }
 
     function renderMenu() {
         syncActiveCategory();
         const flattened = getFlattenedCategories();
-        refs.categoryFilterMenu.innerHTML = '';
+        categoryFilterMenu.innerHTML = '';
 
         const allItem = document.createElement('div');
         allItem.className = 'sort-item category-filter-item';
@@ -73,7 +79,7 @@ export function createCategoryFilterController({
             updateTriggerLabel();
             sortGames();
         };
-        refs.categoryFilterMenu.appendChild(allItem);
+        categoryFilterMenu.appendChild(allItem);
 
         flattened.forEach((entry) => {
             const item = document.createElement('div');
@@ -92,17 +98,17 @@ export function createCategoryFilterController({
                 updateTriggerLabel();
                 sortGames();
             };
-            refs.categoryFilterMenu.appendChild(item);
+            categoryFilterMenu.appendChild(item);
         });
 
-        refs.categoryFilterContainer.style.display = flattened.length > 0 ? 'block' : 'none';
+        categoryFilterContainer.style.display = flattened.length > 0 ? 'block' : 'none';
         updateTriggerLabel();
     }
 
     function openOrToggleMenu(event) {
         event.stopPropagation();
-        if (refs.categoryFilterContainer.style.display === 'none') return;
-        refs.categoryFilterMenu.classList.toggle('show');
+        if (categoryFilterContainer.style.display === 'none') return;
+        categoryFilterMenu.classList.toggle('show');
     }
 
     function clearFilter() {
@@ -125,7 +131,7 @@ export function createCategoryFilterController({
     }
 
     function initialize() {
-        refs.categoryFilterBtn.onclick = openOrToggleMenu;
+        categoryFilterBtn.onclick = openOrToggleMenu;
         renderMenu();
     }
 

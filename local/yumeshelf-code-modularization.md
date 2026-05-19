@@ -126,3 +126,78 @@ sequenceDiagram
    - Create/modify components under `src/renderer/ui-components/` to handle visual layouts, user action listeners, and transitions.
 5. **Attach Styling**:
    - Write clean, modular CSS in a dedicated stylesheet under `src/styles/`, using CSS variables for high-fidelity animations and themes.
+
+---
+
+## 🔄 6. State Synchronization Protocol (UI <--> DB <--> Main)
+
+To prevent synchronization drift, settings rendering failures (e.g. controls defaulting to "Off"), or development environment pollution, all configuration preferences (such as auto-launch, tray minimization, language, and theme) must adhere to the following three-way synchronization loop:
+
+```mermaid
+graph LR
+    UI["Renderer UI (DOM Elements)"] <-->|Controllers / app-composition.js| DB["Database (library_db.json)"]
+    DB <-->|Main Startup Sync / Paths| Main["Main Process (OS Integration / Memory Caches)"]
+    UI <-->|Exposed window.electronAPI| Main
+```
+
+### 6.1 The Three-Way Sync Rule
+* **UI (Renderer Controllers)**: Displays, updates, and reacts to system state. It must retrieve actual persistent settings on startup and never hardcode default visual toggle positions.
+* **Database (`library_db.json`)**: Acts as the single source of truth for persistent states across user sessions.
+* **Main Process (Node.js/OS Context)**: Bootstraps the application, performs OS-level actions (e.g., modifying startup registry entries), and caches configurations in-memory.
+
+### 6.2 Application Bootstrap & Startup Sync
+* During application launch (e.g., inside `src/main/ipc/register.js`), the Main Process **MUST** read the database file and synchronize the active configuration settings with the runtime/OS settings.
+* **Development Guards**: OS-level hooks (like Electron's `app.setLoginItemSettings`) **MUST** be gated behind `app.isPackaged` to prevent polluting the development environment (e.g., writing the prebuilt `electron.exe` to the OS Startup database). In development mode, mock the state using an in-memory variable (e.g., `devAutoLaunchState`) so the UI can retrieve and test the state realistically.
+
+### 6.3 Renderer UI Bootstrapping & Persistence — Container-level Componentization
+
+YumeShelf uses a **Container-level Componentization** pattern for UI Controllers. This is the canonical architecture as of v1.5.4+.
+
+#### Core Principle
+Controllers receive a **root container element** and query their own internal DOM. They do not receive a flat `refs` object with individual element handles.
+
+```
+// ✅ Correct (Container Pattern)
+const settingsController = createSettingsController({ container: refs.containers.settings });
+
+// ❌ Deprecated (Flat Refs Pattern)
+const settingsController = createSettingsController({ refs: { themeSelect: refs.themeSelect, ... } });
+```
+
+#### Controller Classification
+
+| Group | Pattern | Examples |
+|---|---|---|
+| **A – Container** | Owns a distinct root element; queries DOM internally | `settings.js`, `category-filter.js`, `search.js`, `language-packs.js`, `duplicate-stack-overlay.js` |
+| **B – Shared** | Uses refs shared across multiple controllers | `library-grid.js`, `startup.js` |
+| **C – No container** | Operates across the full page DOM or has no DOM | `drag-drop-grid.js`, `ui-text.js`, `i18n.js`, `tooltips.js` |
+
+#### Adding a New UI Feature Checklist
+
+1. **HTML**: Add elements inside the appropriate container `<div>` (e.g. `#settings-overlay`).
+2. **Controller**: Add `querySelector` for the new element at the top of the controller factory. Do **not** add it to `dom-refs.js`.
+3. **dom-refs.js**: Only update if the element is used by the event binding layer (`global-events.js`) or shared across multiple Group B/C controllers.
+4. **app-composition.js**: No changes needed for internal element additions (only the container is passed in).
+5. **Persistence**: Ensure `change` event handlers trigger both the IPC API call *and* `window.electronAPI.updateLibraryConfig` to keep DB in lockstep.
+
+### 6.4 Safety Pitfalls & Verification
+
+When working within the Container-level Componentization architecture, be aware of these common failure modes:
+
+#### The Shared Ref Leak
+When a flat ref is moved inside a container's internal scope, **any external consumer that still references it from the root `refs` object will crash at runtime** with `TypeError: Cannot set/read properties of undefined`. This compiles cleanly and only surfaces during boot.
+
+**Prevention Rule:** Before removing any ref from the root return object of `buildRendererRefs()` in `dom-refs.js`, `grep_search` for its name across all files in `src/renderer/`. If any Group B/C controller or boot pipeline file (`bootstrap.js`, `ui-text.js`) uses it, you must either:
+- Keep a convenience alias in the root refs, OR
+- Refactor the external consumer to use the component's public API.
+
+#### The Unmapped Internal Ref
+When a controller's `build*Refs(container)` factory performs internal `querySelector` calls, every element that the controller needs **must** be mapped. A missing mapping produces `undefined` — which silently propagates until the first code path that touches it.
+
+**Prevention Rule:** After creating or modifying a `build*Refs()` factory, cross-reference the returned object keys against every usage site within the controller module and its sub-modules.
+
+#### Post-Implementation Verification
+After adding any new element or modifying ref ownership:
+1. Run `node --check` on all modified files (syntax gate).
+2. Start the application (`npm start`) and verify **zero** console errors/rejections.
+3. Navigate to the feature area and confirm the new element renders and responds to interaction.

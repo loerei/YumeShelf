@@ -68,3 +68,26 @@ You **MUST** halt execution and transfer diagnostic control to the user if you c
 *   Converts costly speculative thinking into highly precise, deterministic data analysis.
 *   Preserves step limits and token windows by cutting down retry loops.
 *   Guarantees 100% accurate fixes based on empirical runtime feedback.
+
+---
+
+## 🏗️ 4. Post-Refactor Structural Verification
+
+After completing any refactor that changes module boundaries, moves shared references, or restructures component interfaces, you **MUST** execute the following verification sequence before marking the task as complete.
+
+### 4.1 Cross-Module Dependency Audit
+* Use `grep_search` to find **every consumer** of any modified, renamed, or removed export.
+* Verify each consumer has been updated to use the new interface.
+* Pay special attention to **boot pipeline files** (e.g., `bootstrap.js`, `app-composition.js`, `renderer.js`) — these are where boundary violations surface first.
+
+### 4.2 Boot Pipeline Smoke Test
+* If the project has a startup/initialization sequence, **run the application** (or request the user to run it) and verify:
+  * Zero uncaught exceptions or unhandled promise rejections in the console.
+  * All UI elements render correctly (no missing text, broken layouts, or undefined references).
+  * No `TypeError: Cannot set/read properties of undefined` errors — these indicate a missing reference that was not properly migrated.
+
+### 4.3 Shared-to-Owned Migration Checklist
+* When moving a resource from a shared/global scope into a component's internal scope:
+  1. `grep_search` for the old shared reference name across the entire `src/` directory.
+  2. For each hit: determine if the consumer is **inside** the component (safe) or **outside** (must be updated or the ref must remain shared).
+  3. If an external consumer exists, either: (a) keep a convenience alias in the shared scope, or (b) refactor the consumer to use the component's public API.

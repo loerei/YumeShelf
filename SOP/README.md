@@ -13,9 +13,10 @@ Before executing any actions, classify the user's request and load only the rele
 | :--- | :--- | :--- |
 | **All Tasks (At Startup)** | [01-context-efficiency.md](file:///d:/Games/H%20Games/YumeShelf/SOP/01-context-efficiency.md) | Narrow search routing, hotspot summary, 90%+ context savings. |
 | **Code Refactoring & Bug Fixing** | [02-smart-code-mutation.md](file:///d:/Games/H%20Games/YumeShelf/SOP/02-smart-code-mutation.md) | Smart 80-line escalation rule, professional Python-Patching protocols. |
-| **Verification & Syntax Checks** | [03-sandbox-verification.md](file:///d:/Games/H%20Games/YumeShelf/SOP/03-sandbox-verification.md) | Syntax compilation checks, Self-Healing loop with 98%+ reliability. |
+| **Verification & Syntax Checks** | [03-sandbox-verification.md](file:///d:/Games/H%20Games/YumeShelf/SOP/03-sandbox-verification.md) | Syntax compilation checks, Self-Healing loop, Post-Refactor structural verification. |
 | **Changelogs & Release Packaging** | [04-release-and-changelog.md](file:///d:/Games/H%20Games/YumeShelf/SOP/04-release-and-changelog.md) | Developer logs (English only), "For the Nerds" separation, build-lock fixes. |
 | **Complex Diagnostics & Debugging** | [05-systematic-diagnostics.md](file:///d:/Games/H%20Games/YumeShelf/SOP/05-systematic-diagnostics.md) | Decision tree, structural threshold triggers, and 5 debugging methodologies. |
+| **Architecture & Feature Design** | [06-architectural-thinking.md](file:///d:/Games/H%20Games/YumeShelf/SOP/06-architectural-thinking.md) | Architecture discovery, component encapsulation, dependency direction, anti-patterns. |
 
 ---
 

@@ -167,15 +167,49 @@ function registerMainIpc({
 
     ipcMain.handle('is-dev', () => !app.isPackaged);
 
+    let devAutoLaunchState = 'off';
+
+    try {
+        if (paths && paths.dbFile && require('fs').existsSync(paths.dbFile)) {
+            const db = JSON.parse(require('fs').readFileSync(paths.dbFile, 'utf8'));
+            if (db && db.config) {
+                const configVal = db.config.autoLaunch;
+                const value = (configVal === 'minimized') ? 'minimized' : (configVal === 'on' || configVal === 'true' || configVal === true ? 'on' : 'off');
+                
+                const openAtLogin = (value === 'on' || value === 'minimized');
+                const args = (value === 'minimized') ? ['--minimized'] : [];
+                
+                if (app.isPackaged) {
+                    app.setLoginItemSettings({
+                        openAtLogin: openAtLogin,
+                        path: app.getPath('exe'),
+                        args: args
+                    });
+                    console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
+                } else {
+                    devAutoLaunchState = value;
+                    console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${devAutoLaunchState}`);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch on startup:', e);
+    }
+
     ipcMain.handle('set-auto-launch', async (_event, value) => {
         try {
             const openAtLogin = (value === 'on' || value === 'minimized' || value === true);
             const args = (value === 'minimized') ? ['--minimized'] : [];
-            app.setLoginItemSettings({
-                openAtLogin: openAtLogin,
-                path: app.getPath('exe'),
-                args: args
-            });
+            if (app.isPackaged) {
+                app.setLoginItemSettings({
+                    openAtLogin: openAtLogin,
+                    path: app.getPath('exe'),
+                    args: args
+                });
+            } else {
+                devAutoLaunchState = (value === 'minimized') ? 'minimized' : (openAtLogin ? 'on' : 'off');
+                console.log(`[AUTO-LAUNCH][DEV] Skipped OS startup registration (openAtLogin: ${openAtLogin}, args: ${JSON.stringify(args)})`);
+            }
             return { success: true };
         } catch (error) {
             console.error('[AUTO-LAUNCH] Failed to set startup settings:', error);
@@ -185,6 +219,9 @@ function registerMainIpc({
 
     ipcMain.handle('get-auto-launch', async () => {
         try {
+            if (!app.isPackaged) {
+                return devAutoLaunchState;
+            }
             const settings = app.getLoginItemSettings();
             if (!settings.openAtLogin) return 'off';
             if (settings.args && settings.args.includes('--minimized')) {

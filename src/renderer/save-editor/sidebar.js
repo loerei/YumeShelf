@@ -32,7 +32,14 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                     item.className = 'save-file-item';
                     item.textContent = file;
                     item.title = file;
-                    item.onclick = () => loadSave(file, item);
+                    item.onclick = async () => {
+                        if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+                            if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to load another file and discard changes?')) {
+                                return;
+                            }
+                        }
+                        await loadSave(file, item);
+                    };
                     sidebar.appendChild(item);
                     if (file === selectFile) {
                         activeItem = item;
@@ -93,7 +100,15 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
 
     const refreshBtn = overlay.querySelector('.refresh-save-btn');
     if (refreshBtn) {
-        refreshBtn.onclick = () => reloadFileList(state.currentFileName);
+        refreshBtn.onclick = () => {
+            if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+                const d = state.d || {};
+                if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to refresh and discard changes?')) {
+                    return;
+                }
+            }
+            reloadFileList(state.currentFileName);
+        };
     }
 
     return {

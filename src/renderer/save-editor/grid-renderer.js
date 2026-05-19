@@ -165,18 +165,18 @@ export function setupGridRenderer(refs, state, engine, translator) {
                         return { enumerable: true, configurable: true, writable: true };
                     }
                 });
-                renderBitset(filteredVars, state.currentMetadata.variables, grid, (id, val, newVal) => {
+                renderBitset(filteredVars, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                     const num = Number(newVal);
-                    variables[id] = isNaN(num) ? newVal : num;
+                    container[id] = isNaN(num) ? newVal : num;
                 }, true, originalVariables);
             } else if (tabId === 'variables' && variables) {
-                renderBitset(variables, state.currentMetadata.variables, grid, (id, val, newVal) => {
+                renderBitset(variables, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                     const num = Number(newVal);
-                    variables[id] = isNaN(num) ? newVal : num;
+                    container[id] = isNaN(num) ? newVal : num;
                 }, true, originalVariables);
             } else if (tabId === 'switches' && switches) {
-                renderBitset(switches, state.currentMetadata.switches, grid, (id, val, newVal) => {
-                    switches[id] = newVal;
+                renderBitset(switches, state.currentMetadata.switches, grid, (id, val, newVal, container) => {
+                    container[id] = newVal;
                 }, false, originalSwitches);
             }
         };
@@ -371,7 +371,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
             const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
 
             if (isNumeric) {
-                const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv), originalVal);
+                const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv, raw), originalVal);
                 attachSaveEditorTooltip(row, () => ({ title: name }));
                 grid.appendChild(row);
             } else {
@@ -389,7 +389,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
                     ${deltaHTML}
                     <input type="checkbox" ${val ? 'checked' : ''}>
                 `;
-                row.querySelector('input').onchange = (e) => onUpdate(id, val, e.target.checked);
+                row.querySelector('input').onchange = (e) => onUpdate(id, val, e.target.checked, raw);
                 attachSaveEditorTooltip(row, () => ({ title: name }));
                 grid.appendChild(row);
             }

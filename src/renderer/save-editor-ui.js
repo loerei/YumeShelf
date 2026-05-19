@@ -129,23 +129,27 @@ export function initSaveEditorUI() {
         `;
 
         document.body.appendChild(overlay);
-
-        const close = () => {
+        const close = (force = false) => {
+            if (!force && state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+                if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to close and discard changes?')) {
+                    return;
+                }
+            }
             if (isStandalone) {
                 window.close();
             } else {
                 document.body.removeChild(overlay);
             }
         };
-        overlay.querySelector('.save-editor-close').onclick = close;
-        overlay.querySelector('.cancel-btn').onclick = close;
+        overlay.querySelector('.save-editor-close').onclick = () => close(false);
+        overlay.querySelector('.cancel-btn').onclick = () => close(false);
 
         if (!isStandalone) {
             const popoutBtn = overlay.querySelector('.save-editor-popout');
             if (popoutBtn) {
                 popoutBtn.onclick = () => {
                     window.electronAPI.openSaveEditorWindow(gameKey);
-                    close();
+                    close(true); // Force close without confirmation when opening in a popout window
                 };
                 popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
                 popoutBtn.addEventListener('mouseleave', () => { popoutBtn.style.color = '#9ca3af'; });
@@ -202,7 +206,11 @@ export function initSaveEditorUI() {
             showImportant: true,
             gameKey,
             isStandalone,
-            d
+            d,
+            hasUnsavedChanges: () => {
+                if (!state.currentSaveData || !state.originalSnapshot) return false;
+                return JSON.stringify(state.currentSaveData) !== JSON.stringify(state.originalSnapshot);
+            }
         };
 
         const refs = {

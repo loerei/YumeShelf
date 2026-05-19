@@ -11,20 +11,23 @@ Before executing any actions, classify the user's request and load only the rele
 
 | Task Classification (Intent) | Target SOP to Load | Key Highlights |
 | :--- | :--- | :--- |
+| **Mandatory Entry Point** | [00-startup-routing.md](file:///d:/Games/H%20Games/YumeShelf/SOP/00-startup-routing.md) | **MANDATORY STEP 0**. Startup checklist and task routing. |
 | **All Tasks (At Startup)** | [01-context-efficiency.md](file:///d:/Games/H%20Games/YumeShelf/SOP/01-context-efficiency.md) | Narrow search routing, hotspot summary, 90%+ context savings. |
 | **Code Refactoring & Bug Fixing** | [02-smart-code-mutation.md](file:///d:/Games/H%20Games/YumeShelf/SOP/02-smart-code-mutation.md) | Smart 80-line escalation rule, professional Python-Patching protocols. |
 | **Verification & Syntax Checks** | [03-sandbox-verification.md](file:///d:/Games/H%20Games/YumeShelf/SOP/03-sandbox-verification.md) | Syntax compilation checks, Self-Healing loop, Post-Refactor structural verification. |
 | **Changelogs & Release Packaging** | [04-release-and-changelog.md](file:///d:/Games/H%20Games/YumeShelf/SOP/04-release-and-changelog.md) | Developer logs (English only), "For the Nerds" separation, build-lock fixes. |
 | **Complex Diagnostics & Debugging** | [05-systematic-diagnostics.md](file:///d:/Games/H%20Games/YumeShelf/SOP/05-systematic-diagnostics.md) | Decision tree, structural threshold triggers, and 5 debugging methodologies. |
 | **Architecture & Feature Design** | [06-architectural-thinking.md](file:///d:/Games/H%20Games/YumeShelf/SOP/06-architectural-thinking.md) | Architecture discovery, component encapsulation, dependency direction, anti-patterns. |
+| **Guideline Maintenance (Meta)** | [07-guideline-maintenance.md](file:///d:/Games/H%20Games/YumeShelf/SOP/07-guideline-maintenance.md) | Scouting protocols, bootstrapping AGENTS.md, local guideline auto-mapping. |
 
 ---
 
 ## 🚀 2. Dynamic Loading Procedure
 
-1. **Step 1:** Read this root file (`SOP/README.md`) to establish the task category.
-2. **Step 2:** Classify the user's request based on the table above.
-3. **Step 3:** Use the `view_file` tool to load only the specific SOP file relevant to your current task. **Do NOT read the entire SOP directory at once.**
+1. **Step 0 (Mandatory):** Load and execute the Turn-1 startup ritual in [SOP-00](file:///d:/Games/H%20Games/YumeShelf/SOP/00-startup-routing.md).
+2. **Step 1:** Read this root file (`SOP/README.md`) to establish the task category.
+3. **Step 2:** Classify the user's request based on the table above.
+4. **Step 3:** Use the `view_file` tool to load only the specific SOP file relevant to your current task. **Do NOT read the entire SOP directory at once.**
 
 ---
 
@@ -47,6 +50,13 @@ To ensure the architectural integrity of this project, you **MUST** act as a rig
 5. **Anti-Blind-Fixing & Strategic User Collaboration:**
    * Do not engage in speculative, repetitive patching for complex runtime or parsing bugs. If you cannot verify correctness locally, **stop immediately**.
    * Turn the user into an active diagnostic partner. Explicitly request clean test scenarios, reproduction steps, or console logs instead of wasting resources on blind guesswork. See [SOP 03: Section 3](file:///d:/Games/H%20Games/YumeShelf/SOP/03-sandbox-verification.md#3-anti-blind-fixing--active-diagnostic-handoff) for detailed handoff protocols.
+
+---
+
+## 🛠️ 4. Global Agent System Policies
+
+For a complete reference of the AI Agent's system-level commands, optimization rules, and tool priorities, please refer to the:
+👉 **[Antigravity Global System Policy Reference](../local/refs/antigravity-system-policy.md)**
 
 *Perform your task with precision, speed, and exceptional technical standard!*
 

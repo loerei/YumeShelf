@@ -1,9 +1,9 @@
 ---
 version: "1.5.4"
 status: "released"
-released_at: "2026-05-19T07:58:42.713Z"
+released_at: "2026-05-19T21:35:36.215Z"
 last_updated_by: "release-compiler-script"
-last_updated_at: "2026-05-19T07:58:42.713Z"
+last_updated_at: "2026-05-19T21:35:36.215Z"
 ---
 
 # YumeShelf Changelog - v1.5.4
@@ -16,6 +16,8 @@ last_updated_at: "2026-05-19T07:58:42.713Z"
 
 - [auto-launch] Fixed a bug where the Auto-launch and Minimize to Tray settings rendered as "Off" by default in the UI on application start regardless of the actual configured values.
 - [renderer] Resolved a critical startup crash (`TypeError: Cannot set properties of undefined (setting 'innerText')` and `TypeError: Cannot set properties of undefined (setting 'textContent')`) by restoring missing root flat refs and resolving the unmapped `languagePackTitle` inside `language-packs.js` build factory.
+- [save-editor] Replaced custom minimal lz-string library with the standard legacy 100% compatible LZString library to resolve .rpgsave value reverting data regression.
+- [save-editor] Added a state-aware "unsaved changes" tracking mechanism and user-confirmation dialogs to prevent active edits from being clobbered by background library re-syncs.
 
 ---
 
@@ -31,3 +33,8 @@ last_updated_at: "2026-05-19T07:58:42.713Z"
 - [sop] Created new SOP-06 (Architectural Thinking & Component Boundary Enforcement) to codify universal architectural decision-making processes for large repos: architecture discovery, component encapsulation rules, dependency direction, and common anti-patterns.
 - [sop] Extended SOP-03 with Section 4 (Post-Refactor Structural Verification): cross-module dependency audit, boot pipeline smoke test, and shared-to-owned migration checklist.
 - [docs] Added Section 6.4 (Safety Pitfalls & Verification) to `yumeshelf-code-modularization.md` documenting the Shared Ref Leak and Unmapped Internal Ref anti-patterns with prevention rules.
+- [save-editor] Integrated standard legacy 16-bit word-aligned bitstream padding to prevent game engine decompression failures on edited save files.
+- [save-editor] Created robust in-memory mutation structures leveraging direct data container modification for save grid rendering and bitset updates.
+- [tests] Added comprehensive save mutation validation suites (test-rpgsave-mutation.js and test-rpgsave-cycle.js) to guarantee stable save editor round-trips.
+- [sop] Designed and integrated universal SOP-07 (Guideline Maintenance & Repo Bootstrapping) defining autonomous scouting, bootstrapping of AGENTS.md, and local guideline auto-mapping rules.
+- [sop] Modified SOP-00 Turn 1 Checklist to automatically trigger the SOP-07 bootstrapping protocol if AGENTS.md is missing or incomplete.

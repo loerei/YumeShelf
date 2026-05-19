@@ -24,6 +24,10 @@ Before performing any research, reading large files, or writing code, you must l
    - **When**: Creating new features, refactoring existing code, or adding new UI components/modules.
    - **Focus**: Ensuring strict process isolation (Main vs Renderer), proper preload IPC bridging, and decoupled CSS/JS architecture.
 
+5. **[yumeshelf-save-editor.md](./local/yumeshelf-save-editor.md) (Save Editor & Serialization Guidelines)**:
+   - **When**: Modifying save game formats, working with compression/encoders, or changing the save editor's state and rendering logic.
+   - **Focus**: Core serialization and bitstream alignment specifications, live state mutation practices, and cross-validation/differential testing loops.
+
 ---
 
 ## ⚙️ 2. Universal Standard Operating Procedures (SOP)
@@ -32,15 +36,31 @@ This repository adopts the project-wide **Standard Operating Procedures (SOP)** 
 👉 **[SOP/README.md](./SOP/README.md)**
 
 It governs universal developer protocols including:
+*   **[SOP-00 (Startup Intake & Routing Protocol)](./SOP/00-startup-routing.md)**: **MANDATORY STEP 0**. Start here on Turn 1 to route your task-specific reading flow.
 *   **[SOP-01 (Context Efficiency)](./SOP/01-context-efficiency.md)**: Startup context management and search boundaries.
 *   **[SOP-02 (Smart Code Mutation)](./SOP/02-smart-code-mutation.md)**: Patching limits, surgical editing, and helper-script escalations.
 *   **[SOP-03 (Sandbox Verification)](./SOP/03-sandbox-verification.md)**: Self-healing loops, syntax compilation, and diagnostic handoff thresholds.
 *   **[SOP-04 (Release & Changelog)](./SOP/04-release-and-changelog.md)**: Version increments and developer log writing rules.
 *   **[SOP-05 (Systematic Diagnostics)](./SOP/05-systematic-diagnostics.md)**: Decision tree and methodologies for advanced bug-finding.
+*   **[SOP-06 (Architectural Thinking)](./SOP/06-architectural-thinking.md)**: Design rules, module boundaries, and common architectural anti-patterns.
+*   **[SOP-07 (Guideline Maintenance)](./SOP/07-guideline-maintenance.md)**: Scouting protocols, bootstrapping AGENTS.md, local guideline auto-mapping.
 
 ---
 
-## 📌 3. Core Operational Commandments
+## 🗺️ 3. SOP-00 Task-Specific Routing Map (YumeShelf Specific)
+
+This table acts as the configuration adapter for **SOP-00**. Find the task type that matches your user request and read the designated YumeShelf-specific guidelines **before** beginning development.
+
+| Task Category (SOP-00) | Repository-Specific Files to Load & Read | Focus / Section |
+| :--- | :--- | :--- |
+| **🎨 UI / Renderer / Styling** | [yumeshelf-code-modularization.md](./local/yumeshelf-code-modularization.md) | Section 6: Container-level Componentization |
+| **⚙️ Core Logic / Database / IPC** | [yumeshelf-code-modularization.md](./local/yumeshelf-code-modularization.md)<br>[yumeshelf-save-editor.md](./local/yumeshelf-save-editor.md) | Sections 2 & 3: Process Boundaries and Preload IPC<br>All Sections: Save Serialization & Alignment specifications |
+| **🔧 Structural Refactoring / Migration** | [yumeshelf-code-modularization.md](./local/yumeshelf-code-modularization.md) | Full File: Structural Isolation & Decoupled Architecture |
+| **📦 Production Build / Release Notes** | [yumeshelf-release-guide.md](./local/yumeshelf-release-guide.md)<br>[yumeshelf-release-notes.md](./local/yumeshelf-release-notes.md)<br>[yumeshelf-incremental-changelog.md](./local/yumeshelf-incremental-changelog.md) | Full File: Production compilation guides<br>Full File: Release announcement guidelines<br>Full File: Developer log writing rules |
+
+---
+
+## 📌 4. Core Operational Commandments
 
 * **Commandment 1: English Only for Documentation**
   - Both your custom skills and all generated changelog entries or release notes **MUST** be written strictly in English.

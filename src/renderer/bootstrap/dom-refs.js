@@ -1,12 +1,12 @@
 export function buildRendererRefs(documentRef = document) {
-    // === Container refs (truyền vào Controller làm root element) ===
-    // Mỗi Controller tự querySelector các phần tử con bên trong container của mình.
+    // === Container refs (passed to Controllers as root elements) ===
+    // Each Controller queries its own child elements within its container.
     const settingsContainer = documentRef.getElementById('settings-overlay');
     const languagePackContainer = documentRef.getElementById('language-pack-overlay');
     const searchContainer = documentRef.querySelector('.search-container');
 
     return {
-        // === Shared / Cross-controller refs (dùng bởi nhiều controller + event binding) ===
+        // === Shared / Cross-controller refs (used by multiple controllers + event binding) ===
         favGrid: documentRef.getElementById('fav-grid'),
         unfavGrid: documentRef.getElementById('unfav-grid'),
         separator: documentRef.getElementById('favorites-separator'),
@@ -15,7 +15,7 @@ export function buildRendererRefs(documentRef = document) {
         sortMenu: documentRef.getElementById('sort-menu'),
         sortBtn: documentRef.getElementById('sort-btn'),
 
-        // === Boot refs (root DOM, không có container riêng) ===
+        // === Boot refs (root DOM, without specific container) ===
         loading: documentRef.getElementById('loading'),
         bootProgress: documentRef.getElementById('boot-progress'),
         bootProgressBar: documentRef.getElementById('boot-progress-bar'),
@@ -37,7 +37,7 @@ export function buildRendererRefs(documentRef = document) {
 
         // === Event binding refs ===
         // Convenience refs cho global-events.js (event wiring layer).
-        // Lấy từ container để tránh lặp getElementById nhưng vẫn expose flat cho bindControlEvents.
+        // Retrieve from container to avoid redundant getElementById while keeping flat exposure for bindControlEvents.
 
         // Search (from .search-container)
         searchInput:    searchContainer ? searchContainer.querySelector('#search-input') : null,
@@ -72,7 +72,7 @@ export function buildRendererRefs(documentRef = document) {
         },
 
         // === UI Text refs ===
-        // Truyền vào uiTextController để cập nhật nội dung văn bản toàn trang.
+        // Passed to uiTextController to update global text content.
         moreLanguagesBtn: documentRef.getElementById('more-languages-btn'),
         uiTextRefs: {
             btnChangePath:             documentRef.getElementById('btn-change-path'),

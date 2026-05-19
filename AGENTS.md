@@ -24,13 +24,23 @@ Before performing any research, reading large files, or writing code, you must l
    - **When**: Creating new features, refactoring existing code, or adding new UI components/modules.
    - **Focus**: Ensuring strict process isolation (Main vs Renderer), proper preload IPC bridging, and decoupled CSS/JS architecture.
 
-5. **[SOP-05 (Systematic Diagnostics & Bug-Finding)](./SOP/05-systematic-diagnostics.md) (Bug-Finding & Systematic Diagnostics Guide)**:
-   - **When**: Stuck in a console-logging loop (3+ iterations) or encountering complex async timing, resource leaks, data schemas, or regressions.
-   - **Focus**: Decision tree and implementation checklists for Git Bisect, Fuzz Testing, Chrome Profiling, Breakpoint stepping, and Structured Tracing.
+---
+
+## ⚙️ 2. Universal Standard Operating Procedures (SOP)
+
+This repository adopts the project-wide **Standard Operating Procedures (SOP)** library. Before executing any code changes, diagnostics, or verification steps, you **MUST** consult the master SOP router:
+👉 **[SOP/README.md](./SOP/README.md)**
+
+It governs universal developer protocols including:
+*   **[SOP-01 (Context Efficiency)](./SOP/01-context-efficiency.md)**: Startup context management and search boundaries.
+*   **[SOP-02 (Smart Code Mutation)](./SOP/02-smart-code-mutation.md)**: Patching limits, surgical editing, and helper-script escalations.
+*   **[SOP-03 (Sandbox Verification)](./SOP/03-sandbox-verification.md)**: Self-healing loops, syntax compilation, and diagnostic handoff thresholds.
+*   **[SOP-04 (Release & Changelog)](./SOP/04-release-and-changelog.md)**: Version increments and developer log writing rules.
+*   **[SOP-05 (Systematic Diagnostics)](./SOP/05-systematic-diagnostics.md)**: Decision tree and methodologies for advanced bug-finding.
 
 ---
 
-## 📌 2. Core Operational Commandments
+## 📌 3. Core Operational Commandments
 
 * **Commandment 1: English Only for Documentation**
   - Both your custom skills and all generated changelog entries or release notes **MUST** be written strictly in English.

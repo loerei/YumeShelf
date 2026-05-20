@@ -28,6 +28,21 @@ When locating a symbol, function, or variable in the workspace, adhere to the fo
      ```powershell
      node SOP/cli.js map
      ```
+5. **Step 5: Codebase Dependency Graph Mapping**
+   * Before changing import statements, refactoring modules, or identifying which files will be affected by a structural modification, consult the cached dependency graph (defaults to `local/refs/dependency-graph.json`).
+   * **CLI-Driven Dependency Querying (Token-Efficient):** **NEVER** read the raw `local/refs/dependency-graph.json` file in its entirety, as it is massive and will bloat the context window. Instead, use the CLI's specialized `dep` utility to query relations surgically:
+     * *Query a file's dependencies/dependents/cycles:*
+       ```powershell
+       node SOP/cli.js dep query <file_name>
+       ```
+     * *Analyze circular dependency loops in the codebase:*
+       ```powershell
+       node SOP/cli.js dep circular
+       ```
+   * **Self-Updating Dependency Graph:** If new files are created, modules are refactored, or import statements are added/removed, regenerate the dependency graph by running:
+     ```powershell
+     node SOP/cli.js dep scan
+     ```
 
 ---
 

@@ -9,6 +9,10 @@ const commands = {
     map: {
         desc: 'Generate static source code structure map using AST Tree-sitter',
         run: async (args) => require('./tools/generate-repo-map.js').run(args)
+    },
+    dep: {
+        desc: 'Manage, scan, and query codebase dependency graph',
+        run: async (args) => require('./tools/dependency-manager.js').run(args)
     }
 };
 

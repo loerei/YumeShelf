@@ -14,7 +14,10 @@ Before implementing any feature, refactor, or bug fix that touches **more than o
    * Look for patterns: Container-based components, flat ref distribution, dependency injection, event bus, pub/sub, etc.
 2. **Identify the Dependency Direction:**
    * Which modules depend on which? Dependencies should flow **inward** (parent → child, container → internal), never **outward** (child → sibling, internal → unrelated module).
-   * Run a quick `grep_search` for `require(` or `import` statements to map the dependency graph of the area you're modifying.
+   * **Dependency Graph Querying:** Rather than manual or brute force grep searches, use the CLI's dependency analyzer tool to instantly discover relations:
+     ```powershell
+     node SOP/cli.js dep query <file_path>
+     ```
 3. **Identify Shared vs. Owned Resources:**
    * Which resources (refs, state, config, DOM elements) are **shared** across modules vs. **owned** by a single component?
    * Shared resources require coordination when modified. Owned resources can be changed freely within their component boundary.
@@ -95,10 +98,13 @@ Before writing code for any new feature or component, answer these questions:
 
 After any change that affects component boundaries, module interfaces, or shared resources:
 
-1. **Dependency Audit:** `grep_search` for all imports/requires of the modified module. Verify no consumer is broken.
-2. **Shared Resource Audit:** If you removed or renamed a shared resource, verify **every consumer** has been updated. This is the #1 source of post-refactor crashes.
-3. **Boot Pipeline Test:** If the application has a boot/initialization sequence, verify it completes without errors after your changes. Boot pipelines are where boundary violations surface first.
-4. **Interface Contract Check:** If you changed a module's exported API (added/removed/renamed exports), verify all callers match the new contract.
+1. **Dependency Audit:**
+   * Run `node SOP/cli.js dep scan` to refresh the graph cache.
+   * Run `node SOP/cli.js dep query <modified_file>` to view all dependents (`importedBy`) of the modified file and verify no consumer is broken.
+2. **Circular Dependency Check:** Run `node SOP/cli.js dep circular` to guarantee that your architectural changes did not introduce any cyclic dependency loops.
+3. **Shared Resource Audit:** If you removed or renamed a shared resource, verify **every consumer** has been updated. This is the #1 source of post-refactor crashes.
+4. **Boot Pipeline Test:** If the application has a boot/initialization sequence, verify it completes without errors after your changes. Boot pipelines are where boundary violations surface first.
+5. **Interface Contract Check:** If you changed a module's exported API (added/removed/renamed exports), verify all callers match the new contract.
 
 > [!CAUTION]
 > **The Shared Ref Leak:** When transitioning resources from shared to component-owned, always check if any external module still references the old shared location. This is the most dangerous post-refactor bug because it compiles cleanly but crashes at runtime when the missing reference is accessed.

@@ -31,7 +31,7 @@ function createAppPaths(app, sourceRootDir) {
         preloadPath: path.join(sourceRootDir, 'preload.js'),
         indexHtmlPath: isDev 
             ? path.join(sourceRootDir, '..', 'index.html') 
-            : path.join(sourceRootDir, '..', 'renderer', 'index.html')
+            : path.join(sourceRootDir, 'renderer', 'index.html')
     };
 }
 

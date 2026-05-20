@@ -5,7 +5,7 @@
   "englishName": "Chinese (Simplified)",
   "nativeName": "简体中文",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.4",
+  "reviewedForAppVersion": "1.5.5",
   "aliases": [
     "zh",
     "chinese",
@@ -190,6 +190,7 @@
     "save_editor_select_title": "选择存档文件",
     "save_editor_items": "物品",
     "save_editor_gold": "金钱",
+    "save_editor_pinned": "已固定",
     "save_editor_variables": "变量",
     "save_editor_switches": "开关",
     "save_editor_save": "保存修改",

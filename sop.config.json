@@ -1,0 +1,10 @@
+{
+  "projectName": "YumeShelf",
+  "tools": {
+    "map": {
+      "srcDir": "src",
+      "outputFile": "local/refs/repo-map.txt",
+      "wasmPath": "local/refs/grammars/tree-sitter-javascript.wasm"
+    }
+  }
+}

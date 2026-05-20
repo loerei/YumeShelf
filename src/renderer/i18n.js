@@ -24,7 +24,10 @@ export function createLocaleController({
     }
 
     function setLocaleState(nextState) {
+        const version = nextState.appVersion || localeState.appVersion;
+        console.log(`[I18N][RENDERER] setLocaleState: updating state. version preserved/set = ${version}`);
         localeState = nextState;
+        localeState.appVersion = version;
     }
 
     function getCurrentLang() {
@@ -120,13 +123,15 @@ export function createLocaleController({
     }
 
     async function loadLanguageState(nextState = null) {
-        if (!nextState) {
-            localeState.appVersion = await electronAPI.getAppVersion();
-        }
+        const appVersion = await electronAPI.getAppVersion();
+        console.log(`[I18N][RENDERER] loadLanguageState: fetched appVersion from Electron = ${appVersion}`);
         const incomingState = nextState || await electronAPI.getLanguageState();
         if (incomingState && incomingState.locales && incomingState.locales.en) {
+            console.log(`[I18N][RENDERER] loadLanguageState: overwriting localeState with incomingState.`);
             localeState = incomingState;
         }
+        localeState.appVersion = appVersion;
+        console.log(`[I18N][RENDERER] loadLanguageState: finalized localeState.appVersion = ${localeState.appVersion}`);
         if (!isLanguageAvailable(currentLang)) {
             currentLang = 'en';
             localStorage.setItem('yumeshelf_lang', currentLang);

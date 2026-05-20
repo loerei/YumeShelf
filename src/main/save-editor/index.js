@@ -8,7 +8,8 @@ const formats = [
     require('./formats/rpg-maker-mv'),
     require('./formats/rpg-wolf-sav'),
     require('./formats/unity-mono-bin'),
-    require('./formats/renpy')
+    require('./formats/renpy'),
+    require('./formats/pure-json')
 ];
 
 /**

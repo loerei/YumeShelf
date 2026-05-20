@@ -7,9 +7,20 @@ export const UIComponents = {
     /**
      * Creates a data row for variables/switches/items
      */
-    createDataRow(id, value, label, onUpdate, originalValue = undefined) {
+    createDataRow(id, value, label, onUpdate, originalValue = undefined, isPinned = false, onPinToggle = null) {
         const row = document.createElement('div');
         row.className = 'data-row';
+
+        if (onPinToggle) {
+            const pinBtn = document.createElement('div');
+            pinBtn.className = `data-pin-btn ${isPinned ? 'active' : ''}`;
+            pinBtn.textContent = '★';
+            pinBtn.onclick = (e) => {
+                e.stopPropagation();
+                onPinToggle();
+            };
+            row.appendChild(pinBtn);
+        }
         
         const idSpan = document.createElement('span');
         idSpan.className = 'data-id';

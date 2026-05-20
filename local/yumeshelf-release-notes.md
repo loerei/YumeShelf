@@ -16,6 +16,7 @@ Use this skill when writing, formatting, polishing, or translating changelogs or
 - Keep the upper section easy to scan and easy to understand.
 - Do not lead with internal architecture wording.
 - If polishing existing notes, preserve meaning unless the user explicitly asks for a rewrite.
+- **NEVER** mention specific game names or titles in the changelog or release notes. Keep all descriptions generic and engine/format-agnostic (e.g. use 'games utilizing plain JSON serialization' or 'games using zlib compression' instead of mentioning specific game titles).
 
 ---
 
@@ -96,3 +97,4 @@ Do not:
 - use architecture-heavy phrases in the top section
 - keep both `What's New` and `What Changed` if one of them is empty
 - rewrite the meaning of an existing changelog when the task is only formatting/polish
+- include specific game names/titles (keep descriptions generic and game-agnostic)

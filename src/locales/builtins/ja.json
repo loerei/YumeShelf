@@ -5,7 +5,7 @@
   "englishName": "Japanese",
   "nativeName": "日本語",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.4",
+  "reviewedForAppVersion": "1.5.5",
   "aliases": [
     "ja",
     "japanese",
@@ -191,6 +191,7 @@
     "save_editor_weapons": "武器",
     "save_editor_armors": "防具",
     "save_editor_gold": "所持金",
+    "save_editor_pinned": "ピン留め",
     "save_editor_variables": "変数",
     "save_editor_switches": "スイッチ",
     "save_editor_save": "変更を保存",

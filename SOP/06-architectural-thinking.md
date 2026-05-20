@@ -19,7 +19,7 @@ Before implementing any feature, refactor, or bug fix that touches **more than o
    * Which resources (refs, state, config, DOM elements) are **shared** across modules vs. **owned** by a single component?
    * Shared resources require coordination when modified. Owned resources can be changed freely within their component boundary.
 4. **Read the Project-Specific Skill File:**
-   * Check for architecture documentation in `local/` (e.g., `yumeshelf-code-modularization.md`). These files contain the concrete implementation of universal principles for the specific project.
+   * Check for architecture documentation in `local/` (e.g., `<project>-code-modularization.md`). These files contain the concrete implementation of universal principles for the specific project.
 
 > [!IMPORTANT]
 > **Never invent a new architectural pattern** when an established one exists in the codebase. If the project uses Container-based components, your new feature must also use Container-based components. Pattern consistency is more valuable than local optimization.

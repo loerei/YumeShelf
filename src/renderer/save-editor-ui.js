@@ -129,12 +129,66 @@ export function initSaveEditorUI() {
         `;
 
         document.body.appendChild(overlay);
+        
+        const handleGlobalKeydown = (e) => {
+            const activeElement = document.activeElement;
+            const isTyping = activeElement && (
+                (activeElement.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'email', 'tel', 'url'].includes(activeElement.type)) ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.isContentEditable
+            );
+            if (isTyping) return;
+
+            const key = e.key.toLowerCase();
+            
+            // Shift + Enter: save changes
+            if (e.shiftKey && e.key === 'Enter') {
+                e.preventDefault();
+                const saveBtn = overlay.querySelector('.save-btn');
+                if (saveBtn && saveBtn.style.display !== 'none' && !saveBtn.disabled) {
+                    saveBtn.click();
+                }
+                return;
+            }
+
+            if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+
+            if (key === 'e') {
+                e.preventDefault();
+                const chk = overlay.querySelector('.show-empty-check');
+                if (chk) {
+                    chk.checked = !chk.checked;
+                    state.showEmpty = chk.checked;
+                    renderTabContent();
+                }
+            } else if (key === 'i') {
+                e.preventDefault();
+                const chk = overlay.querySelector('.show-important-check');
+                if (chk) {
+                    chk.checked = !chk.checked;
+                    state.showImportant = chk.checked;
+                    renderTabContent();
+                }
+            } else if (key === 'x') {
+                e.preventDefault();
+                const chk = overlay.querySelector('.exact-match-check');
+                if (chk) {
+                    chk.checked = !chk.checked;
+                    engine.setSearchOptions({ exact: chk.checked });
+                    renderTabContent();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleGlobalKeydown);
+
         const close = (force = false) => {
             if (!force && state.hasUnsavedChanges && state.hasUnsavedChanges()) {
                 if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to close and discard changes?')) {
                     return;
                 }
             }
+            document.removeEventListener('keydown', handleGlobalKeydown);
             if (isStandalone) {
                 window.close();
             } else {
@@ -195,6 +249,14 @@ export function initSaveEditorUI() {
             }
         }
 
+        const storedPins = localStorage.getItem(`yumeshelf_pinned_${gameKey}`);
+        let parsedPins = [];
+        try {
+            parsedPins = storedPins ? JSON.parse(storedPins) : [];
+        } catch (e) {
+            console.error('[SAVE-EDITOR] Failed to parse pinned variables:', e);
+        }
+
         // Central shared state context
         const state = {
             currentSaveData: null,
@@ -207,6 +269,14 @@ export function initSaveEditorUI() {
             gameKey,
             isStandalone,
             d,
+            pinnedVariables: new Set(parsedPins),
+            savePinnedVariables: () => {
+                try {
+                    localStorage.setItem(`yumeshelf_pinned_${gameKey}`, JSON.stringify(Array.from(state.pinnedVariables)));
+                } catch (e) {
+                    console.error('[SAVE-EDITOR] Failed to save pinned variables:', e);
+                }
+            },
             hasUnsavedChanges: () => {
                 if (!state.currentSaveData || !state.originalSnapshot) return false;
                 return JSON.stringify(state.currentSaveData) !== JSON.stringify(state.originalSnapshot);

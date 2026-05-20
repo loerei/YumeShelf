@@ -19,6 +19,9 @@ Upon completing any feature task, bug fix, or codebase modification, you **MUST*
      npm run compile:release-notes
      ```
      This script automatically parses raw changelogs and outputs a production-ready file under `local/changelogs/compiled.release-notes.<version>.md`.
+   * > [!WARNING]
+     > Running `npm run compile:release-notes` will automatically transition the changelog's metadata `status` to `"released"` and populate release timestamps. **ONLY** execute this command when formally finalizing a release. If run prematurely for testing, you must manually restore `status` to `"working"` and `released_at` to `null` to allow continued incremental logging.
+
 
 ---
 

@@ -84,25 +84,36 @@ Before reloading a file list, changing tabs, or triggering sync routines, the UI
 
 ---
 
-## 🧪 5. Developer Verification Loop & Differential Testing
+## 🧪 5. Developer Verification Loop & Strict Test Contracts
 
-To guarantee that no future commits introduce regression into the save editing pipeline, follow this systematic testing loop.
+To guarantee that no future refactors or new strategies introduce regressions into the save editing pipeline, all strategies must conform to the **Strict Test Contracts (Hợp đồng Kiểm thử)** suite.
 
-### 5.1 Run Automated Regression Test Suites
-YumeShelf maintains automated tests specifically designed to verify end-to-end save integrity. Before pushing any changes to files under `src/main/core/`, `src/main/save-editor/`, or `src/renderer/save-editor/`, run:
+### 5.1 The Save Editor Strategy Contract
+Every format strategy file under `src/main/save-editor/formats/` **MUST** adhere to the following contract rules verified automatically by `tests/save-editor-contracts.test.js`:
+
+1.  **API Conformance:** Must export an object containing `match(fileName)`, `decode(buffer)`, and `encode(data)` methods.
+2.  **Bitstream Alignment Assurance:** Decoded payload strings must align correctly on 16-bit boundaries.
+3.  **LCG-XOR Cipher Reversibility:** Encryption and decryption on raw streams (e.g. Wolf RPG SAV) must be a perfect mathematical involution (`decode(encode(data)) === data`).
+4.  **Checksum Recalculation Integrity:** Modified files must compute and embed correct LSB checksums in their header matching original game expectations.
+
+### 5.2 Running Automated Regression Test Suites
+Before pushing any modifications or introducing a new strategy format:
 
 ```bash
-# 1. Verify byte-perfect LZ-String compression round-trips
+# 1. Run the strict strategy interface contract validation (highly recommended)
+node --test tests/save-editor-contracts.test.js
+
+# 2. Verify byte-perfect LZ-String compression round-trips
 node tests/test-rpgsave-cycle.js
 
-# 2. Verify deep live-mutation and persistence
+# 3. Verify deep live-mutation and persistence
 node tests/test-rpgsave-mutation.js
 
-# 3. Run all core project tests
+# 4. Run all core project tests
 npm test
 ```
 
-### 5.2 Differential Verification Protocol
+### 5.3 Differential Verification Protocol
 If you must integrate a new save format (e.g., Unity Mono, Wolf RPG, or custom JSON structure):
 1.  **Extract Native Game Encoders:** Locate the target game's native serialization script or library.
 2.  **Generate Test Outputs:** Compress a sample string using the native game's encoder.

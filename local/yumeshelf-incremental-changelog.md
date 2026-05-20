@@ -25,6 +25,9 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
      npm run compile:release-notes
      ```
      This will generate `local/changelogs/compiled.release-notes.<version>.md`. Refer to [yumeshelf-release-guide.md](./yumeshelf-release-guide.md) for full compilation, build, asset verification (including `latest.yml`, blockmaps, and signatures), and publishing instructions.
+   - > [!WARNING]
+     > Running the compilation script automatically mutates the source changelog's YAML frontmatter `status` from `"working"` to `"released"`. **DO NOT** execute this command prematurely unless finalizing a public release. If run for verification, you **MUST** manually revert `status` to `"working"` and `released_at` to `null` to ensure subsequent incremental changes are not blocked.
+
 
 4. **Strict English Language Constraint**:
    - **Both this skill file AND all generated changelog entries MUST be written in English.** This guarantees consistency across different agents and simplifies public release note generation.
@@ -40,6 +43,9 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
 
 7. **Metadata Preservation**:
    - Every `changelog.<version>.md` file must contain a YAML Frontmatter block at the top to track the version's release status and update timestamps.
+
+8. **No Specific Game Titles**:
+   - **NEVER** mention specific game names or titles in the changelog, release notes, or pull request logs. Keep all descriptions generic and engine/format-agnostic (e.g. refer to 'games utilizing plain JSON serialization' or 'games using zlib compression' instead of mentioning specific game titles).
 
 ---
 

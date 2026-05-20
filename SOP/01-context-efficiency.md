@@ -17,16 +17,24 @@ When locating a symbol, function, or variable in the workspace, adhere to the fo
      * *File Path*
      * *Line Numbers*
      * *Hotspot Justification (Why this area requires modification)*
-3. **Step 3: Targeted Reading with `view_file`**
-   * Read code exclusively using `view_file` with precise `StartLine` and `EndLine` ranges surrounding the target function.
-   * Avoid loading more than 800 lines of code unless absolutely necessary.
+3. **Step 3: Structural Layered Reading (Anti-Tunnel Vision)**
+   * Avoid raw "tunnel vision" (reading only 20-30 lines blindly) which leads to duplicate variable declarations or scope clashes. Apply the **Layered Structural Reading**:
+     * **Layer 1 (Architecture & Overview):** Read the first 50 lines of the target file to see structural context (Imports, global state references, core dependencies).
+     * **Layer 2 (Detail & Surrounding Scope):** Read the target function/variable along with at least **50 lines of surrounding padding** (including helper functions and class declarations) to capture the surrounding scope completely.
+   * **Diff-Based Re-Verification:** When verifying code changes made in previous turns or checking modifications between edits, **NEVER** re-read the entire source file. Use `git diff <file_path>` via `run_command` instead. The standard diff is extremely token-efficient, fast, and shows you exactly what changed without bloating the context window with unchanged source code.
+4. **Step 4: Repository Structural Mapping (Repo Map)**
+   * To instantly locate functions, class boundaries, or understand file maps without blind raw searches, read the cached symbol map (defaults to `local/refs/repo-map.txt` or the path specified in `sop.config.json`).
+   * **Self-Updating Map:** If new files are created, update the repository structure map by running:
+     ```powershell
+     node SOP/cli.js map
+     ```
 
 ---
 
 ## 📊 2. Hotspot Analysis Example
 
 An example of a clean, agent-generated hotspot record:
-*   **Target File:** [src/main/category-state/index.js](file:///d:/Games/H%20Games/YumeShelf/src/main/category-state/index.js#L12-L35)
+*   **Target File:** [src/main/category-state/index.js](./src/main/category-state/index.js#L12-L35)
 *   **Hotspots:** `loadCategoryState` and `saveCategoryState` functions.
 *   **Justification:** Implements physical read/write operations of categories; requires file checking and structured logging updates.
 

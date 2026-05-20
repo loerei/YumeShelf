@@ -2,6 +2,7 @@ import { RpgMakerEngine } from './engines/rpg-maker.js';
 import { UnityMonoEngine } from './engines/unity-mono.js';
 import { RpgWolfSavEngine } from './engines/rpg-wolf-sav.js';
 import { RenpyEngine } from './engines/renpy.js';
+import { PureJsonEngine } from './engines/pure-json.js';
 
 /**
  * Save Editor Data Engine Orchestrator
@@ -24,7 +25,8 @@ export class DataEngine {
             new RenpyEngine(),
             new RpgWolfSavEngine(),
             new RpgMakerEngine(),
-            new UnityMonoEngine()
+            new UnityMonoEngine(),
+            new PureJsonEngine()
         ];
 
         // Fallback default strategy

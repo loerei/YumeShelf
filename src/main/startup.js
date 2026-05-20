@@ -100,6 +100,7 @@ function createStartupServices({
             fallbackText: 'Loading language settings'
         });
         let languageState = await buildLanguageState();
+        console.log(`[MAIN][BOOT] buildLanguageState finished. app.getVersion() = ${app.getVersion()}, languageState.appVersion = ${languageState ? languageState.appVersion : 'null'}`);
         if (typeof preparePlaytimeSessions === 'function') {
             emitBootStatus(webContents, {
                 key: 'boot_recovering_playtime_sessions',
@@ -289,6 +290,7 @@ function createStartupServices({
             fallbackText: 'Preparing interface'
         });
 
+        console.log(`[MAIN][BOOT] bootstrapAppState complete. returning appVersion=${app.getVersion()} and languageState.appVersion=${languageState ? languageState.appVersion : 'null'}`);
         return {
             appVersion: app.getVersion(),
             languageState,

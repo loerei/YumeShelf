@@ -25,6 +25,9 @@ export function setupGridRenderer(refs, state, engine, translator) {
 
         const hasCategoryData = (tabId) => {
             if (!root) return false;
+            if (tabId === 'pinned') {
+                return state.pinnedVariables && state.pinnedVariables.size > 0;
+            }
             if (tabId.startsWith('prefix_')) {
                 return true;
             }
@@ -66,6 +69,12 @@ export function setupGridRenderer(refs, state, engine, translator) {
             ];
         }
         
+        // Insert pinned tab if there are pinned variables, standing between 'all' and other tabs
+        const hasPinned = state.pinnedVariables && state.pinnedVariables.size > 0;
+        if (hasPinned) {
+            tabs.unshift({ id: 'pinned', label: d.save_editor_pinned || 'Pinned', i18n: 'save_editor_pinned' });
+        }
+
         // Unshift 'all' tab to the front
         tabs.unshift({ id: 'all', label: d.save_editor_all || 'All', i18n: 'save_editor_all' });
 
@@ -134,7 +143,53 @@ export function setupGridRenderer(refs, state, engine, translator) {
         const originalSwitches = originalRoot ? (originalRoot.switches || originalRoot._switches || engine.getProp(originalRoot, 'switches')) : null;
 
         const renderSingleCategory = (tabId, grid) => {
-            if (tabId === 'gold' && root) {
+            if (tabId === 'pinned' && root) {
+                // 1. Pinned Gold
+                const goldInfo = engine.findGold(root, party);
+                const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
+                const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
+                const goldPinId = "gold:GOLD";
+                
+                if (goldInfo && state.pinnedVariables && state.pinnedVariables.has(goldPinId)) {
+                    const label = d.save_editor_gold || 'Gold';
+                    const isPinned = true;
+                    const onPinToggle = () => {
+                        state.pinnedVariables.delete(goldPinId);
+                        state.savePinnedVariables();
+                        setupTabs();
+                        renderTabContent();
+                    };
+                    const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
+                        goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
+                    }, originalGoldVal, isPinned, onPinToggle);
+                    row.style.gridColumn = '1 / -1';
+                    row.style.maxWidth = '300px';
+                    grid.appendChild(row);
+                }
+
+                // 2. Pinned Items, Weapons, Armors
+                ['items', 'weapons', 'armors'].forEach(key => {
+                    const meta = state.currentMetadata ? state.currentMetadata[key] : {};
+                    renderInventory(party || root, key, meta || {}, grid, originalParty || originalRoot, true);
+                });
+
+                // 3. Pinned Variables
+                if (variables) {
+                    const meta = state.currentMetadata ? state.currentMetadata.variables : {};
+                    renderBitset(variables, meta || {}, grid, (id, val, newVal, container) => {
+                        const num = Number(newVal);
+                        container[id] = isNaN(num) ? newVal : num;
+                    }, true, originalVariables, 'variables', true);
+                }
+
+                // 4. Pinned Switches
+                if (switches) {
+                    const meta = state.currentMetadata ? state.currentMetadata.switches : {};
+                    renderBitset(switches, meta || {}, grid, (id, val, newVal, container) => {
+                        container[id] = newVal;
+                    }, false, originalSwitches, 'switches', true);
+                }
+            } else if (tabId === 'gold' && root) {
                 const goldInfo = engine.findGold(root, party);
                 const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
                 const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
@@ -144,9 +199,23 @@ export function setupGridRenderer(refs, state, engine, translator) {
                     // Apply query filtering to Gold so it obeys search parameters
                     if (!engine.matchesQuery('GOLD', goldInfo.val, label)) return;
 
+                    const goldPinId = "gold:GOLD";
+                    const isPinned = state.pinnedVariables ? state.pinnedVariables.has(goldPinId) : false;
+                    const onPinToggle = () => {
+                        if (!state.pinnedVariables) return;
+                        if (state.pinnedVariables.has(goldPinId)) {
+                            state.pinnedVariables.delete(goldPinId);
+                        } else {
+                            state.pinnedVariables.add(goldPinId);
+                        }
+                        state.savePinnedVariables();
+                        setupTabs();
+                        renderTabContent();
+                    };
+
                     const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
                         goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
-                    }, originalGoldVal);
+                    }, originalGoldVal, isPinned, onPinToggle);
                     row.style.gridColumn = '1 / -1';
                     row.style.maxWidth = '300px';
                     grid.appendChild(row);
@@ -168,22 +237,22 @@ export function setupGridRenderer(refs, state, engine, translator) {
                 renderBitset(filteredVars, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                     const num = Number(newVal);
                     container[id] = isNaN(num) ? newVal : num;
-                }, true, originalVariables);
+                }, true, originalVariables, 'variables');
             } else if (tabId === 'variables' && variables) {
                 renderBitset(variables, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                     const num = Number(newVal);
                     container[id] = isNaN(num) ? newVal : num;
-                }, true, originalVariables);
+                }, true, originalVariables, 'variables');
             } else if (tabId === 'switches' && switches) {
                 renderBitset(switches, state.currentMetadata.switches, grid, (id, val, newVal, container) => {
                     container[id] = newVal;
-                }, false, originalSwitches);
+                }, false, originalSwitches, 'switches');
             }
         };
 
         if (state.activeTab === 'all') {
             let hasAnyData = false;
-            const categories = activeVisibleTabs.filter(t => t.id !== 'all');
+            const categories = activeVisibleTabs.filter(t => t.id !== 'all' && t.id !== 'pinned');
             
             // Create and append Expand All / Collapse All controls at the top
             const controls = document.createElement('div');
@@ -283,7 +352,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
         }
     }
 
-    function renderInventory(target, key, metaSource, grid, originalTarget) {
+    function renderInventory(target, key, metaSource, grid, originalTarget, onlyPinned = false) {
         const actualKey = target['_' + key] !== undefined ? '_' + key : key;
         const items = engine.extractData(target[actualKey]);
         const originalItems = originalTarget ? engine.extractData(originalTarget[actualKey]) : null;
@@ -317,13 +386,30 @@ export function setupGridRenderer(refs, state, engine, translator) {
             const val = items[id] !== undefined ? items[id] : 0;
             const originalVal = originalItems && originalItems[id] !== undefined ? originalItems[id] : undefined;
             
+            // Check if we are filtering for onlyPinned
+            const pinId = key + ":" + id;
+            if (onlyPinned && (!state.pinnedVariables || !state.pinnedVariables.has(pinId))) return;
+
             // If showEmpty is unchecked, hide items with quantity <= 0
-            if (!state.showEmpty && val <= 0) return;
+            if (!state.showEmpty && !onlyPinned && val <= 0) return;
 
             const meta = metaSource[id] || { name: `${key.slice(0,-1)} #${id}` };
             const translated = translator.translationCache[meta.name];
             
             if (!engine.matchesQuery(id, val, meta.name) && !engine.matchesQuery(id, val, translated)) return;
+
+            const isPinned = state.pinnedVariables ? state.pinnedVariables.has(pinId) : false;
+            const onPinToggle = () => {
+                if (!state.pinnedVariables) return;
+                if (state.pinnedVariables.has(pinId)) {
+                    state.pinnedVariables.delete(pinId);
+                } else {
+                    state.pinnedVariables.add(pinId);
+                }
+                state.savePinnedVariables();
+                setupTabs();
+                renderTabContent();
+            };
 
             const row = UIComponents.createDataRow(id, val, meta.name, (newVal) => {
                 const parsedVal = parseInt(newVal) || 0;
@@ -332,18 +418,23 @@ export function setupGridRenderer(refs, state, engine, translator) {
                 } else {
                     items[id] = parsedVal;
                 }
-            }, originalVal);
+            }, originalVal, isPinned, onPinToggle);
             attachSaveEditorTooltip(row, () => ({ title: meta.name }));
             grid.appendChild(row);
         });
     }
 
-    function renderBitset(data, metaSource, grid, onUpdate, isNumeric, originalData) {
+    function renderBitset(data, metaSource, grid, onUpdate, isNumeric, originalData, type, onlyPinned = false) {
         const raw = engine.extractData(data);
         const originalRaw = originalData ? engine.extractData(originalData) : null;
         
         const process = (id, val) => {
             if (id == 0 || id === '0' || id === '@c') return;
+            
+            // Check if we are filtering for onlyPinned
+            const pinId = type + ":" + id;
+            if (onlyPinned && (!state.pinnedVariables || !state.pinnedVariables.has(pinId))) return;
+
             const name = metaSource[id] || `ID #${id}`;
             const translated = translator.translationCache[name];
             
@@ -354,7 +445,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
             // Important variables for specific games
             const isImportant = state.activeTab === 'variables' && [12, 15, 16, 17, 18, 19, 20, 21, 25, 26, 61, 62, 63, 64, 65, 66].includes(Number(id));
 
-            if (!state.showEmpty) {
+            if (!state.showEmpty && !onlyPinned) {
                 // Always hide truly uninitialized/blank values if showEmpty is false,
                 // UNLESS showImportant is enabled and the variable is marked important.
                 if (isUninitialized) {
@@ -370,8 +461,21 @@ export function setupGridRenderer(refs, state, engine, translator) {
 
             const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
 
+            const isPinned = state.pinnedVariables ? state.pinnedVariables.has(pinId) : false;
+            const onPinToggle = () => {
+                if (!state.pinnedVariables) return;
+                if (state.pinnedVariables.has(pinId)) {
+                    state.pinnedVariables.delete(pinId);
+                } else {
+                    state.pinnedVariables.add(pinId);
+                }
+                state.savePinnedVariables();
+                setupTabs();
+                renderTabContent();
+            };
+
             if (isNumeric) {
-                const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv, raw), originalVal);
+                const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv, raw), originalVal, isPinned, onPinToggle);
                 attachSaveEditorTooltip(row, () => ({ title: name }));
                 grid.appendChild(row);
             } else {
@@ -383,12 +487,27 @@ export function setupGridRenderer(refs, state, engine, translator) {
                     deltaHTML = `<span class="data-delta" style="font-size:0.85em; font-weight:bold; color:#fbbf24; margin-left:auto;">(was: ${originalVal})</span>`;
                 }
                 
+                let pinBtnHTML = '';
+                if (onPinToggle) {
+                    pinBtnHTML = `<div class="data-pin-btn ${isPinned ? 'active' : ''}">★</div>`;
+                }
+                
                 row.innerHTML = `
+                    ${pinBtnHTML}
                     <span class="data-id">#${id}</span>
                     <label class="data-label" title="${name}">${name}</label>
                     ${deltaHTML}
                     <input type="checkbox" ${val ? 'checked' : ''}>
                 `;
+                
+                if (onPinToggle) {
+                    const pinBtnEl = row.querySelector('.data-pin-btn');
+                    pinBtnEl.onclick = (e) => {
+                        e.stopPropagation();
+                        onPinToggle();
+                    };
+                }
+                
                 row.querySelector('input').onchange = (e) => onUpdate(id, val, e.target.checked, raw);
                 attachSaveEditorTooltip(row, () => ({ title: name }));
                 grid.appendChild(row);

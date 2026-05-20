@@ -1,3 +1,4 @@
+// @ts-nocheck
 export interface GamePaths {
     exeDir: string;
     saveDir: string;

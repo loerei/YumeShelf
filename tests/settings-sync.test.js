@@ -5,7 +5,7 @@ const fsSync = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { registerMainIpc } = require('../src/main/ipc/register');
+const { registerMainIpc } = require('../dist/main/ipc/register');
 
 async function makeTempDir() {
     return fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-settings-test-'));

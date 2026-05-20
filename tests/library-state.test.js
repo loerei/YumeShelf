@@ -5,7 +5,7 @@ const fsSync = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { buildLogicalGameId, createLibraryState } = require('../src/main/library-state');
+const { buildLogicalGameId, createLibraryState } = require('../dist/main/library-state');
 
 async function makeTempDir() {
     return fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-library-state-'));

@@ -30,28 +30,11 @@ Before performing any research, reading large files, or writing code, you must l
 
 ---
 
-## ⚙️ 2. Universal Standard Operating Procedures (SOP)
+## 📂 2. Project Domain Guidelines Map
 
-This repository adopts the project-wide **Standard Operating Procedures (SOP)** library. Before executing any code changes, diagnostics, or verification steps, you **MUST** consult the master SOP router:
-👉 **[SOP/README.md](./SOP/README.md)**
+Find the task type that matches your user request and read the designated YumeShelf-specific guidelines **before** beginning development.
 
-It governs universal developer protocols including:
-*   **[SOP-00 (Startup Intake & Routing Protocol)](./SOP/00-startup-routing.md)**: **MANDATORY STEP 0**. Start here on Turn 1 to route your task-specific reading flow.
-*   **[SOP-01 (Context Efficiency)](./SOP/01-context-efficiency.md)**: Startup context management and search boundaries.
-*   **[SOP-02 (Smart Code Mutation)](./SOP/02-smart-code-mutation.md)**: Patching limits, surgical editing, and helper-script escalations.
-*   **[SOP-03 (Sandbox Verification)](./SOP/03-sandbox-verification.md)**: Self-healing loops, syntax compilation, and diagnostic handoff thresholds.
-*   **[SOP-04 (Release & Changelog)](./SOP/04-release-and-changelog.md)**: Version increments and developer log writing rules.
-*   **[SOP-05 (Systematic Diagnostics)](./SOP/05-systematic-diagnostics.md)**: Decision tree and methodologies for advanced bug-finding.
-*   **[SOP-06 (Architectural Thinking)](./SOP/06-architectural-thinking.md)**: Design rules, module boundaries, and common architectural anti-patterns.
-*   **[SOP-07 (Guideline Maintenance)](./SOP/07-guideline-maintenance.md)**: Scouting protocols, bootstrapping AGENTS.md, local guideline auto-mapping.
-
----
-
-## 🗺️ 3. SOP-00 Task-Specific Routing Map (YumeShelf Specific)
-
-This table acts as the configuration adapter for **SOP-00**. Find the task type that matches your user request and read the designated YumeShelf-specific guidelines **before** beginning development.
-
-| Task Category (SOP-00) | Repository-Specific Files to Load & Read | Focus / Section |
+| Task Category | Repository-Specific Files to Load & Read | Focus / Section |
 | :--- | :--- | :--- |
 | **🎨 UI / Renderer / Styling** | [yumeshelf-code-modularization.md](./local/yumeshelf-code-modularization.md) | Section 6: Container-level Componentization |
 | **⚙️ Core Logic / Database / IPC** | [yumeshelf-code-modularization.md](./local/yumeshelf-code-modularization.md)<br>[yumeshelf-save-editor.md](./local/yumeshelf-save-editor.md) | Sections 2 & 3: Process Boundaries and Preload IPC<br>All Sections: Save Serialization & Alignment specifications |
@@ -60,7 +43,7 @@ This table acts as the configuration adapter for **SOP-00**. Find the task type 
 
 ---
 
-## 📌 4. Core Operational Commandments
+## 📌 3. Core Operational Commandments
 
 * **Commandment 1: English Only for Documentation**
   - Both your custom skills and all generated changelog entries or release notes **MUST** be written strictly in English.
@@ -77,6 +60,10 @@ This table acts as the configuration adapter for **SOP-00**. Find the task type 
 
 * **Commandment 4: Avoid Build File Locks**
   - Ensure all running dev instances (started via `npm start`) are completely closed before calling the production compilation command (`npm run build`).
+
+* **Commandment 5: The Boy Scout Rule (TypeScript Migration)**
+  - The codebase is currently running with `// @ts-nocheck` on many `.ts` files to silence compiler errors from the initial JavaScript to TypeScript migration.
+  - Whenever you open an existing file to modify a feature or fix a bug, you **MUST** remove the `// @ts-nocheck` pragma at the top of the file, fix all resulting TypeScript compilation errors, and ensure strong typings are applied to that file before completing your task.
 
 ---
 

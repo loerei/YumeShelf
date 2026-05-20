@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const format = require('../src/main/save-editor/formats/rpg-maker-mv');
-const { RpgMakerEngine } = require('../src/renderer/save-editor/engines/rpg-maker');
+const format = require('../dist/main/save-editor/formats/rpg-maker-mv');
+const { RpgMakerEngine } = require('../dist/renderer/save-editor/engines/rpg-maker');
 
 function testExtractMutation() {
     const saveFilePath = path.join(

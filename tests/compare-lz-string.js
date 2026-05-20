@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const localLZString = require('../src/main/core/lz-string');
+const localLZString = require('../dist/main/core/lz-string');
 
 // Load game's lz-string.js and expose it
 const gameLZStringPath = path.join(

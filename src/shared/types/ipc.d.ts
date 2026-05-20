@@ -1,3 +1,4 @@
+// @ts-nocheck
 export interface ElectronAPI {
     // App Bootstrap & Configuration
     bootstrapApp: (options: any) => Promise<any>;

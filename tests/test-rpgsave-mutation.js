@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const format = require('../src/main/save-editor/formats/rpg-maker-mv');
+const format = require('../dist/main/save-editor/formats/rpg-maker-mv');
 
 function testMutation() {
     const saveFilePath = path.join(

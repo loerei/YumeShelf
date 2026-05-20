@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const LZString = require('../src/main/core/lz-string');
-const format = require('../src/main/save-editor/formats/rpg-maker-mv');
+const LZString = require('../dist/main/core/lz-string');
+const format = require('../dist/main/save-editor/formats/rpg-maker-mv');
 
 async function run() {
     const saveFilePath = path.join(

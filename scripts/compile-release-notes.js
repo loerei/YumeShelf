@@ -5,9 +5,14 @@ const repoRoot = path.resolve(__dirname, '..');
 const packageJsonPath = path.join(repoRoot, 'package.json');
 
 function main() {
-    // 1. Resolve version
+    // 1. Resolve arguments and version
+    const args = process.argv.slice(2);
+    const hasReleaseFlag = args.includes('--release') || args.includes('--released');
+    
+    // Filter out command line flags to find positional arguments
+    const positionalArgs = args.filter(arg => !arg.startsWith('-'));
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    const version = process.argv[2] || packageJson.version;
+    const version = positionalArgs[0] || packageJson.version;
     
     const changelogPath = path.join(repoRoot, 'local', 'changelogs', `changelog.${version}.md`);
     
@@ -91,21 +96,46 @@ function main() {
     console.log(finalCleanBody.trim());
     console.log('------------------------\n');
     
-    // 6. Automatically update changelog status metadata to 'released' and set timestamps
+    // 6. Update changelog status metadata and timestamps
     const nowIso = new Date().toISOString();
-    const updatedYamlBlock = [
+    const currentStatus = metadata.status || 'draft';
+    const currentReleasedAt = metadata.released_at || '';
+    
+    let targetStatus = currentStatus;
+    let targetReleasedAt = currentReleasedAt;
+    
+    if (hasReleaseFlag) {
+        targetStatus = 'released';
+        if (!targetReleasedAt) {
+            targetReleasedAt = nowIso;
+        }
+    }
+    
+    const updatedYamlLines = [
         '---',
         `version: "${version}"`,
-        `status: "released"`,
-        `released_at: "${nowIso}"`,
+        `status: "${targetStatus}"`
+    ];
+    
+    if (targetReleasedAt) {
+        updatedYamlLines.push(`released_at: "${targetReleasedAt}"`);
+    }
+    
+    updatedYamlLines.push(
         `last_updated_by: "release-compiler-script"`,
         `last_updated_at: "${nowIso}"`,
         '---'
-    ].join('\n');
+    );
     
+    const updatedYamlBlock = updatedYamlLines.join('\n');
     const updatedChangelogContent = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, updatedYamlBlock + '\n');
     fs.writeFileSync(changelogPath, updatedChangelogContent, 'utf8');
-    console.log(`Updated changelog metadata: status='released', released_at='${nowIso}'`);
+    
+    if (hasReleaseFlag) {
+        console.log(`Updated changelog metadata: status='released', released_at='${targetReleasedAt}'`);
+    } else {
+        console.log(`Updated changelog metadata: status='${targetStatus}' (kept as is, use --release flag to mark as released)`);
+    }
 }
 
 main();

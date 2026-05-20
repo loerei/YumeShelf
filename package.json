@@ -26,6 +26,7 @@
     "mock:app-update:serve": "node .\\scripts\\serve-dev-app-update-feed.js",
     "sync:release-metadata": "node .\\scripts\\sync-release-metadata.js",
     "compile:release-notes": "node .\\scripts\\compile-release-notes.js",
+    "compile:release-notes:release": "node .\\scripts\\compile-release-notes.js --release",
     "typecheck": "tsc --noEmit",
     "build:preload": "tsup src/preload.ts --out-dir dist --format cjs --external electron",
     "build:ts": "tsup src/main.js --out-dir dist --format cjs"

@@ -19,14 +19,19 @@ Before compiling the binaries, you must finalize and compile the release notes. 
 
 To automatically prepare user-facing, clean release notes:
 1. Run the automated compiler script:
-   ```bash
-   npm run compile:release-notes
-   ```
+   - **For Dry Run / Validation** (keeps changelog status unchanged):
+     ```bash
+     npm run compile:release-notes
+     ```
+   - **For Final Release** (marks changelog status as `"released"`):
+     ```bash
+     npm run compile:release-notes:release
+     ```
    This will read `local/changelogs/changelog.<version>.md` and:
    - Strip frontmatter.
    - Clean up technical bracket prefix tags (e.g. `[parallel-downloader]`, `[system-tray]`) to make bullet points cohesive and readable for end-users.
    - Write the finalized public notes to `local/changelogs/compiled.release-notes.<version>.md`.
-   - Update the status in the original changelog to `"released"` and insert the correct ISO release timestamp.
+   - Update the status in the original changelog to `"released"` and insert the correct ISO release timestamp (only when using `--release`).
 2. Read and verify `local/changelogs/compiled.release-notes.<version>.md`. Copy its content to use as the GitHub Release description.
 
 ---

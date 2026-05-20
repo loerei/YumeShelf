@@ -1,9 +1,9 @@
 ---
 version: "1.5.6"
 status: "released"
-released_at: "2026-05-20T15:00:19.759Z"
+released_at: "2026-05-20T15:15:08.469Z"
 last_updated_by: "release-compiler-script"
-last_updated_at: "2026-05-20T15:00:19.759Z"
+last_updated_at: "2026-05-20T15:15:08.469Z"
 ---
 
 # YumeShelf Changelog - v1.5.6

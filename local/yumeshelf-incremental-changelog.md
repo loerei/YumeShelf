@@ -30,7 +30,7 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
      ```
      This will generate `local/changelogs/compiled.release-notes.<version>.md` and transition the changelog `status` to `"released"`. Refer to [yumeshelf-release-guide.md](./yumeshelf-release-guide.md) for full compilation, build, asset verification (including `latest.yml`, blockmaps, and signatures), and publishing instructions.
    - > [!NOTE]
-     > Running the compilation script *without* the `--release` flag (e.g. `npm run compile:release-notes`) compiles the notes for local validation while leaving the changelog's status metadata and timestamp **unchanged** (`giữ nguyên`). This allows safe previewing of the release notes before finalizing.
+     > Running the compilation script *without* the `--release` flag (e.g. `npm run compile:release-notes`) compiles the notes for local validation while leaving the changelog's status metadata and timestamp **unchanged**. This allows safe previewing of the release notes before finalizing.
 
 
 4. **Strict English Language Constraint**:

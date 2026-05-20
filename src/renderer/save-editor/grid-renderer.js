@@ -1,11 +1,49 @@
+// @ts-check
 import { UIComponents } from './components.js';
 
+/**
+ * @typedef {Object} GridRendererRefs
+ * @property {HTMLElement} overlay
+ * @property {HTMLElement} content
+ * @property {HTMLElement} tabsContainer
+ * @property {HTMLElement} tabsWrapper
+ */
+
+/**
+ * @typedef {Object} GridRendererState
+ * @property {string} gameKey
+ * @property {string | null} [currentFileName]
+ * @property {any} [d]
+ * @property {any} [currentSaveData]
+ * @property {any} [originalSnapshot]
+ * @property {any} [currentMetadata]
+ * @property {() => boolean} [hasUnsavedChanges]
+ * @property {Set<string> | null} [pinnedVariables]
+ * @property {() => void} [savePinnedVariables]
+ * @property {string} activeTab
+ * @property {boolean} [showEmpty]
+ * @property {boolean} [showImportant]
+ */
+
+/**
+ * Setup grid renderer.
+ * @param {GridRendererRefs} refs
+ * @param {GridRendererState} state
+ * @param {import('./data-engine').DataEngine} engine
+ * @param {import('./translator').Translator} translator
+ */
 export function setupGridRenderer(refs, state, engine, translator) {
     const { overlay, content, tabsContainer, tabsWrapper } = refs;
+    /** @type {any[]} */
     let activeVisibleTabs = [];
 
     // Save Editor Tooltip Controller (disabled globally by default)
     const enableSaveEditorTooltips = false;
+    
+    /**
+     * @param {HTMLElement} element
+     * @param {() => { title?: string }} getContent
+     */
     function attachSaveEditorTooltip(element, getContent) {
         if (!enableSaveEditorTooltips) return;
         if (typeof getContent === 'function') {
@@ -23,10 +61,14 @@ export function setupGridRenderer(refs, state, engine, translator) {
         const variables = root ? (root.variables || root._variables || engine.getProp(root, 'variables')) : null;
         const switches = root ? (root.switches || root._switches || engine.getProp(root, 'switches')) : null;
 
+        /**
+         * @param {string} tabId
+         * @returns {boolean}
+         */
         const hasCategoryData = (tabId) => {
             if (!root) return false;
             if (tabId === 'pinned') {
-                return state.pinnedVariables && state.pinnedVariables.size > 0;
+                return !!(state.pinnedVariables && state.pinnedVariables.size > 0);
             }
             if (tabId.startsWith('prefix_')) {
                 return true;
@@ -57,6 +99,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
             return false;
         };
 
+        /** @type {any[]} */
         let tabs = engine.getTabs(root, d);
         if (!tabs) {
             tabs = [
@@ -108,16 +151,20 @@ export function setupGridRenderer(refs, state, engine, translator) {
                 el.classList.add('active');
                 
                 // Logic to show Map button if we are in an engine that supports mapping
-                const mapBtn = overlay.querySelector('.map-variable-btn');
+                const mapBtn = /** @type {HTMLElement | null} */ (overlay.querySelector('.map-variable-btn'));
                 if (mapBtn) mapBtn.style.display = (tab.id === 'variables') ? 'block' : 'none';
                 
                 // Show/hide switch-only filters
                 const switchFilters = overlay.querySelectorAll('.switch-filters-only');
-                switchFilters.forEach(f => f.style.display = (tab.id === 'switches') ? 'flex' : 'none');
+                switchFilters.forEach(f => {
+                    /** @type {HTMLElement} */ (f).style.display = (tab.id === 'switches') ? 'flex' : 'none';
+                });
                 if (tab.id !== 'switches') {
                     // Reset switch filters when leaving the tab
-                    overlay.querySelector('.switch-true-check').checked = false;
-                    overlay.querySelector('.switch-false-check').checked = false;
+                    const sTrue = /** @type {HTMLInputElement | null} */ (overlay.querySelector('.switch-true-check'));
+                    if (sTrue) sTrue.checked = false;
+                    const sFalse = /** @type {HTMLInputElement | null} */ (overlay.querySelector('.switch-false-check'));
+                    if (sFalse) sFalse.checked = false;
                     engine.setSearchOptions({ switchOnlyTrue: false, switchOnlyFalse: false });
                 }
 
@@ -142,6 +189,10 @@ export function setupGridRenderer(refs, state, engine, translator) {
         const originalVariables = originalRoot ? (originalRoot.variables || originalRoot._variables || engine.getProp(originalRoot, 'variables')) : null;
         const originalSwitches = originalRoot ? (originalRoot.switches || originalRoot._switches || engine.getProp(originalRoot, 'switches')) : null;
 
+        /**
+         * @param {string} tabId
+         * @param {HTMLElement} grid
+         */
         const renderSingleCategory = (tabId, grid) => {
             if (tabId === 'pinned' && root) {
                 // 1. Pinned Gold
@@ -154,8 +205,10 @@ export function setupGridRenderer(refs, state, engine, translator) {
                     const label = d.save_editor_gold || 'Gold';
                     const isPinned = true;
                     const onPinToggle = () => {
-                        state.pinnedVariables.delete(goldPinId);
-                        state.savePinnedVariables();
+                        if (state.pinnedVariables) {
+                            state.pinnedVariables.delete(goldPinId);
+                            if (state.savePinnedVariables) state.savePinnedVariables();
+                        }
                         setupTabs();
                         renderTabContent();
                     };
@@ -208,7 +261,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
                         } else {
                             state.pinnedVariables.add(goldPinId);
                         }
-                        state.savePinnedVariables();
+                        if (state.savePinnedVariables) state.savePinnedVariables();
                         setupTabs();
                         renderTabContent();
                     };
@@ -352,6 +405,14 @@ export function setupGridRenderer(refs, state, engine, translator) {
         }
     }
 
+    /**
+     * @param {any} target
+     * @param {string} key
+     * @param {any} metaSource
+     * @param {HTMLElement} grid
+     * @param {any} originalTarget
+     * @param {boolean} [onlyPinned]
+     */
     function renderInventory(target, key, metaSource, grid, originalTarget, onlyPinned = false) {
         const actualKey = target['_' + key] !== undefined ? '_' + key : key;
         const items = engine.extractData(target[actualKey]);
@@ -360,6 +421,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
         if (!items || typeof items !== 'object') return;
 
         // Collect all potential item IDs
+        /** @type {Set<string>} */
         const allIds = new Set();
         
         // Add items currently in save
@@ -371,7 +433,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
         // Add items from metadata database if showEmpty is checked
         if (state.showEmpty) {
             Object.keys(metaSource).forEach(id => {
-                if (id == 0 || id === '0') return;
+                if (id === '0') return;
                 const meta = metaSource[id];
                 if (meta && meta.name && meta.name.trim() !== '') {
                     allIds.add(id);
@@ -406,7 +468,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
                 } else {
                     state.pinnedVariables.add(pinId);
                 }
-                state.savePinnedVariables();
+                if (state.savePinnedVariables) state.savePinnedVariables();
                 setupTabs();
                 renderTabContent();
             };
@@ -424,12 +486,26 @@ export function setupGridRenderer(refs, state, engine, translator) {
         });
     }
 
+    /**
+     * @param {any} data
+     * @param {any} metaSource
+     * @param {HTMLElement} grid
+     * @param {(id: string | number, val: any, newVal: any, container: any) => void} onUpdate
+     * @param {boolean} isNumeric
+     * @param {any} originalData
+     * @param {string} type
+     * @param {boolean} [onlyPinned]
+     */
     function renderBitset(data, metaSource, grid, onUpdate, isNumeric, originalData, type, onlyPinned = false) {
         const raw = engine.extractData(data);
         const originalRaw = originalData ? engine.extractData(originalData) : null;
         
+        /**
+         * @param {string | number} id
+         * @param {any} val
+         */
         const process = (id, val) => {
-            if (id == 0 || id === '0' || id === '@c') return;
+            if (id === 0 || id === '0' || id === '@c') return;
             
             // Check if we are filtering for onlyPinned
             const pinId = type + ":" + id;
@@ -469,7 +545,7 @@ export function setupGridRenderer(refs, state, engine, translator) {
                 } else {
                     state.pinnedVariables.add(pinId);
                 }
-                state.savePinnedVariables();
+                if (state.savePinnedVariables) state.savePinnedVariables();
                 setupTabs();
                 renderTabContent();
             };
@@ -501,21 +577,29 @@ export function setupGridRenderer(refs, state, engine, translator) {
                 `;
                 
                 if (onPinToggle) {
-                    const pinBtnEl = row.querySelector('.data-pin-btn');
-                    pinBtnEl.onclick = (e) => {
-                        e.stopPropagation();
-                        onPinToggle();
-                    };
+                    const pinBtnEl = /** @type {HTMLElement | null} */ (row.querySelector('.data-pin-btn'));
+                    if (pinBtnEl) {
+                        pinBtnEl.onclick = (e) => {
+                            e.stopPropagation();
+                            onPinToggle();
+                        };
+                    }
                 }
                 
-                row.querySelector('input').onchange = (e) => onUpdate(id, val, e.target.checked, raw);
+                const checkboxInput = /** @type {HTMLInputElement | null} */ (row.querySelector('input'));
+                if (checkboxInput) {
+                    checkboxInput.onchange = (e) => {
+                        const target = /** @type {HTMLInputElement} */ (e.target);
+                        onUpdate(id, val, target.checked, raw);
+                    };
+                }
                 attachSaveEditorTooltip(row, () => ({ title: name }));
                 grid.appendChild(row);
             }
         };
 
         if (Array.isArray(raw)) raw.forEach((val, id) => process(id, val));
-        else if (typeof raw === 'object') Object.entries(raw).forEach(([id, val]) => process(id, val));
+        else if (typeof raw === 'object' && raw !== null) Object.entries(raw).forEach(([id, val]) => process(id, val));
     }
 
     return {
@@ -523,3 +607,4 @@ export function setupGridRenderer(refs, state, engine, translator) {
         renderTabContent
     };
 }
+

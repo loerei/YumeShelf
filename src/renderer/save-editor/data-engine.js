@@ -1,3 +1,5 @@
+// @ts-check
+
 import { RpgMakerEngine } from './engines/rpg-maker.js';
 import { UnityMonoEngine } from './engines/unity-mono.js';
 import { RpgWolfSavEngine } from './engines/rpg-wolf-sav.js';
@@ -10,6 +12,7 @@ import { PureJsonEngine } from './engines/pure-json.js';
  */
 export class DataEngine {
     constructor() {
+        /** @type {import('../../shared/types/save-editor').SearchOptions} */
         this.searchOptions = {
             query: '',
             exact: false,
@@ -20,7 +23,7 @@ export class DataEngine {
             switchOnlyFalse: false
         };
 
-        // Registered engine strategies
+        /** @type {import('../../shared/types/save-editor').SaveEditorEngine[]} */
         this.engines = [
             new RenpyEngine(),
             new RpgWolfSavEngine(),
@@ -29,16 +32,23 @@ export class DataEngine {
             new PureJsonEngine()
         ];
 
-        // Fallback default strategy
+        /** @type {import('../../shared/types/save-editor').SaveEditorEngine} */
         this.activeEngine = this.engines[0];
     }
 
+    /**
+     * @param {Partial<import('../../shared/types/save-editor').SearchOptions>} options
+     */
     setSearchOptions(options) {
         this.searchOptions = { ...this.searchOptions, ...options };
     }
 
     /**
      * Centralized search helper to check if a record matches current filters
+     * @param {string | number | null | undefined} id
+     * @param {any} value
+     * @param {any} label
+     * @returns {boolean}
      */
     matchesQuery(id, value, label) {
         const { 
@@ -58,6 +68,12 @@ export class DataEngine {
             const op = relMatch[1];
             const target = parseFloat(relMatch[2]);
             
+            /**
+             * @param {number} val
+             * @param {string} op
+             * @param {number} targetVal
+             * @returns {boolean}
+             */
             const compare = (val, op, targetVal) => {
                 switch (op) {
                     case '>': return val > targetVal;
@@ -123,15 +139,22 @@ export class DataEngine {
 
     /**
      * Auto-detects the engine strategy based on save data characteristics and extracts the root object
+     * @param {any} root
+     * @param {any} d
+     * @returns {Array<{ id: string; label: string; i18n?: string }> | null}
      */
-        getTabs(root, d) {
+    getTabs(root, d) {
         if (this.activeEngine && typeof this.activeEngine.getTabs === 'function') {
             return this.activeEngine.getTabs(root, d);
         }
         return null;
     }
 
-extractRoot(save) {
+    /**
+     * @param {any} save
+     * @returns {any}
+     */
+    extractRoot(save) {
         if (save) {
             const matched = this.engines.find(e => e.detect(save));
             if (matched) {
@@ -143,6 +166,9 @@ extractRoot(save) {
 
     /**
      * Safely retrieves property case- and underscore-insensitively from the active engine
+     * @param {any} obj
+     * @param {string} prop
+     * @returns {any}
      */
     getProp(obj, prop) {
         return this.activeEngine.getProp(obj, prop);
@@ -150,6 +176,9 @@ extractRoot(save) {
 
     /**
      * Resolves the location of gold inside the save root from the active engine
+     * @param {any} root
+     * @param {any} party
+     * @returns {{ obj: any; key: string; val: any } | null}
      */
     findGold(root, party) {
         return this.activeEngine.findGold(root, party);
@@ -157,8 +186,11 @@ extractRoot(save) {
 
     /**
      * Unwraps engine-specific data arrays/objects from the active engine
+     * @param {any} obj
+     * @returns {any}
      */
     extractData(obj) {
         return this.activeEngine.extractData(obj);
     }
 }
+

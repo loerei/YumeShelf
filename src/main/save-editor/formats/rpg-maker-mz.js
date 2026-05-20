@@ -5,7 +5,7 @@ class RpgMakerMzFormat {
         return fileName.endsWith('.rmmzsave');
     }
 
-    decode(rawData) {
+    async decode(rawData) {
         try {
             // Try standard raw binary decompression first (correct format)
             const decompressedBuffer = zlib.inflateSync(rawData);
@@ -23,7 +23,7 @@ class RpgMakerMzFormat {
         }
     }
 
-    encode(jsonData) {
+    async encode(jsonData) {
         const jsonStr = JSON.stringify(jsonData);
         // Return standard zlib-compressed binary buffer
         return zlib.deflateSync(Buffer.from(jsonStr, 'utf8'), { level: 1 });

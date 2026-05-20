@@ -1,3 +1,24 @@
+// @ts-check
+
+/**
+ * @typedef {Object} SearchBarRefs
+ * @property {HTMLElement} overlay
+ * @property {HTMLInputElement} searchInput
+ */
+
+/**
+ * @typedef {Object} SearchBarState
+ * @property {boolean} showEmpty
+ * @property {boolean} showImportant
+ */
+
+/**
+ * Set up search bar event handlers and link them to the UI state.
+ * @param {SearchBarRefs} refs
+ * @param {SearchBarState} state
+ * @param {import('./data-engine').DataEngine} engine
+ * @param {() => void} renderTabContent
+ */
 export function setupSearchBar(refs, state, engine, renderTabContent) {
     const { overlay, searchInput } = refs;
 
@@ -11,67 +32,104 @@ export function setupSearchBar(refs, state, engine, renderTabContent) {
     });
 
     // Search Input with Debounce
+    /** @type {any} */
     let searchDebounce = null;
     searchInput.oninput = (e) => {
         clearTimeout(searchDebounce);
         searchDebounce = setTimeout(() => {
+            // @ts-ignore - target can be cast to HTMLInputElement
             engine.setSearchOptions({ query: e.target.value });
             renderTabContent();
         }, 150);
     };
 
     // Filter Toggles
-    overlay.querySelector('.show-empty-check').onchange = (e) => {
-        state.showEmpty = e.target.checked;
-        renderTabContent();
-    };
+    const showEmptyCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.show-empty-check'));
+    if (showEmptyCheck) {
+        showEmptyCheck.onchange = (e) => {
+            // @ts-ignore
+            state.showEmpty = e.target.checked;
+            renderTabContent();
+        };
+    }
 
-    overlay.querySelector('.show-important-check').onchange = (e) => {
-        state.showImportant = e.target.checked;
-        renderTabContent();
-    };
+    const showImportantCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.show-important-check'));
+    if (showImportantCheck) {
+        showImportantCheck.onchange = (e) => {
+            // @ts-ignore
+            state.showImportant = e.target.checked;
+            renderTabContent();
+        };
+    }
 
-    overlay.querySelector('.exact-match-check').onchange = (e) => {
-        engine.setSearchOptions({ exact: e.target.checked });
-        renderTabContent();
-    };
+    const exactMatchCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.exact-match-check'));
+    if (exactMatchCheck) {
+        exactMatchCheck.onchange = (e) => {
+            // @ts-ignore
+            engine.setSearchOptions({ exact: e.target.checked });
+            renderTabContent();
+        };
+    }
 
-    overlay.querySelector('.search-name-check').onchange = (e) => {
-        engine.setSearchOptions({ searchName: e.target.checked });
-        renderTabContent();
-    };
+    const searchNameCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.search-name-check'));
+    if (searchNameCheck) {
+        searchNameCheck.onchange = (e) => {
+            // @ts-ignore
+            engine.setSearchOptions({ searchName: e.target.checked });
+            renderTabContent();
+        };
+    }
 
-    overlay.querySelector('.search-value-check').onchange = (e) => {
-        engine.setSearchOptions({ searchValue: e.target.checked });
-        renderTabContent();
-    };
+    const searchValueCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.search-value-check'));
+    if (searchValueCheck) {
+        searchValueCheck.onchange = (e) => {
+            // @ts-ignore
+            engine.setSearchOptions({ searchValue: e.target.checked });
+            renderTabContent();
+        };
+    }
 
-    overlay.querySelector('.search-index-check').onchange = (e) => {
-        engine.setSearchOptions({ searchIndex: e.target.checked });
-        renderTabContent();
-    };
+    const searchIndexCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.search-index-check'));
+    if (searchIndexCheck) {
+        searchIndexCheck.onchange = (e) => {
+            // @ts-ignore
+            engine.setSearchOptions({ searchIndex: e.target.checked });
+            renderTabContent();
+        };
+    }
 
-    overlay.querySelector('.switch-true-check').onchange = (e) => {
-        engine.setSearchOptions({ switchOnlyTrue: e.target.checked });
-        if (e.target.checked) {
-            const other = overlay.querySelector('.switch-false-check');
-            if (other.checked) {
-                other.checked = false;
-                engine.setSearchOptions({ switchOnlyFalse: false });
+    const switchTrueCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.switch-true-check'));
+    if (switchTrueCheck) {
+        switchTrueCheck.onchange = (e) => {
+            // @ts-ignore
+            engine.setSearchOptions({ switchOnlyTrue: e.target.checked });
+            // @ts-ignore
+            if (e.target.checked) {
+                const other = /** @type {HTMLInputElement | null} */(overlay.querySelector('.switch-false-check'));
+                if (other && other.checked) {
+                    other.checked = false;
+                    engine.setSearchOptions({ switchOnlyFalse: false });
+                }
             }
-        }
-        renderTabContent();
-    };
+            renderTabContent();
+        };
+    }
 
-    overlay.querySelector('.switch-false-check').onchange = (e) => {
-        engine.setSearchOptions({ switchOnlyFalse: e.target.checked });
-        if (e.target.checked) {
-            const other = overlay.querySelector('.switch-true-check');
-            if (other.checked) {
-                other.checked = false;
-                engine.setSearchOptions({ switchOnlyTrue: false });
+    const switchFalseCheck = /** @type {HTMLInputElement | null} */(overlay.querySelector('.switch-false-check'));
+    if (switchFalseCheck) {
+        switchFalseCheck.onchange = (e) => {
+            // @ts-ignore
+            engine.setSearchOptions({ switchOnlyFalse: e.target.checked });
+            // @ts-ignore
+            if (e.target.checked) {
+                const other = /** @type {HTMLInputElement | null} */(overlay.querySelector('.switch-true-check'));
+                if (other && other.checked) {
+                    other.checked = false;
+                    engine.setSearchOptions({ switchOnlyTrue: false });
+                }
             }
-        }
-        renderTabContent();
-    };
+            renderTabContent();
+        };
+    }
 }
+

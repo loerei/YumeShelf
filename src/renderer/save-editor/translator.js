@@ -1,15 +1,28 @@
+// @ts-check
+
 /**
  * Save Editor Translator
  * Handles translation of the save editor's static UI and dynamic game labels.
  */
-
 export class Translator {
+    /**
+     * @param {import('../../shared/types/ipc').ElectronAPI} api
+     */
     constructor(api) {
+        /** @type {import('../../shared/types/ipc').ElectronAPI} */
         this.api = api;
+        /** @type {Record<string, string>} */
         this.translationCache = {};
+        /** @type {boolean} */
         this.isTranslating = false;
+        /** @type {boolean} */
         this.isInitialized = false;
+        /** @type {Record<string, string>} */
         this.uiStrings = {};
+        /** @type {string | undefined} */
+        this.resolvedBcp47 = undefined;
+        /** @type {string | undefined} */
+        this.targetLang = undefined;
     }
 
     async initialize() {
@@ -27,7 +40,11 @@ export class Translator {
                     ...localStrings
                 };
                 // Find active language pack metadata to resolve the BCP-47 target language
-                const activeMeta = [...(langState?.builtIn || []), ...(langState?.installed || [])]
+                /** @type {any[]} */
+                const builtIn = langState?.builtIn || [];
+                /** @type {any[]} */
+                const installed = langState?.installed || [];
+                const activeMeta = [...builtIn, ...installed]
                     .find(p => p.code === currentLang);
                 
                 let resolved = null;
@@ -44,7 +61,7 @@ export class Translator {
                 this.resolvedBcp47 = resolved;
                 console.log(`[SAVE-EDITOR-TRANSLATOR] Resolved BCP-47 target language: ${this.resolvedBcp47}`);
                 // Expose globally so components can access it
-                window.currentUIStrings = this.uiStrings;
+                /** @type {any} */ (window).currentUIStrings = this.uiStrings;
                 console.log(`[SAVE-EDITOR-TRANSLATOR] UI strings loaded for language: ${currentLang}`);
             }
         } catch (e) {
@@ -85,6 +102,7 @@ export class Translator {
 
         // Save to LocalStorage (with identical results stripped)
         try {
+            /** @type {Record<string, string>} */
             const stripped = {};
             for (const [k, v] of Object.entries(this.translationCache)) {
                 if (k !== v) {
@@ -109,15 +127,18 @@ export class Translator {
 
     /**
      * Applies translations to elements with data-i18n attributes
+     * @param {Document | HTMLElement} [container]
      */
     async applyTranslations(container = document) {
-        const strings = window.currentUIStrings || this.uiStrings || {};
+        const strings = /** @type {any} */ (window).currentUIStrings || this.uiStrings || {};
         const elements = container.querySelectorAll('[data-i18n]');
         for (const el of elements) {
             const key = el.getAttribute('data-i18n');
-            const translation = strings[key];
-            if (translation && translation !== key) {
-                el.textContent = translation;
+            if (key) {
+                const translation = strings[key];
+                if (translation && translation !== key) {
+                    el.textContent = translation;
+                }
             }
         }
 
@@ -125,20 +146,23 @@ export class Translator {
         const placeholders = container.querySelectorAll('[data-i18n-placeholder]');
         for (const el of placeholders) {
             const key = el.getAttribute('data-i18n-placeholder');
-            const translation = strings[key];
-            if (translation && translation !== key) {
-                el.placeholder = translation;
+            if (key) {
+                const translation = strings[key];
+                if (translation && translation !== key) {
+                    /** @type {HTMLInputElement | HTMLTextAreaElement} */ (el).placeholder = translation;
+                }
             }
         }
     }
 
     /**
      * Applies cached translations for labels (.data-label)
+     * @param {Document | HTMLElement} container
      */
     applyCachedLabels(container) {
         const labels = container.querySelectorAll('.data-label');
         labels.forEach(label => {
-            const fullText = label.getAttribute('title') || label.textContent;
+            const fullText = label.getAttribute('title') || label.textContent || '';
             if (this.translationCache[fullText]) {
                 label.textContent = this.translationCache[fullText];
                 label.classList.add('is-translated');
@@ -148,6 +172,9 @@ export class Translator {
 
     /**
      * Google Translate batch translation for dynamic labels
+     * @param {NodeListOf<Element> | Element[]} labels
+     * @param {string} targetLang
+     * @param {((progress: number) => void) | null} [onProgressChange]
      */
     async translateLabels(labels, targetLang, onProgressChange) {
         if (this.isTranslating) return;
@@ -160,11 +187,13 @@ export class Translator {
             }
             return;
         }
+        /** @type {string[]} */
         const textsToTranslate = [];
+        /** @type {{ el: Element, original: string }[]} */
         const labelMap = [];
 
         labels.forEach(label => {
-            const originalName = label.getAttribute('title') || label.textContent;
+            const originalName = label.getAttribute('title') || label.textContent || '';
             if (!originalName || /^\d+$/.test(originalName)) return;
 
             const isASCII = /^[\x00-\x7F]+$/.test(originalName);
@@ -216,7 +245,7 @@ export class Translator {
 
                 if (result && result[0]) {
                     let translatedFull = "";
-                    result[0].forEach(part => {
+                    result[0].forEach((/** @type {any[]} */ part) => {
                         if (part[0]) translatedFull += part[0];
                     });
 
@@ -313,7 +342,7 @@ export class Translator {
                     // Immediately update any matching labels currently visible in the DOM
                     const activeLabels = document.querySelectorAll('.data-label');
                     activeLabels.forEach(label => {
-                        const originalName = label.getAttribute('title') || label.textContent;
+                        const originalName = label.getAttribute('title') || label.textContent || '';
                         if (this.translationCache[originalName]) {
                             label.textContent = this.translationCache[originalName];
                             label.classList.add('is-translated');
@@ -332,3 +361,4 @@ export class Translator {
         }
     }
 }
+

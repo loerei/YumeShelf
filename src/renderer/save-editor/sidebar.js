@@ -1,8 +1,47 @@
+// @ts-check
+
+/**
+ * @typedef {Object} SidebarRefs
+ * @property {HTMLElement} sidebar
+ * @property {HTMLElement} content
+ * @property {HTMLElement} tabsWrapper
+ * @property {HTMLElement} saveBtn
+ * @property {HTMLInputElement} searchInput
+ * @property {HTMLElement} overlay
+ */
+
+/**
+ * @typedef {Object} SidebarState
+ * @property {string} gameKey
+ * @property {string | null} [currentFileName]
+ * @property {any} [d]
+ * @property {any} [currentSaveData]
+ * @property {any} [originalSnapshot]
+ * @property {any} [currentMetadata]
+ * @property {() => boolean} [hasUnsavedChanges]
+ */
+
+/**
+ * @typedef {Object} SidebarCallbacks
+ * @property {() => void} onSaveLoaded
+ */
+
+/**
+ * Setup sidebar with save file items and loading/saving strategies.
+ * @param {SidebarRefs} refs
+ * @param {SidebarState} state
+ * @param {import('./data-engine').DataEngine} engine
+ * @param {any} translator
+ * @param {SidebarCallbacks} callbacks
+ */
 export function setupSidebar(refs, state, engine, translator, callbacks) {
     const { sidebar, content, tabsWrapper, saveBtn, searchInput, overlay } = refs;
     const { gameKey } = state;
     const { onSaveLoaded } = callbacks;
 
+    /**
+     * @param {string | null} [selectFile]
+     */
     async function reloadFileList(selectFile = state.currentFileName) {
         const d = state.d || {};
         try {
@@ -26,6 +65,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                     </div>
                 `;
             } else {
+                /** @type {HTMLElement | null} */
                 let activeItem = null;
                 files.forEach(file => {
                     const item = document.createElement('div');
@@ -46,7 +86,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                     }
                 });
                 
-                if (activeItem) {
+                if (activeItem && selectFile) {
                     await loadSave(selectFile, activeItem);
                 } else if (selectFile) {
                     state.currentSaveData = null;
@@ -71,6 +111,10 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         }
     }
 
+    /**
+     * @param {string} fileName
+     * @param {HTMLElement} element
+     */
     async function loadSave(fileName, element) {
         const d = state.d || {};
         content.innerHTML = `<div class="loading" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading save data...'}</div>`;
@@ -94,12 +138,14 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
             tabsWrapper.style.display = 'flex';
             saveBtn.style.display = 'block';
         } catch (err) {
+            // @ts-ignore
             content.innerHTML = `<div class="error">Failed to load save: ${err.message}</div>`;
         }
     }
 
     const refreshBtn = overlay.querySelector('.refresh-save-btn');
     if (refreshBtn) {
+        // @ts-ignore
         refreshBtn.onclick = () => {
             if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
                 const d = state.d || {};
@@ -115,3 +161,4 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         reloadFileList
     };
 }
+

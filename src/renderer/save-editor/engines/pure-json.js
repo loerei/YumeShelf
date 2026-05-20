@@ -1,24 +1,41 @@
+// @ts-check
+
 /**
  * Pure JSON Save Engine Strategy
  * Supports raw .json save files (e.g. Living with a Little Fox Girl)
  */
 export class PureJsonEngine {
+    /**
+     * @param {any} saveData
+     * @returns {boolean}
+     */
     detect(saveData) {
         if (!saveData) return false;
         return saveData.$type === 'PureJsonSave';
     }
 
+    /**
+     * @param {any} save
+     * @returns {any}
+     */
     extractRoot(save) {
         return save || null;
     }
 
+    /**
+     * Scans the root for numeric/string and boolean values to determine which
+     * tabs to offer (Variables and/or Switches).
+     * @param {any} root
+     * @param {any} d - Translations dictionary
+     * @returns {Array<{ id: string; label: string; i18n?: string }> | null}
+     */
     getTabs(root, d) {
         const tabs = [];
-        
+
         // Scan keys to see if switches or variables exist
         let hasVariables = false;
         let hasSwitches = false;
-        
+
         if (root) {
             const paths = this._getDeepPaths(root);
             for (const path of paths) {
@@ -30,34 +47,41 @@ export class PureJsonEngine {
                 }
             }
         }
-        
+
         if (hasVariables) {
             tabs.push({ id: 'variables', label: d.save_editor_variables || 'Variables', i18n: 'save_editor_variables' });
         }
         if (hasSwitches) {
             tabs.push({ id: 'switches', label: d.save_editor_switches || 'Switches', i18n: 'save_editor_switches' });
         }
-        
+
         return tabs;
     }
 
+    /**
+     * Returns a Proxy view of the root object filtered to the logical section
+     * requested (`variables` — numerics/strings, or `switches` — booleans).
+     * @param {any} obj
+     * @param {string} prop
+     * @returns {any}
+     */
     getProp(obj, prop) {
         if (!obj) return null;
         const self = this;
-        
+
         if (prop === 'variables') {
             return new Proxy(obj, {
                 get(target, key) {
                     if (key === 'toJSON' || typeof key === 'symbol') return target[key];
-                    return self._getDeep(target, key);
+                    return self._getDeep(target, /** @type {string} */(key));
                 },
                 set(target, key, value) {
-                    const currentVal = self._getDeep(target, key);
+                    const currentVal = self._getDeep(target, /** @type {string} */(key));
                     if (typeof currentVal === 'number') {
                         const num = Number(value);
-                        self._setDeep(target, key, isNaN(num) ? value : num);
+                        self._setDeep(target, /** @type {string} */(key), isNaN(num) ? value : num);
                     } else {
-                        self._setDeep(target, key, value);
+                        self._setDeep(target, /** @type {string} */(key), value);
                     }
                     return true;
                 },
@@ -72,15 +96,15 @@ export class PureJsonEngine {
                 }
             });
         }
-        
+
         if (prop === 'switches') {
             return new Proxy(obj, {
                 get(target, key) {
                     if (key === 'toJSON' || typeof key === 'symbol') return target[key];
-                    return self._getDeep(target, key);
+                    return self._getDeep(target, /** @type {string} */(key));
                 },
                 set(target, key, value) {
-                    self._setDeep(target, key, Boolean(value));
+                    self._setDeep(target, /** @type {string} */(key), Boolean(value));
                     return true;
                 },
                 ownKeys(target) {
@@ -94,18 +118,32 @@ export class PureJsonEngine {
                 }
             });
         }
-        
+
         return null;
     }
 
-    findGold(root, party) {
+    /**
+     * Pure JSON does not have a gold concept.
+     * @returns {null}
+     */
+    findGold() {
         return null;
     }
 
+    /**
+     * @param {any} obj
+     * @returns {any}
+     */
     extractData(obj) {
         return obj || null;
     }
 
+    /**
+     * Traverses a dot-notation path into a nested object.
+     * @param {any} obj
+     * @param {string} path - Dot-separated key path (e.g. `"a.b.0"`)
+     * @returns {any}
+     */
     _getDeep(obj, path) {
         const parts = path.split('.');
         let current = obj;
@@ -116,6 +154,14 @@ export class PureJsonEngine {
         return current;
     }
 
+    /**
+     * Writes a value into a nested object at the given dot-notation path,
+     * creating missing intermediate nodes as needed.
+     * @param {any} obj
+     * @param {string} path - Dot-separated key path
+     * @param {any} value
+     * @returns {boolean}
+     */
     _setDeep(obj, path, value) {
         const parts = path.split('.');
         let current = obj;
@@ -132,10 +178,18 @@ export class PureJsonEngine {
         return true;
     }
 
+    /**
+     * Recursively enumerates all leaf paths in a nested object, returning an
+     * array of dot-separated path strings.
+     * @param {any} obj
+     * @param {string} [prefix]
+     * @returns {string[]}
+     */
     _getDeepPaths(obj, prefix = '') {
+        /** @type {string[]} */
         let paths = [];
         if (obj === null || obj === undefined) return paths;
-        
+
         if (Array.isArray(obj)) {
             obj.forEach((val, idx) => {
                 const path = prefix ? `${prefix}.${idx}` : `${idx}`;
@@ -159,3 +213,4 @@ export class PureJsonEngine {
         return paths;
     }
 }
+

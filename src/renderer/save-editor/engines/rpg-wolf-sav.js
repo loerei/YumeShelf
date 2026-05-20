@@ -1,3 +1,5 @@
+// @ts-check
+
 /**
  * RPG/Wolf RPG .sav binary-inspection renderer strategy.
  *
@@ -6,21 +8,45 @@
  * behind this isolated engine/format pair.
  */
 export class RpgWolfSavEngine {
+    /**
+     * @param {any} saveData
+     * @returns {boolean}
+     */
     detect(saveData) {
         return saveData?.$type === 'RpgWolfSavBinaryInspection';
     }
 
+    /**
+     * @param {any} save
+     * @returns {any}
+     */
     extractRoot(save) {
         return save || null;
     }
 
+    /**
+     * @param {any} root
+     * @param {any} [d]
+     * @returns {Array<{ id: string; label: string; i18n?: string }> | null}
+     */
+    getTabs(root, d) {
+        return null;
+    }
+
+    /**
+     * @param {any} obj
+     * @param {string} prop
+     * @returns {any}
+     */
     getProp(obj, prop) {
         if (!obj) return null;
         if (prop === 'variables') {
             const vars = obj.variables || {};
             // Inject user mappings if present
             if (obj._userMappings) {
-                obj._userMappings.forEach(mapping => {
+                /** @type {Array<{ offset: string; name: string }>} */
+                const mappings = obj._userMappings;
+                mappings.forEach(mapping => {
                     vars[mapping.offset] = obj[mapping.name] !== undefined ? obj[mapping.name] : 0;
                 });
             }
@@ -33,11 +59,19 @@ export class RpgWolfSavEngine {
         return obj[prop] || null;
     }
 
+    /**
+     * Wolf RPG does not expose a gold field via this inspection path.
+     * @returns {null}
+     */
     findGold() {
         return null;
     }
 
+    /**
+     * @param {any} obj
+     * @returns {any}
+     */
     extractData(obj) {
         return obj || null;
     }
-}
+}

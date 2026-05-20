@@ -71,8 +71,8 @@ class RenpyFormat {
     async metadata(jsonData, paths, fileName) {
         // Return blank standard structure to bypass RPG Maker metadata loader
         return {
-            variables: {},
-            switches: {},
+            variables: [],
+            switches: [],
             items: {},
             weapons: {},
             armors: {},

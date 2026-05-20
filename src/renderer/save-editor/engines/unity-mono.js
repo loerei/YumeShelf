@@ -1,28 +1,55 @@
+// @ts-check
+
 /**
  * Unity Mono Save Engine Strategy
  * Supports .bin decompiled state structures (001.bin, setting.bin, finfo.bin)
  * using dynamic ES6 Proxy wrappers.
  */
 export class UnityMonoEngine {
+    /**
+     * @param {any} saveData
+     * @returns {boolean}
+     */
     detect(saveData) {
         if (!saveData) return false;
-        
+
         // Sniff typical Unity Mono decrypted save signatures
         if (saveData.$type === 'GameStateMachineInfo') return true;
         if (saveData.$type === 'GameGflagMapInfo') return true;
         if (saveData.$type === 'GameSettingInfo') return true;
         if (saveData.bool_map || saveData.int_map || saveData.flag_map) return true;
-        
+
         return false;
     }
 
+    /**
+     * @param {any} save
+     * @returns {any}
+     */
     extractRoot(save) {
         return save || null;
     }
 
+    /**
+     * @param {any} root
+     * @param {any} [d]
+     * @returns {Array<{ id: string; label: string; i18n?: string }> | null}
+     */
+    getTabs(root, d) {
+        return null;
+    }
+
+    /**
+     * Returns a Proxy view of the save object for the requested logical section
+     * (variables, switches, or items), adapting the underlying Unity save
+     * structure to a uniform key/value interface.
+     * @param {any} obj
+     * @param {string} prop
+     * @returns {any}
+     */
     getProp(obj, prop) {
         if (!obj) return null;
-        
+
         // Handle variables request (Numeric settings + int_map + float_map)
         if (prop === 'variables') {
             if (obj.$type === 'GameSettingInfo') {
@@ -45,6 +72,7 @@ export class UnityMonoEngine {
                         return false;
                     },
                     ownKeys(target) {
+                        /** @type {Set<string>} */
                         const keys = new Set();
                         for (const [k, v] of Object.entries(target)) {
                             if (typeof v === 'number') keys.add(k);
@@ -122,6 +150,7 @@ export class UnityMonoEngine {
                         return false;
                     },
                     ownKeys(target) {
+                        /** @type {Set<string>} */
                         const keys = new Set();
                         for (const [k, v] of Object.entries(target)) {
                             if (typeof v === 'boolean') keys.add(k);
@@ -168,7 +197,13 @@ export class UnityMonoEngine {
         return obj[prop] || null;
     }
 
-    findGold(root) {
+    /**
+     * Searches for a gold/moneypoint field in the Unity save object.
+     * @param {any} root
+     * @param {any} [_party] - Unused; present for interface compatibility.
+     * @returns {{ obj: any; key: string; val: any } | null}
+     */
+    findGold(root, _party) {
         if (!root) return null;
         const maps = [root.int_map, root];
         for (const m of maps) {
@@ -183,7 +218,12 @@ export class UnityMonoEngine {
         return null;
     }
 
+    /**
+     * @param {any} obj
+     * @returns {any}
+     */
     extractData(obj) {
         return obj || null;
     }
 }
+

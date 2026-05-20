@@ -1,3 +1,5 @@
+// @ts-check
+
 /**
  * Save Editor UI Components
  * Reusable UI elements for the save editor.
@@ -6,6 +8,14 @@
 export const UIComponents = {
     /**
      * Creates a data row for variables/switches/items
+     * @param {string | number} id
+     * @param {any} value
+     * @param {string | null} label
+     * @param {(newVal: any) => void} onUpdate
+     * @param {any} [originalValue]
+     * @param {boolean} [isPinned]
+     * @param {(() => void) | null} [onPinToggle]
+     * @returns {HTMLDivElement}
      */
     createDataRow(id, value, label, onUpdate, originalValue = undefined, isPinned = false, onPinToggle = null) {
         const row = document.createElement('div');
@@ -73,9 +83,10 @@ export const UIComponents = {
         }
         
         valueInput.onchange = (e) => {
-            let newVal = e.target.value;
+            const target = /** @type {HTMLInputElement} */ (e.target);
+            let newVal = /** @type {any} */ (target.value);
             if (typeof value === 'number') newVal = Number(newVal);
-            if (typeof value === 'boolean') newVal = e.target.value === 'true';
+            if (typeof value === 'boolean') newVal = target.value === 'true';
             onUpdate(newVal);
         };
         
@@ -88,6 +99,11 @@ export const UIComponents = {
 
     /**
      * Creates a checkbox filter toggle
+     * @param {string} id
+     * @param {string} label
+     * @param {boolean} checked
+     * @param {(checked: boolean) => void} onChange
+     * @returns {HTMLLabelElement}
      */
     createFilterToggle(id, label, checked, onChange) {
         const wrapper = document.createElement('label');
@@ -97,7 +113,10 @@ export const UIComponents = {
         checkbox.type = 'checkbox';
         checkbox.id = id;
         checkbox.checked = checked;
-        checkbox.onchange = (e) => onChange(e.target.checked);
+        checkbox.onchange = (e) => {
+            const target = /** @type {HTMLInputElement} */ (e.target);
+            onChange(target.checked);
+        };
         
         const text = document.createTextNode(label);
         
@@ -107,3 +126,4 @@ export const UIComponents = {
         return wrapper;
     }
 };
+

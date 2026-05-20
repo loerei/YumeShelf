@@ -5,7 +5,7 @@ class RpgMakerMvFormat {
         return fileName.endsWith('.rpgsave');
     }
 
-    decode(rawData) {
+    async decode(rawData) {
         // Convert Buffer to UTF-8 string first
         const str = rawData.toString('utf8');
         try {
@@ -16,7 +16,7 @@ class RpgMakerMvFormat {
         }
     }
 
-    encode(jsonData) {
+    async encode(jsonData) {
         const compressed = LZString.compressToBase64(JSON.stringify(jsonData));
         // Return as a Buffer object
         return Buffer.from(compressed, 'utf8');

@@ -5,7 +5,7 @@
     background: var(--overlay-bg);
     backdrop-filter: blur(8px);
     z-index: 2000;
-    display: none; /* Ẩn mặc định */
+    display: none; /* Hidden by default */
     justify-content: center;
     align-items: center;
     padding: 24px;

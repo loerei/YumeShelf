@@ -28,8 +28,8 @@ class PureJsonFormat {
 
     async metadata(jsonData) {
         return {
-            variables: {},
-            switches: {},
+            variables: [],
+            switches: [],
             items: {},
             weapons: {},
             armors: {},

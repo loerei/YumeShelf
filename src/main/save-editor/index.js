@@ -1,8 +1,15 @@
+// @ts-check
 const fs = require('fs/promises');
 const path = require('path');
 const SaveMappingManager = require('./mapping-manager');
 
+/** @typedef {import('../../shared/types/save-editor').GamePaths} GamePaths */
+/** @typedef {import('../../shared/types/save-editor').SaveMetadata} SaveMetadata */
+/** @typedef {import('../../shared/types/save-editor').SaveDataResult} SaveDataResult */
+/** @typedef {import('../../shared/types/save-editor').SaveFormat} SaveFormat */
+
 // Registered save file formats
+/** @type {SaveFormat[]} */
 const formats = [
     require('./formats/rpg-maker-mz'),
     require('./formats/rpg-maker-mv'),
@@ -14,6 +21,8 @@ const formats = [
 
 /**
  * Resolves the appropriate save file format strategy by file name
+ * @param {string} fileName
+ * @returns {SaveFormat}
  */
 function getFormat(fileName) {
     const matched = formats.find(f => f.match(fileName));
@@ -23,9 +32,12 @@ function getFormat(fileName) {
     return matched;
 }
 
+/**
+ * @param {{ libraryState: any, saveFolderResolver: any }} options
+ */
 function createSaveEditorService({ libraryState, saveFolderResolver }) {
     
-    async function getGamePaths(gameKey) {
+    async function getGamePaths(/** @type {string} */ gameKey) {
         const record = await libraryState.getGameRecord(gameKey);
         if (!record || !record.exePath) return null;
         
@@ -66,7 +78,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         };
     }
 
-    async function exists(p) {
+    async function exists(/** @type {string} */ p) {
         try {
             await fs.access(p);
             return true;
@@ -75,7 +87,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
     }
 
-    async function listSaveFiles(gameKey) {
+    async function listSaveFiles(/** @type {string} */ gameKey) {
         try {
             const paths = await getGamePaths(gameKey);
             if (!paths) return [];
@@ -94,7 +106,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
     }
 
-    async function loadSaveData(gameKey, fileName) {
+    async function loadSaveData(/** @type {string} */ gameKey, /** @type {string} */ fileName) {
         try {
             const paths = await getGamePaths(gameKey);
             if (!paths) throw new Error('Could not resolve game paths');
@@ -123,13 +135,14 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
     }
 
-    async function updateMapping(gameKey, name, offset, dataType) {
+    async function updateMapping(/** @type {string} */ gameKey, /** @type {string} */ name, /** @type {number} */ offset, /** @type {string} */ dataType) {
         const mappingMgr = new SaveMappingManager(gameKey);
         mappingMgr.addMapping(name, offset, dataType);
         return { ok: true };
     }
 
-    async function loadMetadata(dataDir, langDataDir) {
+    async function loadMetadata(/** @type {string} */ dataDir, /** @type {string | null} */ langDataDir) {
+        /** @type {SaveMetadata} */
         const metadata = {
             variables: [],
             switches: [],
@@ -141,7 +154,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         
         try {
             // Helper to get prioritized file path
-            async function getFilePath(fileName) {
+            async function getFilePath(/** @type {string} */ fileName) {
                 if (langDataDir) {
                     const lp = path.join(langDataDir, fileName);
                     if (await exists(lp)) return lp;
@@ -159,11 +172,11 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             }
             
             // Helper to load item-like files
-            async function loadItemType(fileName, target) {
+            async function loadItemType(/** @type {string} */ fileName, /** @type {Record<string, {name: string, description: string, iconIndex: number}>} */ target) {
                 const p = await getFilePath(fileName);
                 if (await exists(p)) {
                     const list = JSON.parse(await fs.readFile(p, 'utf8'));
-                    list.forEach(item => {
+                    list.forEach((/** @type {any} */ item) => {
                         if (item && item.id) {
                             target[item.id] = {
                                 name: item.name,
@@ -186,7 +199,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         return metadata;
     }
 
-    async function writeSaveData(gameKey, fileName, jsonData) {
+    async function writeSaveData(/** @type {string} */ gameKey, /** @type {string} */ fileName, /** @type {any} */ jsonData) {
         try {
             const paths = await getGamePaths(gameKey);
             if (!paths) throw new Error('Could not resolve game paths');
@@ -248,6 +261,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         const tempPath = filePath + '.tmp';
         
         // Strip off "Identical":"Identical" results from translations dictionary BEFORE writing to disk
+        /** @type {Record<string, any>} */
         const strippedTranslations = {};
         for (const [k, v] of Object.entries(translations)) {
             if (k !== v) {
@@ -275,7 +289,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
                 return { ok: true };
             } catch (directWriteErr) {
                 console.error('[SAVE-EDITOR] Fallback direct write failed:', directWriteErr);
-                return { ok: false, error: directWriteErr.message };
+                return { ok: false, error: /** @type {Error} */ (directWriteErr).message };
             } finally {
                 try {
                     if (await exists(tempPath)) {

@@ -171,7 +171,7 @@ class RpgWolfSavFormat {
         return out;
     }
 
-    decode(rawData, paths, fileName) {
+    async decode(rawData, paths, fileName) {
         console.log(`[WOLF-SAV] decode called for file: ${fileName}, length: ${rawData.length}`);
         if (rawData.length < 20) {
             throw new Error("File too short to be a valid WOLF RPG save.");
@@ -223,7 +223,7 @@ class RpgWolfSavFormat {
         };
     }
 
-    encode(jsonData) {
+    async encode(jsonData) {
         console.log(`[WOLF-SAV] encode called for file: ${jsonData.fileName}`);
         if (!jsonData || jsonData.$type !== 'RpgWolfSavBinaryInspection') {
             throw new Error('Invalid RPG/Wolf .sav inspection payload');

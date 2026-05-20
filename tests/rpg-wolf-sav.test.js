@@ -1,6 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
-const rpgWolfSav = require('../src/main/save-editor/formats/rpg-wolf-sav.js');
+const rpgWolfSav = require('../dist/main/save-editor/formats/rpg-wolf-sav.js');
 
 const SAVE_DIR = path.join(__dirname, '..', 'YumeShelf', '[Kimochi] Imouto -Fantasy- DLC V0.1 Translation', '[Kimochi] Imouto -Fantasy- DLC V0.1 Translation', 'Save');
 

@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "code": "en",
+  "bcp47": "en",
   "englishName": "English",
   "nativeName": "English",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.0",
+  "reviewedForAppVersion": "1.5.6",
   "aliases": [
     "en",
     "english"
@@ -213,6 +214,7 @@
     "save_editor_select_title": "Select Save File",
     "save_editor_items": "Items",
     "save_editor_gold": "Gold",
+    "save_editor_pinned": "Pinned",
     "save_editor_variables": "Variables",
     "save_editor_switches": "Switches",
     "save_editor_save": "Save Changes",
@@ -224,6 +226,7 @@
     "auto_launch_label": "Auto-launch on startup",
     "minimize_to_tray_label": "Minimize to System Tray",
     "option_on": "On",
-    "option_off": "Off"
+    "option_off": "Off",
+    "option_minimized": "Start Minimized"
   }
 }

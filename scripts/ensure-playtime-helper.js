@@ -1,11 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { getNativeHelperProjectDir, getNativeHelperReleasePath } = require('../src/main/playtime-helper-paths');
-
 const repoRoot = path.resolve(__dirname, '..');
-const helperProjectDir = getNativeHelperProjectDir();
-const helperReleasePath = getNativeHelperReleasePath();
+const HELPER_EXE_NAME = 'playtime-helper.exe';
+const helperProjectDir = path.join(repoRoot, 'native', 'playtime-helper');
+const helperReleasePath = path.join(helperProjectDir, 'target', 'release', HELPER_EXE_NAME);
 
 function listSourceFiles(dirPath) {
     const results = [];

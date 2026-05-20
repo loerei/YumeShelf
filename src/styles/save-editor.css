@@ -55,6 +55,67 @@
     color: #eee;
 }
 
+.data-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    padding-right: 32px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.data-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Pinned variables star button */
+.data-pin-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 10;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.15);
+    background: transparent;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.data-row:hover .data-pin-btn {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.data-pin-btn:hover {
+    transform: scale(1.2);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.data-pin-btn.active {
+    color: #ffd700 !important; /* Gold shining */
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+    opacity: 1 !important;
+}
+
+.checkbox-row .data-pin-btn {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.checkbox-row:hover .data-pin-btn:hover {
+    transform: translateY(-50%) scale(1.2);
+}
+
 .save-editor-close {
     background: none;
     border: none;
@@ -125,11 +186,69 @@
     padding: 0 24px;
     background: rgba(0, 0, 0, 0.1);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+.save-editor-tabs-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    margin-right: 16px;
 }
 
 .save-editor-tabs {
     display: flex;
     gap: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.tabs-shadow {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    pointer-events: none;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    z-index: 10;
+}
+
+.tabs-shadow-left {
+    left: 0;
+    background: linear-gradient(to right, #101010 0%, rgba(16, 16, 16, 0) 100%);
+}
+
+.tabs-shadow-right {
+    right: 0;
+    background: linear-gradient(to left, #101010 0%, rgba(16, 16, 16, 0) 100%);
+}
+
+.tabs-shadow.visible {
+    opacity: 1;
+}
+
+.save-editor-tabs::-webkit-scrollbar {
+    height: 8px;
+}
+
+.save-editor-tabs::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+.save-editor-tabs::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 10px;
+    border: 2px solid #121212;
+}
+
+.save-editor-tabs::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color, #4f46e5);
 }
 
 .save-editor-actions {
@@ -286,6 +405,8 @@
     font-weight: 600;
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .save-tab:hover {
@@ -307,22 +428,6 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
-}
-
-.data-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 14px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-
-.data-row:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.12);
 }
 
 .data-id {
@@ -367,6 +472,7 @@
     flex-direction: row;
     align-items: center;
     gap: 12px;
+    padding-right: 48px;
 }
 
 .checkbox-row .data-label {
@@ -495,4 +601,110 @@ body.standalone-save-editor {
     border: none;
     box-shadow: none;
     animation: none;
+}
+
+/* Sticky Scroll and Collapsible Sections in 'All' Tab */
+.save-section {
+    margin-bottom: 32px;
+    transition: all 0.3s ease;
+}
+
+.save-section-header {
+    position: sticky;
+    top: -24px; /* Perfectly floats to the top edge of .save-editor-content padding */
+    z-index: 10;
+    background: #121212;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #eee;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 16px 0;
+    padding: 16px 8px 8px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.save-section-header:hover {
+    background: rgba(255, 255, 255, 0.02);
+    color: #fff;
+}
+
+.save-section-header::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 14px;
+    background: var(--accent-color, #4f46e5);
+    border-radius: 2px;
+}
+
+/* Custom interactive chevron indicator on the right of the header */
+.save-section-header::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid #888;
+    border-bottom: 2px solid #888;
+    transform: rotate(45deg); /* Down chevron */
+    transition: transform 0.2s ease, border-color 0.2s;
+    margin-left: auto;
+    margin-right: 8px;
+}
+
+.save-section-header:hover::after {
+    border-color: #eee;
+}
+
+.save-section.collapsed .save-section-header::after {
+    transform: rotate(-45deg); /* Right chevron */
+}
+
+.save-section.collapsed .save-grid {
+    display: none !important;
+}
+
+/* Global Controls for Collapse/Expand All */
+.all-tab-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.all-tab-btn {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: #999;
+    font-size: 0.78rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.all-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #eee;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.all-tab-btn svg {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.all-tab-btn:hover svg {
+    opacity: 0.9;
 }

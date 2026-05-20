@@ -43,7 +43,7 @@
     transform: none;
 }
 .sort-btn { position: relative; }
- /* Icon 3 gạch */
+ /* Three-line icon */
 
 .controls {
     display: flex;
@@ -122,25 +122,25 @@
     to { transform: rotate(360deg); }
 }
 
-/* HIỆU ỨNG ACTIVE CHO SORT ITEM */
+/* ACTIVE EFFECT FOR SORT ITEM */
 .sort-item {
-    position: relative; /* Cần thiết để neo vạch trắng */
+    position: relative; /* Essential to anchor the white indicator line */
 }
 .sort-item.active {
-    background-color: var(--menu-active-bg); /* Highlight nền nhẹ */
+    background-color: var(--menu-active-bg); /* Light background highlight */
     color: var(--text-main);
 }
 .sort-item.active::after {
     content: '';
     position: absolute;
-    right: 15px; /* Khoảng cách từ lề phải */
+    right: 15px; /* Distance from the right margin */
     top: 50%;
     transform: translateY(-50%);
     width: 3px;
     height: 16px;
-    background-color: var(--text-main); /* Vạch trắng */
+    background-color: var(--text-main); /* White indicator line */
     border-radius: 2px;
-    box-shadow: 0 0 5px rgba(255,255,255,0.5); /* Tỏa sáng nhẹ cho đẹp */
+    box-shadow: 0 0 5px rgba(255,255,255,0.5); /* Subtle glow for aesthetic feel */
 }
 
 /* SEARCH SYSTEM */

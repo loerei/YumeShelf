@@ -4,7 +4,7 @@ const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
 
-const { createCategoryState } = require('../src/main/category-state');
+const { createCategoryState } = require('../dist/main/category-state');
 
 async function makeTempDir() {
     return fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-category-state-'));

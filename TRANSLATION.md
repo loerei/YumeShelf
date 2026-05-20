@@ -30,6 +30,7 @@ Required top-level fields:
 
 - `schemaVersion`
 - `code`
+- `bcp47` (Recommended: standard BCP 47 language code like `en`, `vi`, or `zh-CN` used for external translation engines. You can look up your language's BCP 47 code in [Subtag Finder](https://r12a.github.io/app-subtags/))
 - `englishName`
 - `nativeName`
 - `packVersion`
@@ -67,6 +68,7 @@ Required top-level fields:
 Add one entry to [`language-packs/manifest.json`](language-packs/manifest.json):
 
 - `code`
+- `bcp47` (Recommended: standard BCP 47 code)
 - `englishName`
 - `nativeName`
 - `packVersion`

@@ -6,33 +6,33 @@ body {
     color: var(--text-main);
 }
 
-/* --- CẤP NHẬT 1.0: STYLE CHO SCROLLBAR (CHỐNG LỆCH TÔNG) --- */
-/* 1. Tổng thể thanh cuộn */
+/* --- UPDATE 1.0: SCROLLBAR STYLES (MATCHES THEME) --- */
+/* 1. Overall scrollbar shape */
 ::-webkit-scrollbar {
-    width: 10px;  /* Độ rộng thanh dọc - làm mảnh đi cho tinh tế */
-    height: 10px; /* Độ cao thanh ngang */
+    width: 10px;  /* Vertical scrollbar width - slim for elegance */
+    height: 10px; /* Horizontal scrollbar height */
 }
 
-/* 2. Phần nền của thanh cuộn (Track) */
+/* 2. Scrollbar track */
 ::-webkit-scrollbar-track {
-    background: var(--bg-color); /* Tiệp màu hoàn toàn với nền app #121212 */
+    background: var(--bg-color); /* Fully blends with the #121212 app background */
     border-radius: 10px;
 }
 
-/* 3. Phần tay cầm để kéo (Thumb) */
+/* 3. Scrollbar thumb */
 ::-webkit-scrollbar-thumb {
-    background: #333; /* Màu xám đen, sáng hơn nền một chút để dễ thấy */
-    border-radius: 10px; /* Bo góc tròn trịa */
-    /* Tạo khoảng trống ảo xung quanh thumb bằng border trùng màu nền */
+    background: #333; /* Dark gray, slightly lighter than background for visibility */
+    border-radius: 10px; /* Rounded corners */
+    /* Create visual padding around thumb with border matching background */
     border: 2px solid var(--bg-color); 
 }
 
-/* 4. Hiệu ứng hover cho tay cầm */
+/* 4. Thumb hover effect */
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--accent); /* Chuyển sang màu xanh accent (#0078d4) khi di chuột vào - Nhìn rất 'pro' */
+    background: var(--accent); /* Change to accent color on hover - looks professional */
 }
 
-/* ĐIỀU CHỈNH VỊ TRÍ NÚT */
+/* BUTTON CONTROLS POSITIONING */
 .controls {
     display: flex;
     gap: 15px;
@@ -49,7 +49,7 @@ body {
 }
 
 #ui-opt-lazy-desc {
-    word-break: break-all; /* Chống vỡ layout khi path quá dài */
+    word-break: break-all; /* Prevent layout breakage when path is too long */
     font-family: 'Consolas', monospace;
     font-size: 11px;
     opacity: 0.7;

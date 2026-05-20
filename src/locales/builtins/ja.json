@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "code": "ja",
+  "bcp47": "ja",
   "englishName": "Japanese",
   "nativeName": "日本語",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.0",
+  "reviewedForAppVersion": "1.5.6",
   "aliases": [
     "ja",
     "japanese",
@@ -190,6 +191,7 @@
     "save_editor_weapons": "武器",
     "save_editor_armors": "防具",
     "save_editor_gold": "所持金",
+    "save_editor_pinned": "ピン留め",
     "save_editor_variables": "変数",
     "save_editor_switches": "スイッチ",
     "save_editor_save": "変更を保存",
@@ -199,6 +201,7 @@
     "auto_launch_label": "起動時に自動実行",
     "minimize_to_tray_label": "システムトレイに最小化",
     "option_on": "オン",
-    "option_off": "オフ"
+    "option_off": "オフ",
+    "option_minimized": "最小化で起動"
   }
 }

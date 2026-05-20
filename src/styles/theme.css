@@ -77,7 +77,7 @@ body.light-theme {
     }
 }
 
-/* FIX CĂN GIỮA ICON SVG */
+/* FIX SVG ICON ALIGNMENT CENTERING */
 .sort-btn, .settings-icon-btn {
     display: flex;
     justify-content: center;
@@ -92,12 +92,12 @@ body.light-theme {
     pointer-events: none;
 }
 
-/* XÓA CÁC ICON CONTENT CŨ GÂY LỆCH */
+/* REMOVE LEGACY ICON CONTENTS THAT CAUSE MISALIGNMENT */
 .sort-btn::after, .settings-icon-btn::after {
     display: none !important;
     content: none !important;
 }
 
-/* Cập nhật màu border chung */
+/* Update shared border color */
 .header { border-color: var(--border-color) !important; }
 .game-card:hover { border-color: var(--text-sub); }

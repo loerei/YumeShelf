@@ -89,7 +89,7 @@
     transform: translateY(0);
 }
 
-/* NÚT BA CHẤM ĐỔI TÊN */
+/* THREE-DOT MENU BUTTON (RENAME, ETC.) */
 .menu-btn {
     position: absolute;
     top: 10px;
@@ -104,12 +104,12 @@
     cursor: pointer;
     z-index: 10;
     transition: background 0.2s;
-    opacity: 0; /* Ẩn đi khi chưa hover */
+    opacity: 0; /* Hide when not hovered */
 }
 
 .game-card:hover .menu-btn,
 .game-card:has(.dropdown-menu.show) .menu-btn {
-    opacity: 1; /* Chỉ hiện nút khi di chuột vào Game Card hoặc khi menu đang mở */
+    opacity: 1; /* Show button on hover or when the menu is open */
 }
 
 .menu-btn:hover {
@@ -244,7 +244,7 @@
     color: white;
 }
 
-/* NÚT FAVORITE (NGÔI SAO) */
+/* FAVORITE BUTTON (STAR ICON) */
 .fav-btn {
     position: absolute;
     top: 10px;
@@ -258,7 +258,7 @@
     cursor: pointer;
     z-index: 10;
     font-size: 20px;
-    color: rgba(255, 255, 255, 0.15); /* Ngôi sao mờ khi chưa active */
+    color: rgba(255, 255, 255, 0.15); /* Dim star when not active */
     background: transparent;
     pointer-events: auto;
     transition: all 0.2s;
@@ -270,8 +270,8 @@
     color: rgba(255, 255, 255, 0.4);
 }
 .fav-btn.active {
-    color: #ffd700; /* Vàng sáng */
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8); /* Tỏa sáng */
+    color: #ffd700; /* Bright gold */
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8); /* Glow effect */
 }
 
 body.light-theme .fav-btn {
@@ -294,7 +294,7 @@ body.light-theme .fav-btn:hover {
     }
 }
 
-/* HIỆU ỨNG VIỀN GLOW CHO CARD GAME */
+/* GLOW BORDER EFFECT FOR FAVORITED GAMES */
 .game-card.favorited {
     border-color: rgba(255, 215, 0, 0.4);
     box-shadow: 0 4px 20px rgba(255, 215, 0, 0.08);
@@ -304,9 +304,9 @@ body.light-theme .fav-btn:hover {
     border-color: rgba(255, 215, 0, 0.8);
 }
 
-/* ĐƯỜNG LINE NGĂN CÁCH FAVORITES & OTHERS */
+/* SEPARATOR LINE BETWEEN FAVORITES AND OTHERS */
 .favorites-separator-container {
-    grid-column: 1 / -1; /* Bắt buộc line này kéo dài toàn bộ màn hình */
+    grid-column: 1 / -1; /* Force the line to span the full width of the grid */
     display: flex;
     justify-content: center;
     align-items: center;

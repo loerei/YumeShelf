@@ -1,30 +1,53 @@
-// @ts-nocheck
 const DEFAULT_MAX_DEPTH = 5;
 const MIN_MAX_DEPTH = 0;
 const MAX_MAX_DEPTH = 12;
 const DEFAULT_LOCATION_DISPLAY_MODE = 'parent';
 
-function clampMaxDepth(value) {
+function clampMaxDepth(value: number | string | null | undefined): number {
     const parsed = Number.parseInt(String(value ?? ''), 10);
     if (!Number.isFinite(parsed)) return DEFAULT_MAX_DEPTH;
     return Math.min(MAX_MAX_DEPTH, Math.max(MIN_MAX_DEPTH, parsed));
 }
 
+export interface SettingsControllerOptions {
+    onOpen?: () => void;
+    container: HTMLElement;
+}
+
+export interface SettingsController {
+    applyLibraryConfig: (libraryConfig?: any) => void;
+    closeSettings: () => void;
+    getBootstrapPreferences: () => { appUpdatesMode: string; languagePackUpdatesMode: string };
+    getLocationDisplayMode: () => string;
+    handleAppUpdatesChange: (nextMode: string) => void;
+    handleLanguagePackUpdatesChange: (nextMode: string) => void;
+    handleLocationDisplayModeChange: (nextMode: string) => string;
+    handleMaxDepthChange: (nextValue: number | string) => number;
+    handleMaxDepthStep: (delta: number) => number;
+    handleThemeChange: (nextTheme: string) => void;
+    handleAutoLaunchChange: (nextValue: string) => Promise<string>;
+    handleMinimizeToTrayChange: (nextValue: string) => Promise<boolean>;
+    initializeSettingsUI: (initialLibraryConfig?: any) => void;
+    isSettingsOpen: () => boolean;
+    openSettings: () => Promise<void>;
+}
+
 export function createSettingsController({
     onOpen,
     container
-}) {
+}: SettingsControllerOptions): SettingsController {
     // Controller owns its DOM scope – querySelector within container only.
     const settingsOverlay       = container;
-    const themeSelect           = container.querySelector('#theme-select');
-    const appUpdatesSelect      = container.querySelector('#app-updates-select');
-    const languagePackUpdatesSelect = container.querySelector('#language-pack-updates-select');
-    const locationDisplaySelect = container.querySelector('#location-display-select');
-    const maxDepthInput         = container.querySelector('#max-depth-input');
-    const maxDepthDecreaseBtn   = container.querySelector('#max-depth-decrease-btn');
-    const maxDepthIncreaseBtn   = container.querySelector('#max-depth-increase-btn');
-    const autoLaunchSelect      = container.querySelector('#auto-launch-select');
-    const minimizeToTraySelect  = container.querySelector('#minimize-to-tray-select');
+    const themeSelect           = container.querySelector('#theme-select') as HTMLSelectElement | null;
+    const appUpdatesSelect      = container.querySelector('#app-updates-select') as HTMLSelectElement | null;
+    const languagePackUpdatesSelect = container.querySelector('#language-pack-updates-select') as HTMLSelectElement | null;
+    const locationDisplaySelect = container.querySelector('#location-display-select') as HTMLSelectElement | null;
+    const maxDepthInput         = container.querySelector('#max-depth-input') as HTMLInputElement | null;
+    const maxDepthDecreaseBtn   = container.querySelector('#max-depth-decrease-btn') as HTMLButtonElement | null;
+    const maxDepthIncreaseBtn   = container.querySelector('#max-depth-increase-btn') as HTMLButtonElement | null;
+    const autoLaunchSelect      = container.querySelector('#auto-launch-select') as HTMLSelectElement | null;
+    const minimizeToTraySelect  = container.querySelector('#minimize-to-tray-select') as HTMLSelectElement | null;
+    const telemetrySelect       = container.querySelector('#telemetry-select') as HTMLSelectElement | null;
 
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
     let currentAppUpdates = localStorage.getItem('yumeshelf_app_updates_pref') || 'notify';
@@ -33,14 +56,15 @@ export function createSettingsController({
     let currentMaxDepth = DEFAULT_MAX_DEPTH;
     let currentAutoLaunch = 'off';
     let currentMinimizeToTray = false;
+    let currentTelemetry = 'off';
 
-    async function openSettings() {
+    async function openSettings(): Promise<void> {
         if (typeof onOpen === 'function') {
             onOpen();
         }
         try {
-            const freshConfig = await window.electronAPI.checkConfig();
-            const actualAutoLaunch = await window.electronAPI.getAutoLaunch();
+            const freshConfig = await (window as any).electronAPI.checkConfig();
+            const actualAutoLaunch = await (window as any).electronAPI.getAutoLaunch();
             if (freshConfig) {
                 applyLibraryConfig({
                     ...freshConfig,
@@ -59,53 +83,55 @@ export function createSettingsController({
         settingsOverlay.style.display = 'flex';
     }
 
-    function closeSettings() {
+    function closeSettings(): void {
         settingsOverlay.style.display = 'none';
     }
 
-    function isSettingsOpen() {
+    function isSettingsOpen(): boolean {
         return settingsOverlay.style.display === 'flex';
     }
 
-    function initializeSettingsUI(initialLibraryConfig = null) {
+    function initializeSettingsUI(initialLibraryConfig: any = null): void {
         applyLibraryConfig(initialLibraryConfig);
         document.body.className = `${currentTheme}-theme`;
-        themeSelect.value = currentTheme;
-        appUpdatesSelect.value = currentAppUpdates;
-        languagePackUpdatesSelect.value = currentLanguagePackUpdates;
-        locationDisplaySelect.value = currentLocationDisplayMode;
-        autoLaunchSelect.value = currentAutoLaunch;
-        minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
+        if (themeSelect) themeSelect.value = currentTheme;
+        if (appUpdatesSelect) appUpdatesSelect.value = currentAppUpdates;
+        if (languagePackUpdatesSelect) languagePackUpdatesSelect.value = currentLanguagePackUpdates;
+        if (locationDisplaySelect) locationDisplaySelect.value = currentLocationDisplayMode;
+        if (autoLaunchSelect) autoLaunchSelect.value = currentAutoLaunch;
+        if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
+        if (telemetrySelect) telemetrySelect.value = currentTelemetry;
     }
 
-    function handleThemeChange(nextTheme) {
+    function handleThemeChange(nextTheme: string): void {
         currentTheme = nextTheme;
         document.body.className = `${nextTheme}-theme`;
         localStorage.setItem('yumeshelf_theme', nextTheme);
     }
 
-    function handleAppUpdatesChange(nextMode) {
+    function handleAppUpdatesChange(nextMode: string): void {
         currentAppUpdates = nextMode;
         localStorage.setItem('yumeshelf_app_updates_pref', currentAppUpdates);
     }
 
-    function handleLanguagePackUpdatesChange(nextMode) {
+    function handleLanguagePackUpdatesChange(nextMode: string): void {
         currentLanguagePackUpdates = nextMode;
         localStorage.setItem('yumeshelf_language_pack_updates_pref', currentLanguagePackUpdates);
     }
 
-    function handleLocationDisplayModeChange(nextMode) {
+    function handleLocationDisplayModeChange(nextMode: string): string {
         currentLocationDisplayMode = nextMode === 'full' ? 'full' : DEFAULT_LOCATION_DISPLAY_MODE;
         localStorage.setItem('yumeshelf_location_display_mode', currentLocationDisplayMode);
-        locationDisplaySelect.value = currentLocationDisplayMode;
+        if (locationDisplaySelect) locationDisplaySelect.value = currentLocationDisplayMode;
         return currentLocationDisplayMode;
     }
 
-    function applyLibraryConfig(libraryConfig = null) {
+    function applyLibraryConfig(libraryConfig: any = null): void {
         currentMaxDepth = clampMaxDepth(libraryConfig?.maxDepth);
-        maxDepthInput.value = String(currentMaxDepth);
-        maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
-        maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
+        if (maxDepthInput) maxDepthInput.value = String(currentMaxDepth);
+        if (maxDepthDecreaseBtn) maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
+        if (maxDepthIncreaseBtn) maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
+        
         if (libraryConfig) {
             if (libraryConfig.autoLaunch === 'minimized') {
                 currentAutoLaunch = 'minimized';
@@ -115,41 +141,45 @@ export function createSettingsController({
                 currentAutoLaunch = 'off';
             }
             currentMinimizeToTray = !!libraryConfig.minimizeToTray;
-            autoLaunchSelect.value = currentAutoLaunch;
-            minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
+            if (autoLaunchSelect) autoLaunchSelect.value = currentAutoLaunch;
+            if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
+            
+            currentTelemetry = libraryConfig.telemetryEnabled ? 'on' : 'off';
+            if (telemetrySelect) telemetrySelect.value = currentTelemetry;
         }
     }
 
-    function handleMaxDepthChange(nextValue) {
+    function handleMaxDepthChange(nextValue: number | string): number {
         currentMaxDepth = clampMaxDepth(nextValue);
         applyLibraryConfig({
             maxDepth: currentMaxDepth,
             autoLaunch: currentAutoLaunch,
-            minimizeToTray: currentMinimizeToTray
+            minimizeToTray: currentMinimizeToTray,
+            telemetryEnabled: currentTelemetry === 'on'
         });
         return currentMaxDepth;
     }
 
-    function handleMaxDepthStep(delta) {
+    function handleMaxDepthStep(delta: number): number {
         return handleMaxDepthChange(currentMaxDepth + delta);
     }
 
-    async function handleAutoLaunchChange(nextValue) {
+    async function handleAutoLaunchChange(nextValue: string): Promise<string> {
         currentAutoLaunch = nextValue;
-        await window.electronAPI.setAutoLaunch(nextValue);
-        await window.electronAPI.updateLibraryConfig({ autoLaunch: nextValue });
+        await (window as any).electronAPI.setAutoLaunch(nextValue);
+        await (window as any).electronAPI.updateLibraryConfig({ autoLaunch: nextValue });
         return nextValue;
     }
 
-    async function handleMinimizeToTrayChange(nextValue) {
+    async function handleMinimizeToTrayChange(nextValue: string): Promise<boolean> {
         const enabled = nextValue === 'on';
         currentMinimizeToTray = enabled;
-        window.electronAPI.setMinimizeToTray(enabled);
-        await window.electronAPI.updateLibraryConfig({ minimizeToTray: enabled });
+        (window as any).electronAPI.setMinimizeToTray(enabled);
+        await (window as any).electronAPI.updateLibraryConfig({ minimizeToTray: enabled });
         return enabled;
     }
 
-    function getBootstrapPreferences() {
+    function getBootstrapPreferences(): { appUpdatesMode: string; languagePackUpdatesMode: string } {
         return {
             appUpdatesMode: currentAppUpdates,
             languagePackUpdatesMode: currentLanguagePackUpdates

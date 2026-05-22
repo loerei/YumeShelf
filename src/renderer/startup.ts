@@ -1,4 +1,29 @@
-// @ts-nocheck
+export interface StartupControllerOptions {
+    applyUIStrings: () => void | Promise<void>;
+    bootController: any;
+    electronAPI: any;
+    getCurrentSort: () => string;
+    refs: {
+        gameGridWrapper: HTMLElement | null;
+        refreshLibraryBtn: HTMLElement | null;
+        welcome: HTMLElement | null;
+        telemetryModal?: HTMLElement | null;
+    };
+    setCategoryTree: (tree: any) => void;
+    setAllGames: (games: any[], config: any) => void;
+    sortGames: (sort: string) => void;
+}
+
+export interface StartupController {
+    handleChangePath: () => Promise<void>;
+    handleLibraryConfigChange: (updates: any) => Promise<void>;
+    handleQuickFolderOpen: () => void;
+    handleRefreshLibrary: () => Promise<void>;
+    handleSetupCustom: () => Promise<void>;
+    handleSetupDefault: () => Promise<void>;
+    initApp: (bootstrapData?: any, options?: any) => Promise<void>;
+}
+
 export function createStartupController({
     applyUIStrings,
     bootController,
@@ -8,33 +33,40 @@ export function createStartupController({
     setCategoryTree,
     setAllGames,
     sortGames
-}) {
+}: StartupControllerOptions): StartupController {
     let refreshInFlight = false;
     const REFRESH_MIN_SPINNER_MS = 300;
 
-    function setRefreshUiState(isRefreshing) {
+    function setRefreshUiState(isRefreshing: boolean): void {
         refs.refreshLibraryBtn?.classList.toggle('is-refreshing', isRefreshing);
         refs.refreshLibraryBtn?.toggleAttribute('disabled', isRefreshing);
         refs.refreshLibraryBtn?.setAttribute('aria-busy', isRefreshing ? 'true' : 'false');
         refs.gameGridWrapper?.classList.toggle('is-refreshing', isRefreshing);
     }
 
-    async function initApp(bootstrapData = null, options = {}) {
+    async function initApp(bootstrapData: any = null, options: any = {}): Promise<void> {
         const loadingMode = options.loadingMode || 'boot';
         const config = bootstrapData ? bootstrapData.config : await electronAPI.checkConfig();
         if (!config || !config.libraryPath) {
             bootController.hide();
-            refs.welcome.style.display = 'flex';
+            if (refs.welcome) refs.welcome.style.display = 'flex';
             applyUIStrings();
             return;
         }
 
-        refs.welcome.style.display = 'none';
+        if (refs.welcome) refs.welcome.style.display = 'none';
         if (!bootstrapData && loadingMode === 'boot') {
             bootController.show({
                 key: 'boot_loading_library',
                 fallbackText: 'Loading library'
             });
+        }
+
+        // Onboarding consent check
+        if (config && config.telemetryEnabled === undefined) {
+            if (refs.telemetryModal) {
+                refs.telemetryModal.style.display = 'flex';
+            }
         }
 
         const nextGames = bootstrapData ? (bootstrapData.games || []) : await electronAPI.getGames();
@@ -47,7 +79,7 @@ export function createStartupController({
         bootController.hide();
     }
 
-    async function handleRefreshLibrary() {
+    async function handleRefreshLibrary(): Promise<void> {
         if (refreshInFlight) return;
         refreshInFlight = true;
         const startedAt = Date.now();
@@ -64,30 +96,30 @@ export function createStartupController({
         }
     }
 
-    async function handleLibraryConfigChange(updates) {
+    async function handleLibraryConfigChange(updates: any): Promise<void> {
         await electronAPI.updateLibraryConfig(updates);
         await initApp();
     }
 
-    async function handleSetupDefault() {
+    async function handleSetupDefault(): Promise<void> {
         if (await electronAPI.setupLibrary('default')) {
             await initApp();
         }
     }
 
-    async function handleSetupCustom() {
+    async function handleSetupCustom(): Promise<void> {
         if (await electronAPI.setupLibrary('custom')) {
             await initApp();
         }
     }
 
-    async function handleChangePath() {
+    async function handleChangePath(): Promise<void> {
         if (await electronAPI.setupLibrary('custom')) {
             location.reload();
         }
     }
 
-    function handleQuickFolderOpen() {
+    function handleQuickFolderOpen(): void {
         electronAPI.openFolder();
     }
 

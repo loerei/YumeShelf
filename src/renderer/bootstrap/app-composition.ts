@@ -307,7 +307,8 @@ export function createRendererComposition({
         refs: {
             gameGridWrapper: refs.gameGridWrapper,
             refreshLibraryBtn: refs.refreshLibraryBtn,
-            welcome: refs.welcome
+            welcome: refs.welcome,
+            telemetryModal: refs.telemetryModal
         },
         setCategoryTree: (tree) => {
             state.setCategoryTree(tree);

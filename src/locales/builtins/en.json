@@ -227,6 +227,14 @@
     "minimize_to_tray_label": "Minimize to System Tray",
     "option_on": "On",
     "option_off": "Off",
-    "option_minimized": "Start Minimized"
+    "option_minimized": "Start Minimized",
+    "telemetry_label": "Telemetry & Privacy",
+    "telemetry_desc": "Send anonymous diagnostic logs to help developers optimize format compatibility and refactor safely.",
+    "telemetry_opt_in": "Enabled (Send Anonymous Data)",
+    "telemetry_opt_out": "Disabled (Keep Private)",
+    "telemetry_modal_title": "Help Us Improve YumeShelf",
+    "telemetry_modal_desc": "Would you like to share anonymous diagnostic data and save-game heuristic logs? This helps us optimize file-format support, detect issues, and build better refactoring protections.",
+    "telemetry_modal_btn_opt_in": "Share Anonymous Data",
+    "telemetry_modal_btn_opt_out": "Keep Private"
   }
 }

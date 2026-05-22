@@ -1,18 +1,44 @@
-// @ts-nocheck
+import { RendererRefs } from '../bootstrap/dom-refs';
+
+export interface BindGlobalUiEventsOptions {
+    categoryFilterController: any;
+    refs: RendererRefs;
+    settingsController: any;
+    duplicateStackOverlayController: any;
+    closeLanguagePackModal: () => void;
+}
+
+export interface BindWindowStatusEventsController {
+    refreshAppVersionLink: () => void;
+}
+
+export interface BindControlEventsOptions {
+    refs: RendererRefs;
+    settingsController: any;
+    localeController: any;
+    languagePackController: any;
+    startupController: any;
+    searchController: any;
+    sortGames: (sort: string) => void;
+    reannotateGames: () => void;
+    currentSort: () => string;
+    setCurrentLanguage: (lang: string) => void;
+}
+
 export function bindGlobalUiEvents({
     categoryFilterController,
     refs,
     settingsController,
     duplicateStackOverlayController,
     closeLanguagePackModal
-}) {
+}: BindGlobalUiEventsOptions): void {
     window.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             const saveEditorOverlay = document.querySelector('.save-editor-overlay');
             if (saveEditorOverlay) {
-                const closeBtn = saveEditorOverlay.querySelector('.save-editor-close');
+                const closeBtn = saveEditorOverlay.querySelector('.save-editor-close') as HTMLElement | null;
                 if (closeBtn) closeBtn.click();
-            } else if (refs.languagePackOverlay.style.display === 'flex') {
+            } else if (refs.languagePackOverlay && refs.languagePackOverlay.style.display === 'flex') {
                 closeLanguagePackModal();
             } else if (duplicateStackOverlayController.isOpen()) {
                 duplicateStackOverlayController.close();
@@ -23,22 +49,23 @@ export function bindGlobalUiEvents({
     });
 
     document.addEventListener('click', (event) => {
-        if (!refs.searchInput.contains(event.target) && !refs.searchDropdown.contains(event.target)) {
+        const target = event.target as HTMLElement;
+        if (refs.searchInput && refs.searchDropdown && !refs.searchInput.contains(target) && !refs.searchDropdown.contains(target)) {
             refs.searchDropdown.classList.remove('show');
         }
-        if (!event.target.closest('.dropdown-menu') && !event.target.closest('.menu-btn')) {
+        if (target && !target.closest('.dropdown-menu') && !target.closest('.menu-btn')) {
             document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.remove('show'));
         }
-        if (!event.target.closest('.sort-container')) {
+        if (target && !target.closest('.sort-container')) {
             document.querySelectorAll('.sort-menu').forEach(menu => menu.classList.remove('show'));
         }
-        if (!event.target.closest('.category-filter-container')) {
+        if (target && !target.closest('.category-filter-container')) {
             categoryFilterController.hideMenu();
         }
     });
 }
 
-export function bindWindowStatusEvents(uiTextController) {
+export function bindWindowStatusEvents(uiTextController: BindWindowStatusEventsController): void {
     window.addEventListener('online', () => {
         uiTextController.refreshAppVersionLink();
     });
@@ -58,86 +85,172 @@ export function bindControlEvents({
     reannotateGames,
     currentSort,
     setCurrentLanguage
-}) {
-    refs.buttons.setupDefault.onclick = async () => { await startupController.handleSetupDefault(); };
-    refs.buttons.chooseCustom.onclick = async () => { await startupController.handleSetupCustom(); };
-    refs.buttons.changePath.onclick = async () => { await startupController.handleChangePath(); };
-    refs.buttons.settingsOpen.onclick = () => { settingsController.openSettings(); };
-    refs.buttons.settingsClose.onclick = () => { settingsController.closeSettings(); };
-    refs.buttons.languagePackClose.onclick = () => languagePackController.closeLanguagePackModal();
-    refs.quickFolder.onclick = () => startupController.handleQuickFolderOpen();
-    refs.refreshLibraryBtn.onclick = async () => { await startupController.handleRefreshLibrary(); };
-    refs.moreLanguagesBtn.onclick = () => languagePackController.openLanguagePackModal();
-    refs.languagePackListBtn.onclick = () => languagePackController.handleListClick();
-    refs.languagePackRefreshBtn.onclick = async () => languagePackController.handleRefreshClick();
-    refs.languagePackSearch.oninput = () => languagePackController.handleSearchInput();
+}: BindControlEventsOptions): void {
+    if (refs.buttons.setupDefault) {
+        refs.buttons.setupDefault.onclick = async () => { await startupController.handleSetupDefault(); };
+    }
+    if (refs.buttons.chooseCustom) {
+        refs.buttons.chooseCustom.onclick = async () => { await startupController.handleSetupCustom(); };
+    }
+    if (refs.buttons.changePath) {
+        refs.buttons.changePath.onclick = async () => { await startupController.handleChangePath(); };
+    }
+    if (refs.buttons.settingsOpen) {
+        refs.buttons.settingsOpen.onclick = () => { settingsController.openSettings(); };
+    }
+    if (refs.buttons.settingsClose) {
+        refs.buttons.settingsClose.onclick = () => { settingsController.closeSettings(); };
+    }
+    if (refs.buttons.languagePackClose) {
+        refs.buttons.languagePackClose.onclick = () => languagePackController.closeLanguagePackModal();
+    }
+    if (refs.quickFolder) {
+        refs.quickFolder.onclick = () => startupController.handleQuickFolderOpen();
+    }
+    if (refs.refreshLibraryBtn) {
+        refs.refreshLibraryBtn.onclick = async () => { await startupController.handleRefreshLibrary(); };
+    }
+    if (refs.moreLanguagesBtn) {
+        refs.moreLanguagesBtn.onclick = () => languagePackController.openLanguagePackModal();
+    }
+    if (refs.languagePackListBtn) {
+        refs.languagePackListBtn.onclick = () => languagePackController.handleListClick();
+    }
+    if (refs.languagePackRefreshBtn) {
+        refs.languagePackRefreshBtn.onclick = async () => languagePackController.handleRefreshClick();
+    }
+    if (refs.languagePackSearch) {
+        refs.languagePackSearch.oninput = () => languagePackController.handleSearchInput();
+    }
 
-    refs.sortBtn.onclick = (event) => {
-        event.stopPropagation();
-        refs.sortMenu.classList.toggle('show');
-    };
-    document.querySelectorAll('.sort-item').forEach((item) => {
-        item.onclick = (event) => {
+    if (refs.sortBtn && refs.sortMenu) {
+        refs.sortBtn.onclick = (event) => {
             event.stopPropagation();
-            sortGames(item.dataset.sort);
-            refs.sortMenu.classList.remove('show');
+            refs.sortMenu!.classList.toggle('show');
+        };
+    }
+    document.querySelectorAll('.sort-item').forEach((item) => {
+        const htmlItem = item as HTMLElement;
+        htmlItem.onclick = (event) => {
+            event.stopPropagation();
+            if (htmlItem.dataset.sort) {
+                sortGames(htmlItem.dataset.sort);
+            }
+            if (refs.sortMenu) {
+                refs.sortMenu.classList.remove('show');
+            }
         };
     });
 
-    refs.themeSelect.onchange = (event) => {
-        settingsController.handleThemeChange(event.target.value);
-    };
-    refs.appUpdatesSelect.onchange = (event) => {
-        settingsController.handleAppUpdatesChange(event.target.value);
-    };
-    refs.languagePackUpdatesSelect.onchange = (event) => {
-        settingsController.handleLanguagePackUpdatesChange(event.target.value);
-    };
+    if (refs.themeSelect) {
+        refs.themeSelect.onchange = (event) => {
+            settingsController.handleThemeChange((event.target as HTMLSelectElement).value);
+        };
+    }
+    if (refs.appUpdatesSelect) {
+        refs.appUpdatesSelect.onchange = (event) => {
+            settingsController.handleAppUpdatesChange((event.target as HTMLSelectElement).value);
+        };
+    }
+    if (refs.languagePackUpdatesSelect) {
+        refs.languagePackUpdatesSelect.onchange = (event) => {
+            settingsController.handleLanguagePackUpdatesChange((event.target as HTMLSelectElement).value);
+        };
+    }
     if (refs.autoLaunchSelect) {
         refs.autoLaunchSelect.onchange = async (event) => {
-            const autoLaunch = await settingsController.handleAutoLaunchChange(event.target.value);
+            const autoLaunch = await settingsController.handleAutoLaunchChange((event.target as HTMLSelectElement).value);
             await startupController.handleLibraryConfigChange({ autoLaunch });
         };
     }
     if (refs.minimizeToTraySelect) {
         refs.minimizeToTraySelect.onchange = async (event) => {
-            const minimizeToTray = settingsController.handleMinimizeToTrayChange(event.target.value);
+            const minimizeToTray = await settingsController.handleMinimizeToTrayChange((event.target as HTMLSelectElement).value);
             await startupController.handleLibraryConfigChange({ minimizeToTray });
         };
     }
-    refs.locationDisplaySelect.onchange = (event) => {
-        settingsController.handleLocationDisplayModeChange(event.target.value);
-        reannotateGames();
-        sortGames(currentSort());
-    };
-    refs.maxDepthInput.onchange = async (event) => {
-        const maxDepth = settingsController.handleMaxDepthChange(event.target.value);
-        await startupController.handleLibraryConfigChange({ maxDepth });
-    };
-    refs.maxDepthInput.oninput = (event) => {
-        event.target.value = event.target.value.replace(/[^\d]/g, '').slice(0, 2);
-    };
-    refs.maxDepthIncreaseBtn.onclick = async () => {
-        const maxDepth = settingsController.handleMaxDepthStep(1);
-        await startupController.handleLibraryConfigChange({ maxDepth });
-    };
-    refs.maxDepthDecreaseBtn.onclick = async () => {
-        const maxDepth = settingsController.handleMaxDepthStep(-1);
-        await startupController.handleLibraryConfigChange({ maxDepth });
-    };
-    refs.maxDepthInput.onkeydown = async (event) => {
-        if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) return;
-        event.preventDefault();
-        const maxDepth = event.key === 'ArrowUp'
-            ? settingsController.handleMaxDepthStep(1)
-            : event.key === 'ArrowDown'
-                ? settingsController.handleMaxDepthStep(-1)
-                : settingsController.handleMaxDepthChange(event.target.value);
-        await startupController.handleLibraryConfigChange({ maxDepth });
-    };
-    refs.langSelect.onchange = (event) => {
-        setCurrentLanguage(event.target.value);
-    };
-    refs.searchInput.oninput = (event) => searchController.updateSearch(event.target.value);
-    refs.searchInput.onfocus = (event) => searchController.updateSearch(event.target.value);
+    if (refs.locationDisplaySelect) {
+        refs.locationDisplaySelect.onchange = (event) => {
+            settingsController.handleLocationDisplayModeChange((event.target as HTMLSelectElement).value);
+            reannotateGames();
+            sortGames(currentSort());
+        };
+    }
+    if (refs.maxDepthInput) {
+        refs.maxDepthInput.onchange = async (event) => {
+            const maxDepth = settingsController.handleMaxDepthChange((event.target as HTMLInputElement).value);
+            await startupController.handleLibraryConfigChange({ maxDepth });
+        };
+        refs.maxDepthInput.oninput = (event) => {
+            const inputEl = event.target as HTMLInputElement;
+            inputEl.value = inputEl.value.replace(/[^\d]/g, '').slice(0, 2);
+        };
+    }
+    if (refs.maxDepthIncreaseBtn) {
+        refs.maxDepthIncreaseBtn.onclick = async () => {
+            const maxDepth = settingsController.handleMaxDepthStep(1);
+            await startupController.handleLibraryConfigChange({ maxDepth });
+        };
+    }
+    if (refs.maxDepthDecreaseBtn) {
+        refs.maxDepthDecreaseBtn.onclick = async () => {
+            const maxDepth = settingsController.handleMaxDepthStep(-1);
+            await startupController.handleLibraryConfigChange({ maxDepth });
+        };
+    }
+    if (refs.maxDepthInput) {
+        refs.maxDepthInput.onkeydown = async (event) => {
+            if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) return;
+            event.preventDefault();
+            const inputEl = event.target as HTMLInputElement;
+            const maxDepth = event.key === 'ArrowUp'
+                ? settingsController.handleMaxDepthStep(1)
+                : event.key === 'ArrowDown'
+                    ? settingsController.handleMaxDepthStep(-1)
+                    : settingsController.handleMaxDepthChange(inputEl.value);
+            await startupController.handleLibraryConfigChange({ maxDepth });
+        };
+    }
+    if (refs.langSelect) {
+        refs.langSelect.onchange = (event) => {
+            setCurrentLanguage((event.target as HTMLSelectElement).value);
+        };
+    }
+    if (refs.searchInput) {
+        refs.searchInput.oninput = (event) => searchController.updateSearch((event.target as HTMLInputElement).value);
+        refs.searchInput.onfocus = (event) => searchController.updateSearch((event.target as HTMLInputElement).value);
+    }
+
+    // Telemetry Events binding
+    if (refs.telemetrySelect) {
+        refs.telemetrySelect.onchange = async (event) => {
+            const selectEl = event.target as HTMLSelectElement;
+            const enabled = selectEl.value === 'on';
+            await (window as any).electronAPI.updateLibraryConfig({ telemetryEnabled: enabled });
+        };
+    }
+
+    if (refs.buttons.telemetryOptIn) {
+        refs.buttons.telemetryOptIn.onclick = async () => {
+            await (window as any).electronAPI.updateLibraryConfig({ telemetryEnabled: true });
+            if (refs.telemetryModal) {
+                refs.telemetryModal.style.display = 'none';
+            }
+            if (refs.telemetrySelect) {
+                refs.telemetrySelect.value = 'on';
+            }
+        };
+    }
+
+    if (refs.buttons.telemetryOptOut) {
+        refs.buttons.telemetryOptOut.onclick = async () => {
+            await (window as any).electronAPI.updateLibraryConfig({ telemetryEnabled: false });
+            if (refs.telemetryModal) {
+                refs.telemetryModal.style.display = 'none';
+            }
+            if (refs.telemetrySelect) {
+                refs.telemetrySelect.value = 'off';
+            }
+        };
+    }
 }

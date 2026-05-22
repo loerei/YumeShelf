@@ -1,10 +1,19 @@
-// @ts-nocheck
+import { TelemetryShipper } from '../../telemetry/shipper';
+
 class PureJsonFormat {
-    match(fileName) {
+    match(fileName: string): boolean {
         return fileName.toLowerCase().endsWith('.json');
     }
 
-    async decode(rawData) {
+    async decode(rawData: Buffer): Promise<any> {
+        // Log telemetry event for static safety preflight
+        TelemetryShipper.getInstance().track(
+            'src/main/save-editor/formats/pure-json.ts',
+            'PureJsonFormat.decode',
+            'save-editor:decode',
+            10
+        );
+
         const str = rawData.toString('utf8');
         try {
             const data = JSON.parse(str);
@@ -18,7 +27,7 @@ class PureJsonFormat {
         }
     }
 
-    async encode(jsonData) {
+    async encode(jsonData: any): Promise<Buffer> {
         const cleanData = { ...jsonData };
         delete cleanData.$type;
         delete cleanData._userMappings;
@@ -27,7 +36,7 @@ class PureJsonFormat {
         return Buffer.from(outputStr, 'utf8');
     }
 
-    async metadata(jsonData) {
+    async metadata(jsonData: any): Promise<any> {
         return {
             variables: [],
             switches: [],
@@ -39,4 +48,5 @@ class PureJsonFormat {
     }
 }
 
-module.exports = new PureJsonFormat();
+const format = new PureJsonFormat();
+module.exports = format;

@@ -1,0 +1,33 @@
+{
+  "projectName": "YumeShelf",
+  "tools": {
+    "map": {
+      "srcDir": "src",
+      "outputFile": ".purritize/repo-map.txt",
+      "wasmPath": ".purritize/grammars/tree-sitter-javascript.wasm"
+    },
+    "entryPoints": {
+      "files": [
+        "src/main.ts",
+        "src/renderer.ts",
+        "src/preload.ts",
+        "src/installer-shell/main.js"
+      ],
+      "html": [
+        "src/index.html",
+        "src/installer-shell/index.html"
+      ],
+      "packageMainSourceAliases": {
+        "dist/main.js": "src/main.ts",
+        "dist/preload.js": "src/preload.ts"
+      }
+    }
+  },
+  "telemetry": {
+    "provider": "supabase",
+    "endpoint": "https://yumeshelf-telemetry.supabase.co",
+    "tableName": "runtime_telemetry",
+    "apiKeyEnvVar": "PURRITIZE_TELEMETRY_API_KEY",
+    "syncLimit": 5000
+  }
+}

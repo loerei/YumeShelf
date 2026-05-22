@@ -1,0 +1,1017 @@
+================ YUMESHELF REPOSITORY STATIC MAP ================
+Generated At: 2026-05-22T08:48:11.927Z
+
+### File: src/icon-extractor.js
+  - [Line 4] Function: summarizePathFlavor()
+
+### File: src/installer-shell/main.js
+  - [Line 8] Function: getArgValue()
+  - [Line 22] Function: normalizeLocaleCode()
+  - [Line 29] Function: toBoolean()
+  - [Line 37] Function: matchLocale()
+  - [Line 51] Function: readLocaleFile()
+  - [Line 63] Function: loadLocales()
+  - [Line 96] Function: buildLocaleStrings()
+  - [Line 108] Function: createInstallerShellRuntime()
+  - [Line 125] Function: settle()
+  - [Line 189] Function: createWindow()
+
+### File: src/installer-shell/preload.js
+  (No public signatures or methods found)
+
+### File: src/installer-shell/renderer.js
+  - [Line 8] Function: getStrings()
+  - [Line 12] Function: setText()
+  - [Line 19] Function: updateLanguageStrip()
+  - [Line 35] Function: render()
+  - [Line 56] Function: changePath()
+  - [Line 64] Function: cancelInstall()
+  - [Line 70] Function: submitInstall()
+  - [Line 84] Function: bootstrap()
+
+### File: src/main/app-updates/feed-resolver.ts
+  - [Line 13] Function: setupFeedResolver()
+  - [Line 17] Function: resolveReleaseFeed()
+  - [Line 39] Function: resolveLatestRelease()
+  - [Line 44] Function: resolveNewerReleases()
+  - [Line 57] Function: resolvePackagedFeedOverride()
+
+### File: src/main/app-updates/post-update.ts
+  - [Line 11] Function: setupPostUpdateMarker()
+  - [Line 19] Function: consumePostUpdateMarker()
+
+### File: src/main/app-updates/release-utils.ts
+  - [Line 2] Function: extractVersion()
+  - [Line 7] Function: isNumericVersionIdentifier()
+  - [Line 11] Function: parseAppReleaseVersion()
+  - [Line 30] Function: compareAppReleaseVersions()
+  - [Line 66] Function: isPrereleaseVersion()
+  - [Line 70] Function: shouldIncludePrereleaseReleases()
+  - [Line 74] Function: firstHexDigest()
+  - [Line 79] Function: readAssetLabel()
+  - [Line 83] Function: readAssetName()
+  - [Line 87] Function: decodeHtmlEntities()
+  - [Line 97] Function: normalizeInlineHtmlToMarkdown()
+  - [Line 108] Function: normalizeReleaseNotesForReview()
+  - [Line 136] Function: normalizeRelease()
+  - [Line 156] Function: getReleaseDisplayName()
+  - [Line 160] Function: formatStackedReleaseNotes()
+  - [Line 170] Function: isPortableExeAsset()
+  - [Line 178] Function: isNsisInstallerAsset()
+  - [Line 187] Function: isChecksumAsset()
+  - [Line 195] Function: inferExecutableArtifactKind()
+
+### File: src/main/app-updates/runtime-strategy.ts
+  - [Line 5] Function: readPortableEnvironment()
+  - [Line 17] Function: resolveRuntimeUpdateStrategy()
+  - [Line 58] Function: probeWritableDir()
+  - [Line 76] Function: resolvePortableExecutablePath()
+
+### File: src/main/app-updates.ts
+  - [Line 21] Function: createAppUpdateServices()
+  - [Line 33] Function: appendUpdateLog()
+  - [Line 39] Function: appendVerboseUpdateLog()
+  - [Line 44] Function: logDebug()
+  - [Line 76] Function: summarizeAppUpdate()
+  - [Line 91] Function: enrichUpdateInfo()
+  - [Line 132] Function: checkForAppUpdate()
+  - [Line 205] Function: openAppUpdateDownloadPage()
+  - [Line 211] Function: startBackgroundDownload()
+  - [Line 255] Function: restartAndInstallDownloadedUpdate()
+  - [Line 274] Function: scheduleInstallOnNextLaunch()
+  - [Line 304] Function: runDeferredInstallOnLaunch()
+  - [Line 308] Function: prepareDeferredInstallOnLaunch()
+  - [Line 312] Function: beginDeferredInstallOnLaunch()
+
+### File: src/main/category-state/index.ts
+  - [Line 13] Function: createCategoryState()
+  - [Line 14] Function: loadCategoryState()
+  - [Line 29] Function: saveCategoryState()
+  - [Line 35] Function: getCategoryTree()
+  - [Line 39] Function: getAssignmentsForGameId()
+  - [Line 44] Function: createCategory()
+  - [Line 63] Function: append()
+  - [Line 87] Function: renameCategory()
+  - [Line 96] Function: rename()
+  - [Line 117] Function: deleteCategory()
+  - [Line 133] Function: assignGameToCategory()
+  - [Line 151] Function: assignGameCategories()
+  - [Line 170] Function: removeGameFromCategory()
+
+### File: src/main/category-state/tree-utils.ts
+  - [Line 6] Function: isPlainObject()
+  - [Line 10] Function: normalizeCategoryId()
+  - [Line 15] Function: normalizeCategoryName()
+  - [Line 19] Function: createCategoryId()
+  - [Line 26] Function: flattenTree()
+  - [Line 35] Function: normalizeTree()
+  - [Line 39] Function: normalizeNode()
+  - [Line 52] Function: normalizeTreeNodes()
+  - [Line 61] Function: normalizeAssignments()
+  - [Line 80] Function: normalizeCategoryState()
+  - [Line 89] Function: removeCategorySubtree()
+  - [Line 92] Function: walk()
+  - [Line 107] Function: collectIds()
+  - [Line 120] Function: pruneAssignments()
+
+### File: src/main/core/app-paths.ts
+  - [Line 4] Function: createAppPaths()
+
+### File: src/main/core/lz-string.ts
+  (No public signatures or methods found)
+
+### File: src/main/core/runtime-bootstrap.ts
+  - [Line 2] Function: applyVersionOverride()
+  - [Line 4] ArrowFunc: readOverrideVersion()
+  - [Line 24] Function: registerPrivilegedSchemes()
+  - [Line 38] Function: safeGetPath()
+  - [Line 46] Function: logBootDiagnostics()
+
+### File: src/main/core/safe-console.ts
+  - [Line 4] Function: isBrokenPipeError()
+  - [Line 8] Function: wrapConsoleMethod()
+  - [Line 17] ArrowFunc: wrapped()
+  - [Line 40] Function: installSafeConsole()
+
+### File: src/main/core/shared-io.ts
+  - [Line 8] Function: ensureDir()
+  - [Line 12] Function: readJsonFile()
+  - [Line 20] Function: sha256Hex()
+  - [Line 24] Function: isNetworkLikeError()
+  - [Line 41] Function: downloadBuffer()
+
+### File: src/main/core/version-utils.ts
+  - [Line 2] Function: compareNumericVersions()
+  - [Line 3] ArrowFunc: toParts()
+
+### File: src/main/icon-pipeline/cache.ts
+  - [Line 10] Function: createSha1()
+  - [Line 14] Function: resolveCachePaths()
+  - [Line 23] Function: loadIconCacheState()
+  - [Line 51] Function: saveIconCacheState()
+  - [Line 57] Function: buildIconCacheFingerprint()
+  - [Line 61] Function: deleteIconCacheFileIfUnused()
+  - [Line 76] Function: tryGetCachedIconDataUrl()
+  - [Line 109] Function: storeHighResIconInCache()
+
+### File: src/main/icon-pipeline/cropper.ts
+  - [Line 4] Function: summarizeNativeImageForDebug()
+  - [Line 63] Function: cropTransparentPaddingFromDataUrl()
+
+### File: src/main/icon-pipeline/service.ts
+  - [Line 23] Function: createIconPipeline()
+  - [Line 31] Function: createIconPayload()
+  - [Line 40] Function: resolveIconDataUrl()
+  - [Line 91] Function: handleProtocolRequest()
+  - [Line 147] Function: registerProtocolHandler()
+  - [Line 151] Function: registerIpcHandler()
+
+### File: src/main/icon-pipeline/worker-pool.ts
+  - [Line 10] Function: createWorkerPool()
+  - [Line 21] Function: resolveNodeExecPath()
+  - [Line 57] Function: buildExtractFileIconPath()
+  - [Line 62] Function: recycleWorker()
+  - [Line 71] Function: createIconWorker()
+  - [Line 136] Function: probeIconWorker()
+  - [Line 164] Function: ensureHealthyIconWorker()
+  - [Line 189] Function: processExtractionQueue()
+  - [Line 231] Function: enqueueExtraction()
+
+### File: src/main/install-handoff.ts
+  - [Line 7] Function: toBoolean()
+  - [Line 14] Function: normalizePath()
+  - [Line 18] Function: createInstallHandoffService()
+  - [Line 31] Function: writeLog()
+  - [Line 39] Function: readAvailableContract()
+  - [Line 53] Function: deleteMarkerFiles()
+  - [Line 67] Function: consumeManualInstallHandoff()
+
+### File: src/main/ipc/register.ts
+  - [Line 2] Function: registerMainIpc()
+
+### File: src/main/language-packs/service.ts
+  - [Line 15] Function: normalizeLanguageCode()
+  - [Line 19] Function: isPlainObject()
+  - [Line 23] Function: ensureDir()
+  - [Line 27] Function: readJsonFile()
+  - [Line 35] Function: writeJsonFile()
+  - [Line 40] Function: sha256Hex()
+  - [Line 44] Function: isNetworkLikeError()
+  - [Line 61] Function: downloadBuffer()
+  - [Line 116] Function: normalizeLocalePack()
+  - [Line 148] Function: normalizeManifest()
+  - [Line 181] Function: summarizeLanguagePackUpdate()
+  - [Line 193] Function: createLanguagePackServices()
+  - [Line 197] Function: loadLocaleDirectory()
+  - [Line 221] Function: buildLanguageState()
+  - [Line 250] Function: readCachedLanguageManifest()
+  - [Line 261] Function: fetchLanguageManifest()
+  - [Line 302] Function: installLanguagePackFromManifestEntry()
+  - [Line 373] Function: applyLanguagePackUpdates()
+  - [Line 399] Function: installLanguagePack()
+  - [Line 431] Function: getLanguagePackUpdateCandidates()
+
+### File: src/main/library-state/continuity.ts
+  - [Line 11] Function: normalizeComparableText()
+  - [Line 23] Function: getExecutableStem()
+  - [Line 29] Function: buildContinuitySignature()
+  - [Line 46] Function: buildLegacyMigrationMap()
+  - [Line 63] Function: mapStoredGamesByFolderPath()
+  - [Line 72] Function: buildMoveMigrationMap()
+  - [Line 113] Function: normalizeGameRecord()
+  - [Line 122] Function: buildLogicalGameId()
+  - [Line 131] Function: buildInstanceId()
+  - [Line 135] Function: compareLogicalRecordDepth()
+  - [Line 142] Function: choosePrimaryRecord()
+  - [Line 152] Function: buildLogicalGames()
+
+### File: src/main/library-state/index.ts
+  - [Line 30] Function: readStoredGames()
+  - [Line 34] Function: readLegacyGames()
+  - [Line 40] Function: removeLegacyGames()
+  - [Line 46] Function: createLibraryState()
+  - [Line 55] Function: resolveLibraryConfig()
+  - [Line 72] Function: loadGamesForConfig()
+  - [Line 136] Function: setupLibrary()
+  - [Line 161] Function: updateLibraryConfig()
+  - [Line 173] Function: resolveLibraryFolderToOpen()
+  - [Line 184] Function: renameGame()
+  - [Line 207] Function: toggleFavorite()
+  - [Line 231] Function: toggleRunInBackground()
+  - [Line 255] Function: addPlaytime()
+  - [Line 276] Function: finalizeTrackedSession()
+  - [Line 308] Function: getGameRecord()
+  - [Line 324] Function: setSaveFolderOverride()
+
+### File: src/main/library-state/scanner.ts
+  - [Line 10] Function: isPlainObject()
+  - [Line 14] Function: clampLibraryMaxDepth()
+  - [Line 20] Function: normalizeLibraryConfigShape()
+  - [Line 30] Function: normalizePathForComparison()
+  - [Line 34] Function: normalizeRelativeGameKey()
+  - [Line 42] Function: buildGameKey()
+  - [Line 47] Function: getLeafFolderName()
+  - [Line 52] Function: pickPreferredExecutable()
+  - [Line 60] Function: getSmartName()
+  - [Line 62] ArrowFunc: clean()
+  - [Line 69] Function: isDescendantPath()
+  - [Line 74] Function: shouldPromoteWrapperDirectory()
+  - [Line 79] Function: collectGameCandidates()
+  - [Line 116] Function: dedupeCandidates()
+
+### File: src/main/nsis-updater/cache-inputs.ts
+  - [Line 7] Function: normalizeText()
+  - [Line 12] Function: normalizeReleaseTagName()
+  - [Line 17] Function: buildGitHubReleaseDownloadBaseUrl()
+  - [Line 22] Function: buildGitHubReleaseManifestUrl()
+  - [Line 27] Function: resolveCurrentReleaseCacheInputs()
+  - [Line 51] Function: ensureCurrentInstallerCacheState()
+  - [Line 144] Function: resolvePreviousBlockmapBaseUrl()
+  - [Line 159] Function: configureDifferentialDownload()
+
+### File: src/main/nsis-updater/installer-handoff.ts
+  - [Line 8] Function: createInstallerHandoff()
+  - [Line 17] Function: launchInstallerAndQuit()
+  - [Line 76] Function: buildReleaseMetadata()
+  - [Line 87] Function: writePostUpdateMarker()
+  - [Line 92] Function: prepareInstallPhase()
+
+### File: src/main/nsis-updater/runtime.ts
+  - [Line 2] Function: toBoolean()
+  - [Line 6] Function: isFakeVersionRun()
+  - [Line 10] Function: normalizeText()
+  - [Line 15] Function: classifyErrorReason()
+  - [Line 27] Function: delay()
+  - [Line 31] Function: resolveUpdaterRuntime()
+
+### File: src/main/nsis-updater/state-files.ts
+  - [Line 6] Function: createStateFiles()
+  - [Line 10] Function: writeJson()
+  - [Line 15] Function: readJson()
+  - [Line 23] Function: readDownloadedState()
+  - [Line 27] Function: writeDownloadedState()
+  - [Line 31] Function: clearDownloadedState()
+  - [Line 37] Function: readDeferredInstallState()
+  - [Line 41] Function: writeDeferredInstallState()
+  - [Line 45] Function: clearDeferredInstallState()
+  - [Line 51] Function: getValidatedDownloadedStateForVersion()
+  - [Line 65] Function: getValidatedDeferredInstallState()
+
+### File: src/main/nsis-updater/update-flow.ts
+  - [Line 10] Function: setupUpdateFlow()
+  - [Line 47] Function: checkForUpdates()
+  - [Line 120] Function: downloadUpdate()
+  - [Line 206] Function: reportProgress()
+  - [Line 393] Function: installDownloadedUpdateNow()
+  - [Line 438] Function: scheduleInstallOnNextLaunch()
+  - [Line 483] Function: prepareDeferredInstallOnLaunch()
+  - [Line 508] Function: beginDeferredInstallOnLaunch()
+
+### File: src/main/nsis-updater/update-info.ts
+  - [Line 6] Function: pickReleaseName()
+  - [Line 10] Function: pickReleaseNotes()
+  - [Line 21] Function: pickExpectedSha512()
+  - [Line 30] Function: sha512FileBase64()
+  - [Line 40] Function: buildDownloadedState()
+  - [Line 52] Function: normalizeDownloadedState()
+
+### File: src/main/nsis-updater/updater-events.ts
+  - [Line 5] Function: attachUpdaterEventLogging()
+
+### File: src/main/nsis-updater.ts
+  - [Line 21] Function: createNsisUpdaterService()
+  - [Line 41] Function: resolveRuntime()
+  - [Line 45] Function: createUpdaterLogger()
+  - [Line 46] Function: forward()
+  - [Line 54] Method: debug()
+  - [Line 57] Method: error()
+  - [Line 60] Method: info()
+  - [Line 63] Method: warn()
+  - [Line 69] Function: summarizeUpdateState()
+  - [Line 84] Function: emitStatus()
+  - [Line 112] Function: summarizeReadyUpdateFromState()
+  - [Line 138] Function: createUpdater()
+  - [Line 181] Function: configureUpdaterFeed()
+  - [Line 263] Function: checkForUpdates()
+  - [Line 267] Function: downloadUpdate()
+  - [Line 271] Function: installDownloadedUpdateNow()
+  - [Line 275] Function: scheduleInstallOnNextLaunch()
+  - [Line 279] Function: prepareDeferredInstallOnLaunch()
+  - [Line 283] Function: beginDeferredInstallOnLaunch()
+  - [Line 287] Function: runDeferredInstallOnLaunch()
+
+### File: src/main/playtime-helper-paths.ts
+  - [Line 7] Function: getRepoRoot()
+  - [Line 11] Function: getNativeHelperProjectDir()
+  - [Line 15] Function: getNativeHelperReleasePath()
+  - [Line 19] Function: getPackagedHelperRelativePath()
+  - [Line 23] Function: resolvePackagedHelperPath()
+  - [Line 27] Function: resolvePlaytimeHelperPath()
+  - [Line 34] Function: assertPlaytimeHelperExists()
+
+### File: src/main/playtime-session-manager/injector.ts
+  - [Line 6] Function: isPidAlive()
+  - [Line 18] Function: spawnHelper()
+  - [Line 40] Function: injectRunInBackgroundDll()
+
+### File: src/main/playtime-session-manager/journal.ts
+  - [Line 10] Function: toInteger()
+  - [Line 15] Function: normalizeSessionJournal()
+  - [Line 38] Function: isActiveJournal()
+  - [Line 42] Function: isTransientSessionReadError()
+  - [Line 48] Function: delay()
+  - [Line 52] Function: readSessionJournal()
+  - [Line 69] Function: writeSessionJournal()
+  - [Line 80] Function: removeSessionJournal()
+  - [Line 90] Function: aggregateActiveGameState()
+
+### File: src/main/playtime-session-manager.ts
+  - [Line 25] Function: createPlaytimeSessionManager()
+  - [Line 38] Function: log()
+  - [Line 42] Function: ensureSessionInfrastructure()
+  - [Line 46] Function: getSessionJournalPath()
+  - [Line 50] Function: listSessionJournalPaths()
+  - [Line 58] Function: loadAllSessionJournals()
+  - [Line 71] Function: finalizeStaleJournal()
+  - [Line 78] Function: shouldRetryAttach()
+  - [Line 88] Function: recoverJournal()
+  - [Line 126] Function: emitSessionEvents()
+  - [Line 152] Function: refreshSessions()
+  - [Line 176] Function: initialize()
+  - [Line 187] Function: launchTrackedGame()
+  - [Line 238] Function: overlayGames()
+  - [Line 262] Function: getRuntimeSnapshot()
+
+### File: src/main/save-editor/formats/pure-json.ts
+  - [Line 2] Class: PureJsonFormat
+  - [Line 3] Method: PureJsonFormat.match()
+  - [Line 7] Method: PureJsonFormat.decode()
+  - [Line 21] Method: PureJsonFormat.encode()
+  - [Line 30] Method: PureJsonFormat.metadata()
+
+### File: src/main/save-editor/formats/renpy.ts
+  - [Line 7] Class: RenpyFormat
+  - [Line 8] Method: RenpyFormat.match()
+  - [Line 12] Method: RenpyFormat.decode()
+  - [Line 39] Method: RenpyFormat.encode()
+  - [Line 72] Method: RenpyFormat.metadata()
+
+### File: src/main/save-editor/formats/rpg-maker-mv.ts
+  - [Line 4] Class: RpgMakerMvFormat
+  - [Line 5] Method: RpgMakerMvFormat.match()
+  - [Line 9] Method: RpgMakerMvFormat.decode()
+  - [Line 20] Method: RpgMakerMvFormat.encode()
+
+### File: src/main/save-editor/formats/rpg-maker-mz.ts
+  - [Line 4] Class: RpgMakerMzFormat
+  - [Line 5] Method: RpgMakerMzFormat.match()
+  - [Line 9] Method: RpgMakerMzFormat.decode()
+  - [Line 27] Method: RpgMakerMzFormat.encode()
+
+### File: src/main/save-editor/formats/rpg-wolf-sav.ts
+  - [Line 5] Function: sha256()
+  - [Line 9] Function: byteEntropy()
+  - [Line 23] Function: printableRatio()
+  - [Line 35] Function: extractAsciiStrings()
+  - [Line 46] Function: tryJsonParse()
+  - [Line 62] Function: tryDecoders()
+  - [Line 93] Function: buildVariables()
+  - [Line 119] Function: buildMetadata()
+  - [Line 146] Class: RpgWolfSavFormat
+  - [Line 147] Method: RpgWolfSavFormat.match()
+  - [Line 152] Method: RpgWolfSavFormat._crypt()
+  - [Line 175] Method: RpgWolfSavFormat.decode()
+  - [Line 227] Method: RpgWolfSavFormat.encode()
+  - [Line 276] Method: RpgWolfSavFormat.metadata()
+  - [Line 295] Function: exists()
+
+### File: src/main/save-editor/formats/unity-mono-bin.ts
+  - [Line 7] Class: UnityMonoBinFormat
+  - [Line 8] Method: UnityMonoBinFormat.match()
+  - [Line 12] Method: UnityMonoBinFormat.findAssembly()
+  - [Line 34] Method: UnityMonoBinFormat.getAssemblyPath()
+  - [Line 73] Method: UnityMonoBinFormat.decode()
+  - [Line 97] Method: UnityMonoBinFormat.encode()
+
+### File: src/main/save-editor/index.ts
+  - [Line 27] Function: getFormat()
+  - [Line 38] Function: createSaveEditorService()
+  - [Line 40] Function: getGamePaths()
+  - [Line 81] Function: exists()
+  - [Line 90] Function: listSaveFiles()
+  - [Line 109] Function: loadSaveData()
+  - [Line 138] Function: updateMapping()
+  - [Line 144] Function: loadMetadata()
+  - [Line 157] Function: getFilePath()
+  - [Line 175] Function: loadItemType()
+  - [Line 202] Function: writeSaveData()
+  - [Line 226] Function: getTranslationFilePath()
+  - [Line 231] Function: loadTranslations()
+  - [Line 259] Function: saveTranslations()
+
+### File: src/main/save-editor/mapping-manager.ts
+  - [Line 6] Class: SaveMappingManager
+  - [Line 7] Method: SaveMappingManager.constructor()
+  - [Line 14] Method: SaveMappingManager.load()
+  - [Line 25] Method: SaveMappingManager.save()
+  - [Line 29] Method: SaveMappingManager.addMapping()
+
+### File: src/main/save-folder-resolver/engine-detectors.ts
+  - [Line 5] Function: detectEngine()
+
+### File: src/main/save-folder-resolver/heuristics.ts
+  - [Line 10] Function: deepenSaveFolder()
+  - [Line 33] Function: heuristicSaveScan()
+  - [Line 63] Function: appDataFuzzyMatch()
+
+### File: src/main/save-folder-resolver/index.ts
+  - [Line 15] Function: resolveRenPySaveWithStem()
+  - [Line 19] Function: resolveSaveFolder()
+
+### File: src/main/save-folder-resolver/resolvers/engine-resolvers.ts
+  - [Line 6] Function: resolveRpgMakerSave()
+  - [Line 14] Function: resolveRpgVxAceSave()
+  - [Line 25] Function: resolveRenPySave()
+  - [Line 51] Function: resolveUnitySave()
+  - [Line 98] Function: resolveUnrealSave()
+  - [Line 135] Function: resolveWolfRpgSave()
+
+### File: src/main/save-folder-resolver/utils.ts
+  - [Line 5] Function: exists()
+  - [Line 14] Function: globMatch()
+  - [Line 23] Function: normalizeForSearch()
+  - [Line 32] Function: getExeStem()
+  - [Line 39] Function: getExeStemFromPath()
+
+### File: src/main/startup.ts
+  - [Line 2] Function: createTimedTask()
+  - [Line 28] Function: createStartupServices()
+  - [Line 46] Function: emitBootStatus()
+  - [Line 55] Function: bootstrapAppState()
+
+### File: src/main/window/app-lifecycle.ts
+  - [Line 2] Function: attachProcessDiagnostics()
+  - [Line 16] Function: startMainRuntime()
+
+### File: src/main/window/broadcast-status.ts
+  - [Line 4] Function: broadcastRendererEvent()
+  - [Line 11] Function: createStatusBroadcaster()
+
+### File: src/main/window/main-window.ts
+  - [Line 13] Function: createTrayIcon()
+  - [Line 57] Function: destroyTrayIcon()
+  - [Line 68] Function: updateTrayState()
+  - [Line 85] Function: startupPathSummary()
+  - [Line 100] Function: probeWritableDir()
+  - [Line 115] Function: logStartupDiagnostics()
+  - [Line 132] Function: createMainWindow()
+  - [Line 217] ArrowFunc: restoreUpdatedWindow()
+
+### File: src/main.ts
+  - [Line 50] Function: loadDB()
+  - [Line 58] Function: saveDB()
+
+### File: src/preload.js
+  (No public signatures or methods found)
+
+### File: src/preload.ts
+  (No public signatures or methods found)
+
+### File: src/renderer/app-updates.ts
+  - [Line 9] Function: createAppUpdateController()
+  - [Line 21] Function: logDebug()
+  - [Line 45] Function: openReview()
+  - [Line 49] Function: performReviewUpdate()
+  - [Line 97] Function: initialize()
+
+### File: src/renderer/boot.ts
+  - [Line 2] Function: createBootController()
+  - [Line 18] Function: resolveBootMessage()
+  - [Line 27] Function: resolveBootTitle()
+  - [Line 36] Function: render()
+  - [Line 54] Function: show()
+  - [Line 59] Function: hide()
+  - [Line 63] Function: getLatestPayload()
+
+### File: src/renderer/bootstrap/app-composition.ts
+  - [Line 21] Function: createRendererComposition()
+  - [Line 50] Function: withLogicalGameMutation()
+  - [Line 66] Function: getVisibleGames()
+  - [Line 338] Function: getEnglishStrings()
+  - [Line 342] Function: getStrings()
+  - [Line 346] Function: getText()
+  - [Line 350] Function: applyUIStrings()
+  - [Line 355] Function: createCard()
+  - [Line 359] Function: initApp()
+
+### File: src/renderer/bootstrap/dom-refs.ts
+  - [Line 2] Function: buildRendererRefs()
+
+### File: src/renderer/category-filter.ts
+  - [Line 4] Function: flattenCategoryTree()
+  - [Line 19] Function: createCategoryFilterController()
+  - [Line 33] Function: getFlattenedCategories()
+  - [Line 37] Function: getActiveCategory()
+  - [Line 43] Function: syncActiveCategory()
+  - [Line 54] Function: updateTriggerLabel()
+  - [Line 60] Function: hideMenu()
+  - [Line 64] Function: renderMenu()
+  - [Line 109] Function: openOrToggleMenu()
+  - [Line 115] Function: clearFilter()
+  - [Line 123] Function: getFilteredEmptyState()
+  - [Line 134] Function: initialize()
+
+### File: src/renderer/drag-drop-grid.ts
+  - [Line 7] Function: createDragDropGridController()
+  - [Line 24] Function: startDrag()
+  - [Line 33] Function: applyFavoriteToLogicalGame()
+  - [Line 45] Function: resetDragState()
+  - [Line 54] Function: attachZoneHandlers()
+
+### File: src/renderer/duplicate-stack-overlay.ts
+  - [Line 2] Function: createDuplicateStackOverlayController()
+  - [Line 13] Function: renderStack()
+  - [Line 39] Function: isOpen()
+  - [Line 43] Function: close()
+  - [Line 46] ArrowFunc: finalize()
+  - [Line 55] Function: open()
+  - [Line 78] Method: refresh()
+
+### File: src/renderer/events/global-events.ts
+  - [Line 2] Function: bindGlobalUiEvents()
+  - [Line 41] Function: bindWindowStatusEvents()
+  - [Line 50] Function: bindControlEvents()
+
+### File: src/renderer/events/ipc-events.ts
+  - [Line 2] Function: bindIpcEvents()
+
+### File: src/renderer/game-annotations.ts
+  - [Line 7] Function: normalizePathSegment()
+  - [Line 14] Function: getLibraryRootName()
+  - [Line 20] Function: getParentLocationLabel()
+  - [Line 28] Function: normalizeComparableText()
+  - [Line 40] Function: getExecutableStem()
+  - [Line 46] Function: buildDuplicateSignature()
+  - [Line 65] Function: annotateGamesForDisplay()
+  - [Line 68] Function: annotateRecord()
+
+### File: src/renderer/game-cards.ts
+  - [Line 8] Function: createGameCardFactory()
+  - [Line 20] Function: createCard()
+  - [Line 159] ArrowFunc: launchGame()
+
+### File: src/renderer/i18n.ts
+  - [Line 2] Function: createLocaleController()
+  - [Line 23] Function: getLocaleState()
+  - [Line 27] Function: setLocaleState()
+  - [Line 34] Function: getCurrentLang()
+  - [Line 38] Function: getPlaceholderIndex()
+  - [Line 42] Function: getEnglishStrings()
+  - [Line 46] Function: getLocaleStrings()
+  - [Line 54] Function: getStrings()
+  - [Line 58] Function: getAvailableLanguages()
+  - [Line 62] Function: isLanguageAvailable()
+  - [Line 67] Function: getLanguageMeta()
+  - [Line 72] Function: formatLanguageLabel()
+  - [Line 78] Function: sortLanguageOptions()
+  - [Line 90] Function: refreshLanguageDropdown()
+  - [Line 126] Function: loadLanguageState()
+  - [Line 146] Function: setCurrentLanguage()
+  - [Line 187] Function: getPlaceholders()
+  - [Line 191] Function: advancePlaceholderIndex()
+
+### File: src/renderer/icon-payload.ts
+  - [Line 2] Function: normalizeIconPayload()
+  - [Line 25] Function: ensureIconCache()
+  - [Line 32] Function: applyIconPayload()
+  - [Line 44] Function: readCachedIconPayload()
+  - [Line 49] Function: cacheIconPayload()
+  - [Line 58] Function: renderIconMarkup()
+  - [Line 63] Function: logIconRender()
+
+### File: src/renderer/language-packs/actions.ts
+  - [Line 2] Function: createLanguagePackActions()
+  - [Line 22] Function: fetchLanguagePackManifest()
+  - [Line 54] Function: openLanguagePackModal()
+  - [Line 74] Function: openUpdatesReviewModal()
+  - [Line 94] Function: closeLanguagePackModal()
+  - [Line 101] Function: downloadLanguagePack()
+  - [Line 142] Function: handleAppUpdateAction()
+
+### File: src/renderer/language-packs/helpers.ts
+  - [Line 2] Function: formatTemplate()
+  - [Line 8] Function: compareVersions()
+  - [Line 9] ArrowFunc: toParts()
+  - [Line 24] Function: buildLanguagePackSearchHaystack()
+  - [Line 37] Function: formatDataSize()
+  - [Line 49] Function: isFinalInstallPhase()
+
+### File: src/renderer/language-packs/results.ts
+  - [Line 5] Function: createLanguagePackResultsController()
+  - [Line 18] Function: updateLanguagePackSourceText()
+  - [Line 29] Function: filterLanguagePacks()
+  - [Line 35] Function: getAvailableLanguagePackUpdates()
+  - [Line 57] Function: getReviewLanguageMatches()
+  - [Line 62] Function: renderLanguagePackResults()
+
+### File: src/renderer/language-packs/review-surface.ts
+  - [Line 5] Function: setOverlayChrome()
+  - [Line 26] Function: renderAppUpdateReview()
+
+### File: src/renderer/language-packs.ts
+  - [Line 10] Function: buildLanguagePackRefs()
+  - [Line 38] Function: createLanguagePackController()
+  - [Line 65] Function: getText()
+  - [Line 71] Function: setLanguagePackBanner()
+  - [Line 76] Function: setBannerLock()
+  - [Line 84] Function: updateManifestState()
+  - [Line 104] ArrowFunc: renderLanguagePackResults()
+  - [Line 140] Function: handleListClick()
+  - [Line 146] Function: handleRefreshClick()
+  - [Line 151] Function: handleSearchInput()
+
+### File: src/renderer/library/runtime.ts
+  - [Line 5] Function: createLibraryRuntime()
+  - [Line 14] Function: setAllGames()
+  - [Line 23] Function: reannotateGames()
+  - [Line 31] Function: createLibraryItem()
+  - [Line 38] Function: refreshOpenDuplicateStack()
+  - [Line 46] Function: sortGames()
+
+### File: src/renderer/library-grid.ts
+  - [Line 4] Function: createLibraryGridController()
+  - [Line 16] Function: queryRenderedCards()
+  - [Line 23] Function: captureCardRects()
+  - [Line 32] Function: animateReorderedCards()
+  - [Line 70] Function: renderLibraryEmptyState()
+  - [Line 77] Function: renderFilteredEmptyState()
+  - [Line 97] Function: renderLibraryGrid()
+
+### File: src/renderer/library-order.ts
+  - [Line 4] Function: getGameKey()
+  - [Line 11] Function: readStoredCustomOrder()
+  - [Line 20] Function: writeCustomOrder()
+  - [Line 24] Function: normalizeCustomOrder()
+
+### File: src/renderer/library-stacks.ts
+  - [Line 4] Function: compareGames()
+  - [Line 28] Function: choosePrimaryGame()
+  - [Line 39] Function: buildGroupKey()
+  - [Line 43] Function: buildLibraryViewItems()
+  - [Line 86] Function: getGroupedKeysForGame()
+
+### File: src/renderer/lifecycle/bootstrap.ts
+  - [Line 2] Function: runRendererBootstrap()
+
+### File: src/renderer/markdown-lite.ts
+  - [Line 2] Function: escapeHtml()
+  - [Line 11] Function: renderInlineMarkdown()
+  - [Line 22] Function: renderParagraph()
+  - [Line 27] Function: renderMarkdownLite()
+  - [Line 38] Function: flushParagraph()
+  - [Line 44] Function: flushList()
+
+### File: src/renderer/notifications/formatters.ts
+  - [Line 2] Function: formatTemplate()
+  - [Line 8] Function: formatCount()
+  - [Line 12] Function: formatVersion()
+
+### File: src/renderer/notifications/update-groups.ts
+  - [Line 4] Function: createLanguagePackAvailableGroup()
+  - [Line 18] Function: createLanguagePackInstalledGroup()
+  - [Line 36] Function: buildAppAvailableGroup()
+  - [Line 53] Function: createAppReadyGroup()
+  - [Line 67] Function: createAppScheduledGroup()
+
+### File: src/renderer/notifications/update-presets.ts
+  - [Line 10] Function: buildUpdatedTitle()
+  - [Line 17] Function: createAggregatedUpdateNotification()
+  - [Line 73] Function: presentBootUpdateNotifications()
+  - [Line 149] Function: createAppUpdateReadyNotification()
+  - [Line 191] Function: createAppUpdateScheduledNotification()
+  - [Line 221] Function: createAppUpdateDownloadFailedNotification()
+  - [Line 251] Function: createPostUpdateInstalledNotification()
+
+### File: src/renderer/post-update-preferences.ts
+  - [Line 4] Function: isPostUpdateNoticeSuppressed()
+  - [Line 12] Function: setPostUpdateNoticeSuppressed()
+
+### File: src/renderer/save-editor/components.ts
+  - [Line 20] Method: createDataRow()
+  - [Line 108] Method: createFilterToggle()
+
+### File: src/renderer/save-editor/data-engine.ts
+  - [Line 13] Class: DataEngine
+  - [Line 14] Method: DataEngine.constructor()
+  - [Line 42] Method: DataEngine.setSearchOptions()
+  - [Line 53] Method: DataEngine.matchesQuery()
+  - [Line 77] ArrowFunc: compare()
+  - [Line 146] Method: DataEngine.getTabs()
+  - [Line 157] Method: DataEngine.extractRoot()
+  - [Line 173] Method: DataEngine.getProp()
+  - [Line 183] Method: DataEngine.findGold()
+  - [Line 192] Method: DataEngine.extractData()
+
+### File: src/renderer/save-editor/engines/pure-json.ts
+  - [Line 7] Class: PureJsonEngine
+  - [Line 12] Method: PureJsonEngine.detect()
+  - [Line 21] Method: PureJsonEngine.extractRoot()
+  - [Line 32] Method: PureJsonEngine.getTabs()
+  - [Line 68] Method: PureJsonEngine.getProp()
+  - [Line 74] Method: PureJsonEngine.get()
+  - [Line 78] Method: PureJsonEngine.set()
+  - [Line 88] Method: PureJsonEngine.ownKeys()
+  - [Line 94] Method: PureJsonEngine.getOwnPropertyDescriptor()
+  - [Line 102] Method: PureJsonEngine.get()
+  - [Line 106] Method: PureJsonEngine.set()
+  - [Line 110] Method: PureJsonEngine.ownKeys()
+  - [Line 116] Method: PureJsonEngine.getOwnPropertyDescriptor()
+  - [Line 129] Method: PureJsonEngine.findGold()
+  - [Line 137] Method: PureJsonEngine.extractData()
+  - [Line 147] Method: PureJsonEngine._getDeep()
+  - [Line 165] Method: PureJsonEngine._setDeep()
+  - [Line 188] Method: PureJsonEngine._getDeepPaths()
+
+### File: src/renderer/save-editor/engines/renpy.ts
+  - [Line 7] Class: RenpyEngine
+  - [Line 12] Method: RenpyEngine.detect()
+  - [Line 21] Method: RenpyEngine.extractRoot()
+  - [Line 30] Method: RenpyEngine.getTabs()
+  - [Line 56] Method: RenpyEngine._getPrefixes()
+  - [Line 79] Method: RenpyEngine.getProp()
+  - [Line 86] Method: RenpyEngine.get()
+  - [Line 90] Method: RenpyEngine.set()
+  - [Line 94] Method: RenpyEngine.ownKeys()
+  - [Line 109] Method: RenpyEngine.getOwnPropertyDescriptor()
+  - [Line 124] Method: RenpyEngine.findGold()
+  - [Line 140] Method: RenpyEngine.extractData()
+
+### File: src/renderer/save-editor/engines/rpg-maker.ts
+  - [Line 7] Class: RpgMakerEngine
+  - [Line 12] Method: RpgMakerEngine.detect()
+  - [Line 28] Method: RpgMakerEngine.extractRoot()
+  - [Line 40] Method: RpgMakerEngine.getTabs()
+  - [Line 51] Method: RpgMakerEngine.getProp()
+  - [Line 65] Method: RpgMakerEngine.findGold()
+  - [Line 80] Method: RpgMakerEngine.extractData()
+
+### File: src/renderer/save-editor/engines/rpg-wolf-sav.ts
+  - [Line 10] Class: RpgWolfSavEngine
+  - [Line 15] Method: RpgWolfSavEngine.detect()
+  - [Line 23] Method: RpgWolfSavEngine.extractRoot()
+  - [Line 32] Method: RpgWolfSavEngine.getTabs()
+  - [Line 41] Method: RpgWolfSavEngine.getProp()
+  - [Line 66] Method: RpgWolfSavEngine.findGold()
+  - [Line 74] Method: RpgWolfSavEngine.extractData()
+
+### File: src/renderer/save-editor/engines/unity-mono.ts
+  - [Line 8] Class: UnityMonoEngine
+  - [Line 13] Method: UnityMonoEngine.detect()
+  - [Line 29] Method: UnityMonoEngine.extractRoot()
+  - [Line 38] Method: UnityMonoEngine.getTabs()
+  - [Line 50] Method: UnityMonoEngine.getProp()
+  - [Line 57] Method: UnityMonoEngine.get()
+  - [Line 63] Method: UnityMonoEngine.set()
+  - [Line 74] Method: UnityMonoEngine.ownKeys()
+  - [Line 85] Method: UnityMonoEngine.getOwnPropertyDescriptor()
+  - [Line 98] Method: UnityMonoEngine.get()
+  - [Line 105] Method: UnityMonoEngine.set()
+  - [Line 117] Method: UnityMonoEngine.ownKeys()
+  - [Line 128] Method: UnityMonoEngine.getOwnPropertyDescriptor()
+  - [Line 136] Method: UnityMonoEngine.get()
+  - [Line 141] Method: UnityMonoEngine.set()
+  - [Line 152] Method: UnityMonoEngine.ownKeys()
+  - [Line 163] Method: UnityMonoEngine.getOwnPropertyDescriptor()
+  - [Line 176] Method: UnityMonoEngine.get()
+  - [Line 180] Method: UnityMonoEngine.set()
+  - [Line 184] Method: UnityMonoEngine.deleteProperty()
+  - [Line 188] Method: UnityMonoEngine.ownKeys()
+  - [Line 191] Method: UnityMonoEngine.getOwnPropertyDescriptor()
+  - [Line 206] Method: UnityMonoEngine.findGold()
+  - [Line 225] Method: UnityMonoEngine.extractData()
+
+### File: src/renderer/save-editor/grid-renderer.ts
+  - [Line 35] Function: setupGridRenderer()
+  - [Line 47] Function: attachSaveEditorTooltip()
+  - [Line 55] Function: setupTabs()
+  - [Line 68] ArrowFunc: hasCategoryData()
+  - [Line 182] Function: renderTabContent()
+  - [Line 200] ArrowFunc: renderSingleCategory()
+  - [Line 211] ArrowFunc: onPinToggle()
+  - [Line 261] ArrowFunc: onPinToggle()
+  - [Line 285] Method: ownKeys()
+  - [Line 288] Method: get()
+  - [Line 289] Method: set()
+  - [Line 290] Method: getOwnPropertyDescriptor()
+  - [Line 420] Function: renderInventory()
+  - [Line 468] ArrowFunc: onPinToggle()
+  - [Line 503] Function: renderBitset()
+  - [Line 511] ArrowFunc: process()
+  - [Line 545] ArrowFunc: onPinToggle()
+
+### File: src/renderer/save-editor/search-bar.ts
+  - [Line 22] Function: setupSearchBar()
+
+### File: src/renderer/save-editor/sidebar.ts
+  - [Line 37] Function: setupSidebar()
+  - [Line 45] Function: reloadFileList()
+  - [Line 118] Function: loadSave()
+
+### File: src/renderer/save-editor/translator.ts
+  - [Line 7] Class: Translator
+  - [Line 11] Method: Translator.constructor()
+  - [Line 28] Method: Translator.initialize()
+  - [Line 100] Method: Translator.saveTranslations()
+  - [Line 132] Method: Translator.applyTranslations()
+  - [Line 162] Method: Translator.applyCachedLabels()
+  - [Line 179] Method: Translator.translateLabels()
+
+### File: src/renderer/save-editor-ui.ts
+  - [Line 8] Function: initSaveEditorUI()
+  - [Line 134] ArrowFunc: handleGlobalKeydown()
+  - [Line 186] ArrowFunc: close()
+  - [Line 224] ArrowFunc: updateTabShadows()
+
+### File: src/renderer/search.ts
+  - [Line 5] Function: createSearchController()
+  - [Line 23] Function: highlightMatch()
+  - [Line 29] Function: hideSearchDropdown()
+  - [Line 33] Function: updateSearch()
+  - [Line 151] Function: rotatePlaceholder()
+
+### File: src/renderer/settings.ts
+  - [Line 7] Function: clampMaxDepth()
+  - [Line 13] Function: createSettingsController()
+  - [Line 37] Function: openSettings()
+  - [Line 62] Function: closeSettings()
+  - [Line 66] Function: isSettingsOpen()
+  - [Line 70] Function: initializeSettingsUI()
+  - [Line 81] Function: handleThemeChange()
+  - [Line 87] Function: handleAppUpdatesChange()
+  - [Line 92] Function: handleLanguagePackUpdatesChange()
+  - [Line 97] Function: handleLocationDisplayModeChange()
+  - [Line 104] Function: applyLibraryConfig()
+  - [Line 123] Function: handleMaxDepthChange()
+  - [Line 133] Function: handleMaxDepthStep()
+  - [Line 137] Function: handleAutoLaunchChange()
+  - [Line 144] Function: handleMinimizeToTrayChange()
+  - [Line 152] Function: getBootstrapPreferences()
+
+### File: src/renderer/stack-cards.ts
+  - [Line 7] Function: createStackCardFactory()
+  - [Line 18] Function: createStackCard()
+
+### File: src/renderer/startup.ts
+  - [Line 2] Function: createStartupController()
+  - [Line 15] Function: setRefreshUiState()
+  - [Line 22] Function: initApp()
+  - [Line 50] Function: handleRefreshLibrary()
+  - [Line 67] Function: handleLibraryConfigChange()
+  - [Line 72] Function: handleSetupDefault()
+  - [Line 78] Function: handleSetupCustom()
+  - [Line 84] Function: handleChangePath()
+  - [Line 90] Function: handleQuickFolderOpen()
+
+### File: src/renderer/state/ui-runtime-state.ts
+  - [Line 31] Function: createUiRuntimeState()
+
+### File: src/renderer/tooltips.ts
+  - [Line 2] Function: createTooltipController()
+  - [Line 17] Function: hide()
+  - [Line 21] Function: setContent()
+  - [Line 32] Function: position()
+  - [Line 53] Function: show()
+  - [Line 71] Function: attachTooltip()
+
+### File: src/renderer/ui-components/card-dropdown.ts
+  - [Line 2] Function: bindDropdownToggle()
+  - [Line 6] ArrowFunc: toggleMenu()
+  - [Line 21] Function: bindRenameAction()
+  - [Line 45] ArrowFunc: save()
+
+### File: src/renderer/ui-components/dropdown-icons.ts
+  - [Line 2] Function: getDropdownActionIcon()
+
+### File: src/renderer/ui-text.ts
+  - [Line 2] Function: createUITextController()
+  - [Line 15] Function: renderAppVersionLink()
+  - [Line 37] Function: applyUIStrings()
+
+### File: src/renderer/update-notification-feature.ts
+  - [Line 5] Function: getUpdateNotificationRefs()
+  - [Line 21] Function: createUpdateNotificationFeature()
+  - [Line 32] Function: presentBootNotifications()
+
+### File: src/renderer/update-notification-presets.ts
+  (No public signatures or methods found)
+
+### File: src/renderer/update-notifications.ts
+  - [Line 5] Function: readSeenSignatures()
+  - [Line 14] Function: writeSeenSignatures()
+  - [Line 18] Function: createUpdateNotificationController()
+  - [Line 25] Function: clearCollapseTimer()
+  - [Line 32] Function: hideAll()
+  - [Line 39] Function: markSignatureSeen()
+  - [Line 45] Function: renderExpanded()
+  - [Line 72] Function: collapseActiveNotification()
+  - [Line 81] Function: scheduleAutoCollapse()
+  - [Line 89] Function: expandActiveNotification()
+  - [Line 95] Function: shouldSkip()
+  - [Line 99] Function: present()
+  - [Line 111] Function: clear()
+  - [Line 116] Function: handlePrimaryAction()
+  - [Line 125] Function: handleSecondaryAction()
+  - [Line 138] Function: handleDismissAction()
+  - [Line 142] Function: handleTertiaryAction()
+
+### File: src/renderer/updates/install-actions.ts
+  - [Line 2] Function: setupInstallActions()
+  - [Line 9] Function: runRestartAndInstall()
+  - [Line 39] Function: scheduleInstallOnNextLaunch()
+  - [Line 61] Function: beginDeferredInstallFlow()
+
+### File: src/renderer/updates/status-handler.ts
+  - [Line 8] Function: setupStatusHandler()
+  - [Line 17] Function: presentReadyNotification()
+  - [Line 27] Function: handleRuntimeStatus()
+
+### File: src/renderer/updates/update-install-flow.ts
+  - [Line 2] Function: createUpdateInstallFlow()
+  - [Line 5] Function: clearInstallShellTimers()
+  - [Line 10] Function: showInstallShellPhase()
+  - [Line 36] Function: beginInstallShellSequence()
+  - [Line 45] Function: waitForNextPaint()
+
+### File: src/renderer/updates/update-state.ts
+  - [Line 4] Function: normalizeUpdate()
+  - [Line 12] Function: createUpdateState()
+  - [Line 17] Function: notifyStateChanged()
+  - [Line 26] Function: setCurrentUpdate()
+  - [Line 32] Function: patchCurrentUpdate()
+  - [Line 42] Function: getCurrentUpdateState()
+  - [Line 46] Function: getAppUpdateState()
+  - [Line 52] Function: setRecentInstalledUpdate()
+  - [Line 58] Function: suppressPostUpdateNotice()
+  - [Line 64] Function: subscribe()
+
+### File: src/renderer/utils/drag-math.ts
+  - [Line 2] Function: getPointerDistanceToRect()
+  - [Line 12] Function: isSameDragRow()
+
+### File: src/renderer/utils/flip-animation.ts
+  - [Line 2] Function: flipAnimateDOMUpdate()
+
+### File: src/renderer/utils/formatting.ts
+  - [Line 2] Function: timeSince()
+  - [Line 30] Function: formatPlaytime()
+
+### File: src/renderer.ts
+  (No public signatures or methods found)
+
+### File: src/shared/installer-contract.ts
+  - [Line 4] Function: escapeIniValue()
+  - [Line 8] Function: parseInstallerContract()
+  - [Line 36] Function: serializeInstallerContract()
+  - [Line 48] Function: readInstallerContract()
+  - [Line 53] Function: writeInstallerContract()
+

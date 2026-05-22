@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';

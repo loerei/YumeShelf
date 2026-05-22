@@ -25,8 +25,8 @@
   },
   "telemetry": {
     "provider": "supabase",
-    "endpoint": "https://yumeshelf-telemetry.supabase.co",
     "tableName": "runtime_telemetry",
+    "endpointEnvVar": "PURRITIZE_TELEMETRY_ENDPOINT",
     "apiKeyEnvVar": "PURRITIZE_TELEMETRY_API_KEY",
     "syncLimit": 5000
   }

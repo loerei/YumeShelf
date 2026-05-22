@@ -22,15 +22,15 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
    - The accumulated changelog file `local/changelogs/changelog.<version>.md` is the **absolute source of truth** when publishing a release.
    - When a release is triggered, you must compile and package the release notes using the automated script:
      ```bash
-     npm run compile:release-notes:release
+     MCP tool compile_release_notes:release
      ```
      or:
      ```bash
-     npm run compile:release-notes -- --release
+     MCP tool compile_release_notes -- --release
      ```
      This will generate `local/changelogs/compiled.release-notes.<version>.md` and transition the changelog `status` to `"released"`. Refer to [yumeshelf-release-guide.md](./yumeshelf-release-guide.md) for full compilation, build, asset verification (including `latest.yml`, blockmaps, and signatures), and publishing instructions.
    - > [!NOTE]
-     > Running the compilation script *without* the `--release` flag (e.g. `npm run compile:release-notes`) compiles the notes for local validation while leaving the changelog's status metadata and timestamp **unchanged**. This allows safe previewing of the release notes before finalizing.
+     > Running the compilation script *without* the `--release` flag (e.g. `MCP tool compile_release_notes`) compiles the notes for local validation while leaving the changelog's status metadata and timestamp **unchanged**. This allows safe previewing of the release notes before finalizing.
 
 
 4. **Strict English Language Constraint**:

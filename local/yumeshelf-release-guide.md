@@ -21,11 +21,11 @@ To automatically prepare user-facing, clean release notes:
 1. Run the automated compiler script:
    - **For Dry Run / Validation** (keeps changelog status unchanged):
      ```bash
-     npm run compile:release-notes
+     MCP tool compile_release_notes
      ```
    - **For Final Release** (marks changelog status as `"released"`):
      ```bash
-     npm run compile:release-notes:release
+     MCP tool compile_release_notes:release
      ```
    This will read `local/changelogs/changelog.<version>.md` and:
    - Strip frontmatter.

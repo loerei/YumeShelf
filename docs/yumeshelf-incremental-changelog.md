@@ -1,6 +1,6 @@
 ---
 name: yumeshelf-incremental-changelog
-description: Multi-agent cooperative incremental changelog manager for YumeShelf. Use at the end of each task to document changes incrementally in English inside local/changelogs/changelog.<version>.md. Ensure the active version is confirmed with the user, initialize files if missing, and maintain the frontmatter metadata.
+description: Multi-agent cooperative incremental changelog manager for YumeShelf. Use at the end of each task to document changes incrementally in English inside docs/changelogs/changelog.<version>.md. Ensure the active version is confirmed with the user, initialize files if missing, and maintain the frontmatter metadata.
 ---
 
 # YumeShelf Incremental Changelog Manager
@@ -19,7 +19,7 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
    - If the current version declared in the project's codebase (specifically inside `package.json` at the root) is lower than the active confirmed version you are working on (the one in the changelog), you **MUST** automatically update the `"version"` field in `package.json` to match this target version.
 
 3. **Release Synchronization**:
-   - The accumulated changelog file `local/changelogs/changelog.<version>.md` is the **absolute source of truth** when publishing a release.
+   - The accumulated changelog file `docs/changelogs/changelog.<version>.md` is the **absolute source of truth** when publishing a release.
    - When a release is triggered, you must compile and package the release notes using the automated script:
      ```bash
      MCP tool compile_release_notes:release
@@ -28,7 +28,7 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
      ```bash
      MCP tool compile_release_notes -- --release
      ```
-     This will generate `local/changelogs/compiled.release-notes.<version>.md` and transition the changelog `status` to `"released"`. Refer to [yumeshelf-release-guide.md](./yumeshelf-release-guide.md) for full compilation, build, asset verification (including `latest.yml`, blockmaps, and signatures), and publishing instructions.
+     This will generate `docs/changelogs/compiled.release-notes.<version>.md` and transition the changelog `status` to `"released"`. Refer to [yumeshelf-release-guide.md](./yumeshelf-release-guide.md) for full compilation, build, asset verification (including `latest.yml`, blockmaps, and signatures), and publishing instructions.
    - > [!NOTE]
      > Running the compilation script *without* the `--release` flag (e.g. `MCP tool compile_release_notes`) compiles the notes for local validation while leaving the changelog's status metadata and timestamp **unchanged**. This allows safe previewing of the release notes before finalizing.
 
@@ -37,8 +37,8 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
    - **Both this skill file AND all generated changelog entries MUST be written in English.** This guarantees consistency across different agents and simplifies public release note generation.
 
 5. **Auto-Initialization**:
-   - Check if the target changelog file exists at `local/changelogs/changelog.<version>.md`.
-   - If it **DOES NOT EXIST**: You are the first agent to work on this version. You must automatically create the `local/changelogs/` directory and initialize the `.md` file with the default YAML Frontmatter metadata and empty section headers.
+   - Check if the target changelog file exists at `docs/changelogs/changelog.<version>.md`.
+   - If it **DOES NOT EXIST**: You are the first agent to work on this version. You must automatically create the `docs/changelogs/` directory and initialize the `.md` file with the default YAML Frontmatter metadata and empty section headers.
    - If it **EXISTS**: Read the existing file first to understand the previous changes made by other agents.
 
 6. **Incremental Appending**:
@@ -74,7 +74,7 @@ last_updated_at: "2026-05-19T02:11:18+07:00"
 When starting a new session or task, run the following steps to self-determine the current version:
 1. Propose `git tag -n` (or `git describe --tags --abbrev=0`) using `run_command` to discover the highest released tag in Git.
 2. Read `package.json` to get the current project version.
-3. Check the changelog file `local/changelogs/changelog.<version>.md` for the current version:
+3. Check the changelog file `docs/changelogs/changelog.<version>.md` for the current version:
    - **CRITICAL**: If the changelog file exists and is marked as `status: "released"`, or if `package.json` version matches a released tag, **DO NOT** edit this changelog and **DO NOT** automatically bump the version (e.g. from 1.5.3 to 1.5.4) yourself! In practice, the next version could be a patch (`1.5.4`) or a minor/major release (`1.6.0`). You **MUST** halt and ask the user immediately to confirm the next active development version.
    - If the changelog has `status: "working"`, then you are safe to continue working on that version.
 
@@ -102,7 +102,7 @@ Strictly follow the section definitions from [yumeshelf-release-notes.md](./yume
 - **Verify & Bump Codebase Version**: Once the user has explicitly confirmed the new target version, check the `"version"` field in `package.json`. If it is lower than the confirmed active version, update it to match the confirmed version.
 
 ### Step 2: Check or Initialize the Changelog File
-- Targeted path: `local/changelogs/changelog.<version>.md` (e.g., `local/changelogs/changelog.1.5.3.md`).
+- Targeted path: `docs/changelogs/changelog.<version>.md` (e.g., `docs/changelogs/changelog.1.5.3.md`).
 - If missing:
   - Initialize the new file using the **New Changelog Template** below.
   - Set `status: "working"`, `version: "<version>"`, and `released_at: null`.

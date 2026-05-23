@@ -29,9 +29,9 @@ scratch/
 scripts/test-*.js
 scripts/wolf-*.js
 scripts/save-converter/
-local/changelogs/
-local/*
-!local/*.md
+docs/changelogs/
+docs/*
+!docs/*.md
 \
 .env
 .env.local

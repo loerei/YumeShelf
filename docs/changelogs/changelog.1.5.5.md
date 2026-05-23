@@ -23,9 +23,9 @@ last_updated_at: "2026-05-20T09:10:21.704Z"
 - [save-editor] Implemented strict active element checks to prevent global keyboard shortcuts from interfering during text input, and ensured complete cleanup of the keydown listeners when closing or popout-transitioning the editor overlay.
 - [save-editor] Enabled star icon hover, active gold glowing state, and layout adjustments for all data rows (Gold, Items, Weapons, Armors, Variables, Switches) to accommodate the new pinning action without disrupting existing layouts.
 - [save-editor] Configured the "All" tab to list the default category sections dynamically without duplicates, while keeping pinned variables, switches, items, and gold perfectly synchronized in both their original tab categories and the central Pinned hub tab.
-- [tooling] Upgraded `local/tools/generate-repo-map.js` from brittle Regex-based scans to high-fidelity AST-based parsing using `web-tree-sitter`.
+- [tooling] Upgraded `docs/tools/generate-repo-map.js` from brittle Regex-based scans to high-fidelity AST-based parsing using `web-tree-sitter`.
 - [SOP] Modernized `SOP/01-context-efficiency.md`, `SOP/02-smart-code-mutation.md`, and `SOP/04-release-and-changelog.md` to incorporate AST-driven navigation, Smart Patcher Windows CRLF safety practices, and explicit developer log standards.
-- [SOP] Relocated SOP-related developer tools (`generate-repo-map.js` and `smart-patcher.js`) from `local/tools/` to `SOP/tools/` to centralize AST code-structure parsing and patcher utilities, and updated all corresponding references in the documentation.
+- [SOP] Relocated SOP-related developer tools (`generate-repo-map.js` and `smart-patcher.js`) from `docs/tools/` to `SOP/tools/` to centralize AST code-structure parsing and patcher utilities, and updated all corresponding references in the documentation.
 - [SOP] Implemented a centralized CLI Orchestrator (`SOP/cli.js`) to provide a standardized JSON diagnostic interface for all internal AI tools, eliminating fragmented script execution.
 - [SOP] Decoupled all YumeShelf-specific configurations from the universal SOP directory by implementing a convention-over-configuration strategy with a repository-root `sop.config.json` helper, and generalized all SOP markdown files to replace absolute file paths/URLs with relative, configurable references.
 
@@ -38,7 +38,7 @@ last_updated_at: "2026-05-20T09:10:21.704Z"
 - [i18n] Instrumentized both `src/renderer/i18n.js` and `src/main/startup.js` with comprehensive diagnostic telemetry logging (`[I18N][RENDERER]` and `[MAIN][BOOT]`) to trace appVersion assignment and state transitions.
 - [tests] Created `tests/save-editor-contracts.test.js` validating standard Strategy interfaces, byte-level LZ-String compression alignment (RPG Maker MV), zlib inflation/deflation (RPG Maker MZ), LCG XOR cipher involution and Sum-Checksum byte calculation (Wolf RPG).
 - [tests] Expanded `tests/save-editor-contracts.test.js` with rigorous test cases for `PureJsonFormat` to ensure high-fidelity JSON parsing, round-trip serialization preservation, and strict schema compliance.
-- [save-editor] Fortified `local/yumeshelf-save-editor.md` to document the newly established Strict Test Contracts standard and include modern node:test verification commands.
+- [save-editor] Fortified `docs/yumeshelf-save-editor.md` to document the newly established Strict Test Contracts standard and include modern node:test verification commands.
 - [save-editor] Managed the pinned state globally using prefixed IDs (e.g. 'gold:GOLD', 'variables:id', 'switches:id', 'items:id') and persisted state to localStorage under context-aware keys ('yumeshelf_pinned_${gameKey}').
 - [save-editor] Integrated star-toggle click handlers in createDataRow and checkbox-row to call state.savePinnedVariables and automatically trigger setupTabs() and renderTabContent() to keep the tabs and grid perfectly synchronized.
 - [tooling] Pinned `web-tree-sitter` to version `0.20.8` to match Node.js environment requirements and compiled WASM grammars, implementing custom tree traversal visitors for JavaScript `function_declaration`, `method_definition`, and `lexical_declaration` nodes.

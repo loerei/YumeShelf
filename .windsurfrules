@@ -3,7 +3,7 @@
 You are operating in a workspace that uses the **Purritize MCP Server** for advanced codebase intelligence and safety analysis.
 
 ## Tool Usage & Prompts
-1. Explore the codebase using `generate_repo_map`, `dependency_manager`, and `list_symbols` instead of generic bash.
+1. Explore the codebase using `get_codebase_outline`, `semantic_file_search`, `get_folder_map`, `generate_repo_map`, `dependency_manager`, `list_symbols`, and `search_code` instead of generic bash or reading entire files.
 2. Extract exact code blocks surgically using `get_symbol_source`.
 3. Compile changelogs for release using `compile_release_notes`.
 4. If you need workflow guidance (e.g. testing, releasing, debugging), you MUST fetch the corresponding MCP Prompt provided by the server.

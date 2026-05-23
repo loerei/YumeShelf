@@ -1,5 +1,24 @@
-// @ts-nocheck
-function registerMainIpc({
+import { App, IpcMain, Shell, BrowserWindow } from 'electron';
+import * as fsSync from 'fs';
+import { TelemetryShipper } from '../telemetry/shipper';
+
+export interface RegisterIpcOptions {
+    app: App;
+    ipcMain: IpcMain;
+    shell: Shell;
+    appUpdateServices: any;
+    categoryState: any;
+    languagePackServices: any;
+    libraryState: any;
+    playtimeSessionManager: any;
+    saveFolderResolver: any;
+    saveEditorService: any;
+    startupServices: any;
+    defaultGamesDir: string;
+    paths: any;
+}
+
+export function registerMainIpc({
     app,
     ipcMain,
     shell,
@@ -13,7 +32,7 @@ function registerMainIpc({
     startupServices,
     defaultGamesDir,
     paths
-}) {
+}: RegisterIpcOptions): void {
     ipcMain.handle('get-app-version', async () => app.getVersion());
     ipcMain.handle('get-language-state', async () => languagePackServices.buildLanguageState());
     ipcMain.handle('bootstrap-app', async (event, options = {}) => startupServices.bootstrapAppState(event.sender, options));
@@ -53,11 +72,17 @@ function registerMainIpc({
     ipcMain.handle('check-config', async () => startupServices.resolveLibraryConfig());
     ipcMain.handle('get-default-path', () => defaultGamesDir);
     ipcMain.handle('setup-library', async (_event, type) => libraryState.setupLibrary(type));
-    ipcMain.handle('update-library-config', async (_event, updates = {}) => libraryState.updateLibraryConfig(updates));
+    ipcMain.handle('update-library-config', async (_event, updates = {}) => {
+        const result = await libraryState.updateLibraryConfig(updates);
+        if (updates && 'telemetryEnabled' in updates) {
+            await TelemetryShipper.getInstance().setTelemetryEnabled(updates.telemetryEnabled);
+        }
+        return result;
+    });
     ipcMain.handle('get-games', async () => {
         await playtimeSessionManager.refreshSessions({ recover: true, emit: false });
         const games = await startupServices.loadGamesForConfig(await startupServices.resolveLibraryConfig());
-        return playtimeSessionManager.overlayGames(games).map(game => {
+        return playtimeSessionManager.overlayGames(games).map((game: any) => {
             const { iconData, ...rest } = game;
             return rest;
         });
@@ -136,7 +161,6 @@ function registerMainIpc({
     });
 
     ipcMain.on('open-save-editor-window', (_event, gameKey) => {
-        const { BrowserWindow } = require('electron');
         const saveEditorWin = new BrowserWindow({
             width: 1000,
             height: 700,
@@ -171,8 +195,8 @@ function registerMainIpc({
     let devAutoLaunchState = 'off';
 
     try {
-        if (paths && paths.dbFile && require('fs').existsSync(paths.dbFile)) {
-            const db = JSON.parse(require('fs').readFileSync(paths.dbFile, 'utf8'));
+        if (paths && paths.dbFile && fsSync.existsSync(paths.dbFile)) {
+            const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
             if (db && db.config) {
                 const configVal = db.config.autoLaunch;
                 const value = (configVal === 'minimized') ? 'minimized' : (configVal === 'on' || configVal === 'true' || configVal === true ? 'on' : 'off');
@@ -212,7 +236,7 @@ function registerMainIpc({
                 console.log(`[AUTO-LAUNCH][DEV] Skipped OS startup registration (openAtLogin: ${openAtLogin}, args: ${JSON.stringify(args)})`);
             }
             return { success: true };
-        } catch (error) {
+        } catch (error: any) {
             console.error('[AUTO-LAUNCH] Failed to set startup settings:', error);
             return { success: false, error: error.message };
         }
@@ -223,7 +247,7 @@ function registerMainIpc({
             if (!app.isPackaged) {
                 return devAutoLaunchState;
             }
-            const settings = app.getLoginItemSettings();
+            const settings = app.getLoginItemSettings() as any;
             if (!settings.openAtLogin) return 'off';
             if (settings.args && settings.args.includes('--minimized')) {
                 return 'minimized';
@@ -234,7 +258,3 @@ function registerMainIpc({
         }
     });
 }
-
-module.exports = {
-    registerMainIpc
-};

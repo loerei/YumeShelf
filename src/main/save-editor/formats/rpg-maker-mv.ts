@@ -1,12 +1,20 @@
-// @ts-nocheck
+import { TelemetryShipper } from '../../telemetry/shipper';
 const LZString = require('../../core/lz-string');
 
 class RpgMakerMvFormat {
-    match(fileName) {
+    match(fileName: string): boolean {
         return fileName.endsWith('.rpgsave');
     }
 
-    async decode(rawData) {
+    async decode(rawData: Buffer): Promise<any> {
+        // Log telemetry event for static safety preflight
+        TelemetryShipper.getInstance().track(
+            'src/main/save-editor/formats/rpg-maker-mv.ts',
+            'RpgMakerMvFormat.decode',
+            'save-editor:decode',
+            9
+        );
+
         // Convert Buffer to UTF-8 string first
         const str = rawData.toString('utf8');
         try {
@@ -17,11 +25,12 @@ class RpgMakerMvFormat {
         }
     }
 
-    async encode(jsonData) {
+    async encode(jsonData: any): Promise<Buffer> {
         const compressed = LZString.compressToBase64(JSON.stringify(jsonData));
         // Return as a Buffer object
         return Buffer.from(compressed, 'utf8');
     }
 }
 
-module.exports = new RpgMakerMvFormat();
+const format = new RpgMakerMvFormat();
+module.exports = format;

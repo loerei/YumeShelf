@@ -64,6 +64,14 @@ export function createUpdateNotificationController({
         refs.laterBtn.textContent = activeNotification.secondaryLabel;
         refs.tertiaryBtn.textContent = activeNotification.tertiaryLabel || '';
         refs.tertiaryBtn.style.display = activeNotification.tertiaryLabel ? 'inline-flex' : 'none';
+
+        if (activeNotification.showProgress && activeNotification.progress !== undefined) {
+            refs.progressContainer.style.display = 'block';
+            refs.progressFill.style.width = `${Math.round(activeNotification.progress * 100)}%`;
+        } else {
+            refs.progressContainer.style.display = 'none';
+        }
+
         refs.handle.textContent = activeNotification.handleLabel;
         refs.card.style.display = 'flex';
         refs.handle.style.display = 'none';

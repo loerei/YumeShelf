@@ -93,8 +93,76 @@ function downloadBuffer(urlString, redirectCount = 0, timeoutMs = 8000, onProgre
     });
 }
 
+function downloadFile(urlString, targetPath, redirectCount = 0, timeoutMs = 8000, onProgress = null, userAgentVersion = '0.0.0') {
+    const fsSync = require('fs');
+    return new Promise((resolve, reject) => {
+        if (redirectCount > 5) {
+            reject(new Error('Too many redirects while downloading data.'));
+            return;
+        }
+
+        let requestUrl;
+        try {
+            requestUrl = new URL(urlString);
+        } catch {
+            reject(new Error(`Invalid download URL: ${urlString}`));
+            return;
+        }
+
+        const client = requestUrl.protocol === 'http:' ? http : https;
+        const req = client.get(requestUrl, {
+            headers: {
+                'User-Agent': `YumeShelf/${userAgentVersion}`
+            }
+        }, (res) => {
+            const status = res.statusCode || 0;
+            if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
+                const redirected = new URL(res.headers.location, requestUrl).toString();
+                res.resume();
+                resolve(downloadFile(redirected, targetPath, redirectCount + 1, timeoutMs, onProgress, userAgentVersion));
+                return;
+            }
+
+            if (status !== 200) {
+                res.resume();
+                reject(new Error(`HTTP ${status} while downloading ${requestUrl.toString()}`));
+                return;
+            }
+
+            const total = parseInt(res.headers['content-length'], 10);
+            let downloaded = 0;
+            const fileStream = fsSync.createWriteStream(targetPath);
+            
+            res.pipe(fileStream);
+
+            res.on('data', chunk => {
+                downloaded += chunk.length;
+                if (typeof onProgress === 'function' && total) {
+                    onProgress(downloaded, total);
+                }
+            });
+
+            fileStream.on('finish', () => {
+                fileStream.close();
+                resolve();
+            });
+
+            fileStream.on('error', (err) => {
+                fileStream.close();
+                reject(err);
+            });
+        });
+
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error('Request timed out.'));
+        });
+        req.on('error', reject);
+    });
+}
+
 module.exports = {
     downloadBuffer,
+    downloadFile,
     ensureDir,
     isNetworkLikeError,
     readJsonFile,

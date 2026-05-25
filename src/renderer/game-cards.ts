@@ -44,10 +44,11 @@ export function createGameCardFactory({
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
                 <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>Open Save Folder</span></div>
-                <div class="dropdown-item action-save-editor">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor}</span></div>
-                <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
-                <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
-            </div>
+                <div class=\"dropdown-item action-save-editor\">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor}</span></div>
+                <div class=\"dropdown-item action-auto-translate\">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Auto-Translate</span></div>
+                <div class=\"dropdown-item action-background-run\">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
+                <div class=\"dropdown-item danger action-delete\">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
+                </div>
             <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
@@ -147,6 +148,13 @@ export function createGameCardFactory({
             game.runInBackground = nextRunInBackground;
             const item = card.querySelector('.action-background-run');
             item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
+        };
+        card.querySelector('.action-auto-translate').onclick = async (event) => {
+            event.stopPropagation();
+            const nextAutoTranslate = await electronAPI.toggleAutoTranslate(gameKey);
+            game.autoTranslate = nextAutoTranslate;
+            const item = card.querySelector('.action-auto-translate');
+            item.innerHTML = `${getDropdownActionIcon(nextAutoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Auto-Translate</span>`;
         };
         card.querySelector('.action-delete').onclick = async (event) => {
             event.stopPropagation();

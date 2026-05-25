@@ -21,6 +21,7 @@ function createAppPaths(app, sourceRootDir) {
         ],
         installerFirstLaunchLogFile: path.join(userDataDir, 'install-handoff.log'),
         userLocalesDir: path.join(appDataDir, 'YumeShelf', 'locales'),
+        translatorsDir: path.join(appDataDir, 'YumeShelf', 'translators'),
         languagePackCacheDir: path.join(appDataDir, 'YumeShelf', 'language-pack-cache'),
         languagePackManifestCacheFile: path.join(appDataDir, 'YumeShelf', 'language-pack-cache', 'manifest.json'),
         builtInLocalesDir: path.join(sourceRootDir, 'locales', 'builtins'),

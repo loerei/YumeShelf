@@ -27,6 +27,7 @@ async function startMainRuntime({
     registerMainIpc,
     saveFolderResolver,
     saveEditorService,
+    translationService,
     shell,
     startupServices,
     createMainWindow
@@ -52,6 +53,7 @@ async function startMainRuntime({
         playtimeSessionManager,
         saveFolderResolver,
         saveEditorService,
+        translationService,
         startupServices,
         defaultGamesDir: paths.defaultGamesDir,
         paths

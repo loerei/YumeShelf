@@ -299,6 +299,11 @@
             <button class="update-notification-dismiss" id="update-notification-dismiss-btn" aria-label="Dismiss update notification">×</button>
             <div class="update-notification-eyebrow" id="update-notification-eyebrow">Update ready</div>
             <h2 class="update-notification-title" id="update-notification-title">Updates are ready</h2>
+            <div id="update-notification-progress-container" style="display: none; margin: 5px 0;">
+                <div class="loading-progress-track" style="height: 6px; background: rgba(255,255,255,0.05);">
+                    <div class="loading-progress-bar" id="update-notification-progress-fill" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
+                </div>
+            </div>
             <ul class="update-notification-summary" id="update-notification-summary"></ul>
                 <p class="update-notification-message" id="update-notification-message"></p>
                 <div class="update-notification-actions">

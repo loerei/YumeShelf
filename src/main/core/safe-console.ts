@@ -2,7 +2,10 @@
 const util = require('util');
 
 function isBrokenPipeError(error) {
-    return !!error && (error.code === 'EPIPE' || String(error.message || error).includes('broken pipe'));
+    if (!error) return false;
+    const code = error.code;
+    const message = (error.message || String(error)).toLowerCase();
+    return code === 'EPIPE' || code === 'EOF' || message.includes('broken pipe');
 }
 
 function wrapConsoleMethod(methodName) {
@@ -13,6 +16,14 @@ function wrapConsoleMethod(methodName) {
 
     const isOutputError = methodName === 'error' || methodName === 'warn';
     const stream = isOutputError ? process.stderr : process.stdout;
+
+    // Prevent unhandled stream errors on Windows that cause the app to crash
+    if (process.platform === 'win32' && stream && !stream.__yumeshelfErrorHandled) {
+        stream.on('error', (err) => {
+            if (isBrokenPipeError(err)) return; 
+        });
+        stream.__yumeshelfErrorHandled = true;
+    }
 
     const wrapped = (...args) => {
         try {

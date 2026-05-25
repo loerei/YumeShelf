@@ -1,28 +1,5 @@
-import 'dotenv/config';
-import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import { TelemetryShipper } from './main/telemetry/shipper';
-
-// Import local services via require due to CommonJS module exports
-const { createAppPaths } = require('./main/core/app-paths');
-const { createCategoryState } = require('./main/category-state');
-const { applyVersionOverride, registerPrivilegedSchemes, logBootDiagnostics } = require('./main/core/runtime-bootstrap');
-const { installSafeConsole } = require('./main/core/safe-console');
-const { registerMainIpc } = require('./main/ipc/register');
-const { createInstallHandoffService } = require('./main/install-handoff');
-const { createLanguagePackServices } = require('./main/language-packs/service');
-const { createAppUpdateServices } = require('./main/app-updates');
-const { createLibraryState } = require('./main/library-state');
-const { createPlaytimeSessionManager } = require('./main/playtime-session-manager');
-const { createStartupServices } = require('./main/startup');
-const { startMainRuntime, attachProcessDiagnostics } = require('./main/window/app-lifecycle');
-const { createStatusBroadcaster } = require('./main/window/broadcast-status');
-const { createMainWindow, logStartupDiagnostics } = require('./main/window/main-window');
-const { createSaveEditorService } = require('./main/save-editor');
-const { createIconPipeline } = require('./main/icon-pipeline/service');
-
-const saveFolderResolver = require('./main/save-folder-resolver/index');
+// @ts-nocheck
+const { app, ipcMain, shell, dialog, protocol, BrowserWindow } = require('electron');
 
 if (!app.isPackaged) {
     app.setName('YumeShelfDev');
@@ -42,6 +19,28 @@ app.on('second-instance', () => {
         mainWin.focus();
     }
 });
+const fs = require('fs/promises');
+
+const { createAppPaths } = require('./main/core/app-paths');
+const { createCategoryState } = require('./main/category-state');
+const { applyVersionOverride, registerPrivilegedSchemes, logBootDiagnostics } = require('./main/core/runtime-bootstrap');
+const { installSafeConsole } = require('./main/core/safe-console');
+const { downloadBuffer, ensureDir, isNetworkLikeError, readJsonFile, sha256Hex } = require('./main/core/shared-io');
+const { compareNumericVersions } = require('./main/core/version-utils');
+const { createIconPipeline } = require('./main/icon-pipeline/service');
+const { registerMainIpc } = require('./main/ipc/register');
+const { createInstallHandoffService } = require('./main/install-handoff');
+const { createLanguagePackServices } = require('./main/language-packs/service');
+const { createAppUpdateServices } = require('./main/app-updates');
+const { createLibraryState } = require('./main/library-state');
+const { createPlaytimeSessionManager } = require('./main/playtime-session-manager');
+const saveFolderResolver = require('./main/save-folder-resolver/index');
+const { createStartupServices } = require('./main/startup');
+const { startMainRuntime, attachProcessDiagnostics } = require('./main/window/app-lifecycle');
+const { createStatusBroadcaster } = require('./main/window/broadcast-status');
+const { createMainWindow, logStartupDiagnostics } = require('./main/window/main-window');
+const { createSaveEditorService } = require('./main/save-editor');
+const { TranslationService } = require('./main/translation/translation-service');
 
 applyVersionOverride(app);
 registerPrivilegedSchemes(protocol);
@@ -49,9 +48,10 @@ installSafeConsole();
 
 const paths = createAppPaths(app, __dirname);
 
-// Initialize Telemetry Shipper immediately on boot
-TelemetryShipper.getInstance().initialize(app, paths).catch(err => {
-    console.error('[TELEMETRY] Failed to initialize TelemetryShipper:', err);
+const translationService = new TranslationService({
+    translatorsDir: paths.translatorsDir,
+    appVersion: app.getVersion(),
+    broadcastStatus: createStatusBroadcaster('translation-status')
 });
 
 async function loadDB() {
@@ -62,7 +62,7 @@ async function loadDB() {
     }
 }
 
-async function saveDB(db: any) {
+async function saveDB(db) {
     await fs.writeFile(paths.dbFile, JSON.stringify(db, null, 2));
 }
 
@@ -74,8 +74,8 @@ const languagePackServices = createLanguagePackServices({
 const appUpdateServices = createAppUpdateServices({
     app,
     broadcastStatus: createStatusBroadcaster('app-update-status'),
-    compareVersions: () => 0, // Fallback if required
-    openExternalUrl: (url: string) => shell.openExternal(url),
+    compareVersions: compareNumericVersions,
+    openExternalUrl: (url) => shell.openExternal(url),
     startupNetworkTimeoutMs: 3500
 });
 
@@ -96,14 +96,14 @@ const libraryState = createLibraryState({
     defaultGamesDir: paths.defaultGamesDir,
     dialog,
     fs,
-    fsSync,
+    fsSync: require('fs'),
     loadDB,
     saveDB
 });
 
 const playtimeSessionManager = createPlaytimeSessionManager({
     app,
-    BrowserWindow,
+    BrowserWindow: require('electron').BrowserWindow,
     dbFilePath: paths.dbFile,
     libraryState
 });
@@ -114,14 +114,14 @@ const startupServices = createStartupServices({
     consumePostUpdateMarker: () => appUpdateServices.consumePostUpdateMarker(),
     prepareDeferredInstallOnLaunch: () => appUpdateServices.prepareDeferredInstallOnLaunch(),
     preparePlaytimeSessions: () => playtimeSessionManager.initialize(),
-    overlayPlaytimeSessions: (games: any) => playtimeSessionManager.overlayGames(games),
-    logAppUpdateDebug: (message: string) => appUpdateServices.logDebug(message),
+    overlayPlaytimeSessions: (games) => playtimeSessionManager.overlayGames(games),
+    logAppUpdateDebug: (message) => appUpdateServices.logDebug(message),
     applyLanguagePackUpdates: languagePackServices.applyLanguagePackUpdates,
     buildLanguageState: languagePackServices.buildLanguageState,
     fetchLanguageManifest: languagePackServices.fetchLanguageManifest,
     getLanguagePackUpdateCandidates: languagePackServices.getLanguagePackUpdateCandidates,
     isNetworkLikeError: languagePackServices.isNetworkLikeError,
-    loadGamesForConfig: (config: any) => libraryState.loadGamesForConfig(config),
+    loadGamesForConfig: (config) => libraryState.loadGamesForConfig(config),
     resolveLibraryConfig: () => libraryState.resolveLibraryConfig(),
     getCategoryTree: () => categoryState.getCategoryTree(),
     startupNetworkTimeoutMs: 3500
@@ -134,7 +134,7 @@ const saveEditorService = createSaveEditorService({
 
 const iconPipeline = createIconPipeline({
     app,
-    protocol,
+    protocol: require('electron').protocol,
     ipcMain,
     sourceRootDir: __dirname
 });
@@ -157,6 +157,7 @@ app.whenReady().then(async () => {
         startupServices,
         categoryState,
         saveEditorService,
+        translationService,
         logStartupDiagnostics,
         paths,
         registerMainIpc,
@@ -164,13 +165,12 @@ app.whenReady().then(async () => {
     });
 });
 
-app.on('window-all-closed', () => {
-    // Flush telemetry before closing the application
-    TelemetryShipper.getInstance().flush().catch(err => {
-        console.error('[TELEMETRY] Failed to flush telemetry on exit:', err);
-    }).finally(() => {
-        if (process.platform !== 'darwin') {
-            app.quit();
-        }
-    });
+
+app.on('window-all-closed', async () => {
+    if (translationService) {
+        await translationService.stopProxy();
+    }
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
 });

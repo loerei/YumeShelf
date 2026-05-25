@@ -22,6 +22,7 @@ const api: ElectronAPI = {
     setSaveFolderOverride: (data: any) => ipcRenderer.invoke('set-save-folder-override', data),
     toggleFavorite: (gameKey: string) => ipcRenderer.invoke('toggle-favorite', gameKey),
     toggleRunInBackground: (gameKey: string) => ipcRenderer.invoke('toggle-run-in-background', gameKey),
+    toggleAutoTranslate: (gameKey: string) => ipcRenderer.invoke('toggle-auto-translate', gameKey),
     openFolder: () => ipcRenderer.send('open-folder'),
     getDefaultPath: () => ipcRenderer.invoke('get-default-path'),
     getIcon: (path: string) => ipcRenderer.invoke('get-icon', path),
@@ -50,6 +51,9 @@ const api: ElectronAPI = {
     },
     onGamePlaytimeUpdated: (callback: (payload: any) => void) => {
         ipcRenderer.on('game-playtime-updated', (_event, payload) => callback(payload));
+    },
+    onTranslationStatus: (callback: (payload: any) => void) => {
+        ipcRenderer.on('translation-status', (_event, payload) => callback(payload));
     },
     // Save Editor
     listSaveFiles: (gameKey: string) => ipcRenderer.invoke('save-editor:list-files', gameKey),

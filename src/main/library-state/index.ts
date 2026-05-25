@@ -118,6 +118,7 @@ function createLibraryState({
                 relativePath: gameKey,
                 playtime: existingRecord?.playtime || 0,
                 runInBackground: existingRecord?.runInBackground || false,
+                autoTranslate: existingRecord?.autoTranslate || false,
                 saveFolderOverride: existingRecord?.saveFolderOverride || undefined
             };
         }
@@ -252,6 +253,30 @@ function createLibraryState({
         return nextRunInBackground;
     }
 
+    async function toggleAutoTranslate(gameKey) {
+        const db = await loadDB();
+        const games = readStoredGames(db);
+        if (games[gameKey]) {
+            games[gameKey].autoTranslate = !games[gameKey].autoTranslate;
+            db.games = games;
+            await saveDB(db);
+            return games[gameKey].autoTranslate;
+        }
+
+        const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+        const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
+        if (!targetGroup) return false;
+        const nextAutoTranslate = !targetGroup.autoTranslate;
+        targetGroup.instances.forEach((instance) => {
+            if (games[instance.gameKey]) {
+                games[instance.gameKey].autoTranslate = nextAutoTranslate;
+            }
+        });
+        db.games = games;
+        await saveDB(db);
+        return nextAutoTranslate;
+    }
+
     async function addPlaytime(gameKey, durationMs) {
         const db = await loadDB();
         const games = readStoredGames(db);
@@ -355,6 +380,7 @@ function createLibraryState({
         setupLibrary,
         toggleFavorite,
         toggleRunInBackground,
+        toggleAutoTranslate,
         updateLibraryConfig
     };
 }

@@ -2,6 +2,7 @@
 export function bindIpcEvents({
     electronAPI,
     bootController,
+    updateNotificationFeature,
     getAllGames,
     getCurrentSort,
     setAllGames,
@@ -32,5 +33,31 @@ export function bindIpcEvents({
         console.log(`[FRONTEND] Fetched ${games.length} games after game-playtime-updated.`);
         setAllGames(games);
         sortGames(getCurrentSort());
+    });
+
+    electronAPI.onTranslationStatus((payload) => {
+        const isBlocking = ['preparing', 'downloading', 'extracting-binaries'].includes(payload.status);
+        
+        if (isBlocking) {
+            const messageMap = {
+                'preparing': 'Preparing Auto-Translator...',
+                'downloading': `Downloading Translator (${Math.round((payload.progress || 0) * 100)}%)...`,
+                'extracting-binaries': 'Extracting Translator binaries...'
+            };
+
+            bootController.show({
+                key: null,
+                fallbackText: messageMap[payload.status] || 'Setting up translation...',
+                showProgress: true,
+                progress: payload.progress,
+                mode: 'startup'
+            });
+            return;
+        }
+
+        // Hide blocking screen when ready or finished
+        if (payload.status === 'ready' || payload.status === 'error') {
+            setTimeout(() => bootController.hide(), 800);
+        }
     });
 }

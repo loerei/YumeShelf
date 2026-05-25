@@ -13,12 +13,12 @@ export interface RegisterIpcOptions {
     playtimeSessionManager: any;
     saveFolderResolver: any;
     saveEditorService: any;
+    translationService: any;
     startupServices: any;
     defaultGamesDir: string;
     paths: any;
 }
-
-export function registerMainIpc({
+function registerMainIpc({
     app,
     ipcMain,
     shell,
@@ -29,6 +29,7 @@ export function registerMainIpc({
     playtimeSessionManager,
     saveFolderResolver,
     saveEditorService,
+    translationService,
     startupServices,
     defaultGamesDir,
     paths
@@ -95,6 +96,12 @@ export function registerMainIpc({
     ipcMain.handle('remove-game-category', async (_event, { gameId, categoryId }) => categoryState.removeGameFromCategory(gameId, categoryId));
     ipcMain.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
         try {
+            const record = await libraryState.getGameRecord(gameKey);
+            if (record && record.autoTranslate) {
+                await translationService.prepareTranslator(gameKey, exePath);
+            } else {
+                await translationService.removeTranslator(exePath);
+            }
             await playtimeSessionManager.launchTrackedGame(gameKey, exePath, runInBackground);
         } catch (error) {
             console.error(`[PLAYTIME][SESSIONS] failed to launch tracked game ${gameKey}:`, error);
@@ -110,6 +117,7 @@ export function registerMainIpc({
     ipcMain.handle('rename-game', async (_event, { gameKey, newName }) => libraryState.renameGame(gameKey, newName));
     ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
     ipcMain.handle('toggle-run-in-background', async (_event, gameKey) => libraryState.toggleRunInBackground(gameKey));
+    ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState.toggleAutoTranslate(gameKey));
     ipcMain.on('reveal-game', (_event, targetPath) => shell.showItemInFolder(targetPath));
     ipcMain.on('open-path', (_event, targetPath) => shell.openPath(targetPath));
     ipcMain.handle('delete-game', async (_event, targetPath) => shell.trashItem(targetPath));
@@ -258,3 +266,7 @@ export function registerMainIpc({
         }
     });
 }
+
+module.exports = {
+    registerMainIpc
+};

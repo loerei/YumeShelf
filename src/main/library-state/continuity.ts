@@ -182,6 +182,7 @@ function buildLogicalGames(records, assignments = {}) {
             exePath: primaryRecord.exePath,
             favorite: orderedRecords.some((record) => !!record.favorite),
             runInBackground: primaryRecord.runInBackground || false,
+            autoTranslate: primaryRecord.autoTranslate || false,
             folderName: primaryRecord.folderName,
             folderPath: primaryRecord.folderPath,
             gameId,

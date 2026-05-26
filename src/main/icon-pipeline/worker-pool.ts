@@ -55,8 +55,16 @@ function createWorkerPool({ app, sourceRootDir }) {
     }
 
     function buildExtractFileIconPath() {
-        return path.join(app.getAppPath(), 'node_modules', 'extract-file-icon')
-            .replace('app.asar', 'app.asar.unpacked');
+        const candidate = path.join(app.getAppPath(), 'node_modules', 'extract-file-icon');
+        if (fsSync.existsSync(candidate)) {
+            return candidate.replace('app.asar', 'app.asar.unpacked');
+        }
+        // Fallback for development if app.getAppPath() resolves to dist/
+        const devCandidate = path.join(app.getAppPath(), '..', 'node_modules', 'extract-file-icon');
+        if (fsSync.existsSync(devCandidate)) {
+            return devCandidate;
+        }
+        return candidate.replace('app.asar', 'app.asar.unpacked');
     }
 
     function recycleWorker(worker, reason) {
@@ -80,12 +88,21 @@ function createWorkerPool({ app, sourceRootDir }) {
 
         worker.__workerId = workerId;
         worker.__healthy = false;
+        worker.__ready = false;
 
         worker.stdout.on('data', (data) => process.stdout.write(`[NW${workerId} STDOUT] ${data}`));
         worker.stderr.on('data', (data) => process.stderr.write(`[NW${workerId} STDERR] ${data}`));
 
         worker.on('message', (msg) => {
-            if (!msg || msg.id === undefined) return;
+            if (!msg) return;
+            if (msg.type === 'ready') {
+                worker.__ready = true;
+                if (typeof worker.__onReady === 'function') {
+                    worker.__onReady();
+                }
+                return;
+            }
+            if (msg.id === undefined) return;
             const pending = pendingIconRequests.get(msg.id);
             if (pending) {
                 clearTimeout(pending.timeout);
@@ -135,29 +152,49 @@ function createWorkerPool({ app, sourceRootDir }) {
 
     function probeIconWorker(worker, attempt) {
         return new Promise((resolve) => {
-            const probeId = `probe-${worker.pid}-${attempt}-${Date.now()}`;
+            const timeoutMs = 3000 + (attempt - 1) * 2000;
+            let timeout;
 
-            const timeout = setTimeout(() => {
-                pendingIconRequests.delete(probeId);
-                resolve(false);
-            }, 3000);
+            const runProbe = () => {
+                const probeId = `probe-${worker.pid}-${attempt}-${Date.now()}`;
 
-            pendingIconRequests.set(probeId, {
-                worker,
-                timeout,
-                resolve: ({ meta }) => {
-                    const rawLength = meta && typeof meta.rawLength === 'number' ? meta.rawLength : 0;
-                    const ok = rawLength > 0;
-                    resolve(ok);
-                }
-            });
+                timeout = setTimeout(() => {
+                    pendingIconRequests.delete(probeId);
+                    resolve(false);
+                }, timeoutMs);
 
-            worker.send({
-                type: 'extract',
-                id: probeId,
-                path: ICON_WORKER_PROBE_PATH,
-                extPath: buildExtractFileIconPath()
-            });
+                pendingIconRequests.set(probeId, {
+                    worker,
+                    timeout,
+                    resolve: ({ meta }) => {
+                        const rawLength = meta && typeof meta.rawLength === 'number' ? meta.rawLength : 0;
+                        const ok = rawLength > 0;
+                        resolve(ok);
+                    }
+                });
+
+                worker.send({
+                    type: 'extract',
+                    id: probeId,
+                    path: ICON_WORKER_PROBE_PATH,
+                    extPath: buildExtractFileIconPath()
+                });
+            };
+
+            if (worker.__ready) {
+                runProbe();
+            } else {
+                timeout = setTimeout(() => {
+                    worker.__onReady = null;
+                    resolve(false);
+                }, timeoutMs);
+
+                worker.__onReady = () => {
+                    clearTimeout(timeout);
+                    worker.__onReady = null;
+                    runProbe();
+                };
+            }
         });
     }
 

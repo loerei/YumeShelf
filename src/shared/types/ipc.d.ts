@@ -27,6 +27,11 @@ export interface ElectronAPI {
     setSaveFolderOverride: (data: any) => Promise<any>;
     toggleFavorite: (gameKey: string) => Promise<any>;
     toggleRunInBackground: (gameKey: string) => Promise<any>;
+    toggleAutoTranslate: (gameKey: string) => Promise<any>;
+    checkTranslationSupport: (gameKey: string) => Promise<any>;
+    startTranslationSync: (data: { gameKey: string, targetLang: string }) => Promise<any>;
+    cancelTranslationSync: (gameKey: string) => Promise<any>;
+    moveTranslationQueue: (data: { gameKey: string, direction: 'up' | 'down' }) => Promise<any>;
     openFolder: () => void;
     getDefaultPath: () => Promise<any>;
     getIcon: (path: string) => Promise<any>;

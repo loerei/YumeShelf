@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
+// Send ready message immediately on startup to signal healthy process boot
+if (process.send) {
+    process.send({ type: 'ready' });
+}
+
 function summarizePathFlavor(targetPath) {
     return {
         hasForwardSlash: targetPath.includes('/'),

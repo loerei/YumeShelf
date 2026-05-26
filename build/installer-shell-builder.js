@@ -7,7 +7,7 @@ module.exports = {
   },
   files: [
     'src/installer-shell/**/*',
-    'src/shared/**/*',
+    { from: 'dist/shared', to: 'src/shared' },
     'src/styles/theme.css',
     'src/locales/builtins/*.json',
     'language-packs/packs/*.json',

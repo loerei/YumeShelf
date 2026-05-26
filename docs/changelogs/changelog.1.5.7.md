@@ -3,12 +3,16 @@ version: "1.5.7"
 status: "released"
 released_at: "null"
 last_updated_by: "release-compiler-script"
-last_updated_at: "2026-05-26T12:23:41.296Z"
+last_updated_at: "2026-05-26T12:36:32.292Z"
 ---
 
 # YumeShelf Changelog - v1.5.7
 
 ## ✨ What's New
+
+> [!WARNING]
+> **Manual Update Required for v1.5.6 Users**
+> A bug in the YumeShelf v1.5.6 updater UI prevents the in-app update progress from rendering, which can cause the app to appear stuck or unresponsive when updating. If your in-app updater does not automatically trigger on restart, please manually download and run the v1.5.7 setup from the [Releases Page](https://github.com/loerei/YumeShelf/releases/tag/v1.5.7). 
 
 - [translation-system] Added a new game translation extraction system with initial support for games running on the RPG Maker and Unity engines.
 

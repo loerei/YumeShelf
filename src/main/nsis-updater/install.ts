@@ -1,7 +1,34 @@
-// @ts-nocheck
-const fs = require('fs/promises');
+import * as fs from 'fs/promises';
 
-export async function installDownloadedUpdateNow(context, releaseMetadata = {}) {
+export interface InstallContext {
+    postUpdateMarkerFile: string;
+    releasePageUrl: string;
+    stateFiles: {
+        getValidatedDownloadedStateForVersion: (version: string) => Promise<any>;
+        clearDeferredInstallState: () => Promise<void>;
+        clearDownloadedState: () => Promise<void>;
+        getValidatedDeferredInstallState: () => Promise<any>;
+        writeDeferredInstallState: (state: any) => Promise<void>;
+    };
+    installerHandoff: {
+        buildReleaseMetadata: (updateInfo: any, override: any) => any;
+        launchInstallerAndQuit: (options: any) => Promise<any>;
+        prepareInstallPhase: (options: any) => Promise<void>;
+        writePostUpdateMarker: (metadata: any) => Promise<void>;
+    };
+    summarizeReadyUpdateFromState: (state: any, patch?: any) => any;
+    checkForUpdates: () => Promise<any>;
+    emitStatus: (payload: any) => void;
+    summarizeUpdateState: (payload: any) => any;
+    VERBOSE_UPDATE_LOG?: boolean;
+    appendUpdateLog: (message: string) => Promise<any> | any;
+    app: any;
+    compareVersions: (a: string, b: string) => number;
+    resolveRuntime: () => any;
+    prepareDeferredInstallOnLaunch: () => Promise<any>;
+}
+
+export async function installDownloadedUpdateNow(context: InstallContext, releaseMetadata: any = {}): Promise<any> {
     const {
         postUpdateMarkerFile,
         stateFiles,
@@ -59,14 +86,14 @@ export async function installDownloadedUpdateNow(context, releaseMetadata = {}) 
             await fs.unlink(postUpdateMarkerFile);
         } catch {}
         return {
-            error: String((error && error.message) || error || ''),
+            error: String((error as any)?.message || error || ''),
             ok: false,
             reason: 'launch-failed'
         };
     }
 }
 
-export async function scheduleInstallOnNextLaunch(context, releaseMetadata = {}) {
+export async function scheduleInstallOnNextLaunch(context: InstallContext, releaseMetadata: any = {}): Promise<any> {
     const {
         releasePageUrl,
         stateFiles,
@@ -125,7 +152,7 @@ export async function scheduleInstallOnNextLaunch(context, releaseMetadata = {})
     };
 }
 
-export async function prepareDeferredInstallOnLaunch(context) {
+export async function prepareDeferredInstallOnLaunch(context: InstallContext): Promise<any> {
     const {
         app,
         compareVersions,
@@ -164,7 +191,7 @@ export async function prepareDeferredInstallOnLaunch(context) {
     };
 }
 
-export async function beginDeferredInstallOnLaunch(context) {
+export async function beginDeferredInstallOnLaunch(context: InstallContext): Promise<any> {
     const {
         app,
         releasePageUrl,
@@ -242,9 +269,9 @@ export async function beginDeferredInstallOnLaunch(context) {
             await fs.unlink(postUpdateMarkerFile);
         } catch {}
         await clearDeferredInstallState();
-        await appendUpdateLog(`deferred-install launch-failed error=${String((error && error.stack) || error || '')}`);
+        await appendUpdateLog(`deferred-install launch-failed error=${String((error as any)?.stack || error || '')}`);
         return {
-            error: String((error && error.message) || error || ''),
+            error: String((error as any)?.message || error || ''),
             launched: false,
             pending: false,
             reason: 'launch-failed'

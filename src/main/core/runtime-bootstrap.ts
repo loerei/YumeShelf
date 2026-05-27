@@ -1,5 +1,6 @@
-// @ts-nocheck
-function applyVersionOverride(app) {
+import { App, Protocol } from 'electron';
+
+export function applyVersionOverride(app: App): void {
     const originalGetVersion = app.getVersion.bind(app);
     const readOverrideVersion = () => {
         const overrideArg = process.argv.find(arg => /^-\d+\.\d+\.\d+/.test(arg));
@@ -21,7 +22,7 @@ function applyVersionOverride(app) {
     }
 }
 
-function registerPrivilegedSchemes(protocol) {
+export function registerPrivilegedSchemes(protocol: Protocol): void {
     protocol.registerSchemesAsPrivileged([
         {
             scheme: 'game-icon',
@@ -35,15 +36,15 @@ function registerPrivilegedSchemes(protocol) {
     ]);
 }
 
-function safeGetPath(app, name) {
+function safeGetPath(app: App, name: any): string {
     try {
         return app.getPath(name);
-    } catch (err) {
+    } catch (err: any) {
         return `ERROR:${String((err && err.message) || err)}`;
     }
 }
 
-function logBootDiagnostics(app) {
+export function logBootDiagnostics(app: App): void {
     console.log(`[MAIN][BOOT] summary=${JSON.stringify({
         pid: process.pid,
         argv: process.argv,
@@ -59,9 +60,3 @@ function logBootDiagnostics(app) {
         appDataEnv: process.env.APPDATA || null
     })}`);
 }
-
-module.exports = {
-    applyVersionOverride,
-    registerPrivilegedSchemes,
-    logBootDiagnostics
-};

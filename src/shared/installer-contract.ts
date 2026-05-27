@@ -1,13 +1,12 @@
-// @ts-nocheck
-const fs = require('fs/promises');
+import * as fs from 'fs/promises';
 
-function escapeIniValue(value) {
+export function escapeIniValue(value: any): string {
     return String(value ?? '').replace(/\r?\n/g, ' ').trim();
 }
 
-function parseInstallerContract(text) {
-    const sections = {};
-    let currentSection = null;
+export function parseInstallerContract(text: string | null | undefined): Record<string, Record<string, string>> {
+    const sections: Record<string, Record<string, string>> = {};
+    let currentSection: string | null = null;
     const lines = String(text || '').split(/\r?\n/);
     for (const rawLine of lines) {
         const line = rawLine.trim();
@@ -33,8 +32,8 @@ function parseInstallerContract(text) {
     return sections;
 }
 
-function serializeInstallerContract(sections) {
-    const chunks = [];
+export function serializeInstallerContract(sections: Record<string, Record<string, any>>): string {
+    const chunks: string[] = [];
     for (const [sectionName, sectionValues] of Object.entries(sections || {})) {
         chunks.push(`[${sectionName}]`);
         for (const [key, value] of Object.entries(sectionValues || {})) {
@@ -45,19 +44,12 @@ function serializeInstallerContract(sections) {
     return `${chunks.join('\n').trim()}\n`;
 }
 
-async function readInstallerContract(filePath) {
+export async function readInstallerContract(filePath: string): Promise<Record<string, Record<string, string>>> {
     const rawText = await fs.readFile(filePath, 'utf8');
     return parseInstallerContract(rawText);
 }
 
-async function writeInstallerContract(filePath, sections) {
+export async function writeInstallerContract(filePath: string, sections: Record<string, Record<string, any>>): Promise<void> {
     const output = serializeInstallerContract(sections);
     await fs.writeFile(filePath, output, 'utf8');
 }
-
-module.exports = {
-    parseInstallerContract,
-    readInstallerContract,
-    serializeInstallerContract,
-    writeInstallerContract
-};

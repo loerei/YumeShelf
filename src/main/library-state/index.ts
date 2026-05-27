@@ -1,30 +1,32 @@
-// @ts-nocheck
-const scanner = require('./scanner');
-const continuity = require('./continuity');
+import * as scanner from './scanner';
+import * as continuity from './continuity';
+import * as config from './config';
+import * as loader from './loader';
+import * as actions from './actions';
 
-const {
+export const {
     MAX_LIBRARY_MAX_DEPTH,
     MIN_LIBRARY_MAX_DEPTH,
     DEFAULT_LIBRARY_MAX_DEPTH,
     clampLibraryMaxDepth
 } = scanner;
 
-const {
+export const {
     buildLogicalGameId
 } = continuity;
 
-const {
+export const {
     resolveLibraryConfig,
     setupLibrary,
     updateLibraryConfig,
     resolveLibraryFolderToOpen
-} = require('./config');
+} = config;
 
-const {
+export const {
     loadGamesForConfig
-} = require('./loader');
+} = loader;
 
-const {
+export const {
     renameGame,
     toggleFavorite,
     toggleRunInBackground,
@@ -33,7 +35,7 @@ const {
     finalizeTrackedSession,
     getGameRecord,
     setSaveFolderOverride
-} = require('./actions');
+} = actions;
 
 /**
  * Shared context interface for library state operations
@@ -48,7 +50,7 @@ export interface LibraryContext {
     saveDB: (db: any) => Promise<void>;
 }
 
-function createLibraryState(options: LibraryContext) {
+export function createLibraryState(options: LibraryContext) {
     const context: LibraryContext = {
         categoryState: options.categoryState,
         defaultGamesDir: options.defaultGamesDir,
@@ -60,27 +62,18 @@ function createLibraryState(options: LibraryContext) {
     };
 
     return {
-        addPlaytime: (gameKey, durationMs) => addPlaytime(context, gameKey, durationMs),
-        finalizeTrackedSession: (gameKey, durationMs, endedAt, exePath) => finalizeTrackedSession(context, gameKey, durationMs, endedAt, exePath),
-        getGameRecord: (gameKey) => getGameRecord(context, gameKey),
-        loadGamesForConfig: (config) => loadGamesForConfig(context, config),
-        renameGame: (gameKey, newName) => renameGame(context, gameKey, newName),
+        addPlaytime: (gameKey: string, durationMs: number) => addPlaytime(context, gameKey, durationMs),
+        finalizeTrackedSession: (gameKey: string, durationMs: number, endedAt: number, exePath?: string) => finalizeTrackedSession(context, gameKey, durationMs, endedAt, exePath),
+        getGameRecord: (gameKey: string) => getGameRecord(context, gameKey),
+        loadGamesForConfig: (config: any) => loadGamesForConfig(context, config),
+        renameGame: (gameKey: string, newName: string) => renameGame(context, gameKey, newName),
         resolveLibraryConfig: () => resolveLibraryConfig(context),
         resolveLibraryFolderToOpen: () => resolveLibraryFolderToOpen(context),
-        setSaveFolderOverride: (gameKey, folderPath) => setSaveFolderOverride(context, gameKey, folderPath),
-        setupLibrary: (type) => setupLibrary(context, type),
-        toggleFavorite: (gameKey) => toggleFavorite(context, gameKey),
-        toggleRunInBackground: (gameKey) => toggleRunInBackground(context, gameKey),
-        toggleAutoTranslate: (gameKey) => toggleAutoTranslate(context, gameKey),
-        updateLibraryConfig: (updates) => updateLibraryConfig(context, updates)
+        setSaveFolderOverride: (gameKey: string, folderPath: string) => setSaveFolderOverride(context, gameKey, folderPath),
+        setupLibrary: (type: 'default' | 'custom') => setupLibrary(context, type),
+        toggleFavorite: (gameKey: string) => toggleFavorite(context, gameKey),
+        toggleRunInBackground: (gameKey: string) => toggleRunInBackground(context, gameKey),
+        toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),
+        updateLibraryConfig: (updates: any) => updateLibraryConfig(context, updates)
     };
 }
-
-module.exports = {
-    MAX_LIBRARY_MAX_DEPTH,
-    MIN_LIBRARY_MAX_DEPTH,
-    DEFAULT_LIBRARY_MAX_DEPTH,
-    buildLogicalGameId,
-    clampLibraryMaxDepth,
-    createLibraryState
-};

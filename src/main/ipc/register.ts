@@ -19,7 +19,8 @@ export interface RegisterIpcOptions {
     defaultGamesDir: string;
     paths: any;
 }
-function registerMainIpc({
+
+export function registerMainIpc({
     app,
     ipcMain,
     shell,
@@ -308,7 +309,3 @@ function registerMainIpc({
         }
     });
 }
-
-module.exports = {
-    registerMainIpc
-};

@@ -1,8 +1,4 @@
-// @ts-nocheck
-const scanner = require('./scanner');
-const continuity = require('./continuity');
-
-const {
+import {
     normalizeLibraryConfigShape,
     normalizePathForComparison,
     buildGameKey,
@@ -10,34 +6,35 @@ const {
     getSmartName,
     collectGameCandidates,
     dedupeCandidates,
-    isPlainObject
-} = scanner;
+    isPlainObject,
+    LibraryConfig
+} from './scanner';
 
-const {
+import {
     buildLegacyMigrationMap,
     mapStoredGamesByFolderPath,
     buildMoveMigrationMap,
     normalizeGameRecord,
     buildLogicalGames
-} = continuity;
+} from './continuity';
 
-function readStoredGames(db) {
+function readStoredGames(db: any): Record<string, any> {
     return isPlainObject(db.games) ? db.games : {};
 }
 
-function readLegacyGames(db) {
+function readLegacyGames(db: any): any[] {
     return Object.entries(db)
-        .filter(([key, value]) => key !== 'config' && key !== 'games' && isPlainObject(value) && typeof value.folderPath === 'string' && typeof value.exePath === 'string')
-        .map(([legacyKey, value]) => ({ legacyKey, ...value }));
+        .filter(([key, value]) => key !== 'config' && key !== 'games' && isPlainObject(value) && typeof (value as any).folderPath === 'string' && typeof (value as any).exePath === 'string')
+        .map(([legacyKey, value]) => ({ legacyKey, ...(value as any) }));
 }
 
-function removeLegacyGames(db) {
+function removeLegacyGames(db: any): void {
     for (const { legacyKey } of readLegacyGames(db)) {
         delete db[legacyKey];
     }
 }
 
-async function loadGamesForConfig(context, config) {
+export async function loadGamesForConfig(context: any, config: LibraryConfig): Promise<any[]> {
     const { categoryState, fs, fsSync, loadDB, saveDB } = context;
     const normalizedConfig = normalizeLibraryConfigShape(config);
     if (!normalizedConfig.libraryPath || !fsSync.existsSync(normalizedConfig.libraryPath)) return [];
@@ -55,7 +52,7 @@ async function loadGamesForConfig(context, config) {
         libraryPath: normalizedConfig.libraryPath,
         storedGames
     });
-    const nextGames = {};
+    const nextGames: Record<string, any> = {};
 
     for (const candidate of candidates) {
         const gameKey = buildGameKey(normalizedConfig.libraryPath, candidate.folderPath);
@@ -66,7 +63,7 @@ async function loadGamesForConfig(context, config) {
             || moveMigrationMap.get(folderPathKey)
             || null;
         const folderName = getLeafFolderName(candidate.folderPath);
-        let stats;
+        let stats: any;
         try {
             stats = await fs.stat(candidate.folderPath);
         } catch {
@@ -102,7 +99,3 @@ async function loadGamesForConfig(context, config) {
         : { assignments: {} };
     return buildLogicalGames(normalizedGames, categorySnapshot.assignments || {});
 }
-
-module.exports = {
-    loadGamesForConfig
-};

@@ -1,8 +1,22 @@
-// @ts-nocheck
-const fsSync = require('fs');
-const path = require('path');
+import * as fsSync from 'fs';
+import * as path from 'path';
 
-function readPortableEnvironment() {
+export interface PortableEnvironment {
+    detected: boolean;
+    explicitPortableExe: string;
+    portableAppFilename: string;
+    portableDir: string;
+}
+
+export interface RuntimeUpdateStrategy {
+    artifactKind: 'nsis-installer' | 'portable-exe';
+    channel: 'nsis' | 'development' | 'portable-legacy';
+    manualFallbackReason: 'manual-installer-required' | 'not-packaged' | null;
+    supportsInPlaceApply: boolean;
+    supportsUpdater: boolean;
+}
+
+export function readPortableEnvironment(): PortableEnvironment {
     const explicitPortableExe = String(process.env.PORTABLE_EXECUTABLE_FILE || '').trim();
     const portableDir = String(process.env.PORTABLE_EXECUTABLE_DIR || '').trim();
     const portableAppFilename = String(process.env.PORTABLE_EXECUTABLE_APP_FILENAME || '').trim();
@@ -14,7 +28,7 @@ function readPortableEnvironment() {
     };
 }
 
-function resolveRuntimeUpdateStrategy(app, isFakeVersionRun) {
+export function resolveRuntimeUpdateStrategy(app: any, isFakeVersionRun: () => boolean): RuntimeUpdateStrategy {
     if (app.isPackaged) {
         return {
             artifactKind: 'nsis-installer',
@@ -55,7 +69,7 @@ function resolveRuntimeUpdateStrategy(app, isFakeVersionRun) {
     };
 }
 
-function probeWritableDir(dirPath) {
+export function probeWritableDir(dirPath: string): { ok: boolean; reason: string | null } {
     const stamp = `${process.pid}-${Date.now()}`;
     const sourcePath = path.join(dirPath, `yumeshelf-update-probe-${stamp}.tmp`);
     const targetPath = path.join(dirPath, `yumeshelf-update-probe-${stamp}.moved.tmp`);
@@ -65,7 +79,7 @@ function probeWritableDir(dirPath) {
         fsSync.renameSync(sourcePath, targetPath);
         fsSync.unlinkSync(targetPath);
         return { ok: true, reason: null };
-    } catch (error) {
+    } catch (error: any) {
         return {
             ok: false,
             reason: String((error && error.code) || 'not-writable').toLowerCase()
@@ -73,7 +87,7 @@ function probeWritableDir(dirPath) {
     }
 }
 
-function resolvePortableExecutablePath(app) {
+export function resolvePortableExecutablePath(app: any): { exePath: string; dirPath: string; source: string } {
     const portableEnvironment = readPortableEnvironment();
     if (portableEnvironment.explicitPortableExe && fsSync.existsSync(portableEnvironment.explicitPortableExe)) {
         return {
@@ -101,10 +115,3 @@ function resolvePortableExecutablePath(app) {
         source: 'app-exe'
     };
 }
-
-module.exports = {
-    probeWritableDir,
-    readPortableEnvironment,
-    resolvePortableExecutablePath,
-    resolveRuntimeUpdateStrategy
-};

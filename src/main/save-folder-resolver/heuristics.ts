@@ -1,13 +1,16 @@
-// @ts-nocheck
-const path = require('path');
-const fs = require('fs/promises');
-const { exists, normalizeForSearch } = require('./utils');
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import { exists, normalizeForSearch } from './utils';
+import { ResolvedSaveInfo } from './resolvers/engine-resolvers';
 
 const SAVE_DIR_NAMES = /^(save|saves|savedata|save_data|savefiles)$/i;
 const SAVE_EXTENSIONS = /\.(sav|save|rpgsave|rvdata2|dat|ksd|sol)$/i;
 const MAX_HEURISTIC_DEPTH = 3;
 
-async function deepenSaveFolder(foundPath) {
+export async function deepenSaveFolder(foundPath: string): Promise<string>;
+export async function deepenSaveFolder(foundPath: null | undefined): Promise<null>;
+export async function deepenSaveFolder(foundPath: string | null | undefined): Promise<string | null>;
+export async function deepenSaveFolder(foundPath: string | null | undefined): Promise<string | null | undefined> {
     if (!foundPath) return foundPath;
     try {
         const rootStat = await fs.stat(foundPath);
@@ -30,7 +33,7 @@ async function deepenSaveFolder(foundPath) {
     return foundPath;
 }
 
-async function heuristicSaveScan(exeDir, depth = 0) {
+export async function heuristicSaveScan(exeDir: string, depth = 0): Promise<ResolvedSaveInfo | null> {
     if (depth > MAX_HEURISTIC_DEPTH) return null;
     if (depth === 0) console.log(`[SAVE-RESOLVER][HEURISTIC] Scanning ${exeDir}...`);
 
@@ -43,7 +46,7 @@ async function heuristicSaveScan(exeDir, depth = 0) {
                 const files = await fs.readdir(candidate).catch(() => []);
                 const hasSaveFiles = files.some((file) => SAVE_EXTENSIONS.test(file));
                 if (hasSaveFiles || files.length > 0) {
-                    return { path: candidate, engine: null, confidence: 'medium' };
+                    return { path: candidate, engine: 'unknown', confidence: 'medium' };
                 }
             }
         }
@@ -60,7 +63,7 @@ async function heuristicSaveScan(exeDir, depth = 0) {
     return null;
 }
 
-async function appDataFuzzyMatch(exeDir, exeStem) {
+export async function appDataFuzzyMatch(exeDir: string, exeStem: string): Promise<ResolvedSaveInfo | null> {
     console.log(`[SAVE-RESOLVER][APPDATA] Fuzzy matching stem: ${exeStem}`);
     if (exeStem.length < 3) return null;
 
@@ -109,9 +112,3 @@ async function appDataFuzzyMatch(exeDir, exeStem) {
 
     return null;
 }
-
-module.exports = {
-    deepenSaveFolder,
-    heuristicSaveScan,
-    appDataFuzzyMatch
-};

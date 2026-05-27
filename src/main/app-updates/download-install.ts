@@ -1,6 +1,4 @@
-// @ts-nocheck
-
-async function startBackgroundDownload(context) {
+export async function startBackgroundDownload(context: any): Promise<any> {
     const update = context.latestKnownUpdate || await context.checkForAppUpdate();
     await context.appendUpdateLog(`startBackgroundDownload update=${JSON.stringify(context.summarizeAppUpdate(update))}`);
     if (!update?.available) {
@@ -44,7 +42,7 @@ async function startBackgroundDownload(context) {
     };
 }
 
-async function restartAndInstallDownloadedUpdate(context) {
+export async function restartAndInstallDownloadedUpdate(context: any): Promise<any> {
     const update = context.latestKnownUpdate || await context.checkForAppUpdate();
     await context.appendUpdateLog(`restartAndInstallDownloadedUpdate update=${JSON.stringify(context.summarizeAppUpdate(update))}`);
     if (!update?.available) {
@@ -63,7 +61,7 @@ async function restartAndInstallDownloadedUpdate(context) {
     return result;
 }
 
-async function scheduleInstallOnNextLaunch(context) {
+export async function scheduleInstallOnNextLaunch(context: any): Promise<any> {
     const update = context.latestKnownUpdate || await context.checkForAppUpdate();
     await context.appendUpdateLog(`scheduleInstallOnNextLaunch update=${JSON.stringify(context.summarizeAppUpdate(update))}`);
     if (!update?.available) {
@@ -92,9 +90,3 @@ async function scheduleInstallOnNextLaunch(context) {
         update: context.summarizeAppUpdate(context.latestKnownUpdate)
     };
 }
-
-module.exports = {
-    startBackgroundDownload,
-    restartAndInstallDownloadedUpdate,
-    scheduleInstallOnNextLaunch
-};

@@ -76,6 +76,7 @@
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
     "@types/electron": "^1.4.38",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.9.1",
     "concurrently": "^9.2.1",
     "copyfiles": "^2.4.1",

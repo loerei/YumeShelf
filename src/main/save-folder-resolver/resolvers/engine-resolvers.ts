@@ -1,9 +1,14 @@
-// @ts-nocheck
-const path = require('path');
-const fs = require('fs/promises');
-const { exists, globMatch, getExeStem, normalizeForSearch } = require('../utils');
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import { exists, globMatch, getExeStem } from '../utils';
 
-async function resolveRpgMakerSave(exeDir) {
+export interface ResolvedSaveInfo {
+    path: string;
+    engine: string;
+    confidence: 'high' | 'medium' | 'low';
+}
+
+export async function resolveRpgMakerSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
     const saveDir = path.join(exeDir, 'www', 'save');
     if (await exists(saveDir)) {
         return { path: saveDir, engine: 'rpg-mv-mz', confidence: 'high' };
@@ -11,7 +16,7 @@ async function resolveRpgMakerSave(exeDir) {
     return null;
 }
 
-async function resolveRpgVxAceSave(exeDir) {
+export async function resolveRpgVxAceSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
     const saveDir = path.join(exeDir, 'Save');
     if (await exists(saveDir)) {
         return { path: saveDir, engine: 'rpg-vxace', confidence: 'high' };
@@ -22,7 +27,7 @@ async function resolveRpgVxAceSave(exeDir) {
     return null;
 }
 
-async function resolveRenPySave(exeDir, exeStem) {
+export async function resolveRenPySave(exeDir: string, exeStem: string): Promise<ResolvedSaveInfo | null> {
     const renpySaveRoot = path.join(process.env.APPDATA || '', 'RenPy');
     if (!await exists(renpySaveRoot)) return null;
 
@@ -48,7 +53,7 @@ async function resolveRenPySave(exeDir, exeStem) {
     return null;
 }
 
-async function resolveUnitySave(exeDir) {
+export async function resolveUnitySave(exeDir: string): Promise<ResolvedSaveInfo | null> {
     const localCandidates = ['saves', 'save', 'SaveData', 'save_data'];
     for (const dirName of localCandidates) {
         const candidate = path.join(exeDir, dirName);
@@ -95,7 +100,7 @@ async function resolveUnitySave(exeDir) {
     return null;
 }
 
-async function resolveUnrealSave(exeDir) {
+export async function resolveUnrealSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
     const exeStem = getExeStem(exeDir);
     const localAppData = process.env.LOCALAPPDATA || '';
 
@@ -132,18 +137,9 @@ async function resolveUnrealSave(exeDir) {
     return null;
 }
 
-async function resolveWolfRpgSave(exeDir) {
+export async function resolveWolfRpgSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
     if (await globMatch(exeDir, /\.sav$/i)) {
         return { path: exeDir, engine: 'wolf-rpg', confidence: 'medium' };
     }
     return null;
 }
-
-module.exports = {
-    resolveRpgMakerSave,
-    resolveRpgVxAceSave,
-    resolveRenPySave,
-    resolveUnitySave,
-    resolveUnrealSave,
-    resolveWolfRpgSave
-};

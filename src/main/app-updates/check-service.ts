@@ -1,10 +1,18 @@
-// @ts-nocheck
-const { resolveRuntimeUpdateStrategy } = require('./runtime-strategy');
-const { isFakeVersionRun } = require('../nsis-updater');
-const { APP_UPDATE_RELEASE_PAGE_URL } = require('./feed-resolver');
-const { isNetworkLikeError } = require('../core/shared-io');
+import { resolveRuntimeUpdateStrategy } from './runtime-strategy';
+import { isFakeVersionRun } from '../nsis-updater';
+import { APP_UPDATE_RELEASE_PAGE_URL } from './feed-resolver';
+import { isNetworkLikeError } from '../core/shared-io';
 
-async function checkForAppUpdate(context) {
+export interface AppUpdateCheckContext {
+    app: any;
+    latestKnownUpdate: any;
+    appendUpdateLog(message: string): Promise<void>;
+    nsisUpdaterService: any;
+    enrichUpdateInfo(update: any, runtimeStrategy: any): Promise<any>;
+    summarizeAppUpdate(update: any): any;
+}
+
+export async function checkForAppUpdate(context: AppUpdateCheckContext): Promise<any> {
     const initial = {
         attempted: true,
         available: false,
@@ -63,7 +71,7 @@ async function checkForAppUpdate(context) {
         }, runtimeStrategy);
         await context.appendUpdateLog(`checkForAppUpdate available strategy=${JSON.stringify(runtimeStrategy)} result=${JSON.stringify(context.summarizeAppUpdate(context.latestKnownUpdate))}`);
         return context.latestKnownUpdate;
-    } catch (error) {
+    } catch (error: any) {
         const offline = isNetworkLikeError(error);
         context.latestKnownUpdate = {
             ...initial,
@@ -76,7 +84,3 @@ async function checkForAppUpdate(context) {
         return context.latestKnownUpdate;
     }
 }
-
-module.exports = {
-    checkForAppUpdate
-};

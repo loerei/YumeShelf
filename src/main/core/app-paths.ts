@@ -1,7 +1,33 @@
-// @ts-nocheck
-const path = require('path');
+import * as path from 'path';
 
-function createAppPaths(app, sourceRootDir) {
+export interface AppPathsInstance {
+    isDev: boolean;
+    defaultGamesDir: string;
+    dbFile: string;
+    categoryStateFile: string;
+    installerFirstLaunchMarkerFile: string;
+    installerFirstLaunchFallbackMarkerFiles: string[];
+    installerFirstLaunchLogFile: string;
+    userLocalesDir: string;
+    translatorsDir: string;
+    languagePackCacheDir: string;
+    languagePackManifestCacheFile: string;
+    builtInLocalesDir: string;
+    localLanguagePackRoot: string;
+    localLanguagePackManifestFile: string;
+    localLanguagePacksDir: string;
+    mainWindowIconPath: string;
+    preloadPath: string;
+    indexHtmlPath: string;
+}
+
+export interface ElectronAppInterface {
+    isPackaged: boolean;
+    getPath(name: string): string;
+    getName(): string;
+}
+
+export function createAppPaths(app: ElectronAppInterface, sourceRootDir: string): AppPathsInstance {
     const isDev = !app.isPackaged;
     const userDataDir = app.getPath('userData');
     const appDataDir = app.getPath('appData');
@@ -35,7 +61,3 @@ function createAppPaths(app, sourceRootDir) {
             : path.join(sourceRootDir, 'renderer', 'index.html')
     };
 }
-
-module.exports = {
-    createAppPaths
-};

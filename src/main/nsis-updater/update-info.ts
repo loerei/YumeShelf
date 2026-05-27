@@ -1,13 +1,12 @@
-// @ts-nocheck
-const crypto = require('crypto');
-const fsSync = require('fs');
-const { normalizeText } = require('./runtime');
+import * as crypto from 'crypto';
+import * as fsSync from 'fs';
+import { normalizeText } from './runtime';
 
-function pickReleaseName(updateInfo) {
+export function pickReleaseName(updateInfo: any): string {
     return normalizeText(updateInfo?.releaseName || updateInfo?.version || '', '');
 }
 
-function pickReleaseNotes(updateInfo) {
+export function pickReleaseNotes(updateInfo: any): string {
     const raw = updateInfo?.releaseNotes;
     if (Array.isArray(raw)) {
         return raw
@@ -18,16 +17,16 @@ function pickReleaseNotes(updateInfo) {
     return normalizeText(raw, '');
 }
 
-function pickExpectedSha512(updateInfo) {
+export function pickExpectedSha512(updateInfo: any): string | null {
     const files = Array.isArray(updateInfo?.files) ? updateInfo.files : [];
-    const fileEntry = files.find((entry) => {
+    const fileEntry = files.find((entry: any) => {
         const candidate = String(entry?.url || entry?.name || entry?.path || '').toLowerCase();
         return candidate.endsWith('.exe');
     }) || files[0];
     return normalizeText(fileEntry?.sha512 || updateInfo?.sha512, null);
 }
 
-async function sha512FileBase64(filePath) {
+export async function sha512FileBase64(filePath: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const hash = crypto.createHash('sha512');
         const stream = fsSync.createReadStream(filePath);
@@ -37,7 +36,7 @@ async function sha512FileBase64(filePath) {
     });
 }
 
-function buildDownloadedState(updateInfo, installerPath, releaseUrl) {
+export function buildDownloadedState(updateInfo: any, installerPath: string, releaseUrl: string) {
     return {
         downloadedAt: new Date().toISOString(),
         expectedSha512: pickExpectedSha512(updateInfo),
@@ -49,7 +48,7 @@ function buildDownloadedState(updateInfo, installerPath, releaseUrl) {
     };
 }
 
-function normalizeDownloadedState(raw) {
+export function normalizeDownloadedState(raw: any) {
     if (!raw || typeof raw !== 'object') return null;
     if (!raw.version || !raw.installerPath) return null;
     return {
@@ -62,11 +61,3 @@ function normalizeDownloadedState(raw) {
         version: String(raw.version)
     };
 }
-
-module.exports = {
-    buildDownloadedState,
-    normalizeDownloadedState,
-    pickReleaseName,
-    pickReleaseNotes,
-    sha512FileBase64
-};

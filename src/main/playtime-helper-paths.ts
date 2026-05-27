@@ -1,49 +1,43 @@
-// @ts-nocheck
-const fs = require('fs');
-const path = require('path');
+import * as fs from 'fs';
+import * as path from 'path';
 
-const HELPER_EXE_NAME = 'playtime-helper.exe';
+export const HELPER_EXE_NAME = 'playtime-helper.exe';
 
-function getRepoRoot() {
+export function getRepoRoot(): string {
     return path.resolve(__dirname, '..', '..');
 }
 
-function getNativeHelperProjectDir() {
+export function getNativeHelperProjectDir(): string {
     return path.join(getRepoRoot(), 'native', 'playtime-helper');
 }
 
-function getNativeHelperReleasePath() {
+export function getNativeHelperReleasePath(): string {
     return path.join(getNativeHelperProjectDir(), 'target', 'release', HELPER_EXE_NAME);
 }
 
-function getPackagedHelperRelativePath() {
+export function getPackagedHelperRelativePath(): string {
     return path.join('native', 'playtime-helper', HELPER_EXE_NAME);
 }
 
-function resolvePackagedHelperPath(resourcesPath) {
+export function resolvePackagedHelperPath(resourcesPath: string): string {
     return path.join(resourcesPath, getPackagedHelperRelativePath());
 }
 
-function resolvePlaytimeHelperPath({ app, resourcesPath = process.resourcesPath } = {}) {
+export interface ResolvePlaytimeHelperOptions {
+    app?: { isPackaged: boolean };
+    resourcesPath?: string;
+}
+
+export function resolvePlaytimeHelperPath({ app, resourcesPath = process.resourcesPath }: ResolvePlaytimeHelperOptions = {}): string {
     if (app?.isPackaged) {
         return resolvePackagedHelperPath(resourcesPath);
     }
     return getNativeHelperReleasePath();
 }
 
-function assertPlaytimeHelperExists(helperPath) {
+export function assertPlaytimeHelperExists(helperPath: string): string {
     if (!fs.existsSync(helperPath)) {
         throw new Error(`Playtime helper was not found: ${helperPath}`);
     }
     return helperPath;
 }
-
-module.exports = {
-    HELPER_EXE_NAME,
-    assertPlaytimeHelperExists,
-    getNativeHelperProjectDir,
-    getNativeHelperReleasePath,
-    getPackagedHelperRelativePath,
-    resolvePackagedHelperPath,
-    resolvePlaytimeHelperPath
-};

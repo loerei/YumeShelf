@@ -1,12 +1,40 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const path = require('path');
-const { ensureCurrentInstallerCacheState } = require('./cache-inputs');
-const { buildDownloadedState, sha512FileBase64, pickReleaseName, pickReleaseNotes } = require('./update-info');
-const { classifyErrorReason } = require('./runtime');
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import * as path from 'path';
+import { buildDownloadedState, sha512FileBase64, pickReleaseName, pickReleaseNotes } from './update-info';
+import { classifyErrorReason } from './runtime';
 
-export async function downloadUpdate(context, releaseMetadata = {}) {
+export interface DownloadUpdateContext {
+    releasePageUrl: string;
+    updateCacheDir: string;
+    state: {
+        updater: any;
+        latestUpdateInfo: any;
+        latestDownloadedEvent: any;
+        activeDownloadPromise: any;
+        updaterFeedKey: any;
+    };
+    stateFiles: {
+        clearDeferredInstallState: () => Promise<void>;
+        clearDownloadedState: () => Promise<void>;
+        getValidatedDeferredInstallState: () => Promise<any>;
+        getValidatedDownloadedStateForVersion: (version: string) => Promise<any>;
+        readDeferredInstallState: () => Promise<any>;
+        readDownloadedState: () => Promise<any>;
+        writeDeferredInstallState: (state: any) => Promise<void>;
+        writeDownloadedState: (state: any) => Promise<void>;
+    };
+    emitStatus: (payload: any) => void;
+    summarizeUpdateState: (payload: any) => any;
+    ensureDir: (dirPath: string) => Promise<void>;
+    configureUpdaterFeed: (runtime: any) => Promise<{ updater: any; feedOverride: any }>;
+    resolveRuntime: () => any;
+    appendUpdateLog: (message: string) => Promise<any> | any;
+    VERBOSE_UPDATE_LOG?: boolean;
+    checkForUpdates: () => Promise<any>;
+}
+
+export async function downloadUpdate(context: DownloadUpdateContext, releaseMetadata: any = {}): Promise<any> {
     const {
         releasePageUrl,
         updateCacheDir,
@@ -67,7 +95,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
         try {
             const version = updateState.updateInfo.version;
             const files = Array.isArray(updateState.updateInfo.files) ? updateState.updateInfo.files : [];
-            const fileEntry = files.find((entry) => {
+            const fileEntry = files.find((entry: any) => {
                 const candidate = String(entry?.url || entry?.name || entry?.path || '').toLowerCase();
                 return candidate.endsWith('.exe');
             }) || files[0];
@@ -99,7 +127,8 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
             }
 
             const acceptRanges = headRes.headers.get('accept-ranges');
-            const contentLength = parseInt(headRes.headers.get('content-length'), 10);
+            const contentLengthStr = headRes.headers.get('content-length');
+            const contentLength = contentLengthStr ? parseInt(contentLengthStr, 10) : NaN;
 
             if (VERBOSE_UPDATE_LOG) {
                 await appendUpdateLog(`nsis-updater parallel-download info accept-ranges=${acceptRanges} content-length=${contentLength}`);
@@ -109,7 +138,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
             let lastBytes = 0;
             let lastTime = Date.now();
 
-            function reportProgress(bytesRead) {
+            function reportProgress(bytesRead: number) {
                 downloadedTotal += bytesRead;
                 const now = Date.now();
                 const elapsed = now - lastTime;
@@ -142,7 +171,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
 
                 const fileStream = fsSync.createWriteStream(installerPath);
                 try {
-                    for await (const chunk of res.body) {
+                    for await (const chunk of res.body as any) {
                         const chunkBuf = Buffer.from(chunk);
                         fileStream.write(chunkBuf);
                         reportProgress(chunkBuf.length);
@@ -183,7 +212,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
                             }
 
                             let offset = start;
-                            for await (const chunk of res.body) {
+                            for await (const chunk of res.body as any) {
                                 const chunkBuf = Buffer.from(chunk);
                                 await fileHandle.write(chunkBuf, 0, chunkBuf.length, offset);
                                 offset += chunkBuf.length;
@@ -225,7 +254,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
                 updateState.updateInfo,
                 installerPath,
                 releaseMetadata.releaseUrl || updateState.releaseUrl
-            );
+            ) as any;
             if (releaseMetadata.releaseName) {
                 downloadedState.releaseName = releaseMetadata.releaseName;
             }
@@ -264,7 +293,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
             };
         } catch (error) {
             const reason = classifyErrorReason(error);
-            await appendUpdateLog(`nsis-updater download-failed reason=${reason} error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(`nsis-updater download-failed reason=${reason} error=${String((error as any)?.stack || error || '')}`);
             
             // Cleanup partial file on failure to avoid corruption in next check
             try {
@@ -273,7 +302,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
             } catch {}
 
             emitStatus({
-                error: String((error && error.message) || error || ''),
+                error: String((error as any)?.message || error || ''),
                 phase: 'download-failed',
                 reason,
                 update: summarizeUpdateState({
@@ -291,7 +320,7 @@ export async function downloadUpdate(context, releaseMetadata = {}) {
             });
             return {
                 ok: false,
-                error: String((error && error.message) || error || ''),
+                error: String((error as any)?.message || error || ''),
                 reason
             };
         } finally {

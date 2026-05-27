@@ -1,30 +1,33 @@
-// @ts-nocheck
-const path = require('path');
-const { exists } = require('./utils');
-const { detectEngine } = require('./engine-detectors');
-const {
+import * as path from 'path';
+import { exists, getExeStemFromPath } from './utils';
+import { detectEngine } from './engine-detectors';
+import {
     resolveRpgMakerSave,
     resolveRpgVxAceSave,
     resolveRenPySave,
     resolveUnitySave,
     resolveUnrealSave,
-    resolveWolfRpgSave
-} = require('./resolvers/engine-resolvers');
-const { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } = require('./heuristics');
+    resolveWolfRpgSave,
+    ResolvedSaveInfo
+} from './resolvers/engine-resolvers';
+import { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } from './heuristics';
 
-async function resolveRenPySaveWithStem(exeStem) {
+async function resolveRenPySaveWithStem(exeStem: string): Promise<ResolvedSaveInfo | null> {
     return await resolveRenPySave(process.cwd(), exeStem);
 }
 
-async function resolveSaveFolder(exePath, saveFolderOverride) {
+export async function resolveSaveFolder(
+    exePath: string,
+    saveFolderOverride?: string | null
+): Promise<ResolvedSaveInfo | { path: null; engine: string | null; confidence: 'none' }> {
     console.log(`[SAVE-RESOLVER][START] ${exePath}`);
     if (saveFolderOverride && await exists(saveFolderOverride)) {
         return { path: saveFolderOverride, engine: 'user-override', confidence: 'high' };
     }
 
     const exeDir = path.dirname(exePath);
-    const exeStem = require('./utils').getExeStemFromPath(exePath);
-    let result = null;
+    const exeStem = getExeStemFromPath(exePath);
+    let result: ResolvedSaveInfo | null = null;
 
     const engine = await detectEngine(exeDir);
     if (engine) {
@@ -56,7 +59,7 @@ async function resolveSaveFolder(exePath, saveFolderOverride) {
     if (!result) {
         const heuristicResult = await heuristicSaveScan(exeDir);
         if (heuristicResult) {
-            heuristicResult.engine = heuristicResult.engine || engine;
+            heuristicResult.engine = heuristicResult.engine || (engine || 'unknown');
             console.log(`[SAVE-RESOLVER][SUCCESS] Heuristic found: ${heuristicResult.path}`);
             result = heuristicResult;
         }
@@ -83,7 +86,4 @@ async function resolveSaveFolder(exePath, saveFolderOverride) {
     return { path: null, engine: engine, confidence: 'none' };
 }
 
-module.exports = {
-    detectEngine,
-    resolveSaveFolder
-};
+export { detectEngine };

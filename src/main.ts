@@ -1,5 +1,26 @@
-// @ts-nocheck
-const { app, ipcMain, shell, dialog, protocol, BrowserWindow } = require('electron');
+import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
+import fs from 'fs/promises';
+import fsSync from 'fs';
+
+import { createAppPaths } from './main/core/app-paths';
+import { createCategoryState } from './main/category-state';
+import { applyVersionOverride, registerPrivilegedSchemes, logBootDiagnostics } from './main/core/runtime-bootstrap';
+import { installSafeConsole } from './main/core/safe-console';
+import { compareNumericVersions } from './main/core/version-utils';
+import { createIconPipeline } from './main/icon-pipeline/service';
+import { registerMainIpc } from './main/ipc/register';
+import { createInstallHandoffService } from './main/install-handoff';
+import { createLanguagePackServices } from './main/language-packs/service';
+import { createAppUpdateServices } from './main/app-updates';
+import { createLibraryState } from './main/library-state';
+import { createPlaytimeSessionManager } from './main/playtime-session-manager';
+import * as saveFolderResolver from './main/save-folder-resolver/index';
+import { createStartupServices } from './main/startup';
+import { startMainRuntime, attachProcessDiagnostics } from './main/window/app-lifecycle';
+import { createStatusBroadcaster } from './main/window/broadcast-status';
+import { createMainWindow, logStartupDiagnostics } from './main/window/main-window';
+import { createSaveEditorService } from './main/save-editor';
+import { TranslationService } from './main/translation/translation-service';
 
 if (!app.isPackaged) {
     app.setName('YumeShelfDev');
@@ -19,28 +40,6 @@ app.on('second-instance', () => {
         mainWin.focus();
     }
 });
-const fs = require('fs/promises');
-
-const { createAppPaths } = require('./main/core/app-paths');
-const { createCategoryState } = require('./main/category-state');
-const { applyVersionOverride, registerPrivilegedSchemes, logBootDiagnostics } = require('./main/core/runtime-bootstrap');
-const { installSafeConsole } = require('./main/core/safe-console');
-const { downloadBuffer, ensureDir, isNetworkLikeError, readJsonFile, sha256Hex } = require('./main/core/shared-io');
-const { compareNumericVersions } = require('./main/core/version-utils');
-const { createIconPipeline } = require('./main/icon-pipeline/service');
-const { registerMainIpc } = require('./main/ipc/register');
-const { createInstallHandoffService } = require('./main/install-handoff');
-const { createLanguagePackServices } = require('./main/language-packs/service');
-const { createAppUpdateServices } = require('./main/app-updates');
-const { createLibraryState } = require('./main/library-state');
-const { createPlaytimeSessionManager } = require('./main/playtime-session-manager');
-const saveFolderResolver = require('./main/save-folder-resolver/index');
-const { createStartupServices } = require('./main/startup');
-const { startMainRuntime, attachProcessDiagnostics } = require('./main/window/app-lifecycle');
-const { createStatusBroadcaster } = require('./main/window/broadcast-status');
-const { createMainWindow, logStartupDiagnostics } = require('./main/window/main-window');
-const { createSaveEditorService } = require('./main/save-editor');
-const { TranslationService } = require('./main/translation/translation-service');
 
 applyVersionOverride(app);
 registerPrivilegedSchemes(protocol);
@@ -54,7 +53,7 @@ const translationService = new TranslationService({
     broadcastStatus: createStatusBroadcaster('translation-status')
 });
 
-async function loadDB() {
+async function loadDB(): Promise<any> {
     try {
         return JSON.parse(await fs.readFile(paths.dbFile, 'utf8'));
     } catch {
@@ -62,7 +61,7 @@ async function loadDB() {
     }
 }
 
-async function saveDB(db) {
+async function saveDB(db: any): Promise<void> {
     await fs.writeFile(paths.dbFile, JSON.stringify(db, null, 2));
 }
 
@@ -75,7 +74,7 @@ const appUpdateServices = createAppUpdateServices({
     app,
     broadcastStatus: createStatusBroadcaster('app-update-status'),
     compareVersions: compareNumericVersions,
-    openExternalUrl: (url) => shell.openExternal(url),
+    openExternalUrl: (url: string) => shell.openExternal(url),
     startupNetworkTimeoutMs: 3500
 });
 
@@ -96,14 +95,14 @@ const libraryState = createLibraryState({
     defaultGamesDir: paths.defaultGamesDir,
     dialog,
     fs,
-    fsSync: require('fs'),
+    fsSync,
     loadDB,
     saveDB
 });
 
 const playtimeSessionManager = createPlaytimeSessionManager({
     app,
-    BrowserWindow: require('electron').BrowserWindow,
+    BrowserWindow,
     dbFilePath: paths.dbFile,
     libraryState
 });
@@ -114,14 +113,14 @@ const startupServices = createStartupServices({
     consumePostUpdateMarker: () => appUpdateServices.consumePostUpdateMarker(),
     prepareDeferredInstallOnLaunch: () => appUpdateServices.prepareDeferredInstallOnLaunch(),
     preparePlaytimeSessions: () => playtimeSessionManager.initialize(),
-    overlayPlaytimeSessions: (games) => playtimeSessionManager.overlayGames(games),
-    logAppUpdateDebug: (message) => appUpdateServices.logDebug(message),
+    overlayPlaytimeSessions: (games: any) => playtimeSessionManager.overlayGames(games),
+    logAppUpdateDebug: (message: string) => appUpdateServices.logDebug(message),
     applyLanguagePackUpdates: languagePackServices.applyLanguagePackUpdates,
     buildLanguageState: languagePackServices.buildLanguageState,
     fetchLanguageManifest: languagePackServices.fetchLanguageManifest,
     getLanguagePackUpdateCandidates: languagePackServices.getLanguagePackUpdateCandidates,
     isNetworkLikeError: languagePackServices.isNetworkLikeError,
-    loadGamesForConfig: (config) => libraryState.loadGamesForConfig(config),
+    loadGamesForConfig: (config: any) => libraryState.loadGamesForConfig(config),
     resolveLibraryConfig: () => libraryState.resolveLibraryConfig(),
     getCategoryTree: () => categoryState.getCategoryTree(),
     startupNetworkTimeoutMs: 3500
@@ -134,7 +133,7 @@ const saveEditorService = createSaveEditorService({
 
 const iconPipeline = createIconPipeline({
     app,
-    protocol: require('electron').protocol,
+    protocol,
     ipcMain,
     sourceRootDir: __dirname
 });
@@ -164,7 +163,6 @@ app.whenReady().then(async () => {
         createMainWindow
     });
 });
-
 
 app.on('window-all-closed', async () => {
     if (translationService) {

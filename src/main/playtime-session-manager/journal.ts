@@ -1,18 +1,41 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
-const SESSION_SCHEMA_VERSION = 1;
-const SESSION_READ_RETRY_DELAY_MS = 40;
-const SESSION_READ_RETRY_COUNT = 3;
+export const SESSION_SCHEMA_VERSION = 1;
+export const SESSION_READ_RETRY_DELAY_MS = 40;
+export const SESSION_READ_RETRY_COUNT = 3;
 const ACTIVE_SESSION_STATUSES = new Set(['launching', 'running', 'finalizing']);
 
-function toInteger(value, fallback = 0) {
+export interface SessionJournal {
+    schemaVersion: number;
+    sessionId: string;
+    gameKey: string;
+    exePath: string;
+    cwd: string;
+    mode: 'attach' | 'launch';
+    helperPid: number;
+    rootPid: number;
+    startedAt: number;
+    lastHeartbeatAt: number;
+    accruedMs: number;
+    status: string;
+    endedAt: number;
+    failureReason: string;
+    filePath: string;
+}
+
+export interface ActiveGameState {
+    active: boolean;
+    accruedMs: number;
+    sessionIds: string[];
+}
+
+function toInteger(value: any, fallback = 0): number {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function normalizeSessionJournal(raw, filePath) {
+export function normalizeSessionJournal(raw: any, filePath: string): SessionJournal {
     const sessionId = String(raw?.sessionId || path.basename(filePath, path.extname(filePath))).trim();
     const startedAt = toInteger(raw?.startedAt, Date.now());
     const lastHeartbeatAt = toInteger(raw?.lastHeartbeatAt, startedAt);
@@ -35,27 +58,27 @@ function normalizeSessionJournal(raw, filePath) {
     };
 }
 
-function isActiveJournal(journal) {
+export function isActiveJournal(journal: SessionJournal): boolean {
     return ACTIVE_SESSION_STATUSES.has(journal.status);
 }
 
-function isTransientSessionReadError(error) {
+export function isTransientSessionReadError(error: any): boolean {
     if (!error) return false;
     if (error.code === 'ENOENT') return true;
     return error instanceof SyntaxError;
 }
 
-function delay(ms) {
+export function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function readSessionJournal(filePath) {
-    let lastError = null;
+export async function readSessionJournal(filePath: string): Promise<SessionJournal> {
+    let lastError: any = null;
     for (let attempt = 0; attempt < SESSION_READ_RETRY_COUNT; attempt += 1) {
         try {
             const raw = JSON.parse(await fs.readFile(filePath, 'utf8'));
             return normalizeSessionJournal(raw, filePath);
-        } catch (error) {
+        } catch (error: any) {
             lastError = error;
             if (!isTransientSessionReadError(error) || attempt === SESSION_READ_RETRY_COUNT - 1) {
                 throw error;
@@ -66,7 +89,7 @@ async function readSessionJournal(filePath) {
     throw lastError;
 }
 
-async function writeSessionJournal(filePath, journal) {
+export async function writeSessionJournal(filePath: string, journal: SessionJournal): Promise<SessionJournal> {
     const nextPayload = {
         ...journal,
         schemaVersion: SESSION_SCHEMA_VERSION
@@ -77,18 +100,18 @@ async function writeSessionJournal(filePath, journal) {
     return normalizeSessionJournal(nextPayload, filePath);
 }
 
-async function removeSessionJournal(filePath) {
+export async function removeSessionJournal(filePath: string): Promise<void> {
     try {
         await fs.unlink(filePath);
-    } catch (error) {
+    } catch (error: any) {
         if (error && error.code !== 'ENOENT') {
             throw error;
         }
     }
 }
 
-function aggregateActiveGameState(journals) {
-    const stateByGameKey = new Map();
+export function aggregateActiveGameState(journals: SessionJournal[]): Map<string, ActiveGameState> {
+    const stateByGameKey = new Map<string, ActiveGameState>();
     journals.filter(isActiveJournal).forEach((journal) => {
         if (!journal.gameKey) return;
         const current = stateByGameKey.get(journal.gameKey) || {
@@ -103,14 +126,3 @@ function aggregateActiveGameState(journals) {
     });
     return stateByGameKey;
 }
-
-module.exports = {
-    SESSION_SCHEMA_VERSION,
-    normalizeSessionJournal,
-    isActiveJournal,
-    readSessionJournal,
-    writeSessionJournal,
-    removeSessionJournal,
-    aggregateActiveGameState,
-    delay
-};

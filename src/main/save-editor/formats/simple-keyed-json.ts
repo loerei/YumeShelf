@@ -1,32 +1,18 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
-/**
- * Universal format handler for keyed/reversed Base64 JSON saves.
- * Commonly used by certain Unity and independent engine games.
- * Scheme: SecretKey + JSON -> Base64 -> Reverse String.
- */
 class SimpleKeyedJsonFormat {
+    keyCache: Map<string, string>;
+
     constructor() {
-        /** @type {Map<string, string>} */
         this.keyCache = new Map();
     }
 
-    /**
-     * Matches SaveData_XX.json or any JSON file that doesn't start with a brace.
-     * @param {string} fileName 
-     */
-    match(fileName) {
+    match(fileName: string): boolean {
         return fileName.toLowerCase().endsWith('.json') && fileName.toLowerCase().includes('savedata');
     }
 
-    /**
-     * @param {Buffer} rawData 
-     * @param {import('../../../shared/types/save-editor').GamePaths} paths 
-     * @param {string} fileName 
-     */
-    async decode(rawData, paths, fileName) {
+    async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         const str = rawData.toString('utf8').trim();
         
         // If it already looks like JSON, it's not our format
@@ -38,7 +24,7 @@ class SimpleKeyedJsonFormat {
         const reversed = str.split('').reverse().join('');
         
         // 2. Base64 Decode
-        let decoded;
+        let decoded: string;
         try {
             decoded = Buffer.from(reversed, 'base64').toString('utf8');
         } catch (e) {
@@ -85,12 +71,7 @@ class SimpleKeyedJsonFormat {
         }
     }
 
-    /**
-     * @param {any} jsonData 
-     * @param {import('../../../shared/types/save-editor').GamePaths} paths 
-     * @param {string} fileName 
-     */
-    async encode(jsonData, paths, fileName) {
+    async encode(jsonData: any, paths: any, fileName: string): Promise<Buffer> {
         let key = this.keyCache.get(paths.exeDir);
         
         // Universal key discovery from game files if not cached
@@ -116,15 +97,11 @@ class SimpleKeyedJsonFormat {
         return Buffer.from(final, 'utf8');
     }
 
-    /**
-     * Attempts to find a secret key pattern from the game's assembly.
-     * @param {string} exeDir 
-     */
-    async discoverKeyFromGame(exeDir) {
+    async discoverKeyFromGame(exeDir: string): Promise<string | undefined> {
         try {
             const entries = await fs.readdir(exeDir);
             const dataDir = entries.find(e => e.toLowerCase().endsWith('_data'));
-            if (!dataDir) return null;
+            if (!dataDir) return undefined;
 
             const dllPath = path.join(exeDir, dataDir, 'Managed', 'Assembly-CSharp.dll');
             try {
@@ -143,8 +120,9 @@ class SimpleKeyedJsonFormat {
         } catch (err) {
             console.warn('[KEYED-JSON] Key discovery failed:', err);
         }
-        return null;
+        return undefined;
     }
 }
 
-module.exports = new SimpleKeyedJsonFormat();
+const format = new SimpleKeyedJsonFormat();
+export default format;

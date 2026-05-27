@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { TranslationExtractor } from './base';
@@ -46,12 +45,12 @@ export class UnityExtractor implements TranslationExtractor {
                     await handle.close();
 
                     this.scanBinaryForStrings(buffer, strings);
-                } catch (e) {
+                } catch (e: any) {
                     console.warn(`[UNITY-EXTRACTOR] Failed to scan asset ${file}:`, e.message);
                 }
             }
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('[UNITY-EXTRACTOR] Extraction failed:', err.message);
         }
 
@@ -60,14 +59,14 @@ export class UnityExtractor implements TranslationExtractor {
 
     private scanBinaryForStrings(buffer: Buffer, strings: Set<string>) {
         // Look for printable ASCII/UTF-16LE characters separated by null bytes
-        // Pattern: [A-Za-z0-9][\0][A-Za-z0-9...][\0]
+        // Pattern: [A-Za-z0-9][\x00][A-Za-z0-9...][\x00]
         const content = buffer.toString('binary');
         
         // Scan for UTF-16LE string literals (printable Japanese/English sequences)
         // Match printable English UTF-16LE strings (3+ characters)
-        const englishMatches = content.match(/[A-Z\0a-z\00-9\0\s\0!,?.:;'"-]{6,100}/g) || [];
+        const englishMatches = content.match(/[A-Z\x00a-z\x000-9\x00\s\x00!,?.:;'"-]{6,100}/g) || [];
         for (const match of englishMatches) {
-            const clean = match.replace(/\0/g, '').trim();
+            const clean = match.replace(/\x00/g, '').trim();
             if (this.isValidString(clean)) {
                 const escaped = clean.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
                 strings.add(escaped);
@@ -76,10 +75,10 @@ export class UnityExtractor implements TranslationExtractor {
 
         // Match printable Japanese/Chinese/Korean UTF-16LE strings (contains CJK blocks)
         // Range: CJK Unified Ideographs [\u4e00-\u9faf] + Hiragana/Katakana [\u3040-\u30ff]
-        const cjkRegex = /[\u3040-\u30ff\u4e00-\u9faf\u3000-\u303f\uff00-\uffef\0]{6,120}/g;
+        const cjkRegex = /[\u3040-\u30ff\u4e00-\u9faf\u3000-\u303f\uff00-\uffef\x00]{6,120}/g;
         const cjkMatches = content.match(cjkRegex) || [];
         for (const match of cjkMatches) {
-            const clean = match.replace(/\0/g, '').trim();
+            const clean = match.replace(/\x00/g, '').trim();
             if (this.isValidString(clean)) {
                 const escaped = clean.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
                 strings.add(escaped);

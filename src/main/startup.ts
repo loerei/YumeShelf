@@ -1,5 +1,11 @@
-// @ts-nocheck
-function createTimedTask(taskFactory, timeoutMs) {
+interface TimedTaskResult<T> {
+    ok: boolean;
+    timedOut: boolean;
+    value: T | null;
+    error: any;
+}
+
+function createTimedTask<T>(taskFactory: () => Promise<T>, timeoutMs: number): Promise<TimedTaskResult<T>> {
     return new Promise((resolve) => {
         let settled = false;
         const timer = setTimeout(() => {
@@ -25,7 +31,26 @@ function createTimedTask(taskFactory, timeoutMs) {
     });
 }
 
-function createStartupServices({
+export interface StartupServicesOptions {
+    app: any;
+    checkForAppUpdate: () => Promise<any>;
+    consumePostUpdateMarker: () => Promise<any>;
+    prepareDeferredInstallOnLaunch: () => Promise<any>;
+    preparePlaytimeSessions: () => Promise<any>;
+    overlayPlaytimeSessions: (games: any[]) => any[];
+    logAppUpdateDebug: (message: string) => Promise<void> | void;
+    applyLanguagePackUpdates: (candidates: any[], options: any) => Promise<any>;
+    buildLanguageState: () => Promise<any>;
+    fetchLanguageManifest: () => Promise<any>;
+    getLanguagePackUpdateCandidates: (state: any, manifest: any) => any[];
+    getCategoryTree: () => Promise<any[]>;
+    isNetworkLikeError: (error: any) => boolean;
+    loadGamesForConfig: (config: any) => Promise<any[]>;
+    resolveLibraryConfig: () => Promise<any>;
+    startupNetworkTimeoutMs: number;
+}
+
+export function createStartupServices({
     app,
     checkForAppUpdate,
     consumePostUpdateMarker,
@@ -42,8 +67,8 @@ function createStartupServices({
     loadGamesForConfig,
     resolveLibraryConfig,
     startupNetworkTimeoutMs
-}) {
-    function emitBootStatus(webContents, payload) {
+}: StartupServicesOptions) {
+    function emitBootStatus(webContents: any, payload: any) {
         if (!webContents || webContents.isDestroyed()) return;
         webContents.send('boot-status', {
             scope: 'startup',
@@ -52,7 +77,7 @@ function createStartupServices({
         });
     }
 
-    async function bootstrapAppState(webContents, options = {}) {
+    async function bootstrapAppState(webContents: any, options: any = {}) {
         const appUpdatesMode = String(options.appUpdatesMode || 'notify').toLowerCase();
         const languagePackUpdatesMode = String(options.languagePackUpdatesMode || 'automatic').toLowerCase();
         const postUpdateNotice = typeof consumePostUpdateMarker === 'function'
@@ -65,7 +90,7 @@ function createStartupServices({
                 version: postUpdateNotice.version || ''
             } : null)} appUpdatesMode=${appUpdatesMode} languagePackUpdatesMode=${languagePackUpdatesMode}`);
         }
-        const appUpdateCheck = {
+        const appUpdateCheck: any = {
             attempted: false,
             source: 'skipped',
             offline: false,
@@ -84,7 +109,7 @@ function createStartupServices({
             checksumSha256: null,
             fallbackReason: null
         };
-        const languagePackCheck = {
+        const languagePackCheck: any = {
             attempted: false,
             source: 'skipped',
             offline: false,
@@ -225,7 +250,7 @@ function createStartupServices({
                     fallbackText: offline ? 'No internet, skipping language pack check' : 'Language pack check failed, continuing startup'
                 });
             } else {
-                const manifestResult = manifestProbe.value;
+                const manifestResult = manifestProbe.value as any;
                 languagePackCheck.source = manifestResult.source || 'none';
                 languagePackCheck.offline = !!manifestResult.offline;
                 languagePackCheck.error = manifestResult.error || null;
@@ -314,7 +339,3 @@ function createStartupServices({
         resolveLibraryConfig
     };
 }
-
-module.exports = {
-    createStartupServices
-};

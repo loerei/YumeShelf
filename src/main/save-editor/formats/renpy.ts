@@ -1,15 +1,14 @@
-// @ts-nocheck
-const { execSync } = require('child_process');
-const fs = require('fs/promises');
-const path = require('path');
-const os = require('os');
+import { execSync } from 'child_process';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
 
 class RenpyFormat {
-    match(fileName) {
+    match(fileName: string): boolean {
         return fileName.toLowerCase().endsWith('.save');
     }
 
-    async decode(rawData, paths, fileName) {
+    async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         const savePath = path.join(paths.saveDir, fileName);
         const tempJson = path.join(os.tmpdir(), `renpy_save_${Date.now()}.json`);
         const converterPy = path.resolve(__dirname, '..', 'bin', 'renpy_save_converter.py');
@@ -36,7 +35,7 @@ class RenpyFormat {
         }
     }
 
-    async encode(jsonData, paths, fileName) {
+    async encode(jsonData: any, paths: any, fileName: string): Promise<Buffer> {
         const savePath = path.join(paths.saveDir, fileName);
         const tempJson = path.join(os.tmpdir(), `renpy_save_${Date.now()}.json`);
         const tempSave = path.join(os.tmpdir(), `renpy_save_mod_${Date.now()}.save`);
@@ -69,7 +68,7 @@ class RenpyFormat {
         }
     }
 
-    async metadata(jsonData, paths, fileName) {
+    async metadata(jsonData: any, paths: any, fileName: string): Promise<any> {
         // Return blank standard structure to bypass RPG Maker metadata loader
         return {
             variables: [],
@@ -82,4 +81,5 @@ class RenpyFormat {
     }
 }
 
-module.exports = new RenpyFormat();
+const format = new RenpyFormat();
+export default format;

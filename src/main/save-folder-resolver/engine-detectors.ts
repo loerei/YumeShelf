@@ -1,8 +1,9 @@
-// @ts-nocheck
-const path = require('path');
-const { exists, globMatch } = require('./utils');
+import * as path from 'path';
+import { exists, globMatch } from './utils';
 
-async function detectEngine(exeDir) {
+export type GameEngineType = 'rpg-mv-mz' | 'rpg-vxace' | 'renpy' | 'unity' | 'unreal' | 'wolf-rpg' | 'flash';
+
+export async function detectEngine(exeDir: string): Promise<GameEngineType | null> {
     // RPG Maker MV/MZ — www/ folder with js/
     if (await exists(path.join(exeDir, 'www', 'js'))) return 'rpg-mv-mz';
 
@@ -28,5 +29,3 @@ async function detectEngine(exeDir) {
 
     return null;
 }
-
-module.exports = { detectEngine };

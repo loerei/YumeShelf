@@ -1,26 +1,44 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
-const { setTimeout: delay } = require('timers/promises');
-const { readInstallerContract } = require('../shared/installer-contract');
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { setTimeout as delay } from 'timers/promises';
+import { readInstallerContract } from '../shared/installer-contract';
 
-function toBoolean(value, fallback = false) {
+function toBoolean(value: any, fallback = false): boolean {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
     if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
     return fallback;
 }
 
-function normalizePath(value) {
+function normalizePath(value: any): string {
     return path.normalize(String(value || '').trim()).replace(/[\\/]+$/, '').toLowerCase();
 }
 
-function createInstallHandoffService({
+export interface InstallHandoffServiceOptions {
+    app: any;
+    markerFile: string;
+    fallbackMarkerFiles?: string[];
+    logFile?: string;
+}
+
+export interface InstallHandoffResult {
+    cleaned: boolean;
+    markerPath: string;
+    installerPath: string;
+    shouldDeleteSetupFile: boolean;
+    error?: string;
+}
+
+export interface InstallHandoffService {
+    consumeManualInstallHandoff(): Promise<InstallHandoffResult | null>;
+}
+
+export function createInstallHandoffService({
     app,
     markerFile,
     fallbackMarkerFiles = [],
     logFile = ''
-}) {
+}: InstallHandoffServiceOptions): InstallHandoffService {
     const markerCandidates = Array.from(new Set(
         [markerFile, ...fallbackMarkerFiles]
             .map((value) => String(value || '').trim())
@@ -28,7 +46,7 @@ function createInstallHandoffService({
             .map((value) => normalizePath(value))
     ));
 
-    async function writeLog(message) {
+    async function writeLog(message: string): Promise<void> {
         if (!logFile) return;
         try {
             await fs.mkdir(path.dirname(logFile), { recursive: true });
@@ -36,13 +54,13 @@ function createInstallHandoffService({
         } catch {}
     }
 
-    async function readAvailableContract() {
+    async function readAvailableContract(): Promise<{ contract: any; markerPath: string } | null> {
         for (const candidate of markerCandidates) {
             try {
                 const contract = await readInstallerContract(candidate);
                 await writeLog(`marker_read_success path=${candidate}`);
                 return { contract, markerPath: candidate };
-            } catch (error) {
+            } catch (error: any) {
                 const errorMessage = String((error && error.code) || (error && error.message) || error || '');
                 await writeLog(`marker_read_miss path=${candidate} error=${errorMessage}`);
             }
@@ -50,12 +68,12 @@ function createInstallHandoffService({
         return null;
     }
 
-    async function deleteMarkerFiles() {
+    async function deleteMarkerFiles(): Promise<void> {
         for (const candidate of markerCandidates) {
             try {
                 await fs.unlink(candidate);
                 await writeLog(`marker_deleted path=${candidate}`);
-            } catch (error) {
+            } catch (error: any) {
                 const code = String((error && error.code) || '');
                 if (code && code !== 'ENOENT') {
                     await writeLog(`marker_delete_failed path=${candidate} error=${String((error && error.message) || error || '')}`);
@@ -64,7 +82,7 @@ function createInstallHandoffService({
         }
     }
 
-    async function consumeManualInstallHandoff() {
+    async function consumeManualInstallHandoff(): Promise<InstallHandoffResult | null> {
         await writeLog(`consume_begin markerFile=${markerFile} appData=${app.getPath('appData')} userData=${app.getPath('userData')} exe=${app.getPath('exe')}`);
         const markerPayload = await readAvailableContract();
         if (!markerPayload) {
@@ -115,7 +133,7 @@ function createInstallHandoffService({
                     installerPath,
                     shouldDeleteSetupFile
                 };
-            } catch (error) {
+            } catch (error: any) {
                 const errorCode = String((error && error.code) || '');
                 const errorMessage = String((error && error.message) || error || '');
                 if (errorCode === 'ENOENT') {
@@ -153,7 +171,3 @@ function createInstallHandoffService({
         consumeManualInstallHandoff
     };
 }
-
-module.exports = {
-    createInstallHandoffService
-};

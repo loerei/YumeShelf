@@ -1,18 +1,17 @@
-// @ts-nocheck
-function toBoolean(value) {
+export function toBoolean(value: any): boolean {
     return value === true;
 }
 
-function isFakeVersionRun() {
+export function isFakeVersionRun(): boolean {
     return process.argv.some(arg => /^-\d+\.\d+\.\d+$/.test(String(arg || '').trim()));
 }
 
-function normalizeText(value, fallback = '') {
+export function normalizeText(value: any, fallback: any = ''): any {
     const text = String(value || '').trim();
     return text || fallback;
 }
 
-function classifyErrorReason(error) {
+export function classifyErrorReason(error: any): string {
     const code = String((error && error.code) || '').toLowerCase();
     const message = String((error && error.message) || error || '').toLowerCase();
     if (message.includes('checksum') || message.includes('sha512')) return 'checksum';
@@ -24,11 +23,11 @@ function classifyErrorReason(error) {
     return code || 'download';
 }
 
-function delay(ms) {
+export function delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
 }
 
-function resolveUpdaterRuntime(app, isFakeRun) {
+export function resolveUpdaterRuntime(app: any, isFakeRun: () => boolean) {
     if (app.isPackaged) {
         return {
             channel: 'nsis',
@@ -54,12 +53,3 @@ function resolveUpdaterRuntime(app, isFakeRun) {
         usesDevConfig: false
     };
 }
-
-module.exports = {
-    classifyErrorReason,
-    delay,
-    isFakeVersionRun,
-    normalizeText,
-    resolveUpdaterRuntime,
-    toBoolean
-};

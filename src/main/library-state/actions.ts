@@ -1,20 +1,16 @@
-// @ts-nocheck
-const path = require('path');
-const scanner = require('./scanner');
-const continuity = require('./continuity');
-
-const { isPlainObject } = scanner;
-const {
+import * as path from 'path';
+import { isPlainObject } from './scanner';
+import {
     normalizeGameRecord,
     buildLogicalGames,
     buildLogicalGameId
-} = continuity;
+} from './continuity';
 
-function readStoredGames(db) {
+function readStoredGames(db: any): Record<string, any> {
     return isPlainObject(db.games) ? db.games : {};
 }
 
-async function renameGame(context, gameKey, newName) {
+export async function renameGame(context: any, gameKey: string, newName: string): Promise<boolean> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
@@ -28,7 +24,7 @@ async function renameGame(context, gameKey, newName) {
     const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
     const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
     if (!targetGroup) return false;
-    targetGroup.instances.forEach((instance) => {
+    targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {
             games[instance.gameKey].name = newName;
         }
@@ -38,7 +34,7 @@ async function renameGame(context, gameKey, newName) {
     return true;
 }
 
-async function toggleFavorite(context, gameKey) {
+export async function toggleFavorite(context: any, gameKey: string): Promise<boolean> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
@@ -53,7 +49,7 @@ async function toggleFavorite(context, gameKey) {
     const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
     if (!targetGroup) return false;
     const nextFavorite = !targetGroup.favorite;
-    targetGroup.instances.forEach((instance) => {
+    targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {
             games[instance.gameKey].favorite = nextFavorite;
         }
@@ -63,7 +59,7 @@ async function toggleFavorite(context, gameKey) {
     return nextFavorite;
 }
 
-async function toggleRunInBackground(context, gameKey) {
+export async function toggleRunInBackground(context: any, gameKey: string): Promise<boolean> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
@@ -78,7 +74,7 @@ async function toggleRunInBackground(context, gameKey) {
     const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
     if (!targetGroup) return false;
     const nextRunInBackground = !targetGroup.runInBackground;
-    targetGroup.instances.forEach((instance) => {
+    targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {
             games[instance.gameKey].runInBackground = nextRunInBackground;
         }
@@ -88,7 +84,7 @@ async function toggleRunInBackground(context, gameKey) {
     return nextRunInBackground;
 }
 
-async function toggleAutoTranslate(context, gameKey) {
+export async function toggleAutoTranslate(context: any, gameKey: string): Promise<boolean> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
@@ -103,7 +99,7 @@ async function toggleAutoTranslate(context, gameKey) {
     const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
     if (!targetGroup) return false;
     const nextAutoTranslate = !targetGroup.autoTranslate;
-    targetGroup.instances.forEach((instance) => {
+    targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {
             games[instance.gameKey].autoTranslate = nextAutoTranslate;
         }
@@ -113,12 +109,12 @@ async function toggleAutoTranslate(context, gameKey) {
     return nextAutoTranslate;
 }
 
-async function addPlaytime(context, gameKey, durationMs) {
+export async function addPlaytime(context: any, gameKey: string, durationMs: number): Promise<void> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
     
-    let targetKey = null;
+    let targetKey: string | null = null;
     if (games[gameKey]) {
         targetKey = gameKey;
     } else {
@@ -135,12 +131,18 @@ async function addPlaytime(context, gameKey, durationMs) {
     await saveDB(db);
 }
 
-async function finalizeTrackedSession(context, gameKey, durationMs, endedAt, exePath) {
+export async function finalizeTrackedSession(
+    context: any,
+    gameKey: string,
+    durationMs: number,
+    endedAt: number,
+    exePath?: string
+): Promise<void> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
     
-    let targetKey = null;
+    let targetKey: string | null = null;
     if (games[gameKey]) {
         targetKey = gameKey;
     } else {
@@ -149,7 +151,7 @@ async function finalizeTrackedSession(context, gameKey, durationMs, endedAt, exe
         if (targetGroup) {
             if (exePath) {
                 const matchedInstance = targetGroup.instances.find(
-                    (inst) => inst.exePath && path.resolve(inst.exePath) === path.resolve(exePath)
+                    (inst: any) => inst.exePath && path.resolve(inst.exePath) === path.resolve(exePath)
                 );
                 if (matchedInstance) {
                     targetKey = matchedInstance.gameKey;
@@ -168,7 +170,7 @@ async function finalizeTrackedSession(context, gameKey, durationMs, endedAt, exe
     await saveDB(db);
 }
 
-async function getGameRecord(context, gameKey) {
+export async function getGameRecord(context: any, gameKey: string): Promise<any | null> {
     const { loadDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
@@ -185,7 +187,7 @@ async function getGameRecord(context, gameKey) {
     return null;
 }
 
-async function setSaveFolderOverride(context, gameKey, folderPath) {
+export async function setSaveFolderOverride(context: any, gameKey: string, folderPath: string): Promise<any> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
@@ -207,14 +209,3 @@ async function setSaveFolderOverride(context, gameKey, folderPath) {
     await saveDB(db);
     return { ok: true, saveFolderOverride: games[targetKey].saveFolderOverride || null };
 }
-
-module.exports = {
-    renameGame,
-    toggleFavorite,
-    toggleRunInBackground,
-    toggleAutoTranslate,
-    addPlaytime,
-    finalizeTrackedSession,
-    getGameRecord,
-    setSaveFolderOverride
-};

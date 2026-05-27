@@ -1,37 +1,48 @@
-// @ts-nocheck
-const { load } = require('js-yaml');
-const { CancellationToken } = require('builder-util-runtime');
+import { load } from 'js-yaml';
+import { CancellationToken } from 'builder-util-runtime';
 
-const GITHUB_RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/loerei/YumeShelf/releases/download';
+export const GITHUB_RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/loerei/YumeShelf/releases/download';
 
-function normalizeText(value, fallback = '') {
+function normalizeText(value: any, fallback = ''): string {
     if (typeof value !== 'string') return fallback;
     return value.trim();
 }
 
-function normalizeReleaseTagName(version) {
+export function normalizeReleaseTagName(version: string): string {
     const normalizedVersion = normalizeText(version, '').replace(/^v/i, '');
     return normalizedVersion ? `v${normalizedVersion}` : '';
 }
 
-function buildGitHubReleaseDownloadBaseUrl(version) {
+export function buildGitHubReleaseDownloadBaseUrl(version: string): string {
     const tagName = normalizeReleaseTagName(version);
     return tagName ? `${GITHUB_RELEASE_DOWNLOAD_BASE_URL}/${tagName}` : '';
 }
 
-function buildGitHubReleaseManifestUrl(version) {
+export function buildGitHubReleaseManifestUrl(version: string): string {
     const baseUrl = buildGitHubReleaseDownloadBaseUrl(version);
     return baseUrl ? `${baseUrl}/latest.yml` : '';
 }
 
-async function resolveCurrentReleaseCacheInputs(version, downloadBuffer, appVersion) {
+export interface CurrentReleaseCacheInputs {
+    blockmapUrl: string;
+    installerName: string;
+    installerSha512: string;
+    installerUrl: string;
+    manifestUrl: string;
+}
+
+export async function resolveCurrentReleaseCacheInputs(
+    version: string,
+    downloadBuffer: (url: string, start?: number, end?: number, token?: any, appVersion?: string) => Promise<Buffer>,
+    appVersion?: string
+): Promise<CurrentReleaseCacheInputs | null> {
     const manifestUrl = buildGitHubReleaseManifestUrl(version);
     if (!manifestUrl) {
         return null;
     }
 
     const manifestBuffer = await downloadBuffer(manifestUrl, 0, 15000, null, appVersion);
-    const manifest = load(manifestBuffer.toString('utf8'));
+    const manifest: any = load(manifestBuffer.toString('utf8'));
     const installerName = normalizeText(manifest?.path, '');
     const installerSha512 = normalizeText(manifest?.sha512, '');
     if (!installerName || !installerSha512) {
@@ -48,17 +59,40 @@ async function resolveCurrentReleaseCacheInputs(version, downloadBuffer, appVers
     };
 }
 
-async function ensureCurrentInstallerCacheState(activeUpdater, currentVersion, {
-    fs,
-    fsSync,
-    path,
-    ensureDir,
-    sha512FileBase64,
-    downloadBuffer,
-    appVersion,
-    VERBOSE_UPDATE_LOG,
-    appendUpdateLog
-}) {
+export interface CacheStateOptions {
+    fs: any;
+    fsSync: any;
+    path: any;
+    ensureDir: (dirPath: string) => Promise<void>;
+    sha512FileBase64: (filePath: string) => Promise<string>;
+    downloadBuffer: (url: string, start?: number, end?: number, token?: any, appVersion?: string) => Promise<Buffer>;
+    appVersion?: string;
+    VERBOSE_UPDATE_LOG?: boolean;
+    appendUpdateLog: (message: string) => Promise<any> | any;
+}
+
+export interface InstallerCacheState {
+    cacheDir: string;
+    cachedBlockmapPath: string;
+    cachedInstallerPath: string;
+    cachedInstallerSha512?: string;
+}
+
+export async function ensureCurrentInstallerCacheState(
+    activeUpdater: any,
+    currentVersion: string,
+    {
+        fs,
+        fsSync,
+        path,
+        ensureDir,
+        sha512FileBase64,
+        downloadBuffer,
+        appVersion,
+        VERBOSE_UPDATE_LOG,
+        appendUpdateLog
+    }: CacheStateOptions
+): Promise<InstallerCacheState | null> {
     const downloadHelper = typeof activeUpdater.getOrCreateDownloadHelper === 'function'
         ? await activeUpdater.getOrCreateDownloadHelper()
         : null;
@@ -89,7 +123,7 @@ async function ensureCurrentInstallerCacheState(activeUpdater, currentVersion, {
         try {
             cachedInstallerSha512 = await sha512FileBase64(cachedInstallerPath);
         } catch (error) {
-            await appendUpdateLog(`nsis-updater current-cache hash-error current=${currentVersion} installer=${cachedInstallerPath} error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(`nsis-updater current-cache hash-error current=${currentVersion} installer=${cachedInstallerPath} error=${String((error as any)?.stack || error || '')}`);
         }
     }
 
@@ -141,7 +175,13 @@ async function ensureCurrentInstallerCacheState(activeUpdater, currentVersion, {
     };
 }
 
-function resolvePreviousBlockmapBaseUrl({ currentVersion, feedOverride, runtime }) {
+export interface PreviousBlockmapOptions {
+    currentVersion: string;
+    feedOverride: any;
+    runtime: any;
+}
+
+export function resolvePreviousBlockmapBaseUrl({ currentVersion, feedOverride, runtime }: PreviousBlockmapOptions): string | null {
     const overrideBaseUrl = buildGitHubReleaseDownloadBaseUrl(currentVersion);
     if (!overrideBaseUrl) {
         return null;
@@ -156,7 +196,18 @@ function resolvePreviousBlockmapBaseUrl({ currentVersion, feedOverride, runtime 
     return null;
 }
 
-async function configureDifferentialDownload(nsisUpdater, { currentVersion, feedOverride, runtime, appendUpdateLog, VERBOSE_UPDATE_LOG }) {
+export interface DifferentialDownloadOptions {
+    currentVersion: string;
+    feedOverride: any;
+    runtime: any;
+    appendUpdateLog: (message: string) => Promise<any> | any;
+    VERBOSE_UPDATE_LOG?: boolean;
+}
+
+export async function configureDifferentialDownload(
+    nsisUpdater: any,
+    { currentVersion, feedOverride, runtime, appendUpdateLog, VERBOSE_UPDATE_LOG }: DifferentialDownloadOptions
+): Promise<void> {
     const previousBlockmapBaseUrlOverride = resolvePreviousBlockmapBaseUrl({
         currentVersion,
         feedOverride,
@@ -174,14 +225,3 @@ async function configureDifferentialDownload(nsisUpdater, { currentVersion, feed
         );
     }
 }
-
-module.exports = {
-    GITHUB_RELEASE_DOWNLOAD_BASE_URL,
-    normalizeReleaseTagName,
-    buildGitHubReleaseDownloadBaseUrl,
-    buildGitHubReleaseManifestUrl,
-    resolveCurrentReleaseCacheInputs,
-    ensureCurrentInstallerCacheState,
-    resolvePreviousBlockmapBaseUrl,
-    configureDifferentialDownload
-};

@@ -1,7 +1,30 @@
-// @ts-nocheck
-const { nativeImage } = require('electron');
+import { nativeImage } from 'electron';
 
-function summarizeNativeImageForDebug(image) {
+export interface NativeImageSummary {
+    empty: boolean;
+    width?: number;
+    height?: number;
+    opaquePixels?: number;
+    opaqueBounds?: {
+        left: number;
+        top: number;
+        right: number;
+        bottom: number;
+        width: number;
+        height: number;
+    } | null;
+    bitmapError?: string;
+    error?: string;
+    cropRect?: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    };
+    cropError?: string;
+}
+
+export function summarizeNativeImageForDebug(image: any): NativeImageSummary {
     if (!image || image.isEmpty()) {
         return {
             empty: true
@@ -9,7 +32,7 @@ function summarizeNativeImageForDebug(image) {
     }
 
     const size = image.getSize();
-    const summary = {
+    const summary: NativeImageSummary = {
         empty: false,
         width: size.width,
         height: size.height
@@ -53,26 +76,33 @@ function summarizeNativeImageForDebug(image) {
         } else {
             summary.opaqueBounds = null;
         }
-    } catch (error) {
+    } catch (error: any) {
         summary.bitmapError = String((error && error.message) || error);
     }
 
     return summary;
 }
 
-function cropTransparentPaddingFromDataUrl(dataUrl, options = {}) {
+export interface CropResult {
+    dataUrl: string;
+    cropped: boolean;
+    summary: NativeImageSummary | null;
+}
+
+export function cropTransparentPaddingFromDataUrl(dataUrl: string, options: any = {}): CropResult {
     if (!dataUrl || typeof dataUrl !== 'string') {
         return { dataUrl, cropped: false, summary: null };
     }
 
-    let image;
+    let image: any;
     try {
         image = nativeImage.createFromDataURL(dataUrl);
-    } catch (error) {
+    } catch (error: any) {
         return {
             dataUrl,
             cropped: false,
             summary: {
+                empty: true,
                 error: String((error && error.message) || error)
             }
         };
@@ -128,7 +158,7 @@ function cropTransparentPaddingFromDataUrl(dataUrl, options = {}) {
                 }
             }
         };
-    } catch (error) {
+    } catch (error: any) {
         return {
             dataUrl,
             cropped: false,
@@ -139,8 +169,3 @@ function cropTransparentPaddingFromDataUrl(dataUrl, options = {}) {
         };
     }
 }
-
-module.exports = {
-    summarizeNativeImageForDebug,
-    cropTransparentPaddingFromDataUrl
-};

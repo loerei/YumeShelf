@@ -1,15 +1,14 @@
-// @ts-nocheck
-const { checkForUpdates } = require('./check');
-const { downloadUpdate } = require('./download');
-const {
+import { checkForUpdates } from './check';
+import { downloadUpdate } from './download';
+import {
     installDownloadedUpdateNow,
     scheduleInstallOnNextLaunch,
     prepareDeferredInstallOnLaunch,
     beginDeferredInstallOnLaunch
-} = require('./install');
+} from './install';
 
-function setupUpdateFlow(options) {
-    const context = {
+export function setupUpdateFlow(options: any): any {
+    const context: any = {
         ...options,
         checkForUpdates: null,
         downloadUpdate: null,
@@ -20,9 +19,9 @@ function setupUpdateFlow(options) {
     };
 
     context.checkForUpdates = () => checkForUpdates(context);
-    context.downloadUpdate = (releaseMetadata) => downloadUpdate(context, releaseMetadata);
-    context.installDownloadedUpdateNow = (releaseMetadata) => installDownloadedUpdateNow(context, releaseMetadata);
-    context.scheduleInstallOnNextLaunch = (releaseMetadata) => scheduleInstallOnNextLaunch(context, releaseMetadata);
+    context.downloadUpdate = (releaseMetadata: any) => downloadUpdate(context, releaseMetadata);
+    context.installDownloadedUpdateNow = (releaseMetadata: any) => installDownloadedUpdateNow(context, releaseMetadata);
+    context.scheduleInstallOnNextLaunch = (releaseMetadata: any) => scheduleInstallOnNextLaunch(context, releaseMetadata);
     context.prepareDeferredInstallOnLaunch = () => prepareDeferredInstallOnLaunch(context);
     context.beginDeferredInstallOnLaunch = () => beginDeferredInstallOnLaunch(context);
 
@@ -35,7 +34,3 @@ function setupUpdateFlow(options) {
         beginDeferredInstallOnLaunch: context.beginDeferredInstallOnLaunch
     };
 }
-
-module.exports = {
-    setupUpdateFlow
-};

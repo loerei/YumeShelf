@@ -1,24 +1,61 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const path = require('path');
-const { fork, spawnSync } = require('child_process');
+import * as fsSync from 'fs';
+import * as path from 'path';
+import { fork, spawnSync, ChildProcess } from 'child_process';
 
 const ICON_WORKER_BOOT_MAX_ATTEMPTS = 5;
 const ICON_WORKER_PROBE_PATH = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'notepad.exe');
 
-function createWorkerPool({ app, sourceRootDir }) {
-    const iconWorkers = [];
-    const pendingIconRequests = new Map();
-    const extractionQueue = [];
+export interface WorkerPoolAppInterface {
+    getAppPath(): string;
+}
+
+export interface WorkerPoolOptions {
+    app: WorkerPoolAppInterface;
+    sourceRootDir: string;
+}
+
+interface IconWorker extends ChildProcess {
+    __workerId?: number;
+    __healthy?: boolean;
+    __ready?: boolean;
+    __onReady?: (() => void) | null;
+}
+
+interface PendingRequest {
+    worker: IconWorker;
+    timeout: NodeJS.Timeout;
+    resolve: (value: { base64: string; meta: any }) => void;
+}
+
+interface QueueItem {
+    id: number;
+    path: string;
+    extPath: string;
+    resolve: (value: { base64: string; meta: any }) => void;
+    enqueuedAt: number;
+    sentAt?: number;
+    worker?: IconWorker;
+    timeout?: NodeJS.Timeout;
+}
+
+export interface WorkerPool {
+    enqueueExtraction(targetPath: string): Promise<{ base64: string; meta: any }>;
+    buildExtractFileIconPath(): string;
+    processExtractionQueue(): Promise<void>;
+}
+
+export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): WorkerPool {
+    const iconWorkers: IconWorker[] = [];
+    const pendingIconRequests = new Map<string | number, PendingRequest>();
+    const extractionQueue: QueueItem[] = [];
 
     let iconReqIdCounter = 0;
-    let activeExtractionReq = null;
+    let activeExtractionReq: QueueItem | null = null;
     let isExtracting = false;
-    let resolvedNodeExecPath = null;
-    let workerBootstrapPromise = null;
+    let resolvedNodeExecPath: string | null = null;
+    let workerBootstrapPromise: Promise<IconWorker> | null = null;
 
-    function resolveNodeExecPath() {
+    function resolveNodeExecPath(): string {
         if (resolvedNodeExecPath) return resolvedNodeExecPath;
 
         const candidates = [
@@ -27,7 +64,7 @@ function createWorkerPool({ app, sourceRootDir }) {
             process.execPath.toLowerCase().endsWith('\\node.exe') ? process.execPath : null,
             process.env.ProgramFiles ? path.join(process.env.ProgramFiles, 'nodejs', 'node.exe') : null,
             process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'nodejs', 'node.exe') : null
-        ].filter(Boolean);
+        ].filter((x): x is string => !!x);
 
         for (const candidate of candidates) {
             if (fsSync.existsSync(candidate) && candidate.toLowerCase().endsWith('\\node.exe')) {
@@ -54,7 +91,7 @@ function createWorkerPool({ app, sourceRootDir }) {
         throw new Error(`Could not resolve node.exe; process.execPath=${process.execPath}`);
     }
 
-    function buildExtractFileIconPath() {
+    function buildExtractFileIconPath(): string {
         const candidate = path.join(app.getAppPath(), 'node_modules', 'extract-file-icon');
         if (fsSync.existsSync(candidate)) {
             return candidate.replace('app.asar', 'app.asar.unpacked');
@@ -67,7 +104,7 @@ function createWorkerPool({ app, sourceRootDir }) {
         return candidate.replace('app.asar', 'app.asar.unpacked');
     }
 
-    function recycleWorker(worker, reason) {
+    function recycleWorker(worker: IconWorker, reason: string): void {
         if (!worker) return;
         const idx = iconWorkers.indexOf(worker);
         if (idx > -1) iconWorkers.splice(idx, 1);
@@ -76,24 +113,28 @@ function createWorkerPool({ app, sourceRootDir }) {
         } catch {}
     }
 
-    function createIconWorker() {
+    function createIconWorker(): IconWorker {
         const workerId = iconWorkers.length + 1;
         const nodeExecPath = resolveNodeExecPath();
         const workerPath = path.join(sourceRootDir, 'icon-extractor.js');
-        const worker = fork(workerPath, [], {
+        const worker: IconWorker = fork(workerPath, [], {
             execPath: nodeExecPath,
             stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
             windowsHide: true
-        });
+        } as any) as IconWorker;
 
         worker.__workerId = workerId;
         worker.__healthy = false;
         worker.__ready = false;
 
-        worker.stdout.on('data', (data) => process.stdout.write(`[NW${workerId} STDOUT] ${data}`));
-        worker.stderr.on('data', (data) => process.stderr.write(`[NW${workerId} STDERR] ${data}`));
+        if (worker.stdout) {
+            worker.stdout.on('data', (data) => process.stdout.write(`[NW${workerId} STDOUT] ${data}`));
+        }
+        if (worker.stderr) {
+            worker.stderr.on('data', (data) => process.stderr.write(`[NW${workerId} STDERR] ${data}`));
+        }
 
-        worker.on('message', (msg) => {
+        worker.on('message', (msg: any) => {
             if (!msg) return;
             if (msg.type === 'ready') {
                 worker.__ready = true;
@@ -150,10 +191,10 @@ function createWorkerPool({ app, sourceRootDir }) {
         return worker;
     }
 
-    function probeIconWorker(worker, attempt) {
+    function probeIconWorker(worker: IconWorker, attempt: number): Promise<boolean> {
         return new Promise((resolve) => {
             const timeoutMs = 3000 + (attempt - 1) * 2000;
-            let timeout;
+            let timeout: NodeJS.Timeout;
 
             const runProbe = () => {
                 const probeId = `probe-${worker.pid}-${attempt}-${Date.now()}`;
@@ -198,7 +239,7 @@ function createWorkerPool({ app, sourceRootDir }) {
         });
     }
 
-    async function ensureHealthyIconWorker() {
+    async function ensureHealthyIconWorker(): Promise<IconWorker> {
         const existing = iconWorkers.find(worker => worker.__healthy);
         if (existing) return existing;
         if (workerBootstrapPromise) return workerBootstrapPromise;
@@ -223,11 +264,15 @@ function createWorkerPool({ app, sourceRootDir }) {
         }
     }
 
-    async function processExtractionQueue() {
+    async function processExtractionQueue(): Promise<void> {
         if (isExtracting || extractionQueue.length === 0) return;
         isExtracting = true;
 
         const req = extractionQueue.shift();
+        if (!req) {
+            isExtracting = false;
+            return;
+        }
         req.sentAt = Date.now();
 
         try {
@@ -246,9 +291,9 @@ function createWorkerPool({ app, sourceRootDir }) {
                 processExtractionQueue();
             }, 10000);
 
-            pendingIconRequests.set(req.id, { ...req, worker });
+            pendingIconRequests.set(req.id, { ...req, worker, timeout: req.timeout });
             worker.send({ type: 'extract', id: req.id, path: req.path, extPath: req.extPath });
-        } catch (error) {
+        } catch (error: any) {
             console.error(`[MAIN][QUEUE] Failed to obtain healthy node worker for req #${req.id}:`, error);
             req.resolve({
                 base64: '',
@@ -265,7 +310,7 @@ function createWorkerPool({ app, sourceRootDir }) {
         }
     }
 
-    function enqueueExtraction(targetPath) {
+    function enqueueExtraction(targetPath: string): Promise<{ base64: string; meta: any }> {
         return new Promise((resolve) => {
             const id = ++iconReqIdCounter;
             const extPath = buildExtractFileIconPath();
@@ -281,7 +326,3 @@ function createWorkerPool({ app, sourceRootDir }) {
         processExtractionQueue
     };
 }
-
-module.exports = {
-    createWorkerPool
-};

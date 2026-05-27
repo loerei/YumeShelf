@@ -1,60 +1,66 @@
-// @ts-nocheck
-const path = require('path');
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const http = require('http');
-const https = require('https');
-const { exec } = require('child_process');
-const { downloadFile, downloadBuffer, ensureDir } = require('../core/shared-io');
+import path from 'path';
+import fs from 'fs/promises';
+import fsSync from 'fs';
+import http from 'http';
+import https from 'https';
+import { exec } from 'child_process';
+import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
+import { RpgMakerExtractor } from './extractors/rpg-maker';
+import { UnityExtractor } from './extractors/unity';
+import { TranslationExtractor } from './extractors/base';
 
 const XUNITY_RELEASES_API = 'https://api.github.com/repos/bbepis/XUnity.AutoTranslator/releases/latest';
 const BEPINEX_RELEASES_API = 'https://api.github.com/repos/BepInEx/BepInEx/releases/latest';
 
-class TranslationService {
-    constructor({ translatorsDir, appVersion, broadcastStatus }) {
+export interface TranslationJob {
+    total: number;
+    translated: number;
+    status: 'extracting' | 'translating' | 'stopped' | 'complete';
+    queue: string[];
+    rush: boolean;
+}
+
+export interface TranslationServiceOptions {
+    translatorsDir: string;
+    appVersion: string;
+    broadcastStatus: (data: any) => void;
+}
+
+export interface UnityDetection {
+    type: 'mono' | 'il2cpp';
+    arch: 'x64' | 'x86';
+}
+
+export class TranslationService {
+    private translatorsDir: string;
+    private appVersion: string;
+    private broadcastStatus: (data: any) => void;
+    private isDownloading: boolean = false;
+    private proxyServer: http.Server | null = null;
+    private proxyPort: number = 0;
+    private extractors: Record<string, TranslationExtractor>;
+    private jobs: Map<string, TranslationJob>;
+
+    constructor({ translatorsDir, appVersion, broadcastStatus }: TranslationServiceOptions) {
         this.translatorsDir = translatorsDir;
         this.appVersion = appVersion;
-        
-        const originalBroadcast = broadcastStatus;
-        this.broadcastStatus = (payload) => {
-            const activeName = this.jobs.get(this.activeJobKey)?.gameName || '';
-            const queueData = this.syncQueue.map(item => ({
-                gameKey: item.gameKey,
-                gameName: item.gameName
-            }));
-            originalBroadcast({
-                ...payload,
-                activeJobName: activeName,
-                queue: queueData
-            });
-        };
-        
-        this.isDownloading = false;
-        
-        /** @type {http.Server | null} */
-        this.proxyServer = null;
-        this.proxyPort = 0;
-
-        this.jobs = new Map();
-        this.activeJobKey = null;
-        this.syncQueue = [];
-        const { UnityExtractor } = require('./extractors/unity');
-        const { RpgMakerExtractor } = require('./extractors/rpg-maker');
+        this.broadcastStatus = broadcastStatus;
         this.extractors = {
-            'unity': new UnityExtractor(),
-            'rpg-maker': new RpgMakerExtractor()
+            'rpg-maker': new RpgMakerExtractor(),
+            'unity': new UnityExtractor()
         };
+        this.jobs = new Map<string, TranslationJob>();
     }
 
     /**
      * Starts the local translation proxy server.
      */
-    async startProxy() {
+    async startProxy(): Promise<number> {
         if (this.proxyServer) return this.proxyPort;
 
-        return new Promise((resolve) => {
-            this.proxyServer = http.createServer(async (req, res) => {
-                const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
+        return new Promise<number>((resolve) => {
+            this.proxyServer = http.createServer((req, res) => {
+                const url = new URL(req.url || '', `http://${req.headers.host || '127.0.0.1'}`);
                 if (url.pathname === '/translate') {
                     const from = url.searchParams.get('from') || 'auto';
                     const to = url.searchParams.get('to') || 'en';
@@ -66,15 +72,16 @@ class TranslationService {
                         return;
                     }
 
-                    try {
-                        const translation = await this.googleTranslateGtx(text, from, to);
-                        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-                        res.end(translation);
-                    } catch (err) {
-                        console.error(`[TRANSLATION-PROXY] Failed to translate "${text.substring(0, 30)}":`, err.message);
-                        res.statusCode = 200; 
-                        res.end(text);
-                    }
+                    this.googleTranslateGtx(text, from, to)
+                        .then((translation) => {
+                            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                            res.end(translation);
+                        })
+                        .catch((err) => {
+                            console.error(`[TRANSLATION-PROXY] Failed to translate "${text.substring(0, 30)}":`, err.message);
+                            res.statusCode = 200; 
+                            res.end(text);
+                        });
                 } else {
                     res.statusCode = 404;
                     res.end();
@@ -82,17 +89,18 @@ class TranslationService {
             });
 
             this.proxyServer.listen(0, '127.0.0.1', () => {
-                this.proxyPort = this.proxyServer.address().port;
+                const address = this.proxyServer?.address();
+                this.proxyPort = address && typeof address !== 'string' ? address.port : 0;
                 console.log(`[TRANSLATION-PROXY] Listening on port ${this.proxyPort}`);
                 resolve(this.proxyPort);
             });
         });
     }
 
-    async googleTranslateGtx(text, from, to) {
+    async googleTranslateGtx(text: string, from: string, to: string): Promise<string> {
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
         
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
             const req = https.get(url, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -121,7 +129,7 @@ class TranslationService {
                             }
                         }
                         reject(new Error('Unexpected JSON structure from Google'));
-                    } catch (e) {
+                    } catch (e: any) {
                         reject(new Error(`Failed to parse Google response: ${e.message}`));
                     }
                 });
@@ -131,10 +139,10 @@ class TranslationService {
         });
     }
 
-    async stopProxy() {
+    async stopProxy(): Promise<void> {
         if (this.proxyServer) {
-            return new Promise((resolve) => {
-                this.proxyServer.close(() => {
+            return new Promise<void>((resolve) => {
+                this.proxyServer!.close(() => {
                     this.proxyServer = null;
                     this.proxyPort = 0;
                     console.log('[TRANSLATION-PROXY] Server stopped');
@@ -144,84 +152,46 @@ class TranslationService {
         }
     }
 
-
-
     /**
      * Cancels an ongoing Deep-Sync job.
      */
-    /**
-     * Cancels an ongoing Deep-Sync job or removes it from queue.
-     */
-    cancelDeepSync(gameKey) {
-        // If it's in the pending queue, remove it
-        const queueIdx = this.syncQueue.findIndex(q => q.gameKey === gameKey);
-        if (queueIdx !== -1) {
-            this.syncQueue.splice(queueIdx, 1);
-            this.syncQueue.forEach((item, index) => {
-                this.broadcastStatus({
-                    gameKey: item.gameKey,
-                    status: 'sync-queued',
-                    queuePosition: index + 1
-                });
-            });
-            this.broadcastStatus({ gameKey, status: 'sync-cancelled' });
-            console.log(`[DEEP-SYNC] Removed queued job for ${gameKey}`);
-            return;
-        }
-
+    cancelDeepSync(gameKey: string): void {
         const job = this.jobs.get(gameKey);
         if (job) {
             job.status = 'stopped';
             this.jobs.delete(gameKey);
-            if (this.activeJobKey === gameKey) {
-                this.activeJobKey = null;
-            }
             this.broadcastStatus({ gameKey, status: 'sync-cancelled' });
             console.log(`[DEEP-SYNC] Cancelled job for ${gameKey}`);
-            
-            // Process the next queued item
-            setTimeout(() => this.processNextQueuedJob(), 500);
         }
     }
 
     /**
      * Queues a background "Deep-Sync" job for a game.
      */
-    async queueDeepSync(gameKey, exePath, targetLang = 'en', gameName = 'Game') {
-        if (this.jobs.has(gameKey) || this.syncQueue.some(q => q.gameKey === gameKey)) return;
+    async queueDeepSync(gameKey: string, exePath: string): Promise<void> {
+        if (this.jobs.has(gameKey)) return;
 
-        // If another job is currently active, queue this one
-        if (this.activeJobKey && this.activeJobKey !== gameKey) {
-            this.syncQueue.push({ gameKey, exePath, targetLang, gameName });
-            console.log(`[DEEP-SYNC] Queued ${gameKey} (${gameName}) at position ${this.syncQueue.length}`);
-            this.broadcastStatus({
-                gameKey,
-                status: 'sync-queued',
-                queuePosition: this.syncQueue.length
-            });
-            return;
-        }
-
-        this.activeJobKey = gameKey;
         const exeDir = path.dirname(exePath);
-        const engineType = await this.detectEngineSupport(exePath);
+        const detection = await this.detectUnityType(exePath);
+        const engineType = detection ? 'unity' : (await this.isRpgMaker(exeDir) ? 'rpg-maker' : null);
 
         if (!engineType || !this.extractors[engineType]) {
             console.log(`[DEEP-SYNC] No extractor for ${gameKey} (${engineType})`);
-            this.activeJobKey = null;
-            setTimeout(() => this.processNextQueuedJob(), 100);
             return;
         }
 
         console.log(`[DEEP-SYNC] Starting background extraction for ${gameKey}...`);
         this.broadcastStatus({ gameKey, status: 'sync-extracting' });
-        const job = { total: 0, translated: 0, status: 'extracting', queue: [], rush: false, gameName };
+        const job: TranslationJob = { total: 0, translated: 0, status: 'extracting', queue: [], rush: false };
         this.jobs.set(gameKey, job);
 
         try {
             const strings = await this.extractors[engineType].extract(exeDir);
             
-            const dictPath = await this.getDictionaryPath(gameKey, exePath, targetLang);
+            const dictPath = await this.getDictionaryPath(gameKey, exePath);
+            if (!dictPath) {
+                throw new Error('Could not determine dictionary path');
+            }
             const existing = await this.loadExistingDictionary(dictPath);
             
             const untranslated = strings.filter(s => !existing.has(s));
@@ -233,97 +203,46 @@ class TranslationService {
             console.log(`[DEEP-SYNC] Extracted ${strings.length} strings, ${untranslated.length} need translation.`);
             
             if (untranslated.length > 0) {
-                this.broadcastStatus({
-                    gameKey,
-                    status: 'syncing',
-                    progress: 0,
-                    translated: 0,
-                    total: job.total
-                });
-                this.runTranslationLoop(gameKey, dictPath, targetLang);
+                this.runTranslationLoop(gameKey, dictPath);
             } else {
                 job.status = 'complete';
-                this.jobs.delete(gameKey);
-                this.activeJobKey = null;
                 this.broadcastStatus({ gameKey, status: 'synced' });
-                setTimeout(() => this.processNextQueuedJob(), 500);
             }
         } catch (err) {
             console.error(`[DEEP-SYNC] Extraction failed for ${gameKey}:`, err);
             this.jobs.delete(gameKey);
-            this.activeJobKey = null;
             this.broadcastStatus({ gameKey, status: 'sync-error' });
-            setTimeout(() => this.processNextQueuedJob(), 500);
         }
     }
 
-    /**
-     * Recursively translates a batch of strings, splitting into smaller halves on mismatch or error (Divide-and-Conquer)
-     */
-    async translateBatchWithFallback(chunk, targetLang) {
-        if (chunk.length === 0) return [];
-
-        try {
-            const combined = chunk.join('\n◆◆◆\n');
-            const translated = await this.googleTranslateGtx(combined, 'ja', targetLang);
-            const lines = translated.split(/[\r\n\s]*◆◆◆[\r\n\s]*/g).map(s => s.trim());
-
-            if (lines.length === chunk.length) {
-                return lines;
-            }
-
-            console.warn(`[DEEP-SYNC] Batch mismatch (${lines.length} vs ${chunk.length}). Splitting batch...`);
-        } catch (e) {
-            console.warn(`[DEEP-SYNC] Batch failed with: ${e.message}. Splitting batch...`);
-        }
-
-        if (chunk.length === 1) {
-            try {
-                const trans = await this.googleTranslateGtx(chunk[0], 'ja', targetLang);
-                return [trans];
-            } catch (e) {
-                return [chunk[0]]; // fallback to original
-            }
-        }
-
-        const mid = Math.floor(chunk.length / 2);
-        const left = chunk.slice(0, mid);
-        const right = chunk.slice(mid);
-
-        await new Promise(r => setTimeout(r, 100));
-        const leftTrans = await this.translateBatchWithFallback(left, targetLang);
-        await new Promise(r => setTimeout(r, 100));
-        const rightTrans = await this.translateBatchWithFallback(right, targetLang);
-
-        return [...leftTrans, ...rightTrans];
-    }
-
-    async runTranslationLoop(gameKey, dictPath, targetLang) {
+    async runTranslationLoop(gameKey: string, dictPath: string): Promise<void> {
         const job = this.jobs.get(gameKey);
         if (!job || job.status !== 'translating') return;
 
-        const { DictionaryLocker } = require('./dictionary-lock');
+        const batchSize = 15;
         while (job.queue.length > 0) {
-            if (job.status === 'stopped') break;
+            if ((job.status as string) === 'stopped') break;
 
-            // Dynamically slice up to 40 strings while keeping the encoded URL payload safely under 1900 characters
-            const chunk = [];
-            let totalLength = 0;
-            while (job.queue.length > 0 && chunk.length < 40) {
-                const nextStr = job.queue[0];
-                const nextLen = encodeURIComponent(nextStr).length + 8;
-                if (totalLength + nextLen > 1900 && chunk.length > 0) {
-                    break;
-                }
-                chunk.push(job.queue.shift());
-                totalLength += nextLen;
-            }
-
+            const chunk = job.queue.splice(0, batchSize);
             try {
-                // Call the new Divide-and-Conquer batch translator helper
-                const lines = await this.translateBatchWithFallback(chunk, targetLang);
+                const combined = chunk.join('\n');
+                const translated = await this.googleTranslateGtx(combined, 'ja', 'en');
+                let lines = translated.split('\n');
 
-                const pairs = [];
+                if (lines.length !== chunk.length) {
+                    console.warn(`[DEEP-SYNC] Line count mismatch during batch translation. Falling back to individual translation.`);
+                    lines = [];
+                    for (const orig of chunk) {
+                        try {
+                            const trans = await this.googleTranslateGtx(orig, 'ja', 'en');
+                            lines.push(trans);
+                        } catch (e) {
+                            lines.push(orig);
+                        }
+                    }
+                }
+
+                const pairs: string[] = [];
                 chunk.forEach((orig, idx) => {
                     const trans = (lines[idx] || '').trim();
                     if (trans && trans !== orig) {
@@ -332,23 +251,19 @@ class TranslationService {
                 });
 
                 if (pairs.length > 0) {
-                    await DictionaryLocker.executeLocked(async () => {
-                        await this.appendToFileWithBom(dictPath, '\n' + pairs.join('\n'));
-                    });
+                    await this.appendToFileWithBom(dictPath, '\n' + pairs.join('\n'));
                 }
 
                 job.translated += chunk.length;
                 this.broadcastStatus({
                     gameKey,
                     status: 'syncing',
-                    progress: job.total > 0 ? job.translated / job.total : 0,
-                    translated: job.translated,
-                    total: job.total
+                    progress: job.total > 0 ? job.translated / job.total : 0
                 });
 
-                await new Promise(r => setTimeout(r, job.rush ? 100 : 500));
-            } catch (err) {
-                console.error(`[DEEP-SYNC] Batch run failed for ${gameKey}:`, err.message);
+                await new Promise(r => setTimeout(r, job.rush ? 200 : 1500));
+            } catch (err: any) {
+                console.error(`[DEEP-SYNC] Batch failed for ${gameKey}:`, err.message);
                 job.queue.push(...chunk);
                 await new Promise(r => setTimeout(r, 5000));
             }
@@ -356,72 +271,12 @@ class TranslationService {
 
         if (job.queue.length === 0) {
             job.status = 'complete';
-            this.jobs.delete(gameKey);
-            this.activeJobKey = null;
             this.broadcastStatus({ gameKey, status: 'synced' });
             console.log(`[DEEP-SYNC] Completed for ${gameKey}`);
-            
-            // Process the next queued item
-            setTimeout(() => this.processNextQueuedJob(), 500);
         }
     }
 
-    async processNextQueuedJob() {
-        if (this.activeJobKey || this.syncQueue.length === 0) return;
-        const next = this.syncQueue.shift();
-
-        this.syncQueue.forEach((item, index) => {
-            this.broadcastStatus({
-                gameKey: item.gameKey,
-                status: 'sync-queued',
-                queuePosition: index + 1
-            });
-        });
-
-        await this.queueDeepSync(next.gameKey, next.exePath, next.targetLang);
-    }
-
-    moveQueue(gameKey, direction) {
-        const idx = this.syncQueue.findIndex(q => q.gameKey === gameKey);
-        if (idx === -1) return;
-
-        if (direction === 'up' && idx > 0) {
-            const temp = this.syncQueue[idx];
-            this.syncQueue[idx] = this.syncQueue[idx - 1];
-            this.syncQueue[idx - 1] = temp;
-        } else if (direction === 'down' && idx < this.syncQueue.length - 1) {
-            const temp = this.syncQueue[idx];
-            this.syncQueue[idx] = this.syncQueue[idx + 1];
-            this.syncQueue[idx + 1] = temp;
-        }
-
-        console.log(`[DEEP-SYNC] Re-ordered queue. New order:`, this.syncQueue.map(q => q.gameName));
-
-        // Broadcast to all queued jobs their new positions
-        this.syncQueue.forEach((item, index) => {
-            this.broadcastStatus({
-                gameKey: item.gameKey,
-                status: 'sync-queued',
-                queuePosition: index + 1
-            });
-        });
-
-        // Trigger a status broadcast for the active translating job so the UI queue list updates
-        if (this.activeJobKey) {
-            const job = this.jobs.get(this.activeJobKey);
-            if (job) {
-                this.broadcastStatus({
-                    gameKey: this.activeJobKey,
-                    status: 'syncing',
-                    progress: job.total > 0 ? job.translated / job.total : 0,
-                    translated: job.translated,
-                    total: job.total
-                });
-            }
-        }
-    }
-
-    async appendToFileWithBom(filePath, text) {
+    async appendToFileWithBom(filePath: string, text: string): Promise<void> {
         const BOM = Buffer.from([0xEF, 0xBB, 0xBF]);
         try {
             const exists = fsSync.existsSync(filePath);
@@ -435,18 +290,18 @@ class TranslationService {
         }
     }
 
-    async getDictionaryPath(gameKey, exePath, targetLang = 'en') {
+    async getDictionaryPath(gameKey: string, exePath: string): Promise<string | null> {
         const detection = await this.detectUnityType(exePath);
         if (!detection) return null;
         const bundleId = `xunity-${detection.type}-${detection.arch}`;
         const targetDir = path.join(this.translatorsDir, bundleId);
-        const dictDir = path.join(targetDir, 'Translation', targetLang, 'Text');
+        const dictDir = path.join(targetDir, 'Translation', 'en', 'Text');
         await ensureDir(dictDir);
         return path.join(dictDir, `_AutoGeneratedTranslations.txt`);
     }
 
-    async loadExistingDictionary(dictPath) {
-        const seen = new Set();
+    async loadExistingDictionary(dictPath: string): Promise<Set<string>> {
+        const seen = new Set<string>();
         try {
             if (fsSync.existsSync(dictPath)) {
                 const content = await fs.readFile(dictPath, 'utf8');
@@ -462,7 +317,7 @@ class TranslationService {
     /**
      * Prepares the translator and blocks until ready.
      */
-    async prepareTranslator(gameKey, exePath) {
+    async prepareTranslator(gameKey: string, exePath: string): Promise<boolean> {
         const detection = await this.detectUnityType(exePath);
         if (!detection) return false;
 
@@ -471,7 +326,7 @@ class TranslationService {
 
         this.broadcastStatus({ gameKey, status: 'preparing', unityType, arch });
         
-        const corePath = await this.ensureCoreBinaries(unityType, arch, (downloaded, total) => {
+        const corePath = await this.ensureCoreBinaries(gameKey, unityType, arch, (downloaded, total) => {
             this.broadcastStatus({ gameKey, status: 'downloading', progress: downloaded / total });
         });
 
@@ -488,7 +343,7 @@ class TranslationService {
         return true;
     }
 
-    async removeTranslator(exePath) {
+    async removeTranslator(exePath: string): Promise<void> {
         const exeDir = path.dirname(exePath);
         const targets = ['winhttp.dll', 'doorstop_config.ini', 'BepInEx', 'AutoTranslator', 'Translation'];
         for (const name of targets) {
@@ -505,27 +360,17 @@ class TranslationService {
         }
     }
 
-
-    async isRpgMaker(exeDir) {
+    async isRpgMaker(exeDir: string): Promise<boolean> {
         return fsSync.existsSync(path.join(exeDir, 'www', 'data')) || fsSync.existsSync(path.join(exeDir, 'data'));
     }
 
-    async detectEngineSupport(exePath) {
-        const exeDir = path.dirname(exePath);
-        const isUnity = await this.detectUnityType(exePath);
-        if (isUnity) return 'unity';
-        const isRpg = await this.isRpgMaker(exeDir);
-        if (isRpg) return 'rpg-maker';
-        return null;
-    }
-
-    async detectUnityType(exePath) {
+    async detectUnityType(exePath: string): Promise<UnityDetection | null> {
         const exeDir = path.dirname(exePath);
         const entries = await fs.readdir(exeDir).catch(() => []);
         const dataDir = entries.find(e => e.toLowerCase().endsWith('_data'));
         if (!dataDir) return null;
 
-        let arch = 'x64';
+        let arch: 'x64' | 'x86' = 'x64';
         try {
             const handle = await fs.open(exePath, 'r');
             const { buffer: peOffsetBuf } = await handle.read(Buffer.alloc(4), 0, 4, 0x3c);
@@ -545,7 +390,12 @@ class TranslationService {
         return null;
     }
 
-    async ensureCoreBinaries(unityType, arch, onProgress) {
+    async ensureCoreBinaries(
+        gameKey: string,
+        unityType: 'mono' | 'il2cpp',
+        arch: 'x64' | 'x86',
+        onProgress: (downloaded: number, total: number) => void
+    ): Promise<string | null> {
         const bundleId = `xunity-${unityType}-${arch}`;
         const targetDir = path.join(this.translatorsDir, bundleId);
         const markerFile = path.join(targetDir, '.ready');
@@ -571,14 +421,14 @@ class TranslationService {
             }
 
             const bepSuffix = arch === 'x64' ? 'x64' : 'x86';
-            const bepAsset = bepinexRelease.assets.find(a => a.name.includes(`win_${bepSuffix}`) && a.name.endsWith('.zip'));
+            const bepAsset = bepinexRelease.assets.find((a: any) => a.name.includes(`win_${bepSuffix}`) && a.name.endsWith('.zip'));
             const bepZip = path.join(this.translatorsDir, `bep-${bepSuffix}.zip`);
             await downloadFile(bepAsset.browser_download_url, bepZip, 0, 30000, (d, t) => onProgress(d * 0.3, t), this.appVersion);
             await this.extractZip(bepZip, targetDir);
             await fs.unlink(bepZip);
 
             const xunKeyword = unityType === 'mono' ? 'BepInEx-5' : 'BepInEx-IL2CPP';
-            const xunAsset = xunityRelease.assets.find(a => a.name.includes(xunKeyword) && a.name.endsWith('.zip'));
+            const xunAsset = xunityRelease.assets.find((a: any) => a.name.includes(xunKeyword) && a.name.endsWith('.zip'));
             const xunZip = path.join(this.translatorsDir, `xun-${unityType}.zip`);
             await downloadFile(xunAsset.browser_download_url, xunZip, 0, 30000, (d, t) => onProgress(t * 0.3 + d * 0.7, t), this.appVersion);
             await this.extractZip(xunZip, targetDir);
@@ -594,21 +444,21 @@ class TranslationService {
         }
     }
 
-    async getLatestRelease(apiUrl) {
+    async getLatestRelease(apiUrl: string): Promise<any> {
         try {
             const buffer = await downloadBuffer(apiUrl, 0, 10000, null, this.appVersion);
             return JSON.parse(buffer.toString('utf8'));
         } catch (err) { return null; }
     }
 
-    extractZip(zipPath, outDir) {
-        return new Promise((resolve, reject) => {
+    extractZip(zipPath: string, outDir: string): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
             const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${outDir.replace(/'/g, "''")}' -Force"`;
             exec(cmd, (err) => err ? reject(err) : resolve());
         });
     }
 
-    async deployShims(exeDir, corePath, unityType, proxyPort) {
+    async deployShims(exeDir: string, corePath: string, unityType: 'mono' | 'il2cpp', proxyPort: number): Promise<void> {
         const sourceShim = path.join(corePath, 'winhttp.dll');
         if (fsSync.existsSync(sourceShim)) await fs.copyFile(sourceShim, path.join(exeDir, 'winhttp.dll'));
 
@@ -643,5 +493,3 @@ class TranslationService {
         }
     }
 }
-
-module.exports = { TranslationService };

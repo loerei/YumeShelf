@@ -1,14 +1,12 @@
-// @ts-nocheck
-const path = require('path');
-const { 
+import { 
     normalizePathForComparison, 
     getLeafFolderName, 
     isDescendantPath, 
     buildGameKey, 
     normalizeRelativeGameKey 
-} = require('./scanner');
+} from './scanner';
 
-function normalizeComparableText(value) {
+export function normalizeComparableText(value: any): string {
     return String(value || '')
         .toLowerCase()
         .replace(/\[[^\]]*]/g, ' ')
@@ -20,13 +18,13 @@ function normalizeComparableText(value) {
         .replace(/\s+/g, ' ');
 }
 
-function getExecutableStem(exePath) {
+export function getExecutableStem(exePath: string): string {
     const normalized = String(exePath || '').replace(/[\\/]+/g, '/');
     const baseName = normalized.split('/').pop() || '';
     return baseName.replace(/\.exe$/i, '');
 }
 
-function buildContinuitySignature(record) {
+export function buildContinuitySignature(record: any): string | null {
     if (!record) return null;
     const signatureSource = `${record.folderName || getLeafFolderName(record.folderPath)} ${record.exePath || ''}`;
     const idMatch = signatureSource.match(/(RJ\d{6,8}|\b\d{6,8}\b)/i);
@@ -43,8 +41,8 @@ function buildContinuitySignature(record) {
     return `folder:${normalizedFolderName}|exe:${normalizedExeStem}`;
 }
 
-function buildLegacyMigrationMap(candidates, legacyGames) {
-    const migrationMap = new Map();
+export function buildLegacyMigrationMap(candidates: any[], legacyGames: any[]): Map<string, any> {
+    const migrationMap = new Map<string, any>();
     for (const legacyGame of legacyGames) {
         const exactMatches = candidates.filter((candidate) => normalizePathForComparison(candidate.folderPath) === normalizePathForComparison(legacyGame.folderPath));
         if (exactMatches.length === 1) {
@@ -60,8 +58,8 @@ function buildLegacyMigrationMap(candidates, legacyGames) {
     return migrationMap;
 }
 
-function mapStoredGamesByFolderPath(storedGames) {
-    const result = new Map();
+export function mapStoredGamesByFolderPath(storedGames: Record<string, any>): Map<string, any> {
+    const result = new Map<string, any>();
     for (const [gameKey, record] of Object.entries(storedGames)) {
         if (!record || typeof record.folderPath !== 'string') continue;
         result.set(normalizePathForComparison(record.folderPath), { gameKey, ...record });
@@ -69,11 +67,17 @@ function mapStoredGamesByFolderPath(storedGames) {
     return result;
 }
 
-function buildMoveMigrationMap({ candidates, libraryPath, storedGames }) {
+export interface MoveMigrationOptions {
+    candidates: any[];
+    libraryPath: string;
+    storedGames: Record<string, any>;
+}
+
+export function buildMoveMigrationMap({ candidates, libraryPath, storedGames }: MoveMigrationOptions): Map<string, any> {
     const candidateGameKeys = new Set(candidates.map((candidate) => buildGameKey(libraryPath, candidate.folderPath)));
     const candidateFolderPaths = new Set(candidates.map((candidate) => normalizePathForComparison(candidate.folderPath)));
-    const orphanedRecordsBySignature = new Map();
-    const unmatchedCandidatesBySignature = new Map();
+    const orphanedRecordsBySignature = new Map<string, any[]>();
+    const unmatchedCandidatesBySignature = new Map<string, any[]>();
 
     for (const [gameKey, record] of Object.entries(storedGames)) {
         if (!record || typeof record.folderPath !== 'string' || typeof record.exePath !== 'string') continue;
@@ -100,7 +104,7 @@ function buildMoveMigrationMap({ candidates, libraryPath, storedGames }) {
         unmatchedCandidatesBySignature.set(signature, nextGroup);
     }
 
-    const migrationMap = new Map();
+    const migrationMap = new Map<string, any>();
     for (const [signature, records] of orphanedRecordsBySignature.entries()) {
         const candidatesForSignature = unmatchedCandidatesBySignature.get(signature) || [];
         if (records.length !== 1 || candidatesForSignature.length !== 1) continue;
@@ -110,7 +114,7 @@ function buildMoveMigrationMap({ candidates, libraryPath, storedGames }) {
     return migrationMap;
 }
 
-function normalizeGameRecord(gameKey, record) {
+export function normalizeGameRecord(gameKey: string, record: any): any {
     return {
         ...record,
         folderName: record.folderName || getLeafFolderName(record.folderPath),
@@ -119,7 +123,7 @@ function normalizeGameRecord(gameKey, record) {
     };
 }
 
-function buildLogicalGameId(record) {
+export function buildLogicalGameId(record: any): string {
     const signature = buildContinuitySignature(record);
     if (signature) {
         return `game:${signature}`;
@@ -128,18 +132,18 @@ function buildLogicalGameId(record) {
     return `path:${relativePath}`;
 }
 
-function buildInstanceId(record) {
+export function buildInstanceId(record: any): string {
     return `inst:${normalizeRelativeGameKey(record?.gameKey || record?.relativePath || record?.folderName)}`;
 }
 
-function compareLogicalRecordDepth(a, b) {
+export function compareLogicalRecordDepth(a: any, b: any): number {
     const depthA = String(a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
     const depthB = String(b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
     if (depthA !== depthB) return depthA - depthB;
     return String(a.relativePath || '').localeCompare(String(b.relativePath || ''));
 }
 
-function choosePrimaryRecord(records) {
+export function choosePrimaryRecord(records: any[]): any {
     const recents = records
         .filter((record) => (record.lastPlayed || 0) > 0)
         .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
@@ -149,8 +153,8 @@ function choosePrimaryRecord(records) {
     return [...records].sort(compareLogicalRecordDepth)[0];
 }
 
-function buildLogicalGames(records, assignments = {}) {
-    const grouped = new Map();
+export function buildLogicalGames(records: any[], assignments: Record<string, string[]> = {}): any[] {
+    const grouped = new Map<string, any[]>();
 
     for (const record of records) {
         const gameId = buildLogicalGameId(record);
@@ -196,14 +200,3 @@ function buildLogicalGames(records, assignments = {}) {
         };
     });
 }
-
-module.exports = {
-    buildContinuitySignature,
-    buildLegacyMigrationMap,
-    mapStoredGamesByFolderPath,
-    buildMoveMigrationMap,
-    normalizeGameRecord,
-    buildLogicalGameId,
-    buildInstanceId,
-    buildLogicalGames
-};

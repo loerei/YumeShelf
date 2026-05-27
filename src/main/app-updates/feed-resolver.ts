@@ -1,20 +1,35 @@
-// @ts-nocheck
-const { downloadBuffer } = require('../core/shared-io');
-const {
+import { downloadBuffer } from '../core/shared-io';
+import {
     compareAppReleaseVersions,
     normalizeRelease,
     readAssetName,
     isPrereleaseVersion
-} = require('./release-utils');
+} from './release-utils';
 
-const APP_UPDATE_RELEASES_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases?per_page=25';
-const APP_UPDATE_RELEASE_PAGE_URL = 'https://github.com/loerei/YumeShelf/releases/latest';
+export const APP_UPDATE_RELEASES_API_URL = 'https://api.github.com/repos/loerei/YumeShelf/releases?per_page=25';
+export const APP_UPDATE_RELEASE_PAGE_URL = 'https://github.com/loerei/YumeShelf/releases/latest';
 
-function setupFeedResolver({
+export interface FeedResolverOptions {
+    startupNetworkTimeoutMs: number;
+    appendVerboseUpdateLog: (message: string) => Promise<void>;
+}
+
+export interface ResolveFeedOptions {
+    includePrerelease?: boolean;
+}
+
+export interface FeedResolver {
+    resolveReleaseFeed(options?: ResolveFeedOptions): Promise<any[]>;
+    resolveLatestRelease(options?: ResolveFeedOptions): Promise<any>;
+    resolveNewerReleases(fromVersion: string, toVersion?: string | null, options?: ResolveFeedOptions): Promise<any[]>;
+    resolvePackagedFeedOverride(options: { currentVersion: string; runtime: any }): Promise<any>;
+}
+
+export function setupFeedResolver({
     startupNetworkTimeoutMs,
     appendVerboseUpdateLog
-}) {
-    async function resolveReleaseFeed(options = {}) {
+}: FeedResolverOptions): FeedResolver {
+    async function resolveReleaseFeed(options: ResolveFeedOptions = {}): Promise<any[]> {
         const includePrerelease = options.includePrerelease === true;
         const buffer = await downloadBuffer(APP_UPDATE_RELEASES_API_URL, 0, startupNetworkTimeoutMs);
         const raw = JSON.parse(buffer.toString('utf8'));
@@ -36,12 +51,12 @@ function setupFeedResolver({
         return releases;
     }
 
-    async function resolveLatestRelease(options = {}) {
+    async function resolveLatestRelease(options: ResolveFeedOptions = {}): Promise<any> {
         const releases = await resolveReleaseFeed(options);
         return releases[0] || null;
     }
 
-    async function resolveNewerReleases(fromVersion, toVersion = null, options = {}) {
+    async function resolveNewerReleases(fromVersion: string, toVersion: string | null = null, options: ResolveFeedOptions = {}): Promise<any[]> {
         const releases = await resolveReleaseFeed(options);
         return releases.filter((release) => {
             if (compareAppReleaseVersions(release.version, fromVersion) <= 0) {
@@ -54,7 +69,7 @@ function setupFeedResolver({
         });
     }
 
-    async function resolvePackagedFeedOverride({ currentVersion, runtime }) {
+    async function resolvePackagedFeedOverride({ currentVersion, runtime }: { currentVersion: string; runtime: any }): Promise<any> {
         if (runtime?.channel !== 'nsis') {
             await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-non-nsis current=${currentVersion} runtime=${JSON.stringify(runtime || null)}`);
             return null;
@@ -72,7 +87,7 @@ function setupFeedResolver({
             return null;
         }
 
-        const hasLatestManifest = targetRelease.assets.some(asset => readAssetName(asset).toLowerCase() === 'latest.yml');
+        const hasLatestManifest = targetRelease.assets.some((asset: any) => readAssetName(asset).toLowerCase() === 'latest.yml');
         if (!hasLatestManifest) {
             await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-missing-latest current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName}`);
             return null;
@@ -95,8 +110,3 @@ function setupFeedResolver({
         resolvePackagedFeedOverride
     };
 }
-
-module.exports = {
-    setupFeedResolver,
-    APP_UPDATE_RELEASE_PAGE_URL
-};

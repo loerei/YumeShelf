@@ -1,26 +1,41 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { cropTransparentPaddingFromDataUrl } = require('./cropper');
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as crypto from 'crypto';
+import { cropTransparentPaddingFromDataUrl } from './cropper';
 
-const ICON_CACHE_VERSION = 1;
+export const ICON_CACHE_VERSION = 1;
 
-function createSha1(input) {
+export interface IconCacheEntry {
+    fingerprint: string;
+    fileName: string;
+    size: number;
+    mtimeMs: number;
+    cachedAtMs: number;
+}
+
+export interface IconCacheState {
+    version: number;
+    entriesByPath: Record<string, IconCacheEntry>;
+}
+
+export interface CacheAppInterface {
+    getPath(name: string): string;
+}
+
+function createSha1(input: string): string {
     return crypto.createHash('sha1').update(input).digest('hex');
 }
 
-function resolveCachePaths(app) {
+export function resolveCachePaths(app: CacheAppInterface) {
     const cacheDir = path.join(app.getPath('userData'), 'high-res-icon-cache');
     const indexFile = path.join(cacheDir, 'index.json');
     return { cacheDir, indexFile };
 }
 
-let iconCacheState = null;
-let iconCacheStatePromise = null;
+let iconCacheState: IconCacheState | null = null;
+let iconCacheStatePromise: Promise<IconCacheState> | null = null;
 
-async function loadIconCacheState(app) {
+export async function loadIconCacheState(app: CacheAppInterface): Promise<IconCacheState> {
     if (iconCacheState) return iconCacheState;
     if (iconCacheStatePromise) return iconCacheStatePromise;
 
@@ -48,17 +63,17 @@ async function loadIconCacheState(app) {
     }
 }
 
-async function saveIconCacheState(app, state) {
+export async function saveIconCacheState(app: CacheAppInterface, state: IconCacheState): Promise<void> {
     const { cacheDir, indexFile } = resolveCachePaths(app);
     await fs.mkdir(cacheDir, { recursive: true });
     await fs.writeFile(indexFile, JSON.stringify(state, null, 2));
 }
 
-function buildIconCacheFingerprint(normalizedPath, stats) {
+export function buildIconCacheFingerprint(normalizedPath: string, stats: { size: number; mtimeMs: number }): string {
     return createSha1(`${normalizedPath}|${stats.size}|${stats.mtimeMs}`);
 }
 
-async function deleteIconCacheFileIfUnused(app, state, fileName, exceptPath) {
+export async function deleteIconCacheFileIfUnused(app: CacheAppInterface, state: IconCacheState, fileName: string | null | undefined, exceptPath: string): Promise<void> {
     if (!fileName) return;
     const { cacheDir } = resolveCachePaths(app);
     const stillUsed = Object.entries(state.entriesByPath).some(([entryPath, entry]) => {
@@ -73,7 +88,7 @@ async function deleteIconCacheFileIfUnused(app, state, fileName, exceptPath) {
     }
 }
 
-async function tryGetCachedIconDataUrl(app, targetPath) {
+export async function tryGetCachedIconDataUrl(app: CacheAppInterface, targetPath: string): Promise<string | null> {
     const { cacheDir } = resolveCachePaths(app);
     const normalizedPath = path.win32.normalize(targetPath);
     let stats;
@@ -106,7 +121,7 @@ async function tryGetCachedIconDataUrl(app, targetPath) {
     }
 }
 
-async function storeHighResIconInCache(app, targetPath, base64, meta) {
+export async function storeHighResIconInCache(app: CacheAppInterface, targetPath: string, base64: string, meta: any): Promise<void> {
     const { cacheDir } = resolveCachePaths(app);
     const normalizedPath = path.win32.normalize(targetPath);
     let stats;
@@ -137,14 +152,3 @@ async function storeHighResIconInCache(app, targetPath, base64, meta) {
         await deleteIconCacheFileIfUnused(app, state, previousEntry.fileName, normalizedPath);
     }
 }
-
-module.exports = {
-    ICON_CACHE_VERSION,
-    resolveCachePaths,
-    loadIconCacheState,
-    saveIconCacheState,
-    buildIconCacheFingerprint,
-    deleteIconCacheFileIfUnused,
-    tryGetCachedIconDataUrl,
-    storeHighResIconInCache
-};

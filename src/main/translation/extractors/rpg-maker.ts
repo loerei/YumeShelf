@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { TranslationExtractor } from './base';
@@ -32,11 +31,11 @@ export class RpgMakerExtractor implements TranslationExtractor {
                     } else if (Array.isArray(json)) {
                         this.extractFromDatabase(json, strings);
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.warn(`[RPG-EXTRACTOR] Failed to parse ${file}:`, e.message);
                 }
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('[RPG-EXTRACTOR] Failed to read data directory:', err.message);
         }
 

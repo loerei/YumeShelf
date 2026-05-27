@@ -1,6 +1,5 @@
-// @ts-nocheck
-function compareNumericVersions(left, right) {
-    const toParts = (value) => String(value || '0')
+export function compareNumericVersions(left: string | number | null | undefined, right: string | number | null | undefined): number {
+    const toParts = (value: string | number | null | undefined): number[] => String(value || '0')
         .split('.')
         .map(part => parseInt(part, 10))
         .map(part => Number.isFinite(part) ? part : 0);
@@ -14,7 +13,3 @@ function compareNumericVersions(left, right) {
     }
     return 0;
 }
-
-module.exports = {
-    compareNumericVersions
-};

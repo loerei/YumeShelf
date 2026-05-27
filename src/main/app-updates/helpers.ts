@@ -1,33 +1,31 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
-const { ensureDir } = require('../core/shared-io');
-const {
+import * as fs from 'fs/promises';
+import { ensureDir } from '../core/shared-io';
+import {
     formatStackedReleaseNotes,
     getReleaseDisplayName,
     normalizeReleaseNotesForReview,
     shouldIncludePrereleaseReleases
-} = require('./release-utils');
-const { APP_UPDATE_RELEASE_PAGE_URL } = require('./feed-resolver');
+} from './release-utils';
+import { APP_UPDATE_RELEASE_PAGE_URL } from './feed-resolver';
 
-const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
+export const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 
-async function appendUpdateLog(context, message) {
+export async function appendUpdateLog(context: any, message: string): Promise<void> {
     await ensureDir(context.updateCacheDir);
     const line = `[${new Date().toISOString()}] ${message}\n`;
     await fs.appendFile(context.updateLogFile, line, 'utf8');
 }
 
-async function appendVerboseUpdateLog(context, message) {
+export async function appendVerboseUpdateLog(context: any, message: string): Promise<void> {
     if (!VERBOSE_UPDATE_LOG) return;
     await appendUpdateLog(context, message);
 }
 
-async function logDebug(context, message) {
+export async function logDebug(context: any, message: string): Promise<void> {
     await appendVerboseUpdateLog(context, `debug ${message}`);
 }
 
-function summarizeAppUpdate(context, update) {
+export function summarizeAppUpdate(context: any, update: any): any {
     return context.nsisUpdaterService.summarizeUpdateState({
         available: !!update?.available,
         canSelfUpdate: !!update?.canSelfUpdate,
@@ -42,7 +40,7 @@ function summarizeAppUpdate(context, update) {
     });
 }
 
-async function enrichUpdateInfo(context, update, runtimeStrategy) {
+export async function enrichUpdateInfo(context: any, update: any, runtimeStrategy: any): Promise<any> {
     const enriched = {
         ...update,
         available: !!update?.available,
@@ -75,18 +73,10 @@ async function enrichUpdateInfo(context, update, runtimeStrategy) {
                 enriched.releaseNotes = formatStackedReleaseNotes(newerReleases);
                 enriched.releaseUrl = newerReleases[0].htmlUrl || enriched.releaseUrl;
             }
-        } catch (error) {
+        } catch (error: any) {
             await appendUpdateLog(context, `enrichUpdateInfo release-refresh-failed error=${String((error && error.stack) || error || '')}`);
         }
     }
 
     return enriched;
 }
-
-module.exports = {
-    appendUpdateLog,
-    appendVerboseUpdateLog,
-    logDebug,
-    summarizeAppUpdate,
-    enrichUpdateInfo
-};

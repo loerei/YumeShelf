@@ -1,8 +1,6 @@
-// @ts-nocheck
-const scanner = require('./scanner');
-const { normalizeLibraryConfigShape } = scanner;
+import { normalizeLibraryConfigShape, LibraryConfig } from './scanner';
 
-async function resolveLibraryConfig(context) {
+export async function resolveLibraryConfig(context: any): Promise<LibraryConfig | null> {
     const { defaultGamesDir, fsSync, loadDB, saveDB } = context;
     if (process.argv.some(arg => arg.toLowerCase() === '--welcome' || arg.toLowerCase() === '-w')) return null;
 
@@ -20,7 +18,7 @@ async function resolveLibraryConfig(context) {
     return config;
 }
 
-async function setupLibrary(context, type) {
+export async function setupLibrary(context: any, type: 'default' | 'custom'): Promise<LibraryConfig | null> {
     const { defaultGamesDir, dialog, fsSync, loadDB, saveDB } = context;
     const db = await loadDB();
     const currentConfig = normalizeLibraryConfigShape(db.config);
@@ -46,7 +44,7 @@ async function setupLibrary(context, type) {
     return nextConfig;
 }
 
-async function updateLibraryConfig(context, updates = {}) {
+export async function updateLibraryConfig(context: any, updates: Partial<LibraryConfig> = {}): Promise<LibraryConfig> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const currentConfig = normalizeLibraryConfigShape(db.config);
@@ -59,7 +57,7 @@ async function updateLibraryConfig(context, updates = {}) {
     return nextConfig;
 }
 
-async function resolveLibraryFolderToOpen(context) {
+export async function resolveLibraryFolderToOpen(context: any): Promise<string> {
     const { defaultGamesDir, fsSync } = context;
     const config = await resolveLibraryConfig(context);
     if (config?.libraryPath && fsSync.existsSync(config.libraryPath)) {
@@ -70,10 +68,3 @@ async function resolveLibraryFolderToOpen(context) {
     }
     return '';
 }
-
-module.exports = {
-    resolveLibraryConfig,
-    setupLibrary,
-    updateLibraryConfig,
-    resolveLibraryFolderToOpen
-};

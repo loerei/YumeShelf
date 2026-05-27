@@ -1,7 +1,50 @@
-// @ts-nocheck
-const { pickReleaseName, pickReleaseNotes } = require('./update-info');
+import { pickReleaseName, pickReleaseNotes } from './update-info';
 
-export async function checkForUpdates(context) {
+export interface CheckForUpdatesContext {
+    app: any;
+    compareVersions: (a: string, b: string) => number;
+    releasePageUrl: string;
+    state: {
+        updater: any;
+        latestUpdateInfo: any;
+        latestDownloadedEvent: any;
+        activeDownloadPromise: any;
+        updaterFeedKey: any;
+    };
+    stateFiles: {
+        clearDeferredInstallState: () => Promise<void>;
+        clearDownloadedState: () => Promise<void>;
+        getValidatedDeferredInstallState: () => Promise<any>;
+        getValidatedDownloadedStateForVersion: (version: string) => Promise<any>;
+        readDeferredInstallState: () => Promise<any>;
+        readDownloadedState: () => Promise<any>;
+        writeDeferredInstallState: (state: any) => Promise<void>;
+        writeDownloadedState: (state: any) => Promise<void>;
+    };
+    resolveRuntime: () => any;
+    configureUpdaterFeed: (runtime: any) => Promise<{ updater: any; feedOverride: any }>;
+    appendUpdateLog: (message: string) => Promise<any> | any;
+    VERBOSE_UPDATE_LOG?: boolean;
+}
+
+export interface CheckUpdateResult {
+    available: boolean;
+    canSelfUpdate: boolean;
+    channel: string;
+    deferredUntilNextLaunch: boolean;
+    downloadable: boolean;
+    downloadReady: boolean;
+    provider: string;
+    releaseName: string;
+    releaseNotes: string;
+    releaseUrl: string;
+    selfApplicable: boolean;
+    version: string | null;
+    downloadedState?: any;
+    updateInfo?: any;
+}
+
+export async function checkForUpdates(context: CheckForUpdatesContext): Promise<CheckUpdateResult> {
     const {
         app,
         compareVersions,

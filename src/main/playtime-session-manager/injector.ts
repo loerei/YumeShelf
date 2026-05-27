@@ -1,9 +1,8 @@
-// @ts-nocheck
-const { spawn, execFile } = require('child_process');
-const path = require('path');
-const { assertPlaytimeHelperExists, resolvePlaytimeHelperPath } = require('../playtime-helper-paths');
+import { spawn, execFile } from 'child_process';
+import * as path from 'path';
+import { assertPlaytimeHelperExists, resolvePlaytimeHelperPath } from '../playtime-helper-paths';
 
-function isPidAlive(pid) {
+export function isPidAlive(pid: number): boolean {
     if (!Number.isInteger(pid) || pid <= 0) {
         return false;
     }
@@ -15,7 +14,14 @@ function isPidAlive(pid) {
     }
 }
 
-function spawnHelper({ app, dbFilePath, helperLogPath, log }, mode, journalPath) {
+export interface SpawnHelperOptions {
+    app: any;
+    dbFilePath: string;
+    helperLogPath: string;
+    log?: ((msg: string) => void) | null;
+}
+
+export function spawnHelper({ app, dbFilePath, helperLogPath, log }: SpawnHelperOptions, mode: string, journalPath: string): number {
     const helperPath = assertPlaytimeHelperExists(resolvePlaytimeHelperPath({ app }));
     const args = [
         mode,
@@ -37,7 +43,14 @@ function spawnHelper({ app, dbFilePath, helperLogPath, log }, mode, journalPath)
     return child.pid || 0;
 }
 
-async function injectRunInBackgroundDll({ app, log, readSessionJournal, delay }, journalPath) {
+export interface InjectDllOptions {
+    app: any;
+    log?: ((msg: string) => void) | null;
+    readSessionJournal: (filePath: string) => Promise<any>;
+    delay: (ms: number) => Promise<void>;
+}
+
+export async function injectRunInBackgroundDll({ app, log, readSessionJournal, delay }: InjectDllOptions, journalPath: string): Promise<void> {
     const injectorPath = path.join(app.getAppPath(), 'native/background-injector/build/injector.exe');
     const payloadPath = path.join(app.getAppPath(), 'native/background-injector/build/payload.dll');
     
@@ -71,9 +84,3 @@ async function injectRunInBackgroundDll({ app, log, readSessionJournal, delay },
         log(`Timed out waiting for rootPid to inject background DLL`);
     }
 }
-
-module.exports = {
-    isPidAlive,
-    spawnHelper,
-    injectRunInBackgroundDll
-};

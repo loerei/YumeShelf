@@ -49,4 +49,4 @@ class PureJsonFormat {
 }
 
 const format = new PureJsonFormat();
-module.exports = format;
+export default format;

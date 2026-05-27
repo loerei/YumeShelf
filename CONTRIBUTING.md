@@ -1,8 +1,8 @@
 # Contributing to YumeShelf
 
-First off, thank you for your interest in contributing to YumeShelf! We appreciate your help in making this a premium game launcher and local save game editor.
+Thank you for your interest in contributing to YumeShelf. This document describes the workflow, branch structure, and code quality requirements expected from contributors.
 
-Please review this document to understand our workflow, branch structure, and strict code quality standards before submitting your pull request.
+Please read through this document before submitting a pull request.
 
 ---
 
@@ -45,12 +45,12 @@ To automate changelog generation and keep history structured, we strictly enforc
 * Avoid `any` types. Declare precise type interfaces for configurations, options, and callbacks.
 * Use standard ESM imports and exports (`import` / `export`) instead of CommonJS (`require`).
 
-### B. Renderer Process (React, Vite & Premium CSS)
-YumeShelf is committed to visual and aesthetic excellence. When contributing to the Renderer:
-* **Premium Styling (CSS)**: Use vanilla CSS for maximum control. Avoid generic, plain colors. Always prioritize vibrant, curated, harmonious palettes (e.g. HSL tailored colors) and modern typography (Google Fonts like Outfit, Inter) rather than browser defaults.
-* **Dynamic Aesthetics**: Leverage smooth CSS transitions, interactive hover effects, and subtle micro-animations to make the interface feel responsive and alive.
-* **Modular React**: Keep React components small, focused, and highly reusable.
-* **TypeScript Support**: Strictly type all React props and state variables.
+### B. Renderer Process (React, Vite & CSS)
+When contributing to the Renderer:
+* **CSS**: Use vanilla CSS. Prefer consistent, purposeful color choices using HSL values, and use a defined font stack (e.g. Google Fonts: Outfit, Inter) rather than browser defaults.
+* **Interactions**: CSS transitions, hover effects, and animations should be intentional — avoid visual noise, prefer subtlety.
+* **React**: Keep components small and focused on a single responsibility.
+* **TypeScript**: Type all React props and state variables explicitly.
 
 ---
 
@@ -76,10 +76,9 @@ The Main process must compile cleanly with strict flags:
 npm run build:main
 ```
 
-### 4. Static Code Analysis (SonarQube Gate)
-Similar to our core tools, pull requests are subjected to a automated Quality Gate. Contributions must maintain:
-* **0 Critical Code Smells** and **0 Security Hotspots**.
-* **Type Coverage**: No regression in type coverage (strict typing must be maintained).
-* **Test Coverage**: Any new core business logic should be accompanied by appropriate tests.
+### 4. Test Coverage
+Automated static analysis (e.g. SonarQube) is not yet configured for this project. In the meantime:
+* Any new core business logic should be accompanied by appropriate tests where feasible.
+* Strict typing (`strict: true`) must be maintained — do not regress type coverage.
 
-Thank you again for helping to build a premium experience for YumeShelf!
+Thank you for contributing to YumeShelf.

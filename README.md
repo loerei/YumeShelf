@@ -53,19 +53,24 @@ Welcome! If you want to contribute to **YumeShelf**, here is the technical break
 * **Main Process (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
 * **Renderer Process (Frontend)**: [Vite](https://vite.dev/), Vanilla [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (Zero heavy frameworks for maximum performance)
 * **Native Helpers**: [Rust](https://www.rust-lang.org/) (playtime helper), [C++](https://isocpp.org/) (background injector), and [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (save converter)
-* **Storage**: Local [JSON](https://www.json.org/)-based caching system for instant loading.
+* **Storage**: Local [JSON](https://www.json.org/)-based file storage.
 
 #### Project Structure
 ```text
 YumeShelf/
-├── YumeShelf/       # Default local game directory
-├── src/             # Source code
-│   ├── main.js      # Main process (Recursive scanning, IPC)
-│   ├── renderer.js  # UI Logic, i18n & Theme Engine
-│   ├── preload.js   # Secure IPC bridge
-│   ├── index.html   # App layout
-│   └── style.css    # Modern styling & themes
-└── package.json     # Scripts & Dependencies
+├── src/
+│   ├── main.ts              # Main process entry point
+│   ├── main/                # Main process modules
+│   │   ├── core/            # Shared utilities and I/O helpers
+│   │   ├── ipc/             # IPC channel handlers
+│   │   ├── library-state/   # Game library management
+│   │   ├── save-editor/     # Save file parsing and editing
+│   │   ├── translation/     # XUnity.AutoTranslator setup and proxy
+│   │   └── window/          # Electron window and lifecycle
+│   ├── renderer/            # Renderer process (Vite, TypeScript, CSS)
+│   ├── preload/             # Secure IPC bridge
+│   └── shared/              # Types shared between processes
+└── package.json
 ```
 
 #### Windows Build Outputs
@@ -107,21 +112,26 @@ YumeShelf/
 #### 技术栈
 * **核心 (Core)**: [Electron](https://www.electronjs.org/)
 * **主进程 (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
-* **渲染进程 (Frontend)**: [Vite](https://vite.dev/), 原生 [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (零重型框架，追求极致性能)
+* **渲染进程 (Frontend)**: [Vite](https://vite.dev/), 原生 [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS)
 * **原生辅助 (Native)**: [Rust](https://www.rust-lang.org/) (playtime 辅助), [C++](https://isocpp.org/) (后台注入器), 以及 [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (存档转换器)
-* **存储 (Storage)**: 基于本地 [JSON](https://www.json.org/) 的缓存系统，实现瞬间加载。
+* **存储 (Storage)**: 基于本地 [JSON](https://www.json.org/) 的文件存储。
 
 #### 项目结构
 ```text
 YumeShelf/
-├── YumeShelf/       # 默认本地游戏目录
-├── src/             # 源代码
-│   ├── main.js      # 主进程 (递归扫描, IPC)
-│   ├── renderer.js  # UI 逻辑, i18n & 主题引擎
-│   ├── preload.js   # 安全 IPC 桥接
-│   ├── index.html   # 应用布局
-│   └── style.css    # 现代样式 & 主题
-└── package.json     # 脚本 & 依赖项
+├── src/
+│   ├── main.ts              # 主进程入口
+│   ├── main/                # 主进程模块
+│   │   ├── core/            # 共享工具与 I/O
+│   │   ├── ipc/             # IPC 通道处理
+│   │   ├── library-state/   # 游戏库管理
+│   │   ├── save-editor/     # 存档解析与编辑
+│   │   ├── translation/     # XUnity 配置与代理
+│   │   └── window/          # Electron 窗口与生命周期
+│   ├── renderer/            # 渲染进程（Vite, TypeScript, CSS）
+│   ├── preload/             # 安全 IPC 桥接
+│   └── shared/              # 进程间共享类型
+└── package.json
 ```
 
 
@@ -158,21 +168,26 @@ YumeShelf/
 #### 技術スタック
 * **コア (Core)**: [Electron](https://www.electronjs.org/)
 * **メインプロセス (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
-* **レンダラープロセス (Frontend)**: [Vite](https://vite.dev/), バニラ [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (最高のパフォーマンスを得るためのゼロ・ヘビー・フレームワーク)
+* **レンダラープロセス (Frontend)**: [Vite](https://vite.dev/), バニラ [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS)
 * **ネイティブ補助 (Native)**: [Rust](https://www.rust-lang.org/) (プレイ時間ヘルパー), [C++](https://isocpp.org/) (バックグラウンドインジェクター), および [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (セーブデータコンバーター)
-* **ストレージ (Storage)**: インスタントロードのためのローカル[JSON](https://www.json.org/)ベースのキャッシュシステム。
+* **ストレージ (Storage)**: ローカル [JSON](https://www.json.org/) ベースのファイルストレージ。
 
 #### プロジェクト構成
 ```text
 YumeShelf/
-├── YumeShelf/       # デフォルトのローカルゲームディレクトリ
-├── src/             # ソースコード
-│   ├── main.js      # メインプロセス (再帰的スキャン, IPC)
-│   ├── renderer.js  # UI ロジック, i18n & テーマエンジン
-│   ├── preload.js   # セキュア IPC ブリッジ
-│   ├── index.html   # アプリのレイアウト
-│   └── style.css    # モダンスタイル & テーマ
-└── package.json     # スクリプト & 依存関係
+├── src/
+│   ├── main.ts              # メインプロセス エントリーポイント
+│   ├── main/                # メインプロセス モジュール
+│   │   ├── core/            # 共有ユーティリティ & I/O
+│   │   ├── ipc/             # IPC チャンネル ハンドラー
+│   │   ├── library-state/   # ゲームライブラリ管理
+│   │   ├── save-editor/     # セーブデータの解析と編集
+│   │   ├── translation/     # XUnity 設定とプロキシ
+│   │   └── window/          # Electron ウィンドウとライフサイクル
+│   ├── renderer/            # レンダラープロセス（Vite, TypeScript, CSS）
+│   ├── preload/             # セキュア IPC ブリッジ
+│   └── shared/              # プロセス間共有型
+└── package.json
 ```
 
 
@@ -211,17 +226,22 @@ Chào mừng! Nếu bạn muốn đóng góp cho **YumeShelf**, dưới đây l�
 * **Main Process (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
 * **Renderer Process (Frontend)**: [Vite](https://vite.dev/), Vanilla [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (Không sử dụng framework nặng nề để tối đa hóa hiệu suất)
 * **Native Helpers**: [Rust](https://www.rust-lang.org/) (playtime helper), [C++](https://isocpp.org/) (background injector), và [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (save converter)
-* **Storage**: Hệ thống cache dựa trên [JSON](https://www.json.org/) cục bộ giúp tải dữ liệu ngay lập tức.
+* **Storage**: Lưu trữ dữ liệu cục bộ dựa trên [JSON](https://www.json.org/).
 
 #### Cấu trúc thư mục
 ```text
 YumeShelf/
-├── YumeShelf/       # Thư mục chứa game mặc định
-├── src/             # Mã nguồn
-│   ├── main.js      # Main process (Quét đệ quy, IPC)
-│   ├── renderer.js  # UI Logic, i18n & Theme Engine
-│   ├── preload.js   # Cầu nối IPC bảo mật
-│   ├── index.html   # Layout ứng dụng
-│   └── style.css    # Giao diện & Theme
-└── package.json     # Scripts & Dependencies
+├── src/
+│   ├── main.ts              # Entry point của Main Process
+│   ├── main/                # Các module của Main Process
+│   │   ├── core/            # Tiện ích dùng chung & I/O
+│   │   ├── ipc/             # Xử lý các kênh IPC
+│   │   ├── library-state/   # Quản lý thư viện game
+│   │   ├── save-editor/     # Phân tích và chỉnh sửa file save
+│   │   ├── translation/     # Cấu hình XUnity và proxy dịch thuật
+│   │   └── window/          # Cửa sổ Electron và vòng đời tiến trình
+│   ├── renderer/            # Renderer Process (Vite, TypeScript, CSS)
+│   ├── preload/             # Cầu nối IPC bảo mật
+│   └── shared/              # Kiểu dữ liệu dùng chung giữa các tiến trình
+└── package.json
 ```

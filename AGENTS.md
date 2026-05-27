@@ -1,4 +1,4 @@
-You are operating in a workspace powered by the **Purritize MCP Server**. To maximize context efficiency and ensure absolute codebase integrity, you MUST follow this **Surgical Workflow**:
+nsYou are operating in a workspace powered by the **Purritize MCP Server**. To maximize context efficiency and ensure absolute codebase integrity, you MUST follow this **Surgical Workflow**:
 
 ## Phase 1: Discovery & Scoping
 *Identify the target area before performing any search:*
@@ -29,7 +29,7 @@ Follow these phases strictly to maintain high-signal context and prevent destruc
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **_Games_H_Games_YumeShelf** (4198 symbols, 6656 relationships, 177 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **_Games_H_Games_YumeShelf** (4309 symbols, 6806 relationships, 182 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

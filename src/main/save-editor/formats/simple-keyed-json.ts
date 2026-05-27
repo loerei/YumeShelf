@@ -70,7 +70,7 @@ class SimpleKeyedJsonFormat {
 
         if (secretKey) {
             this.keyCache.set(paths.exeDir, secretKey);
-            console.log(`[KEYED-JSON] Detected secret key: "${secretKey}"`);
+            console.log(`[KEYED-JSON] Detected secret key length: ${secretKey.length}`);
         }
 
         try {

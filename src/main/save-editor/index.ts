@@ -112,7 +112,15 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             const paths = await getGamePaths(gameKey);
             if (!paths) throw new Error('Could not resolve game paths');
             
-            const savePath = path.join(paths.saveDir, fileName);
+            const safeName = path.basename(fileName);
+            const savePath = path.join(paths.saveDir, safeName);
+            
+            const resolvedSavePath = path.resolve(savePath);
+            const resolvedSaveDir = path.resolve(paths.saveDir);
+            if (!resolvedSavePath.startsWith(resolvedSaveDir + path.sep) && resolvedSavePath !== resolvedSaveDir) {
+                throw new Error('Invalid save file path: Path traversal detected');
+            }
+            
             const rawData = await fs.readFile(savePath);
             
             const format = getFormat(fileName);
@@ -205,7 +213,14 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             const paths = await getGamePaths(gameKey);
             if (!paths) throw new Error('Could not resolve game paths');
             
-            const savePath = path.join(paths.saveDir, fileName);
+            const safeName = path.basename(fileName);
+            const savePath = path.join(paths.saveDir, safeName);
+            
+            const resolvedSavePath = path.resolve(savePath);
+            const resolvedSaveDir = path.resolve(paths.saveDir);
+            if (!resolvedSavePath.startsWith(resolvedSaveDir + path.sep) && resolvedSavePath !== resolvedSaveDir) {
+                throw new Error('Invalid save file path: Path traversal detected');
+            }
             
             const format = getFormat(fileName);
             const outputData = await format.encode(jsonData, paths, fileName);

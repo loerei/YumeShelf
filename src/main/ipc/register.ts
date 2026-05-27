@@ -1,6 +1,7 @@
 import { App, IpcMain, Shell, BrowserWindow } from 'electron';
 import * as fsSync from 'fs';
 import { TelemetryShipper } from '../telemetry/shipper';
+import { isPathWithinLibrary } from './path-validator';
 
 export interface RegisterIpcOptions {
     app: App;
@@ -138,9 +139,29 @@ function registerMainIpc({
         translationService.moveQueue(gameKey, direction);
         return { success: true };
     });
-    ipcMain.on('reveal-game', (_event, targetPath) => shell.showItemInFolder(targetPath));
-    ipcMain.on('open-path', (_event, targetPath) => shell.openPath(targetPath));
-    ipcMain.handle('delete-game', async (_event, targetPath) => shell.trashItem(targetPath));
+    ipcMain.on('reveal-game', async (_event, targetPath) => {
+        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
+        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+            shell.showItemInFolder(targetPath);
+        } else {
+            console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
+        }
+    });
+    ipcMain.on('open-path', async (_event, targetPath) => {
+        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
+        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+            shell.openPath(targetPath);
+        } else {
+            console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
+        }
+    });
+    ipcMain.handle('delete-game', async (_event, targetPath) => {
+        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
+        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+            return shell.trashItem(targetPath);
+        }
+        return { ok: false, error: 'unauthorized-path' };
+    });
 
     ipcMain.handle('get-save-folder', async (_event, gameKey) => {
         console.log(`[IPC][get-save-folder] Received request for: ${gameKey}`);

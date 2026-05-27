@@ -86,7 +86,12 @@ export function scrubSecrets(input: string): string {
     const secretPatterns = [
         /(authorization|auth|token|password|passwd|pwd|key|secret|apikey|bearer)\s*[:=]\s*["']?[a-zA-Z0-9_\-\.\~]{10,}["']?/gi,
         /db:\/\/[^@\s]+@[^\s]+/gi, // database URIs
-        /https?:\/\/[^@\s]+@[^\s]+/gi // basic auth URLs
+        /https?:\/\/[^@\s]+@[^\s]+/gi, // basic auth URLs
+        /\bAKIA[A-Z0-9]{16}\b/g, // AWS Access Keys
+        /\b[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\b/g, // JWT Tokens (3-part dot-separated base64)
+        /\b(ghp|npm)_[a-zA-Z0-9_]{36}\b/g, // GitHub / npm personal access tokens
+        /-----BEGIN[A-Z ]*PRIVATE KEY-----[a-zA-Z0-9+/=\s\r\n]+-----END[A-Z ]*PRIVATE KEY-----/gi, // Full PEM block
+        /-----BEGIN[A-Z ]*PRIVATE KEY-----/gi // PEM private key boundary start
     ];
 
     for (const pattern of secretPatterns) {

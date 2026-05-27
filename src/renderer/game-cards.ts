@@ -74,8 +74,19 @@ export function createGameCardFactory({
                 cacheIconPayload(game.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {
-                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
-                    logIconRender('card-async', gameKey, normalizedIcon, iconDiv.querySelector('img'));
+                    iconDiv.innerHTML = '';
+                    const img = document.createElement('img');
+                    img.src = normalizedIcon.dataUrl;
+                    img.alt = 'icon';
+                    img.draggable = false;
+                    img.dataset.iconFit = normalizedIcon.fit === 'cover' ? 'cover' : 'contain';
+                    img.dataset.iconSource = normalizedIcon.source;
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = normalizedIcon.fit === 'cover' ? 'cover' : 'contain';
+                    img.style.pointerEvents = 'none';
+                    iconDiv.appendChild(img);
+                    logIconRender('card-async', gameKey, normalizedIcon, img);
                 }
             });
         }

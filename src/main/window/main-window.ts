@@ -1,7 +1,7 @@
 // @ts-nocheck
 const path = require('path');
 const fsSync = require('fs');
-const { BrowserWindow, Tray, Menu, ipcMain } = require('electron');
+const { BrowserWindow, Tray, Menu, ipcMain, session } = require('electron');
 
 let tray = null;
 let minimizeToTray = false;
@@ -163,6 +163,18 @@ function createMainWindow({
 
     win.removeMenu();
     win.setMenuBarVisibility(false);
+
+    // Dynamic Content Security Policy (SEC-06)
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                'Content-Security-Policy': [
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev"
+                ]
+            }
+        });
+    });
     win.on('page-title-updated', (event) => {
         if (!app.isPackaged) {
             event.preventDefault();

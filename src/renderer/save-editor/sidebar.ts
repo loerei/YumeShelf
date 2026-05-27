@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { escapeHtml } from '../markdown-lite';
 
 /**
  * @typedef {Object} SidebarRefs
@@ -139,7 +140,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
             saveBtn.style.display = 'block';
         } catch (err) {
             // @ts-ignore
-            content.innerHTML = `<div class="error">Failed to load save: ${err.message}</div>`;
+            content.innerHTML = `<div class="error">Failed to load save: ${escapeHtml(err.message)}</div>`;
         }
     }
 

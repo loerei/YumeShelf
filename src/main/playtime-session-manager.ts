@@ -1,53 +1,67 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
-const crypto = require('crypto');
-
-const {
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as crypto from 'crypto';
+import {
     SESSION_SCHEMA_VERSION,
     isActiveJournal,
     readSessionJournal,
     writeSessionJournal,
     removeSessionJournal,
     aggregateActiveGameState,
-    delay
-} = require('./playtime-session-manager/journal');
-
-const {
+    delay,
+    SessionJournal,
+    ActiveGameState
+} from './playtime-session-manager/journal';
+import {
     isPidAlive,
     spawnHelper,
     injectRunInBackgroundDll
-} = require('./playtime-session-manager/injector');
+} from './playtime-session-manager/injector';
 
 const SESSION_REFRESH_INTERVAL_MS = 5000;
 const SESSION_ATTACH_RETRY_GRACE_MS = 15000;
 
-function createPlaytimeSessionManager({
+export interface PlaytimeSessionManagerOptions {
+    app: any;
+    BrowserWindow: any;
+    dbFilePath: string;
+    libraryState: any;
+}
+
+export interface PlaytimeSessionManager {
+    initialize(): Promise<void>;
+    launchTrackedGame(gameKey: string, exePath: string, runInBackground?: boolean): Promise<string>;
+    overlayGames(games: any[]): any[];
+    refreshSessions(options?: { recover?: boolean; emit?: boolean }): Promise<SessionJournal[]>;
+    getRuntimeSnapshot(): { journals: SessionJournal[]; gameState: any[] };
+}
+
+export function createPlaytimeSessionManager({
     app,
     BrowserWindow,
     dbFilePath,
     libraryState
-}) {
+}: PlaytimeSessionManagerOptions): PlaytimeSessionManager {
     const sessionsDir = path.join(app.getPath('userData'), 'playtime-sessions');
     const helperLogPath = path.join(app.getPath('userData'), 'playtime-helper.log');
-    let refreshTimer = null;
-    let currentJournals = [];
-    let currentGameState = new Map();
-    const pendingAttachRetries = new Map();
+    let refreshTimer: NodeJS.Timeout | null = null;
+    let currentJournals: SessionJournal[] = [];
+    let currentGameState = new Map<string, ActiveGameState>();
+    const pendingAttachRetries = new Map<string, number>();
 
-    function log(message) {
+    function log(message: string): void {
         console.log(`[PLAYTIME][SESSIONS] ${message}`);
     }
 
-    async function ensureSessionInfrastructure() {
+    async function ensureSessionInfrastructure(): Promise<void> {
         await fs.mkdir(sessionsDir, { recursive: true });
     }
 
-    function getSessionJournalPath(sessionId) {
+    function getSessionJournalPath(sessionId: string): string {
         return path.join(sessionsDir, `${sessionId}.json`);
     }
 
-    async function listSessionJournalPaths() {
+    async function listSessionJournalPaths(): Promise<string[]> {
         await ensureSessionInfrastructure();
         const entries = await fs.readdir(sessionsDir, { withFileTypes: true });
         return entries
@@ -55,9 +69,9 @@ function createPlaytimeSessionManager({
             .map((entry) => path.join(sessionsDir, entry.name));
     }
 
-    async function loadAllSessionJournals() {
+    async function loadAllSessionJournals(): Promise<SessionJournal[]> {
         const journalPaths = await listSessionJournalPaths();
-        const journals = [];
+        const journals: SessionJournal[] = [];
         for (const filePath of journalPaths) {
             try {
                 journals.push(await readSessionJournal(filePath));
@@ -68,14 +82,14 @@ function createPlaytimeSessionManager({
         return journals;
     }
 
-    async function finalizeStaleJournal(journal, reason = 'stale-session-finalized') {
+    async function finalizeStaleJournal(journal: SessionJournal, reason = 'stale-session-finalized'): Promise<void> {
         const endedAt = journal.lastHeartbeatAt || journal.startedAt || Date.now();
         log(`finalizing stale session gameKey=${journal.gameKey} sessionId=${journal.sessionId} accruedMs=${journal.accruedMs} endedAt=${endedAt} reason=${reason}`);
         await libraryState.finalizeTrackedSession(journal.gameKey, journal.accruedMs, endedAt, journal.exePath);
         await removeSessionJournal(journal.filePath);
     }
 
-    function shouldRetryAttach(sessionId) {
+    function shouldRetryAttach(sessionId: string): boolean {
         const now = Date.now();
         const lastAttempt = pendingAttachRetries.get(sessionId) || 0;
         if ((now - lastAttempt) < SESSION_ATTACH_RETRY_GRACE_MS) {
@@ -85,7 +99,7 @@ function createPlaytimeSessionManager({
         return true;
     }
 
-    async function recoverJournal(journal) {
+    async function recoverJournal(journal: SessionJournal): Promise<{ changed: boolean }> {
         if (journal.status === 'completed') {
             await removeSessionJournal(journal.filePath);
             return { changed: true };
@@ -123,8 +137,8 @@ function createPlaytimeSessionManager({
         return { changed: false };
     }
 
-    function emitSessionEvents(nextGameState) {
-        const affectedGameKeys = new Set([
+    function emitSessionEvents(nextGameState: Map<string, ActiveGameState>): void {
+        const affectedGameKeys = new Set<string>([
             ...currentGameState.keys(),
             ...nextGameState.keys()
         ]);
@@ -133,7 +147,7 @@ function createPlaytimeSessionManager({
             const previous = currentGameState.get(gameKey) || { active: false, accruedMs: 0 };
             const next = nextGameState.get(gameKey) || { active: false, accruedMs: 0 };
             if (previous.active && !next.active) {
-                BrowserWindow.getAllWindows().forEach((windowRef) => {
+                BrowserWindow.getAllWindows().forEach((windowRef: any) => {
                     if (!windowRef || windowRef.isDestroyed()) return;
                     windowRef.webContents.send('game-stopped', { gameKey });
                 });
@@ -141,7 +155,7 @@ function createPlaytimeSessionManager({
             }
 
             if (next.active && (!previous.active || previous.accruedMs !== next.accruedMs || previous.sessionIds?.length !== next.sessionIds?.length)) {
-                BrowserWindow.getAllWindows().forEach((windowRef) => {
+                BrowserWindow.getAllWindows().forEach((windowRef: any) => {
                     if (!windowRef || windowRef.isDestroyed()) return;
                     windowRef.webContents.send('game-playtime-updated', { gameKey });
                 });
@@ -149,7 +163,7 @@ function createPlaytimeSessionManager({
         });
     }
 
-    async function refreshSessions({ recover = false, emit = true } = {}) {
+    async function refreshSessions({ recover = false, emit = true } = {}): Promise<SessionJournal[]> {
         await ensureSessionInfrastructure();
         let journals = await loadAllSessionJournals();
 
@@ -173,7 +187,7 @@ function createPlaytimeSessionManager({
         return journals;
     }
 
-    async function initialize() {
+    async function initialize(): Promise<void> {
         await refreshSessions({ recover: true, emit: false });
         if (!refreshTimer) {
             refreshTimer = setInterval(() => {
@@ -184,14 +198,14 @@ function createPlaytimeSessionManager({
         }
     }
 
-    async function launchTrackedGame(gameKey, exePath, runInBackground = false) {
+    async function launchTrackedGame(gameKey: string, exePath: string, runInBackground = false): Promise<string> {
         if (!refreshTimer) {
             await initialize();
         }
         const sessionId = crypto.randomUUID();
         const journalPath = getSessionJournalPath(sessionId);
         const now = Date.now();
-        const initialJournal = {
+        const initialJournal: SessionJournal = {
             schemaVersion: SESSION_SCHEMA_VERSION,
             sessionId,
             gameKey,
@@ -203,7 +217,10 @@ function createPlaytimeSessionManager({
             startedAt: now,
             lastHeartbeatAt: now,
             accruedMs: 0,
-            status: 'launching'
+            status: 'launching',
+            endedAt: 0,
+            failureReason: '',
+            filePath: journalPath
         };
 
         await ensureSessionInfrastructure();
@@ -222,7 +239,7 @@ function createPlaytimeSessionManager({
                     });
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             await writeSessionJournal(journalPath, {
                 ...initialJournal,
                 status: 'failed',
@@ -235,16 +252,16 @@ function createPlaytimeSessionManager({
         return sessionId;
     }
 
-    function overlayGames(games) {
+    function overlayGames(games: any[]): any[] {
         return games.map((game) => {
             const instanceGameIds = Array.isArray(game.instances) && game.instances.length > 0
-                ? game.instances.map((instance) => instance.gameId)
+                ? game.instances.map((instance: any) => instance.gameId)
                 : [game.gameId || game.gameKey];
             const runtimes = instanceGameIds
-                .map((gameId) => currentGameState.get(gameId))
-                .filter(Boolean);
-            const accruedMs = runtimes.reduce((sum, runtime) => sum + Math.max(0, runtime.accruedMs || 0), 0);
-            const isRunning = runtimes.some((runtime) => runtime.active);
+                .map((gameId: string) => currentGameState.get(gameId))
+                .filter((x: any): x is ActiveGameState => !!x);
+            const accruedMs = runtimes.reduce((sum: number, runtime: ActiveGameState) => sum + Math.max(0, runtime.accruedMs || 0), 0);
+            const isRunning = runtimes.some((runtime: ActiveGameState) => runtime.active);
             if (!isRunning) {
                 return {
                     ...game,
@@ -277,8 +294,3 @@ function createPlaytimeSessionManager({
         getRuntimeSnapshot
     };
 }
-
-module.exports = {
-    SESSION_SCHEMA_VERSION,
-    createPlaytimeSessionManager
-};

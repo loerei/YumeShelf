@@ -1,19 +1,14 @@
-// @ts-nocheck
-const { BrowserWindow } = require('electron');
+import { BrowserWindow } from 'electron';
 
-function broadcastRendererEvent(channel, payload) {
+export function broadcastRendererEvent(channel: string, payload: any): void {
     BrowserWindow.getAllWindows().forEach((windowRef) => {
         if (!windowRef || windowRef.isDestroyed()) return;
         windowRef.webContents.send(channel, payload);
     });
 }
 
-function createStatusBroadcaster(channel) {
-    return (payload) => {
+export function createStatusBroadcaster(channel: string): (payload: any) => void {
+    return (payload: any) => {
         broadcastRendererEvent(channel, payload);
     };
 }
-
-module.exports = {
-    createStatusBroadcaster
-};

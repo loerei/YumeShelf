@@ -1,30 +1,35 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
-const SaveMappingManager = require('./mapping-manager');
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { app } from 'electron';
+import SaveMappingManager from './mapping-manager';
 
-/** @typedef {import('../../shared/types/save-editor').GamePaths} GamePaths */
-/** @typedef {import('../../shared/types/save-editor').SaveMetadata} SaveMetadata */
-/** @typedef {import('../../shared/types/save-editor').SaveDataResult} SaveDataResult */
-/** @typedef {import('../../shared/types/save-editor').SaveFormat} SaveFormat */
+// Import all save formats
+import rpgMakerMz from './formats/rpg-maker-mz';
+import rpgMakerMv from './formats/rpg-maker-mv';
+import rpgWolfSav from './formats/rpg-wolf-sav';
+import unityMonoBin from './formats/unity-mono-bin';
+import renpy from './formats/renpy';
+import simpleKeyedJson from './formats/simple-keyed-json';
+import pureJson from './formats/pure-json';
 
-// Registered save file formats
-/** @type {SaveFormat[]} */
-const formats = [
-    require('./formats/rpg-maker-mz'),
-    require('./formats/rpg-maker-mv'),
-    require('./formats/rpg-wolf-sav'),
-    require('./formats/unity-mono-bin'),
-    require('./formats/renpy'),
-    require('./formats/pure-json')
+export interface SaveFormat {
+    match(fileName: string): boolean;
+    decode(rawData: Buffer, paths?: any, fileName?: string): Promise<any>;
+    encode(jsonData: any, paths?: any, fileName?: string): Promise<Buffer>;
+    metadata?(jsonData: any, paths?: any, fileName?: string): Promise<any>;
+}
+
+const formats: SaveFormat[] = [
+    rpgMakerMz,
+    rpgMakerMv,
+    rpgWolfSav,
+    unityMonoBin,
+    renpy,
+    simpleKeyedJson,
+    pureJson
 ];
 
-/**
- * Resolves the appropriate save file format strategy by file name
- * @param {string} fileName
- * @returns {SaveFormat}
- */
-function getFormat(fileName) {
+function getFormat(fileName: string): SaveFormat {
     const matched = formats.find(f => f.match(fileName));
     if (!matched) {
         throw new Error(`Unsupported save file format for file: ${fileName}`);
@@ -32,12 +37,14 @@ function getFormat(fileName) {
     return matched;
 }
 
-/**
- * @param {{ libraryState: any, saveFolderResolver: any }} options
- */
-function createSaveEditorService({ libraryState, saveFolderResolver }) {
+export interface SaveEditorServiceConfig {
+    libraryState: any;
+    saveFolderResolver: any;
+}
+
+export function createSaveEditorService({ libraryState, saveFolderResolver }: SaveEditorServiceConfig) {
     
-    async function getGamePaths(/** @type {string} */ gameKey) {
+    async function getGamePaths(gameKey: string) {
         const record = await libraryState.getGameRecord(gameKey);
         if (!record || !record.exePath) return null;
         
@@ -53,7 +60,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
 
         // Check for language packs (Specific to certain engines/plugins like in Fallen Priestess)
-        let langDataDir = null;
+        let langDataDir: string | null = null;
         const langConfigPath = path.join(exeDir, 'www', 'language_config.json');
         if (await exists(langConfigPath)) {
             try {
@@ -78,7 +85,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         };
     }
 
-    async function exists(/** @type {string} */ p) {
+    async function exists(p: string): Promise<boolean> {
         try {
             await fs.access(p);
             return true;
@@ -87,7 +94,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
     }
 
-    async function listSaveFiles(/** @type {string} */ gameKey) {
+    async function listSaveFiles(gameKey: string): Promise<string[]> {
         try {
             const paths = await getGamePaths(gameKey);
             if (!paths) return [];
@@ -106,12 +113,20 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
     }
 
-    async function loadSaveData(/** @type {string} */ gameKey, /** @type {string} */ fileName) {
+    async function loadSaveData(gameKey: string, fileName: string) {
         try {
             const paths = await getGamePaths(gameKey);
             if (!paths) throw new Error('Could not resolve game paths');
             
-            const savePath = path.join(paths.saveDir, fileName);
+            const safeName = path.basename(fileName);
+            const savePath = path.join(paths.saveDir, safeName);
+            
+            const resolvedSavePath = path.resolve(savePath);
+            const resolvedSaveDir = path.resolve(paths.saveDir);
+            if (!resolvedSavePath.startsWith(resolvedSaveDir + path.sep) && resolvedSavePath !== resolvedSaveDir) {
+                throw new Error('Invalid save file path: Path traversal detected');
+            }
+            
             const rawData = await fs.readFile(savePath);
             
             const format = getFormat(fileName);
@@ -135,15 +150,14 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         }
     }
 
-    async function updateMapping(/** @type {string} */ gameKey, /** @type {string} */ name, /** @type {number} */ offset, /** @type {string} */ dataType) {
+    async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
         const mappingMgr = new SaveMappingManager(gameKey);
         mappingMgr.addMapping(name, offset, dataType);
         return { ok: true };
     }
 
-    async function loadMetadata(/** @type {string} */ dataDir, /** @type {string | null} */ langDataDir) {
-        /** @type {SaveMetadata} */
-        const metadata = {
+    async function loadMetadata(dataDir: string, langDataDir: string | null) {
+        const metadata: any = {
             variables: [],
             switches: [],
             items: {},
@@ -154,7 +168,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         
         try {
             // Helper to get prioritized file path
-            async function getFilePath(/** @type {string} */ fileName) {
+            async function getFilePath(fileName: string) {
                 if (langDataDir) {
                     const lp = path.join(langDataDir, fileName);
                     if (await exists(lp)) return lp;
@@ -172,11 +186,11 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             }
             
             // Helper to load item-like files
-            async function loadItemType(/** @type {string} */ fileName, /** @type {Record<string, {name: string, description: string, iconIndex: number}>} */ target) {
+            async function loadItemType(fileName: string, target: Record<string, any>) {
                 const p = await getFilePath(fileName);
                 if (await exists(p)) {
                     const list = JSON.parse(await fs.readFile(p, 'utf8'));
-                    list.forEach((/** @type {any} */ item) => {
+                    list.forEach((item: any) => {
                         if (item && item.id) {
                             target[item.id] = {
                                 name: item.name,
@@ -199,12 +213,19 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         return metadata;
     }
 
-    async function writeSaveData(/** @type {string} */ gameKey, /** @type {string} */ fileName, /** @type {any} */ jsonData) {
+    async function writeSaveData(gameKey: string, fileName: string, jsonData: any) {
         try {
             const paths = await getGamePaths(gameKey);
             if (!paths) throw new Error('Could not resolve game paths');
             
-            const savePath = path.join(paths.saveDir, fileName);
+            const safeName = path.basename(fileName);
+            const savePath = path.join(paths.saveDir, safeName);
+            
+            const resolvedSavePath = path.resolve(savePath);
+            const resolvedSaveDir = path.resolve(paths.saveDir);
+            if (!resolvedSavePath.startsWith(resolvedSaveDir + path.sep) && resolvedSavePath !== resolvedSaveDir) {
+                throw new Error('Invalid save file path: Path traversal detected');
+            }
             
             const format = getFormat(fileName);
             const outputData = await format.encode(jsonData, paths, fileName);
@@ -220,8 +241,6 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
             throw err;
         }
     }
-
-    const { app } = require('electron');
 
     function getTranslationFilePath(lang = 'en') {
         const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_\-]/g, '');
@@ -256,13 +275,12 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         return {};
     }
 
-    async function saveTranslations(lang = 'en', translations = {}) {
+    async function saveTranslations(lang = 'en', translations: Record<string, string> = {}) {
         const filePath = getTranslationFilePath(lang);
         const tempPath = filePath + '.tmp';
         
         // Strip off "Identical":"Identical" results from translations dictionary BEFORE writing to disk
-        /** @type {Record<string, any>} */
-        const strippedTranslations = {};
+        const strippedTranslations: Record<string, string> = {};
         for (const [k, v] of Object.entries(translations)) {
             if (k !== v) {
                 strippedTranslations[k] = v;
@@ -289,7 +307,7 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
                 return { ok: true };
             } catch (directWriteErr) {
                 console.error('[SAVE-EDITOR] Fallback direct write failed:', directWriteErr);
-                return { ok: false, error: /** @type {Error} */ (directWriteErr).message };
+                return { ok: false, error: (directWriteErr as Error).message };
             } finally {
                 try {
                     if (await exists(tempPath)) {
@@ -309,7 +327,3 @@ function createSaveEditorService({ libraryState, saveFolderResolver }) {
         saveTranslations
     };
 }
-
-module.exports = {
-    createSaveEditorService
-};

@@ -14,7 +14,7 @@ function main() {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     const version = positionalArgs[0] || packageJson.version;
     
-    const changelogPath = path.join(repoRoot, 'local', 'changelogs', `changelog.${version}.md`);
+    const changelogPath = path.join(repoRoot, 'docs', 'changelogs', `changelog.${version}.md`);
     
     if (!fs.existsSync(changelogPath)) {
         console.error(`Error: Changelog file for version ${version} not found at: ${path.relative(repoRoot, changelogPath)}`);
@@ -83,7 +83,7 @@ function main() {
         .trim() + '\n';
     
     // 5. Output compiled release notes
-    const outDir = path.join(repoRoot, 'local', 'changelogs');
+    const outDir = path.join(repoRoot, 'docs', 'changelogs');
     if (!fs.existsSync(outDir)) {
         fs.mkdirSync(outDir, { recursive: true });
     }

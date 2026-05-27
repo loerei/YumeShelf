@@ -1,34 +1,58 @@
-// @ts-nocheck
-const path = require('path');
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const { nativeImage } = require('electron');
-
-const { 
-    cropTransparentPaddingFromDataUrl, 
-    summarizeNativeImageForDebug 
-} = require('./cropper');
-
-const { 
-    tryGetCachedIconDataUrl, 
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import { cropTransparentPaddingFromDataUrl, summarizeNativeImageForDebug } from './cropper';
+import {
+    tryGetCachedIconDataUrl,
     storeHighResIconInCache,
     loadIconCacheState,
     resolveCachePaths,
-    saveIconCacheState,
     buildIconCacheFingerprint
-} = require('./cache');
+} from './cache';
+import { createWorkerPool } from './worker-pool';
 
-const { createWorkerPool } = require('./worker-pool');
+export interface IconPipelineAppInterface {
+    getPath(name: string): string;
+    getAppPath(): string;
+    getFileIcon(path: string, options?: { size: 'small' | 'normal' | 'large' }): Promise<any>;
+}
 
-function createIconPipeline({
+export interface IconPipelineProtocolInterface {
+    handle(scheme: string, handler: (request: Request) => Promise<Response> | Response): void;
+}
+
+export interface IconPipelineIpcMainInterface {
+    handle(channel: string, listener: (event: any, ...args: any[]) => any): void;
+}
+
+export interface IconPipelineOptions {
+    app: IconPipelineAppInterface;
+    protocol: IconPipelineProtocolInterface;
+    ipcMain: IconPipelineIpcMainInterface;
+    sourceRootDir: string;
+}
+
+export interface IconPayload {
+    dataUrl: string;
+    fit: 'cover' | 'contain';
+    source: string;
+    debug: any;
+}
+
+export interface IconPipeline {
+    registerIpcHandler(): void;
+    registerProtocolHandler(): void;
+}
+
+export function createIconPipeline({
     app,
     protocol,
     ipcMain,
     sourceRootDir
-}) {
+}: IconPipelineOptions): IconPipeline {
     const pool = createWorkerPool({ app, sourceRootDir });
 
-    function createIconPayload(dataUrl, fit = 'contain', source = 'unknown', debug = null) {
+    function createIconPayload(dataUrl: string, fit = 'contain', source = 'unknown', debug: any = null): IconPayload {
         return {
             dataUrl,
             fit: fit === 'cover' ? 'cover' : 'contain',
@@ -37,7 +61,7 @@ function createIconPipeline({
         };
     }
 
-    async function resolveIconDataUrl(targetPath) {
+    async function resolveIconDataUrl(targetPath: string): Promise<IconPayload> {
         const dir = path.dirname(targetPath);
         const exts = ['png', 'jpg', 'jpeg', 'webp'];
         const names = ['icon', 'cover', 'folder'];
@@ -88,7 +112,7 @@ function createIconPipeline({
         return createIconPayload(icon.toDataURL(), 'cover', 'app-file-icon-fallback', fallbackDebug);
     }
 
-    async function handleProtocolRequest(request) {
+    async function handleProtocolRequest(request: Request): Promise<Response> {
         try {
             const urlObj = new URL(request.url);
             const targetPath = urlObj.searchParams.get('path');
@@ -110,7 +134,7 @@ function createIconPipeline({
 
             const { cacheDir } = resolveCachePaths(app);
             const normalizedPath = path.win32.normalize(targetPath);
-            let stats = null;
+            let stats: fsSync.Stats | null = null;
             try { stats = await fs.stat(normalizedPath); } catch (_error) {}
             if (stats) {
                 const state = await loadIconCacheState(app);
@@ -144,11 +168,11 @@ function createIconPipeline({
         }
     }
 
-    function registerProtocolHandler() {
+    function registerProtocolHandler(): void {
         protocol.handle('game-icon', handleProtocolRequest);
     }
 
-    function registerIpcHandler() {
+    function registerIpcHandler(): void {
         ipcMain.handle('get-icon', async (_event, targetPath) => {
             try {
                 return await resolveIconDataUrl(targetPath);
@@ -164,7 +188,3 @@ function createIconPipeline({
         registerProtocolHandler
     };
 }
-
-module.exports = {
-    createIconPipeline
-};

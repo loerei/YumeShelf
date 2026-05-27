@@ -45,9 +45,11 @@ export function createGameCardFactory({
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
                 <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>Open Save Folder</span></div>
                 <div class="dropdown-item action-save-editor">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor}</span></div>
+                <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span></div>
+                <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('save-editor')}<span>Pre-Translate Game</span></div>
                 <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
-                <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
-            </div>
+                <div class=\"dropdown-item danger action-delete\">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
+                </div>
             <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
@@ -72,11 +74,43 @@ export function createGameCardFactory({
                 cacheIconPayload(game.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {
-                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
-                    logIconRender('card-async', gameKey, normalizedIcon, iconDiv.querySelector('img'));
+                    iconDiv.innerHTML = '';
+                    const img = document.createElement('img');
+                    img.src = normalizedIcon.dataUrl;
+                    img.alt = 'icon';
+                    img.draggable = false;
+                    img.dataset.iconFit = normalizedIcon.fit === 'cover' ? 'cover' : 'contain';
+                    img.dataset.iconSource = normalizedIcon.source;
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = normalizedIcon.fit === 'cover' ? 'cover' : 'contain';
+                    img.style.pointerEvents = 'none';
+                    iconDiv.appendChild(img);
+                    logIconRender('card-async', gameKey, normalizedIcon, img);
                 }
             });
         }
+
+        electronAPI.checkTranslationSupport(gameKey).then((result) => {
+            const liveItem = card.querySelector('.action-live-translate');
+            const preItem = card.querySelector('.action-pre-translate');
+            if (!result.supported) {
+                if (liveItem) {
+                    liveItem.className = 'dropdown-item action-live-translate disabled';
+                    liveItem.style.opacity = '0.4';
+                    liveItem.style.cursor = 'not-allowed';
+                    liveItem.querySelector('span').textContent = d.not_supported || 'Not yet supported';
+                    liveItem.onclick = (e) => e.stopPropagation();
+                }
+                if (preItem) {
+                    preItem.className = 'dropdown-item action-pre-translate disabled';
+                    preItem.style.opacity = '0.4';
+                    preItem.style.cursor = 'not-allowed';
+                    preItem.querySelector('span').textContent = d.not_supported || 'Not yet supported';
+                    preItem.onclick = (e) => e.stopPropagation();
+                }
+            }
+        });
 
         attachTooltip(card, () => ({
             title: game.name,
@@ -147,6 +181,27 @@ export function createGameCardFactory({
             game.runInBackground = nextRunInBackground;
             const item = card.querySelector('.action-background-run');
             item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
+        };
+        card.querySelector('.action-live-translate').onclick = async (event) => {
+            event.stopPropagation();
+            const nextAutoTranslate = await electronAPI.toggleAutoTranslate(gameKey);
+            game.autoTranslate = nextAutoTranslate;
+            const item = card.querySelector('.action-live-translate');
+            if (item) {
+                item.innerHTML = `${getDropdownActionIcon(nextAutoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span>`;
+            }
+        };
+        card.querySelector('.action-pre-translate').onclick = async (event) => {
+            event.stopPropagation();
+            card.querySelector('.dropdown-menu').classList.remove('show');
+            let targetLang = 'en';
+            try {
+                const langState = await electronAPI.getLanguageState();
+                targetLang = (langState && langState.current) ? langState.current : 'en';
+            } catch (e) {
+                // fall back to 'en'
+            }
+            await electronAPI.startTranslationSync({ gameKey, targetLang });
         };
         card.querySelector('.action-delete').onclick = async (event) => {
             event.stopPropagation();

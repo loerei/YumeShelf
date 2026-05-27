@@ -41,7 +41,15 @@ export function createBootController({
             bootTitle.textContent = resolveBootTitle(latestBootPayload);
         }
         if (bootStatus) {
-            bootStatus.textContent = resolveBootMessage(latestBootPayload);
+            let message = resolveBootMessage(latestBootPayload);
+            if (latestBootPayload?.showProgress && latestBootPayload?.progress !== undefined) {
+                const percent = Math.round(latestBootPayload.progress * 100);
+                // If the message doesn't already contain a percentage, append it
+                if (!message.includes('%')) {
+                    message += ` (${percent}%)`;
+                }
+            }
+            bootStatus.textContent = message;
         }
         if (bootProgress) {
             bootProgress.style.display = latestBootPayload?.showProgress ? 'flex' : 'none';

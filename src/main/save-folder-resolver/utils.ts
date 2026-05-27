@@ -1,8 +1,7 @@
-// @ts-nocheck
-const path = require('path');
-const fs = require('fs/promises');
+import * as path from 'path';
+import * as fs from 'fs/promises';
 
-async function exists(target) {
+export async function exists(target: string): Promise<boolean> {
     try {
         await fs.access(target);
         return true;
@@ -11,7 +10,7 @@ async function exists(target) {
     }
 }
 
-async function globMatch(dir, pattern) {
+export async function globMatch(dir: string, pattern: RegExp): Promise<boolean> {
     try {
         const entries = await fs.readdir(dir);
         return entries.some((entry) => pattern.test(entry));
@@ -20,7 +19,7 @@ async function globMatch(dir, pattern) {
     }
 }
 
-function normalizeForSearch(text) {
+export function normalizeForSearch(text: any): string {
     if (!text) return '';
     return String(text)
         .toLowerCase()
@@ -29,24 +28,16 @@ function normalizeForSearch(text) {
         .trim();
 }
 
-function getExeStem(exeDir) {
+export function getExeStem(exeDir: string): string {
     const dirName = path.basename(exeDir);
     let stem = dirName.replace(/_Data$/i, '');
     stem = stem.replace(/\s*(v?\d+[\.\d]*)\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
     return stem;
 }
 
-function getExeStemFromPath(exePath) {
+export function getExeStemFromPath(exePath: string): string {
     const baseName = path.basename(exePath || '');
     let stem = baseName.replace(/\.exe$/i, '');
     stem = stem.replace(/\s*(v?\d+[\.\d]*)\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
     return stem;
 }
-
-module.exports = {
-    exists,
-    globMatch,
-    normalizeForSearch,
-    getExeStem,
-    getExeStemFromPath
-};

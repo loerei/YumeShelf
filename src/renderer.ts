@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindIpcEvents({
         electronAPI: window.electronAPI,
         bootController: composition.bootController,
+        updateNotificationFeature: composition.updateNotificationFeature,
         getAllGames: () => state.getAllGames(),
         getCurrentSort: () => state.getCurrentSort(),
         setAllGames: composition.libraryRuntime.setAllGames,

@@ -16,11 +16,12 @@ export class TelemetryShipper {
     private memoryBuffer: Map<string, TelemetryPayload> = new Map();
     private flushInterval: NodeJS.Timeout | null = null;
     private isShipping: boolean = false;
+    private saveQueueDebounce: NodeJS.Timeout | null = null;
 
     // The endpoint is proxy-secured by Cloudflare Workers to protect the Supabase key.
     // Client has a general Client App Token to prevent generic spamming.
     private workerEndpoint: string = process.env.TELEMETRY_WORKER_ENDPOINT || 'https://yumeshelf-telemetry.sayusumat.workers.dev/v1/ship';
-    private clientAppToken: string = process.env.TELEMETRY_CLIENT_TOKEN || 'yumeshelf-client-auth-token-2026';
+    private clientAppToken: string = process.env.TELEMETRY_CLIENT_TOKEN || '';
 
     private constructor() {}
 
@@ -110,17 +111,27 @@ export class TelemetryShipper {
         }
 
         // Auto-save memory buffer to disk queue in case of unexpected closure (throttle safety)
-        this.saveQueueToDisk().catch(err => {
-            console.error('[TELEMETRY][SHIPPER] Error autosaving queue:', err);
-        });
+        if (!this.saveQueueDebounce) {
+            this.saveQueueDebounce = setTimeout(() => {
+                this.saveQueueToDisk().catch(err => {
+                    console.error('[TELEMETRY][SHIPPER] Error autosaving queue:', err);
+                });
+                this.saveQueueDebounce = null;
+            }, 5000);
+        }
     }
 
     /**
      * Flushes the current queue to the serverless Cloudflare Workers middleman
      */
     public async flush(): Promise<void> {
-        if (!this.enabled || this.isShipping || this.memoryBuffer.size === 0) {
+        if (!this.enabled || this.isShipping || this.memoryBuffer.size === 0 || !this.clientAppToken) {
             return;
+        }
+
+        if (this.saveQueueDebounce) {
+            clearTimeout(this.saveQueueDebounce);
+            this.saveQueueDebounce = null;
         }
 
         this.isShipping = true;
@@ -168,6 +179,10 @@ export class TelemetryShipper {
      * Completely purges all dynamic logging trace records from memory and local storage
      */
     private async purgeAllData(): Promise<void> {
+        if (this.saveQueueDebounce) {
+            clearTimeout(this.saveQueueDebounce);
+            this.saveQueueDebounce = null;
+        }
         this.memoryBuffer.clear();
         try {
             if (fsSync.existsSync(this.queueFile)) {

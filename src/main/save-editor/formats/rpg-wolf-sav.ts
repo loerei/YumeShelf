@@ -1,12 +1,13 @@
-// @ts-nocheck
-const crypto = require('crypto');
-const zlib = require('zlib');
+import * as crypto from 'crypto';
+import * as zlib from 'zlib';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
-function sha256(buffer) {
+function sha256(buffer: Buffer): string {
     return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
-function byteEntropy(buffer) {
+function byteEntropy(buffer: Buffer): number {
     if (!buffer.length) return 0;
     const counts = new Array(256).fill(0);
     for (const byte of buffer) counts[byte] += 1;
@@ -20,7 +21,7 @@ function byteEntropy(buffer) {
     return Number(entropy.toFixed(4));
 }
 
-function printableRatio(buffer) {
+function printableRatio(buffer: Buffer): number {
     if (!buffer.length) return 0;
 
     let printable = 0;
@@ -32,7 +33,7 @@ function printableRatio(buffer) {
     return Number((printable / buffer.length).toFixed(4));
 }
 
-function extractAsciiStrings(buffer, minLength = 5, limit = 80) {
+function extractAsciiStrings(buffer: Buffer, minLength = 5, limit = 80): string[] {
     const matches = buffer
         .toString('latin1')
         .match(new RegExp(`[\\x20-\\x7e]{${minLength},}`, 'g'));
@@ -43,7 +44,15 @@ function extractAsciiStrings(buffer, minLength = 5, limit = 80) {
         .slice(0, limit);
 }
 
-function tryJsonParse(label, text) {
+interface JsonParseResult {
+    label: string;
+    ok: boolean;
+    type?: string;
+    keys?: string[];
+    error?: string;
+}
+
+function tryJsonParse(label: string, text: string): JsonParseResult {
     try {
         const parsed = JSON.parse(text.replace(/^\uFEFF/, ''));
         return {
@@ -54,18 +63,27 @@ function tryJsonParse(label, text) {
                 ? Object.keys(parsed).slice(0, 50)
                 : []
         };
-    } catch (error) {
+    } catch (error: any) {
         return { label, ok: false, error: error.message };
     }
 }
 
-function tryDecoders(buffer) {
-    const attempts = [
+interface DecoderAttempt {
+    label: string;
+    ok: boolean;
+    decodedSize?: number;
+    decodedFirst32Hex?: string;
+    json?: JsonParseResult;
+    error?: string;
+}
+
+function tryDecoders(buffer: Buffer): DecoderAttempt[] {
+    const attempts: DecoderAttempt[] = [
         tryJsonParse('raw utf8 json', buffer.toString('utf8')),
         tryJsonParse('raw utf16le json', buffer.toString('utf16le'))
     ];
 
-    const zlibAttempts = [
+    const zlibAttempts: [string, () => Buffer][] = [
         ['zlib.inflateSync', () => zlib.inflateSync(buffer)],
         ['zlib.inflateRawSync', () => zlib.inflateRawSync(buffer)],
         ['zlib.gunzipSync', () => zlib.gunzipSync(buffer)],
@@ -82,7 +100,7 @@ function tryDecoders(buffer) {
                 decodedFirst32Hex: decoded.subarray(0, 32).toString('hex'),
                 json: tryJsonParse(`${label} -> utf8 json`, decoded.toString('utf8'))
             });
-        } catch (error) {
+        } catch (error: any) {
             attempts.push({ label, ok: false, error: error.message });
         }
     }
@@ -90,8 +108,8 @@ function tryDecoders(buffer) {
     return attempts;
 }
 
-function buildVariables(buffer) {
-    const variables = {
+export function buildVariables(buffer: Buffer): Record<number, any> {
+    const variables: Record<number, any> = {
         1: buffer.length,
         2: sha256(buffer),
         3: byteEntropy(buffer),
@@ -116,8 +134,8 @@ function buildVariables(buffer) {
     return variables;
 }
 
-function buildMetadata() {
-    const variables = [];
+export function buildMetadata(): string[] {
+    const variables: string[] = [];
     variables[1] = 'File size (bytes)';
     variables[2] = 'SHA-256';
     variables[3] = 'Byte entropy';
@@ -144,12 +162,12 @@ function buildMetadata() {
 }
 
 class RpgWolfSavFormat {
-    match(fileName) {
+    match(fileName: string): boolean {
         const normalized = fileName.toLowerCase();
         return normalized.endsWith('.sav') && !normalized.endsWith('.rpgsave');
     }
 
-    _crypt(data, seeds) {
+    _crypt(data: Buffer, seeds: number[]): Buffer {
         // WOLF RPG LCG-based XOR stream cipher
         // seeds = [header[0], header[3], header[9]]
         const intervals = [1, 2, 5];
@@ -172,7 +190,7 @@ class RpgWolfSavFormat {
         return out;
     }
 
-    async decode(rawData, paths, fileName) {
+    async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         console.log(`[WOLF-SAV] decode called for file: ${fileName}, length: ${rawData.length}`);
         if (rawData.length < 20) {
             throw new Error("File too short to be a valid WOLF RPG save.");
@@ -199,7 +217,7 @@ class RpgWolfSavFormat {
         }
         console.log(`[WOLF-SAV] varArrayOffset found at: ${varArrayOffset}`);
         
-        const variables = {};
+        const variables: Record<number, number> = {};
         if (varArrayOffset !== -1) {
             for (let i = 0; i < 800; i++) {
                 if (varArrayOffset + i * 4 + 4 > decrypted.length) break;
@@ -224,7 +242,7 @@ class RpgWolfSavFormat {
         };
     }
 
-    async encode(jsonData) {
+    async encode(jsonData: any): Promise<Buffer> {
         console.log(`[WOLF-SAV] encode called for file: ${jsonData.fileName}`);
         if (!jsonData || jsonData.$type !== 'RpgWolfSavBinaryInspection') {
             throw new Error('Invalid RPG/Wolf .sav inspection payload');
@@ -247,7 +265,7 @@ class RpgWolfSavFormat {
                 if (!isNaN(index) && index < 800) {
                     const offset = varArrayOffset + index * 4;
                     if (offset + 4 <= decrypted.length) {
-                        decrypted.writeInt32LE(parseInt(value), offset);
+                        decrypted.writeInt32LE(parseInt(value as string), offset);
                     }
                 }
             }
@@ -273,8 +291,8 @@ class RpgWolfSavFormat {
         return finalFile;
     }
 
-    async metadata(jsonData, paths, fileName) {
-        const metadata = {
+    async metadata(jsonData: any, paths: any, fileName: string): Promise<any> {
+        const metadata: any = {
             variables: [],
             switches: [],
             items: {},
@@ -284,15 +302,12 @@ class RpgWolfSavFormat {
         };
 
         if (!paths || !paths.exeDir) return metadata;
-
-        const fs = require('fs/promises');
-        const path = require('path');
         
         try {
             const dataDir = path.join(paths.exeDir, 'Data', 'BasicData');
-            let dbFile = path.join(dataDir, 'SysDatabase.project');
+            let dbFile: string | null = path.join(dataDir, 'SysDatabase.project');
             
-            async function exists(p) { try { await fs.access(p); return true; } catch { return false; } }
+            async function exists(p: string) { try { await fs.access(p); return true; } catch { return false; } }
 
             if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDataBase.project');
             if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDatabase.dat');
@@ -303,8 +318,8 @@ class RpgWolfSavFormat {
                 const buffer = await fs.readFile(dbFile);
                 
                 // Robust heuristic string extraction
-                const strings = [];
-                let currentStr = [];
+                const strings: string[] = [];
+                let currentStr: number[] = [];
                 for (let i = 0; i < buffer.length; i++) {
                     const b = buffer[i];
                     if ((b >= 0x20 && b <= 0x7E) || b >= 0x80) {
@@ -350,4 +365,5 @@ class RpgWolfSavFormat {
     }
 }
 
-module.exports = new RpgWolfSavFormat();
+const format = new RpgWolfSavFormat();
+export default format;

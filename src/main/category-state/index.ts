@@ -1,5 +1,4 @@
-// @ts-nocheck
-const {
+import {
     CATEGORY_STATE_VERSION,
     normalizeCategoryId,
     normalizeCategoryName,
@@ -7,11 +6,37 @@ const {
     flattenTree,
     normalizeCategoryState,
     removeCategorySubtree,
-    pruneAssignments
-} = require('./tree-utils');
+    pruneAssignments,
+    CategoryNode,
+    CategoryTree,
+    CategoryState
+} from './tree-utils';
 
-function createCategoryState({ fs, stateFile }) {
-    async function loadCategoryState() {
+export interface CategoryStateFs {
+    readFile(path: string, options: 'utf8'): Promise<string>;
+    writeFile(path: string, data: string): Promise<void>;
+}
+
+export interface CategoryStateOptions {
+    fs: CategoryStateFs;
+    stateFile: string;
+}
+
+export interface CategoryStateService {
+    assignGameCategories(gameId: string, categoryIds: string[]): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }>;
+    assignGameToCategory(gameId: string, categoryId: string): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }>;
+    createCategory(options: { parentId?: string | null; name: string }): Promise<{ ok: boolean; category?: CategoryNode; tree?: CategoryTree; reason?: string }>;
+    deleteCategory(categoryId: string): Promise<{ ok: boolean; tree?: CategoryTree; removedIds?: string[]; reason?: string }>;
+    getAssignmentsForGameId(gameId: string): Promise<string[]>;
+    getCategoryTree(): Promise<CategoryTree>;
+    loadCategoryState(): Promise<CategoryState>;
+    removeGameFromCategory(gameId: string, categoryId: string): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }>;
+    renameCategory(categoryId: string, name: string): Promise<{ ok: boolean; tree?: CategoryTree; reason?: string }>;
+    saveCategoryState(nextState: CategoryState): Promise<CategoryState>;
+}
+
+export function createCategoryState({ fs, stateFile }: CategoryStateOptions): CategoryStateService {
+    async function loadCategoryState(): Promise<CategoryState> {
         try {
             const raw = JSON.parse(await fs.readFile(stateFile, 'utf8'));
             const normalized = normalizeCategoryState(raw);
@@ -26,28 +51,28 @@ function createCategoryState({ fs, stateFile }) {
         }
     }
 
-    async function saveCategoryState(nextState) {
+    async function saveCategoryState(nextState: CategoryState): Promise<CategoryState> {
         const normalized = normalizeCategoryState(nextState);
         await fs.writeFile(stateFile, JSON.stringify(normalized, null, 2));
         return normalized;
     }
 
-    async function getCategoryTree() {
+    async function getCategoryTree(): Promise<CategoryTree> {
         return (await loadCategoryState()).tree;
     }
 
-    async function getAssignmentsForGameId(gameId) {
+    async function getAssignmentsForGameId(gameId: string): Promise<string[]> {
         const state = await loadCategoryState();
         return state.assignments[String(gameId || '').trim()] || [];
     }
 
-    async function createCategory({ parentId = null, name }) {
+    async function createCategory({ parentId = null, name }: { parentId?: string | null; name: string }): Promise<{ ok: boolean; category?: CategoryNode; tree?: CategoryTree; reason?: string }> {
         const normalizedName = normalizeCategoryName(name);
         if (!normalizedName) {
             return { ok: false, reason: 'invalid-name' };
         }
         const state = await loadCategoryState();
-        const nextNode = {
+        const nextNode: CategoryNode = {
             id: createCategoryId(),
             name: normalizedName,
             children: []
@@ -60,7 +85,7 @@ function createCategoryState({ fs, stateFile }) {
         }
 
         let inserted = false;
-        function append(nodes) {
+        function append(nodes: CategoryNode[]): CategoryNode[] {
             return nodes.map((node) => {
                 if (node.id === parentKey) {
                     inserted = true;
@@ -84,7 +109,7 @@ function createCategoryState({ fs, stateFile }) {
         return { ok: true, category: nextNode, tree: state.tree };
     }
 
-    async function renameCategory(categoryId, name) {
+    async function renameCategory(categoryId: string, name: string): Promise<{ ok: boolean; tree?: CategoryTree; reason?: string }> {
         const normalizedId = normalizeCategoryId(categoryId);
         const normalizedName = normalizeCategoryName(name);
         if (!normalizedId || !normalizedName) {
@@ -93,7 +118,7 @@ function createCategoryState({ fs, stateFile }) {
         const state = await loadCategoryState();
         let renamed = false;
 
-        function rename(nodes) {
+        function rename(nodes: CategoryNode[]): CategoryNode[] {
             return nodes.map((node) => {
                 if (node.id === normalizedId) {
                     renamed = true;
@@ -114,7 +139,7 @@ function createCategoryState({ fs, stateFile }) {
         return { ok: true, tree: state.tree };
     }
 
-    async function deleteCategory(categoryId) {
+    async function deleteCategory(categoryId: string): Promise<{ ok: boolean; tree?: CategoryTree; removedIds?: string[]; reason?: string }> {
         const normalizedId = normalizeCategoryId(categoryId);
         if (!normalizedId) {
             return { ok: false, reason: 'invalid-id' };
@@ -130,7 +155,7 @@ function createCategoryState({ fs, stateFile }) {
         return { ok: true, tree: state.tree, removedIds: [...removedIds] };
     }
 
-    async function assignGameToCategory(gameId, categoryId) {
+    async function assignGameToCategory(gameId: string, categoryId: string): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }> {
         const normalizedGameId = String(gameId || '').trim();
         const normalizedCategoryId = normalizeCategoryId(categoryId);
         if (!normalizedGameId || !normalizedCategoryId) {
@@ -148,7 +173,7 @@ function createCategoryState({ fs, stateFile }) {
         return { ok: true, categoryIds: state.assignments[normalizedGameId] };
     }
 
-    async function assignGameCategories(gameId, categoryIds) {
+    async function assignGameCategories(gameId: string, categoryIds: string[]): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }> {
         const normalizedGameId = String(gameId || '').trim();
         if (!normalizedGameId) {
             return { ok: false, reason: 'invalid-game-id' };
@@ -157,7 +182,7 @@ function createCategoryState({ fs, stateFile }) {
         const categoryMap = flattenTree(state.tree);
         const nextIds = [...new Set((Array.isArray(categoryIds) ? categoryIds : [])
             .map((entry) => normalizeCategoryId(entry))
-            .filter((entry) => entry && categoryMap.has(entry)))];
+            .filter((entry): entry is string => !!(entry && categoryMap.has(entry))))];
         if (nextIds.length > 0) {
             state.assignments[normalizedGameId] = nextIds;
         } else {
@@ -167,7 +192,7 @@ function createCategoryState({ fs, stateFile }) {
         return { ok: true, categoryIds: state.assignments[normalizedGameId] || [] };
     }
 
-    async function removeGameFromCategory(gameId, categoryId) {
+    async function removeGameFromCategory(gameId: string, categoryId: string): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }> {
         const normalizedGameId = String(gameId || '').trim();
         const normalizedCategoryId = normalizeCategoryId(categoryId);
         if (!normalizedGameId || !normalizedCategoryId) {
@@ -198,8 +223,3 @@ function createCategoryState({ fs, stateFile }) {
         saveCategoryState
     };
 }
-
-module.exports = {
-    CATEGORY_STATE_VERSION,
-    createCategoryState
-};

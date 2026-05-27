@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "dist/main.js",
@@ -15,8 +15,8 @@
     "start:electron": "nodemon --watch src/main --watch src/shared --watch src/main.ts --watch src/preload.ts --ext ts,js --delay 2 --exec \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron dist/main.js\"",
     "start": "node -e \"if(process.platform==='win32')require('child_process').execSync('chcp 65001')\" && npm run ensure:playtime-helper && npm run build:preload && npm run build:main && concurrently -k \"npm run start:main\" \"vite\" \"npm run start:electron\"",
     "build:vite": "vite build",
-    "build": "npm run ensure:playtime-helper && npm run ensure:installer-shell && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && electron-builder --win && npm run organize:build-output",
-    "build:fast": "npm run ensure:playtime-helper && npm run ensure:installer-shell:fast && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js && npm run organize:build-output",
+    "build": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell && npm run copy:assets && npm run build:vite && electron-builder --win && npm run organize:build-output",
+    "build:fast": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell:fast && npm run copy:assets && npm run build:vite && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js && npm run organize:build-output",
     "build:fast:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\clean-win-unpacked.ps1 && npm run build:fast",
     "build:test-version": "node .\\scripts\\build-test-version.js",
     "build:dir": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir && npm run organize:build-output",
@@ -76,6 +76,7 @@
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
     "@types/electron": "^1.4.38",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.9.1",
     "concurrently": "^9.2.1",
     "copyfiles": "^2.4.1",

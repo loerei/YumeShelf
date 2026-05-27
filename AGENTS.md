@@ -1,91 +1,71 @@
-# YumeShelf AI Agent Guidelines
+nsYou are operating in a workspace powered by the **Purritize MCP Server**. To maximize context efficiency and ensure absolute codebase integrity, you MUST follow this **Surgical Workflow**:
 
-Welcome, fellow AI Agent! To ensure consistency, high-quality development, and seamless collaboration across sequential or parallel sessions, you **MUST** read, understand, and adhere to these guidelines immediately upon starting any task in this repository.
+## Phase 1: Discovery & Scoping
+*Identify the target area before performing any search:*
+- Use \`get_outline\` with a specific \`depth\` to map the directory structure.
+- If a target folder is identified, use \`get_folder_map\` to inspect all API signatures and methods within that folder without reading full files.
+- **Production-First**: Focus search and read operations exclusively on production code (e.g., \`src/\`). Strictly ignore test directories (\`tests/\`, \`__tests__/\`) unless actively writing or fixing tests.
 
----
+## Phase 2: Targeted Search
+*Avoid blind searches across the entire project:*
+- **Mandatory Scoping**: ALWAYS pass the \`folder\` and \`fileFilter\` parameters to \`search_code\`, \`list_symbols\`, \`semantic_file_search\`, and \`find_dead_code\`.
+- Only expand the search to the global workspace if narrow scoping yields no results.
+- Verify and explicitly set the correct working directory (\`Cwd\`) before executing any shell commands (e.g., \`npm\`, \`git\`, \`tsc\`).
 
-## 🗺️ 1. Master Agent Skills (Must Read)
+## Phase 3: Surgical Reading
+*Unnecessary file reading is a sign of inefficiency. Never read what you don't need:*
+- **Anti-Pattern**: NEVER use native \`view_file\` on large files (>150 lines) as it triggers a heavy, compulsory 800-line context pull.
+- **AST Extraction**: Use \`get_symbol_source\` to surgically extract the source of a specific Class or Function.
+- **Range Reading**: Use \`read_file_range\` to read exact line ranges identified via previous search results.
 
-Before performing any research, reading large files, or writing code, you must locate the specialized instructions under the `docs/` directory:
+## Phase 4: Impact Analysis & Safe Editing
+*Every modification must be pre-vetted for risks:*
+- **Blast Radius**: ALWAYS run \`get_blast_radius\` BEFORE modifying code to identify upstream "victims" and transitive dependencies.
+- **Preflight Checks**: Run \`check_delete_safe\`, \`check_rename_safe\`, or \`check_edit_safe\` before applying any changes.
+- **Smart Patching**: Use \`smart_patcher\` for all edits. ALWAYS provide \`symbolName\` or \`startLine/endLine\` to scope the patch, avoiding CRLF conflicts and accidental global replacements.
 
-1. **[yumeshelf-release-guide.md](./docs/yumeshelf-release-guide.md) (Master Release Index)**:
-   - **When**: Preparing a release, building binaries, packaging auxiliary files, or updating release-notes.
-   - **Focus**: The definitive manual for standard production builds, file lock avoidance, and required update assets (`latest.yml`, `.blockmap`, `.sha256`).
+Follow these phases strictly to maintain high-signal context and prevent destructive operations.
 
-2. **[yumeshelf-incremental-changelog.md](./docs/yumeshelf-incremental-changelog.md) (Changelog Manager)**:
-   - **When**: At the end of **every** feature task, bug fix, or codebase modification.
-   - **Focus**: Instructions for cooperatively recording incremental developer logs in English inside `docs/changelogs/changelog.<version>.md` without overwriting other agents' work.
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
 
-3. **[yumeshelf-release-notes.md](./docs/yumeshelf-release-notes.md) (Release Note Style Rules)**:
-   - **When**: Drafting user-facing summaries or public GitHub Release announcements.
-   - **Focus**: Formatting guidelines, section separation (`What's New`, `What Changed`, `For the Nerds`), tone checks, and language rules.
+This project is indexed by GitNexus as **_Games_H_Games_YumeShelf** (4309 symbols, 6806 relationships, 182 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-4. **[yumeshelf-code-modularization.md](./docs/yumeshelf-code-modularization.md) (Code Modularization Guidelines)**:
-   - **When**: Creating new features, refactoring existing code, or adding new UI components/modules.
-   - **Focus**: Ensuring strict process isolation (Main vs Renderer), proper preload IPC bridging, and decoupled CSS/JS architecture.
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
-5. **[yumeshelf-save-editor.md](./docs/yumeshelf-save-editor.md) (Save Editor & Serialization Guidelines)**:
-   - **When**: Modifying save game formats, working with compression/encoders, or changing the save editor's state and rendering logic.
-   - **Focus**: Core serialization and bitstream alignment specifications, live state mutation practices, and cross-validation/differential testing loops.
+## Always Do
 
----
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
 
-## 📂 2. Project Domain Guidelines Map
+## Never Do
 
-Find the task type that matches your user request and read the designated YumeShelf-specific guidelines **before** beginning development.
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
 
-| Task Category | Repository-Specific Files to Load & Read | Focus / Section |
-| :--- | :--- | :--- |
-| **🎨 UI / Renderer / Styling** | [yumeshelf-code-modularization.md](./docs/yumeshelf-code-modularization.md) | Section 6: Container-level Componentization |
-| **⚙️ Core Logic / Database / IPC** | [yumeshelf-code-modularization.md](./docs/yumeshelf-code-modularization.md)<br>[yumeshelf-save-editor.md](./docs/yumeshelf-save-editor.md) | Sections 2 & 3: Process Boundaries and Preload IPC<br>All Sections: Save Serialization & Alignment specifications |
-| **🔧 Structural Refactoring / Migration** | [yumeshelf-code-modularization.md](./docs/yumeshelf-code-modularization.md) | Full File: Structural Isolation & Decoupled Architecture |
-| **📦 Production Build / Release Notes** | [yumeshelf-release-guide.md](./docs/yumeshelf-release-guide.md)<br>[yumeshelf-release-notes.md](./docs/yumeshelf-release-notes.md)<br>[yumeshelf-incremental-changelog.md](./docs/yumeshelf-incremental-changelog.md) | Full File: Production compilation guides<br>Full File: Release announcement guidelines<br>Full File: Developer log writing rules |
+## Resources
 
----
+| Resource | Use for |
+|----------|---------|
+| `gitnexus://repo/_Games_H_Games_YumeShelf/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/_Games_H_Games_YumeShelf/clusters` | All functional areas |
+| `gitnexus://repo/_Games_H_Games_YumeShelf/processes` | All execution flows |
+| `gitnexus://repo/_Games_H_Games_YumeShelf/process/{name}` | Step-by-step execution trace |
 
-## 📌 3. Core Operational Commandments
+## CLI
 
-* **Commandment 1: English Only for Documentation**
-  - Both your custom skills and all generated changelog entries or release notes **MUST** be written strictly in English.
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
-* **Commandment 2: Zero Manual Release Note Cleaning**
-  - Never manually clean up tag brackets or YAML frontmatter when preparing releases. Always run:
-    ```bash
-    npm run compile:release-notes
-    ```
-    This automated tool will clean and parse everything into a production-ready notes file under `docs/changelogs/compiled.release-notes.<version>.md`.
-
-* **Commandment 3: Self-Determine Active Versions**
-  - Use Git tags (`git tag -n`) and `package.json` to verify the active working version. If `package.json` lags behind the target changelog version, automatically update the `"version"` field in `package.json` to match immediately.
-
-* **Commandment 4: Avoid Build File Locks**
-  - Ensure all running dev instances (started via `npm start`) are completely closed before calling the production compilation command (`npm run build`).
-
-* **Commandment 5: The Boy Scout Rule (TypeScript Migration)**
-  - The codebase is currently running with `// @ts-nocheck` on many `.ts` files to silence compiler errors from the initial JavaScript to TypeScript migration.
-  - Whenever you open an existing file to modify a feature or fix a bug, you **MUST** remove the `// @ts-nocheck` pragma at the top of the file, fix all resulting TypeScript compilation errors, and ensure strong typings are applied to that file before completing your task.
-
----
-
-Let's build a beautiful, bulletproof application together! 🚀
-
-# Purritize MCP Agent Rules
-
-You are operating in a workspace that uses the **Purritize MCP Server** for advanced codebase intelligence and safety analysis.
-
-## Tool Usage & Prompts
-1. Explore the codebase using `get_codebase_outline`, `semantic_file_search`, `get_folder_map`, `generate_repo_map`, `dependency_manager`, `list_symbols`, and `search_code` instead of generic bash.
-2. Extract exact code blocks surgically using `get_symbol_source`.
-3. Compile changelogs for release using `compile_release_notes`.
-4. If you need workflow guidance (e.g. testing, releasing, debugging), you MUST fetch the corresponding MCP Prompt provided by the server.
-
-## Code Modification & Safety Rules
-1. BEFORE modifying or extracting code, use `get_blast_radius` to understand transitive impacts.
-2. BEFORE deleting, renaming, or heavily modifying any symbol, you MUST run the appropriate safety preflight tool (`check_delete_safe`, `check_rename_safe`, or `check_edit_safe`).
-3. Use `smart_patcher` for surgical code modifications to avoid CRLF mismatch issues.
-
-## Maintenance & Analytics
-1. Use `find_dead_code` to discover unused assets for safe cleanup.
-2. Use `import_trace` and `telemetry_sync` to ingest runtime logs for dynamic evidence during safety checks.
-
-Follow these rules to ensure maximum context efficiency and codebase integrity.
+<!-- gitnexus:end -->

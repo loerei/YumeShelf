@@ -22,8 +22,14 @@
 
 ## English
 
-### ✨ For Users
-**YumeShelf** is a dedicated launcher designed to bring order to your game folders. No more digging through messy sub-directories or looking at ugly file names. It scans, cleans, and presents your games in a beautiful, minimalist grid.
+* **Tried to open your game folder and find your `.exe` among thousands of game files?**  
+  We introduce a plug-and-play **library and launcher** where you can just double click to open any game, tell it the folder where you leave your game, and that's it.
+* **Tired of setting up [XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator) for your games?**  
+  We make it happen in **one click**.
+* **Tired of uploading your saves to the internet to edit them?**  
+  Here you are, **local save editor**.
+
+**All in one app, YumeShelf.**
 
 ### 🌟 Features
 * **🚀 Effortless Setup**: Just click **"I'm lazy!"** and Yume-chan handles the setup for you.
@@ -34,7 +40,7 @@
 * **💡 Guidance**: Yume-chan guides you exactly on how to add your first game!
 
 ### 🚀 Quick Start
-1. **Download**: Grab the latest version from the [Releases] page.
+1. **Download**: Grab [the latest version](https://github.com/loerei/YumeShelf/releases/latest).
 2. **Install**: Run `YumeShelf-Setup-<version>.exe` and follow the installer.
 3. **Launch**: Open YumeShelf from your desktop or Start Menu, then choose your existing game folder or let YumeShelf create one for you.
 4. **Enjoy**: Double-click any game to start your journey.
@@ -43,10 +49,11 @@
 Welcome! If you want to contribute to **YumeShelf**, here is the technical breakdown.
 
 #### Tech Stack
-* **Core**: Electron
-* **Backend**: Node.js (File system, Child processes)
-* **Frontend**: Vanilla JS, HTML5, CSS3 (Zero heavy frameworks for maximum performance)
-* **Storage**: Local JSON-based caching system for instant loading.
+* **Core**: [Electron](https://www.electronjs.org/)
+* **Main Process (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
+* **Renderer Process (Frontend)**: [Vite](https://vite.dev/), Vanilla [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (Zero heavy frameworks for maximum performance)
+* **Native Helpers**: [Rust](https://www.rust-lang.org/) (playtime helper), [C++](https://isocpp.org/) (background injector), and [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (save converter)
+* **Storage**: Local [JSON](https://www.json.org/)-based caching system for instant loading.
 
 #### Project Structure
 ```text
@@ -71,8 +78,14 @@ YumeShelf/
 
 ## 简体中文
 
-### ✨ 致用户
-**梦之架 (YumeShelf)** 是一款专为整理游戏文件夹而设计的专属启动器。 不再需要在混乱的子目录中翻找，也不用再看难看的文件名。 它会扫描、清理，并以美观、极简的网格展现你的游戏。
+* **厌倦了打开游戏文件夹，并在成千上万个杂乱文件中苦苦翻找 `.exe` 启动程序？**  
+  我们为你带来即插即用的**游戏库与启动器**：只需指定游戏目录，双击即可直接启动任何游戏。
+* **懒得为每个游戏繁琐配置 [XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator) 自动翻译？**  
+  我们实现了一键部署，**只需一步点击**。
+* **不想再把存档上传到互联网去进行修改？**  
+  为你提供完全本地化的**存档编辑器**，安全且省心。
+
+**万象包罗，尽在 YumeShelf。**
 
 ### 🌟 特色功能
 * **🚀 轻松设置**: 只需点击 **"我太懒了！(I'm lazy!)"**，Yume-chan 就会帮你搞定一切设置。
@@ -83,7 +96,7 @@ YumeShelf/
 * **💡 贴心指导**: 你的书架空空如也？Yume-chan 会手把手教你如何添加第一个游戏！
 
 ### 🚀 快速开始
-1. **下载**: 从 [Releases] 页面获取最新版本。
+1. **下载**: 获取 [最新版本](https://github.com/loerei/YumeShelf/releases/latest)。
 2. **安装**: 运行 `YumeShelf-Setup-<version>.exe` 并按向导完成安装。
 3. **启动**: 从桌面或开始菜单打开 YumeShelf，然后选择现有的游戏文件夹，或者让 YumeShelf 为你创建一个。
 4. **享受**: 双击任意游戏，开启你的旅程。
@@ -92,10 +105,11 @@ YumeShelf/
 欢迎！如果你想为 **YumeShelf** 做出贡献，以下是技术架构简介。
 
 #### 技术栈
-* **核心**: Electron
-* **后端**: Node.js (文件系统操作, 子进程)
-* **前端**: Vanilla JS, HTML5, CSS3 (零重型框架，追求极致性能)
-* **存储**: 基于本地 JSON 的缓存系统，实现瞬间加载。
+* **核心 (Core)**: [Electron](https://www.electronjs.org/)
+* **主进程 (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
+* **渲染进程 (Frontend)**: [Vite](https://vite.dev/), 原生 [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (零重型框架，追求极致性能)
+* **原生辅助 (Native)**: [Rust](https://www.rust-lang.org/) (playtime 辅助), [C++](https://isocpp.org/) (后台注入器), 以及 [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (存档转换器)
+* **存储 (Storage)**: 基于本地 [JSON](https://www.json.org/) 的缓存系统，实现瞬间加载。
 
 #### 项目结构
 ```text
@@ -115,8 +129,14 @@ YumeShelf/
 
 ## 日本語
 
-### ✨ ユーザー向け
-**ユメシェルフ (YumeShelf)** は、ゲームフォルダを整理するための専用ランチャーです。 面倒なサブディレクトリを探し回ったり、見苦しいファイル名を見たりする必要はもうありません。 スキャンしてクリーンアップし、美しくミニマルなグリッドにゲームを表示します。
+* **数千ものゲームファイルが散らばるフォルダーを開き、そこから `.exe` ファイルを探し出すのにうんざりしていませんか？**  
+  ゲームの保存先を指定するだけで、ダブルクリックするだけで簡単に起動できる、プラグアンドプレイの**ライブラリ＆ランチャー**をご紹介します。
+* **ゲームごとに [XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator) を手動でセットアップする手間に悩んでいませんか？**  
+  **ワンクリック**で自動翻訳のセットアップを完了できます。
+* **セーブデータを編集するためだけに、わざわざネット上にアップロードするのが面倒ではありませんか？**  
+  完全オフラインで安心な**ローカルセーブエディター**がここにあります。
+
+**すべてを一つに、YumeShelf。**
 
 ### 🌟 機能
 * **🚀 簡単セットアップ**: **「面倒くさい！」** をクリックするだけで、Yume-chanがセットアップを済ませてくれます。
@@ -127,7 +147,7 @@ YumeShelf/
 * **💡 ガイダンス**: Yume-chanが、最初のゲームの追加方法を正確に教えてくれます！
 
 ### 🚀 クイックスタート
-1. **ダウンロード**: [Releases] ページから最新バージョンを取得します。
+1. **ダウンロード**: [最新バージョン](https://github.com/loerei/YumeShelf/releases/latest)を取得します。
 2. **インストール**: `YumeShelf-Setup-<version>.exe` を実行し、インストーラーの案内に従います。
 3. **起動**: デスクトップまたはスタートメニューから YumeShelf を開き、既存のゲームフォルダを選択するか、YumeShelf に作成させます。
 4. **楽しむ**: 任意のゲームをダブルクリックして旅を始めましょう。
@@ -136,10 +156,11 @@ YumeShelf/
 ようこそ！**YumeShelf** に貢献したい方のために、技術的な詳細を説明します。
 
 #### 技術スタック
-* **コア**: Electron
-* **バックエンド**: Node.js (ファイルシステム, 子プロセス)
-* **フロントエンド**: Vanilla JS, HTML5, CSS3 (最高のパフォーマンスを得るためのゼロ・ヘビー・フレームワーク)
-* **ストレージ**: インスタントロードのためのローカルJSONベースのキャッシュシステム。
+* **コア (Core)**: [Electron](https://www.electronjs.org/)
+* **メインプロセス (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
+* **レンダラープロセス (Frontend)**: [Vite](https://vite.dev/), バニラ [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (最高のパフォーマンスを得るためのゼロ・ヘビー・フレームワーク)
+* **ネイティブ補助 (Native)**: [Rust](https://www.rust-lang.org/) (プレイ時間ヘルパー), [C++](https://isocpp.org/) (バックグラウンドインジェクター), および [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (セーブデータコンバーター)
+* **ストレージ (Storage)**: インスタントロードのためのローカル[JSON](https://www.json.org/)ベースのキャッシュシステム。
 
 #### プロジェクト構成
 ```text
@@ -159,8 +180,14 @@ YumeShelf/
 
 ## Tiếng Việt
 
-### ✨ Dành cho người dùng
-**YumeShelf** là một launcher chuyên dụng được thiết kế để mang lại trật tự cho các thư mục game của bạn. Không còn phải lục lọi trong các thư mục con lộn xộn hay nhìn những tên file xấu xí nữa. Nó sẽ quét, dọn dẹp và hiển thị game của bạn trên một lưới giao diện đẹp mắt, tối giản.
+* **Mệt mỏi vì phải mở thư mục game rồi lục lọi tìm file `.exe` giữa hàng ngàn file linh tinh?**  
+  Chúng tôi mang đến một **thư viện và trình khởi chạy** cắm-là-chạy (plug-and-play) cực kỳ tiện lợi: chỉ cần chỉ định thư mục chứa game, rồi double-click để chiến game ngay lập tức.
+* **Ngại thiết lập [XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator) thủ công cho từng tựa game?**  
+  Chúng tôi giúp bạn cấu hình tự động chỉ với **một cú click**.
+* **Phát ngán vì phải tải file save lên các trang web trực tuyến để chỉnh sửa?**  
+  Đây là giải pháp dành cho bạn: **trình chỉnh sửa save local** tiện lợi và bảo mật.
+
+**Tất cả trong một ứng dụng duy nhất, YumeShelf.**
 
 ### 🌟 Tính năng nổi bật
 * **🚀 Thiết lập siêu lười**: Chỉ cần click **"Tôi lười quá!"** và Yume-chan sẽ lo mọi thủ tục setup cho bạn.
@@ -171,7 +198,7 @@ YumeShelf/
 * **💡 Hướng dẫn tận tình**: Yume-chan sẽ chỉ dẫn bạn chính xác cách để thêm tựa game đầu tiên!
 
 ### 🚀 Bắt đầu nhanh
-1. **Tải về**: Lấy phiên bản mới nhất từ trang [Releases].
+1. **Tải về**: Tải [phiên bản mới nhất](https://github.com/loerei/YumeShelf/releases/latest).
 2. **Cài đặt**: Chạy `YumeShelf-Setup-<version>.exe` và làm theo trình cài đặt.
 3. **Khởi chạy**: Mở YumeShelf từ desktop hoặc Start Menu, rồi chọn thư mục game có sẵn của bạn hoặc để YumeShelf tự tạo một cái mới.
 4. **Thưởng thức**: Click đúp vào bất kỳ game nào để bắt đầu hành trình.
@@ -180,10 +207,11 @@ YumeShelf/
 Chào mừng! Nếu bạn muốn đóng góp cho **YumeShelf**, dưới đây là tổng quan về kỹ thuật.
 
 #### Tech Stack
-* **Core**: Electron
-* **Backend**: Node.js (File system, Child processes)
-* **Frontend**: Vanilla JS, HTML5, CSS3 (Không sử dụng framework nặng nề để tối đa hóa hiệu suất)
-* **Storage**: Hệ thống cache dựa trên JSON cục bộ giúp tải dữ liệu ngay lập tức.
+* **Core**: [Electron](https://www.electronjs.org/)
+* **Main Process (Backend)**: [Node.js](https://nodejs.org/) & [TypeScript](https://www.typescriptlang.org/)
+* **Renderer Process (Frontend)**: [Vite](https://vite.dev/), Vanilla [TypeScript](https://www.typescriptlang.org/), [HTML5](https://developer.mozilla.org/en-US/docs/Web/HTML), [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS) (Không sử dụng framework nặng nề để tối đa hóa hiệu suất)
+* **Native Helpers**: [Rust](https://www.rust-lang.org/) (playtime helper), [C++](https://isocpp.org/) (background injector), và [C# (.NET)](https://learn.microsoft.com/en-us/dotnet/csharp/) (save converter)
+* **Storage**: Hệ thống cache dựa trên [JSON](https://www.json.org/) cục bộ giúp tải dữ liệu ngay lập tức.
 
 #### Cấu trúc thư mục
 ```text

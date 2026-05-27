@@ -1,29 +1,46 @@
-// @ts-nocheck
-const { randomUUID } = require('crypto');
+import { randomUUID } from 'crypto';
 
-const CATEGORY_STATE_VERSION = 1;
+export const CATEGORY_STATE_VERSION = 1;
 
-function isPlainObject(value) {
+export interface CategoryNode {
+    id: string;
+    name: string;
+    children: CategoryNode[];
+}
+
+export type CategoryTree = CategoryNode[];
+
+export interface CategoryAssignments {
+    [gameId: string]: string[];
+}
+
+export interface CategoryState {
+    version: number;
+    tree: CategoryTree;
+    assignments: CategoryAssignments;
+}
+
+export function isPlainObject(value: any): boolean {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function normalizeCategoryId(value) {
+export function normalizeCategoryId(value: any): string | null {
     const normalized = String(value || '').trim();
     return normalized || null;
 }
 
-function normalizeCategoryName(value) {
+export function normalizeCategoryName(value: any): string {
     return String(value || '').trim();
 }
 
-function createCategoryId() {
+export function createCategoryId(): string {
     if (typeof randomUUID === 'function') {
         return `cat_${randomUUID().replace(/-/g, '')}`;
     }
     return `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function flattenTree(tree, bucket = new Map()) {
+export function flattenTree(tree: CategoryTree, bucket: Map<string, CategoryNode> = new Map()): Map<string, CategoryNode> {
     for (const node of Array.isArray(tree) ? tree : []) {
         if (!node || !node.id) continue;
         bucket.set(node.id, node);
@@ -32,11 +49,11 @@ function flattenTree(tree, bucket = new Map()) {
     return bucket;
 }
 
-function normalizeTree(tree) {
+export function normalizeTree(tree: any): CategoryTree {
     if (!Array.isArray(tree)) return [];
-    const seen = new Set();
+    const seen = new Set<string>();
 
-    function normalizeNode(node) {
+    function normalizeNode(node: any): CategoryNode | null {
         if (!isPlainObject(node)) return null;
         const id = normalizeCategoryId(node.id);
         const name = normalizeCategoryName(node.name);
@@ -49,26 +66,26 @@ function normalizeTree(tree) {
         };
     }
 
-    function normalizeTreeNodes(nodes) {
+    function normalizeTreeNodes(nodes: any): CategoryNode[] {
         return (Array.isArray(nodes) ? nodes : [])
             .map(normalizeNode)
-            .filter(Boolean);
+            .filter((node): node is CategoryNode => !!node);
     }
 
     return normalizeTreeNodes(tree);
 }
 
-function normalizeAssignments(assignments, tree) {
-    const categoryIds = new Set(flattenTree(tree).keys());
+export function normalizeAssignments(assignments: any, tree: CategoryTree): CategoryAssignments {
+    const categoryIds = new Set<string>(flattenTree(tree).keys());
     if (!isPlainObject(assignments)) return {};
-    const normalized = {};
+    const normalized: CategoryAssignments = {};
 
     for (const [gameId, value] of Object.entries(assignments)) {
         const normalizedGameId = String(gameId || '').trim();
         if (!normalizedGameId || !Array.isArray(value)) continue;
         const nextIds = [...new Set(value
             .map((entry) => normalizeCategoryId(entry))
-            .filter((entry) => entry && categoryIds.has(entry)))];
+            .filter((entry): entry is string => !!(entry && categoryIds.has(entry))))];
         if (nextIds.length > 0) {
             normalized[normalizedGameId] = nextIds;
         }
@@ -77,7 +94,7 @@ function normalizeAssignments(assignments, tree) {
     return normalized;
 }
 
-function normalizeCategoryState(rawState) {
+export function normalizeCategoryState(rawState: any): CategoryState {
     const tree = normalizeTree(rawState?.tree);
     return {
         version: CATEGORY_STATE_VERSION,
@@ -86,11 +103,16 @@ function normalizeCategoryState(rawState) {
     };
 }
 
-function removeCategorySubtree(tree, categoryId) {
-    const removedIds = new Set();
+export interface RemoveCategorySubtreeResult {
+    removedIds: Set<string>;
+    tree: CategoryTree;
+}
 
-    function walk(nodes) {
-        const nextNodes = [];
+export function removeCategorySubtree(tree: CategoryTree, categoryId: string): RemoveCategorySubtreeResult {
+    const removedIds = new Set<string>();
+
+    function walk(nodes: CategoryNode[]): CategoryNode[] {
+        const nextNodes: CategoryNode[] = [];
         for (const node of nodes) {
             if (node.id === categoryId) {
                 collectIds(node);
@@ -104,7 +126,7 @@ function removeCategorySubtree(tree, categoryId) {
         return nextNodes;
     }
 
-    function collectIds(node) {
+    function collectIds(node: CategoryNode): void {
         removedIds.add(node.id);
         for (const child of node.children || []) {
             collectIds(child);
@@ -117,8 +139,8 @@ function removeCategorySubtree(tree, categoryId) {
     };
 }
 
-function pruneAssignments(assignments, removedIds) {
-    const nextAssignments = {};
+export function pruneAssignments(assignments: CategoryAssignments, removedIds: Set<string>): CategoryAssignments {
+    const nextAssignments: CategoryAssignments = {};
     for (const [gameId, categoryIds] of Object.entries(assignments || {})) {
         const keptIds = categoryIds.filter((id) => !removedIds.has(id));
         if (keptIds.length > 0) {
@@ -127,17 +149,3 @@ function pruneAssignments(assignments, removedIds) {
     }
     return nextAssignments;
 }
-
-module.exports = {
-    CATEGORY_STATE_VERSION,
-    isPlainObject,
-    normalizeCategoryId,
-    normalizeCategoryName,
-    createCategoryId,
-    flattenTree,
-    normalizeTree,
-    normalizeAssignments,
-    normalizeCategoryState,
-    removeCategorySubtree,
-    pruneAssignments
-};

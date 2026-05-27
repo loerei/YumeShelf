@@ -1,19 +1,38 @@
-// @ts-nocheck
-function attachProcessDiagnostics(app) {
+export function attachProcessDiagnostics(app: any): void {
     app.on('ready', () => {
         console.log(`[MAIN][LIFECYCLE] ready fired pid=${process.pid}`);
     });
 
-    app.on('child-process-gone', (_event, details) => {
+    app.on('child-process-gone', (_event: any, details: any) => {
         console.error(`[MAIN][PROCESS] child-process-gone ${JSON.stringify(details)}`);
     });
 
-    app.on('render-process-gone', (_event, _webContents, details) => {
+    app.on('render-process-gone', (_event: any, _webContents: any, details: any) => {
         console.error(`[MAIN][PROCESS] render-process-gone ${JSON.stringify(details)}`);
     });
 }
 
-async function startMainRuntime({
+export interface MainRuntimeConfig {
+    app: any;
+    appUpdateServices: any;
+    categoryState: any;
+    iconPipeline: any;
+    ipcMain: any;
+    languagePackServices: any;
+    libraryState: any;
+    logStartupDiagnostics: (app: any) => void;
+    paths: any;
+    playtimeSessionManager: any;
+    registerMainIpc: any;
+    saveFolderResolver: any;
+    saveEditorService: any;
+    translationService: any;
+    shell: any;
+    startupServices: any;
+    createMainWindow: any;
+}
+
+export async function startMainRuntime({
     app,
     appUpdateServices,
     categoryState,
@@ -27,10 +46,11 @@ async function startMainRuntime({
     registerMainIpc,
     saveFolderResolver,
     saveEditorService,
+    translationService,
     shell,
     startupServices,
     createMainWindow
-}) {
+}: MainRuntimeConfig): Promise<void> {
     iconPipeline.registerProtocolHandler();
     logStartupDiagnostics(app);
 
@@ -52,14 +72,10 @@ async function startMainRuntime({
         playtimeSessionManager,
         saveFolderResolver,
         saveEditorService,
+        translationService,
         startupServices,
         defaultGamesDir: paths.defaultGamesDir,
         paths
     });
     iconPipeline.registerIpcHandler();
 }
-
-module.exports = {
-    attachProcessDiagnostics,
-    startMainRuntime
-};

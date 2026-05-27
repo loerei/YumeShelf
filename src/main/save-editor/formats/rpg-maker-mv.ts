@@ -1,5 +1,5 @@
 import { TelemetryShipper } from '../../telemetry/shipper';
-const LZString = require('../../core/lz-string');
+import { LZString } from '../../core/lz-string';
 
 class RpgMakerMvFormat {
     match(fileName: string): boolean {
@@ -19,7 +19,10 @@ class RpgMakerMvFormat {
         const str = rawData.toString('utf8');
         try {
             const decompressed = LZString.decompressFromBase64(str);
-            return JSON.parse(decompressed);
+            if (typeof decompressed === 'string') {
+                return JSON.parse(decompressed);
+            }
+            throw new Error('Decompression returned null');
         } catch (err) {
             return JSON.parse(str);
         }
@@ -33,4 +36,4 @@ class RpgMakerMvFormat {
 }
 
 const format = new RpgMakerMvFormat();
-module.exports = format;
+export default format;

@@ -1,14 +1,15 @@
-// @ts-nocheck
-function extractVersion(tagName) {
+import * as path from 'path';
+
+export function extractVersion(tagName: string | null | undefined): string {
     const value = String(tagName || '').trim();
     return value.replace(/^v/i, '');
 }
 
-function isNumericVersionIdentifier(value) {
+export function isNumericVersionIdentifier(value: string | null | undefined): boolean {
     return /^\d+$/.test(String(value || '').trim());
 }
 
-function parseAppReleaseVersion(value) {
+export function parseAppReleaseVersion(value: string | null | undefined): { core: number[]; prerelease: (string | number)[] } {
     const normalized = extractVersion(value);
     const [corePart, ...prereleaseParts] = String(normalized || '0').split('-');
     const core = corePart
@@ -27,7 +28,7 @@ function parseAppReleaseVersion(value) {
     };
 }
 
-function compareAppReleaseVersions(left, right) {
+export function compareAppReleaseVersions(left: string, right: string): number {
     const a = parseAppReleaseVersion(left);
     const b = parseAppReleaseVersion(right);
     const coreLength = Math.max(a.core.length, b.core.length);
@@ -52,7 +53,7 @@ function compareAppReleaseVersions(left, right) {
 
         const leftIsNumber = typeof leftPart === 'number';
         const rightIsNumber = typeof rightPart === 'number';
-        if (leftIsNumber && rightIsNumber) return leftPart - rightPart;
+        if (leftIsNumber && rightIsNumber) return (leftPart as number) - (rightPart as number);
         if (leftIsNumber) return -1;
         if (rightIsNumber) return 1;
 
@@ -63,28 +64,28 @@ function compareAppReleaseVersions(left, right) {
     return 0;
 }
 
-function isPrereleaseVersion(value) {
+export function isPrereleaseVersion(value: string | null | undefined): boolean {
     return String(extractVersion(value || '')).includes('-');
 }
 
-function shouldIncludePrereleaseReleases(...versions) {
+export function shouldIncludePrereleaseReleases(...versions: string[]): boolean {
     return versions.some(version => isPrereleaseVersion(version));
 }
 
-function firstHexDigest(text) {
+export function firstHexDigest(text: string | null | undefined): string | null {
     const match = String(text || '').match(/\b[a-f0-9]{64}\b/i);
     return match ? match[0].toLowerCase() : null;
 }
 
-function readAssetLabel(asset) {
+export function readAssetLabel(asset: any): string {
     return String(asset?.label || asset?.name || '').trim();
 }
 
-function readAssetName(asset) {
+export function readAssetName(asset: any): string {
     return String(asset?.name || asset?.label || '').trim();
 }
 
-function decodeHtmlEntities(value) {
+export function decodeHtmlEntities(value: string | null | undefined): string {
     return String(value || '')
         .replace(/&nbsp;/gi, ' ')
         .replace(/&amp;/gi, '&')
@@ -94,7 +95,7 @@ function decodeHtmlEntities(value) {
         .replace(/&#39;/gi, "'");
 }
 
-function normalizeInlineHtmlToMarkdown(value) {
+export function normalizeInlineHtmlToMarkdown(value: string | null | undefined): string {
     return String(value || '')
         .replace(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_match, href, text) => `[${normalizeInlineHtmlToMarkdown(text).trim()}](${href.trim()})`)
         .replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, text) => `**${normalizeInlineHtmlToMarkdown(text).trim()}**`)
@@ -105,7 +106,7 @@ function normalizeInlineHtmlToMarkdown(value) {
         .replace(/\n{3,}/g, '\n\n');
 }
 
-function normalizeReleaseNotesForReview(value) {
+export function normalizeReleaseNotesForReview(value: string | null | undefined): string {
     const raw = String(value || '').replace(/\r\n?/g, '\n').trim();
     if (!raw) return '';
     if (!/<[a-z][\s\S]*>/i.test(raw)) {
@@ -119,7 +120,7 @@ function normalizeReleaseNotesForReview(value) {
     });
     normalized = normalized.replace(/<(ul|ol)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, inner) => {
         const items = Array.from(inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi))
-            .map((entry) => `- ${normalizeInlineHtmlToMarkdown(entry[1]).trim()}`)
+            .map((entry: any) => `- ${normalizeInlineHtmlToMarkdown(entry[1]).trim()}`)
             .filter(Boolean);
         return items.length > 0 ? `\n${items.join('\n')}\n` : '\n';
     });
@@ -133,10 +134,10 @@ function normalizeReleaseNotesForReview(value) {
     return normalized;
 }
 
-function normalizeRelease(raw, fallbackReleasePageUrl) {
+export function normalizeRelease(raw: any, fallbackReleasePageUrl: string): any {
     const tagName = String(raw?.tag_name || raw?.tagName || '').trim();
     const version = extractVersion(tagName);
-    const assets = Array.isArray(raw?.assets) ? raw.assets.map((asset) => ({
+    const assets = Array.isArray(raw?.assets) ? raw.assets.map((asset: any) => ({
         name: readAssetName(asset),
         label: readAssetLabel(asset),
         browserDownloadUrl: String(asset?.browser_download_url || asset?.url || '').trim()
@@ -153,11 +154,11 @@ function normalizeRelease(raw, fallbackReleasePageUrl) {
     };
 }
 
-function getReleaseDisplayName(release) {
+export function getReleaseDisplayName(release: any): string {
     return String(release?.name || '').trim() || `YumeShelf v${String(release?.version || '').trim()}`;
 }
 
-function formatStackedReleaseNotes(releases) {
+export function formatStackedReleaseNotes(releases: any[]): string {
     return releases
         .filter(release => release?.version)
         .map((release) => {
@@ -167,7 +168,7 @@ function formatStackedReleaseNotes(releases) {
         .join('\n\n---\n\n');
 }
 
-function isPortableExeAsset(asset, version) {
+export function isPortableExeAsset(asset: any, version: string): boolean {
     const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
     return candidates.some((value) => value.includes('yumeshelf')
         && value.includes(version.toLowerCase())
@@ -175,7 +176,7 @@ function isPortableExeAsset(asset, version) {
         && !value.endsWith('.exe.sha256'));
 }
 
-function isNsisInstallerAsset(asset, version) {
+export function isNsisInstallerAsset(asset: any, version: string): boolean {
     const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
     return candidates.some((value) => value.includes('yumeshelf')
         && value.includes('setup')
@@ -184,7 +185,7 @@ function isNsisInstallerAsset(asset, version) {
         && !value.endsWith('.exe.sha256'));
 }
 
-function isChecksumAsset(asset, version, artifactKind) {
+export function isChecksumAsset(asset: any, version: string, artifactKind: string): boolean {
     const candidates = [readAssetName(asset), readAssetLabel(asset)].map(value => value.toLowerCase());
     return candidates.some((value) => value.includes('yumeshelf')
         && (artifactKind !== 'nsis-installer' || value.includes('setup'))
@@ -192,26 +193,8 @@ function isChecksumAsset(asset, version, artifactKind) {
         && value.endsWith('.exe.sha256'));
 }
 
-function inferExecutableArtifactKind(filePath) {
-    const fileName = require('path').basename(String(filePath || '')).toLowerCase();
+export function inferExecutableArtifactKind(filePath: string): string {
+    const fileName = path.basename(String(filePath || '')).toLowerCase();
     if (!fileName.endsWith('.exe')) return 'unknown';
     return fileName.includes('setup') ? 'nsis-installer' : 'portable-exe';
 }
-
-module.exports = {
-    compareAppReleaseVersions,
-    extractVersion,
-    firstHexDigest,
-    formatStackedReleaseNotes,
-    getReleaseDisplayName,
-    inferExecutableArtifactKind,
-    isChecksumAsset,
-    isNsisInstallerAsset,
-    isPortableExeAsset,
-    isPrereleaseVersion,
-    normalizeRelease,
-    normalizeReleaseNotesForReview,
-    readAssetLabel,
-    readAssetName,
-    shouldIncludePrereleaseReleases
-};

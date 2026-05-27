@@ -1,11 +1,30 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
-const { spawn } = require('child_process');
-const { normalizeText } = require('./runtime');
-const { pickReleaseName, pickReleaseNotes } = require('./update-info');
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { spawn } from 'child_process';
+import { BrowserWindow } from 'electron';
+import { normalizeText } from './runtime';
+import { pickReleaseName, pickReleaseNotes } from './update-info';
 
-function createInstallerHandoff({
+export interface InstallerHandoffConfig {
+    app: any;
+    appendUpdateLog: (message: string) => Promise<any> | any;
+    delay: (ms: number) => Promise<void>;
+    emitStatus: (payload: any) => void;
+    ensureDir: (dirPath: string) => Promise<void>;
+    postUpdateMarkerFile: string;
+    releasePageUrl: string;
+}
+
+export interface LaunchInstallerOptions {
+    installerPath: string;
+    logPrefix: string;
+    onAfterLaunch?: () => Promise<void> | void;
+    onBeforeLaunch?: () => Promise<void> | void;
+    readyUpdate: any;
+    statusPatch?: any;
+}
+
+export function createInstallerHandoff({
     app,
     appendUpdateLog,
     delay,
@@ -13,7 +32,7 @@ function createInstallerHandoff({
     ensureDir,
     postUpdateMarkerFile,
     releasePageUrl
-}) {
+}: InstallerHandoffConfig) {
     async function launchInstallerAndQuit({
         installerPath,
         logPrefix,
@@ -21,14 +40,13 @@ function createInstallerHandoff({
         onBeforeLaunch,
         readyUpdate,
         statusPatch = {}
-    }) {
+    }: LaunchInstallerOptions) {
         if (typeof onBeforeLaunch === 'function') {
             await onBeforeLaunch();
         }
 
         // Hide all active windows to avoid visual glitches or frozen white screens during handover
         try {
-            const { BrowserWindow } = require('electron');
             BrowserWindow.getAllWindows().forEach(w => {
                 if (w && !w.isDestroyed()) {
                     w.hide();
@@ -43,7 +61,7 @@ function createInstallerHandoff({
                 detached: true,
                 stdio: 'ignore',
                 windowsHide: true
-            });
+            } as any);
             child.unref();
             if (typeof onAfterLaunch === 'function') {
                 await onAfterLaunch();
@@ -60,7 +78,7 @@ function createInstallerHandoff({
                 try {
                     app.quit();
                 } catch (error) {
-                    void appendUpdateLog(`${logPrefix} quit-failed error=${String((error && error.stack) || error || '')}`);
+                    void appendUpdateLog(`${logPrefix} quit-failed error=${String((error as any)?.stack || error || '')}`);
                 }
             }, 80);
             return {
@@ -68,12 +86,12 @@ function createInstallerHandoff({
                 pid: child.pid || null
             };
         } catch (error) {
-            await appendUpdateLog(`${logPrefix} launch-failed error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(`${logPrefix} launch-failed error=${String((error as any)?.stack || error || '')}`);
             throw error;
         }
     }
 
-    function buildReleaseMetadata(updateInfo, override = {}) {
+    function buildReleaseMetadata(updateInfo: any, override: any = {}) {
         return {
             installedAt: new Date().toISOString(),
             releaseName: normalizeText(override.releaseName || pickReleaseName(updateInfo), ''),
@@ -84,12 +102,18 @@ function createInstallerHandoff({
         };
     }
 
-    async function writePostUpdateMarker(metadata) {
+    async function writePostUpdateMarker(metadata: any) {
         await ensureDir(path.dirname(postUpdateMarkerFile));
         await fs.writeFile(postUpdateMarkerFile, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
     }
 
-    async function prepareInstallPhase({ phase, update, logMessage }) {
+    interface PrepareOptions {
+        phase: string;
+        update: any;
+        logMessage?: string;
+    }
+
+    async function prepareInstallPhase({ phase, update, logMessage }: PrepareOptions) {
         emitStatus({ phase, update });
         if (logMessage) {
             await appendUpdateLog(logMessage);
@@ -104,7 +128,3 @@ function createInstallerHandoff({
         writePostUpdateMarker
     };
 }
-
-module.exports = {
-    createInstallerHandoff
-};

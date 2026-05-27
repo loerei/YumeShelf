@@ -9,6 +9,10 @@ import { createLanguagePackResultsController } from './language-packs/results';
  */
 function buildLanguagePackRefs(container) {
     return {
+        appUpdateProgressContainer: container.querySelector('#app-update-progress-container'),
+        appUpdateProgressFill:     container.querySelector('#app-update-progress-fill'),
+        appUpdateProgressPercent:  container.querySelector('#app-update-progress-percent'),
+        appUpdateProgressSpeed:    container.querySelector('#app-update-progress-speed'),
         appUpdateReviewActionBtn:  container.querySelector('#app-update-review-action-btn'),
         appUpdateReviewEyebrow:    container.querySelector('#app-update-review-eyebrow'),
         appUpdateReviewMeta:       container.querySelector('#app-update-review-meta'),

@@ -1,6 +1,7 @@
 import { App, IpcMain, Shell, BrowserWindow } from 'electron';
 import * as fsSync from 'fs';
 import { TelemetryShipper } from '../telemetry/shipper';
+import { isPathWithinLibrary } from './path-validator';
 
 export interface RegisterIpcOptions {
     app: App;
@@ -13,6 +14,7 @@ export interface RegisterIpcOptions {
     playtimeSessionManager: any;
     saveFolderResolver: any;
     saveEditorService: any;
+    translationService: any;
     startupServices: any;
     defaultGamesDir: string;
     paths: any;
@@ -29,6 +31,7 @@ export function registerMainIpc({
     playtimeSessionManager,
     saveFolderResolver,
     saveEditorService,
+    translationService,
     startupServices,
     defaultGamesDir,
     paths
@@ -95,6 +98,12 @@ export function registerMainIpc({
     ipcMain.handle('remove-game-category', async (_event, { gameId, categoryId }) => categoryState.removeGameFromCategory(gameId, categoryId));
     ipcMain.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
         try {
+            const record = await libraryState.getGameRecord(gameKey);
+            if (record && record.autoTranslate) {
+                await translationService.prepareTranslator(gameKey, exePath);
+            } else {
+                await translationService.removeTranslator(exePath);
+            }
             await playtimeSessionManager.launchTrackedGame(gameKey, exePath, runInBackground);
         } catch (error) {
             console.error(`[PLAYTIME][SESSIONS] failed to launch tracked game ${gameKey}:`, error);
@@ -110,9 +119,50 @@ export function registerMainIpc({
     ipcMain.handle('rename-game', async (_event, { gameKey, newName }) => libraryState.renameGame(gameKey, newName));
     ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
     ipcMain.handle('toggle-run-in-background', async (_event, gameKey) => libraryState.toggleRunInBackground(gameKey));
-    ipcMain.on('reveal-game', (_event, targetPath) => shell.showItemInFolder(targetPath));
-    ipcMain.on('open-path', (_event, targetPath) => shell.openPath(targetPath));
-    ipcMain.handle('delete-game', async (_event, targetPath) => shell.trashItem(targetPath));
+    ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState.toggleAutoTranslate(gameKey));
+    ipcMain.handle('translation:check-support', async (_event, gameKey) => {
+        const record = await libraryState.getGameRecord(gameKey);
+        if (!record || !record.exePath) return { supported: false, engine: null };
+        const engine = await translationService.detectEngineSupport(record.exePath);
+        return { supported: !!engine, engine };
+    });
+    ipcMain.handle('translation:start-sync', async (_event, { gameKey, targetLang }) => {
+        const record = await libraryState.getGameRecord(gameKey);
+        if (!record || !record.exePath) return { success: false, error: 'game-not-found' };
+        translationService.queueDeepSync(gameKey, record.exePath, targetLang, record.name);
+        return { success: true };
+    });
+    ipcMain.handle('translation:cancel-sync', async (_event, gameKey) => {
+        translationService.cancelDeepSync(gameKey);
+        return { success: true };
+    });
+    ipcMain.handle('translation:move-queue', async (_event, { gameKey, direction }) => {
+        translationService.moveQueue(gameKey, direction);
+        return { success: true };
+    });
+    ipcMain.on('reveal-game', async (_event, targetPath) => {
+        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
+        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+            shell.showItemInFolder(targetPath);
+        } else {
+            console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
+        }
+    });
+    ipcMain.on('open-path', async (_event, targetPath) => {
+        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
+        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+            shell.openPath(targetPath);
+        } else {
+            console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
+        }
+    });
+    ipcMain.handle('delete-game', async (_event, targetPath) => {
+        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
+        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+            return shell.trashItem(targetPath);
+        }
+        return { ok: false, error: 'unauthorized-path' };
+    });
 
     ipcMain.handle('get-save-folder', async (_event, gameKey) => {
         console.log(`[IPC][get-save-folder] Received request for: ${gameKey}`);
@@ -181,12 +231,13 @@ export function registerMainIpc({
         });
 
         if (paths) {
-            saveEditorWin.loadFile(paths.indexHtmlPath, {
-                query: {
-                    mode: 'save-editor',
-                    gameKey: gameKey
-                }
-            });
+            if (process.env.VITE_DEV_SERVER_URL) {
+                saveEditorWin.loadURL(`${process.env.VITE_DEV_SERVER_URL}?mode=save-editor&gameKey=${encodeURIComponent(gameKey)}`);
+            } else {
+                saveEditorWin.loadFile(paths.indexHtmlPath, {
+                    search: `mode=save-editor&gameKey=${encodeURIComponent(gameKey)}`
+                });
+            }
         }
     });
 

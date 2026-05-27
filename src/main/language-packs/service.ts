@@ -1,119 +1,98 @@
-// @ts-nocheck
-const path = require('path');
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const crypto = require('crypto');
-const http = require('http');
-const https = require('https');
-const { compareNumericVersions } = require('../core/version-utils');
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import { compareNumericVersions } from '../core/version-utils';
+import {
+    ensureDir,
+    readJsonFile,
+    sha256Hex,
+    isNetworkLikeError,
+    downloadBuffer
+} from '../core/shared-io';
 
 const LANGUAGE_PACK_REPO_URL = 'https://github.com/loerei/YumeShelf/blob/main/TRANSLATION.md';
 const LANGUAGE_PACK_MANIFEST_URL = 'https://raw.githubusercontent.com/loerei/YumeShelf/main/language-packs/manifest.json';
 const LANGUAGE_PACK_TIMEOUT_MS = 8000;
 const LOCALE_REQUIRED_STRING_KEYS = ['title', 'settings', 'lang', 'welcome', 'welcome_desc', 'placeholders'];
 
-function normalizeLanguageCode(code) {
+export interface LanguagePackMeta {
+    code: string;
+    bcp47: string | null;
+    englishName: string;
+    nativeName: string;
+    packVersion: string;
+    minAppVersion: string | null;
+    reviewedForAppVersion: string | null;
+    aliases: string[];
+    keywords: string[];
+    source: 'built-in' | 'downloaded' | 'remote';
+}
+
+export interface LanguagePack extends LanguagePackMeta {
+    strings: Record<string, any>;
+}
+
+export interface ManifestPack {
+    code: string;
+    bcp47: string | null;
+    englishName: string;
+    nativeName: string;
+    packVersion: string;
+    minAppVersion: string | null;
+    reviewedForAppVersion: string | null;
+    aliases: string[];
+    keywords: string[];
+    downloadUrl: string;
+    sha256: string;
+}
+
+export interface LanguageManifest {
+    schemaVersion: number;
+    generatedAt: string | null;
+    packs: ManifestPack[];
+}
+
+export interface LanguageState {
+    repoUrl: string;
+    manifestUrl: string;
+    appVersion: string;
+    builtIn: LanguagePackMeta[];
+    installed: LanguagePackMeta[];
+    locales: Record<string, any>;
+}
+
+export interface AppInterface {
+    getVersion(): string;
+}
+
+export interface PathsInterface {
+    isDev: boolean;
+    builtInLocalesDir: string;
+    userLocalesDir: string;
+    languagePackManifestCacheFile: string;
+    localLanguagePackManifestFile: string;
+    localLanguagePacksDir: string;
+}
+
+export interface LanguagePackServicesOptions {
+    app: AppInterface;
+    paths: PathsInterface;
+}
+
+function normalizeLanguageCode(code: any): string {
     return String(code || '').trim().toLowerCase();
 }
 
-function isPlainObject(value) {
+function isPlainObject(value: any): boolean {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-async function ensureDir(dirPath) {
-    await fs.mkdir(dirPath, { recursive: true });
-}
-
-async function readJsonFile(filePath) {
-    try {
-        return JSON.parse(await fs.readFile(filePath, 'utf8'));
-    } catch {
-        return null;
-    }
-}
-
-async function writeJsonFile(filePath, data) {
+async function writeJsonFile(filePath: string, data: any): Promise<void> {
     await ensureDir(path.dirname(filePath));
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
-function sha256Hex(buffer) {
-    return crypto.createHash('sha256').update(buffer).digest('hex');
-}
-
-function isNetworkLikeError(error) {
-    const msg = String((error && error.message) || error || '').toLowerCase();
-    const code = String((error && error.code) || '').toLowerCase();
-    return [
-        'econnreset',
-        'econnrefused',
-        'enetunreach',
-        'ehostunreach',
-        'eai_again',
-        'timed out',
-        'enotfound',
-        'socket hang up',
-        'offline',
-        'network'
-    ].some(token => msg.includes(token) || code.includes(token));
-}
-
-function downloadBuffer(urlString, redirectCount = 0, timeoutMs = LANGUAGE_PACK_TIMEOUT_MS, onProgress = null, appVersion = '0.0.0') {
-    return new Promise((resolve, reject) => {
-        if (redirectCount > 5) {
-            reject(new Error('Too many redirects while downloading language pack data.'));
-            return;
-        }
-
-        let requestUrl;
-        try {
-            requestUrl = new URL(urlString);
-        } catch {
-            reject(new Error(`Invalid download URL: ${urlString}`));
-            return;
-        }
-
-        const client = requestUrl.protocol === 'http:' ? http : https;
-        const req = client.get(requestUrl, {
-            headers: {
-                'User-Agent': `YumeShelf/${appVersion}`
-            }
-        }, (res) => {
-            const status = res.statusCode || 0;
-            if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
-                const redirected = new URL(res.headers.location, requestUrl).toString();
-                res.resume();
-                resolve(downloadBuffer(redirected, redirectCount + 1, timeoutMs, onProgress, appVersion));
-                return;
-            }
-
-            if (status !== 200) {
-                res.resume();
-                reject(new Error(`HTTP ${status} while downloading ${requestUrl.toString()}`));
-                return;
-            }
-
-            const total = parseInt(res.headers['content-length'], 10);
-            let downloaded = 0;
-            const chunks = [];
-            res.on('data', chunk => {
-                chunks.push(Buffer.from(chunk));
-                downloaded += chunk.length;
-                if (typeof onProgress === 'function' && total) {
-                    onProgress(downloaded, total);
-                }
-            });
-            res.on('end', () => resolve(Buffer.concat(chunks)));
-        });
-
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error('Request timed out.'));
-        });
-        req.on('error', reject);
-    });
-}
-
-function normalizeLocalePack(raw, options = {}) {
+function normalizeLocalePack(raw: any, options: { installed?: boolean; builtIn?: boolean; sourceLabel?: string } = {}): LanguagePack {
     const { installed = false, builtIn = false, sourceLabel = 'locale pack' } = options;
     if (!isPlainObject(raw)) throw new Error(`${sourceLabel} is not a JSON object.`);
 
@@ -138,18 +117,18 @@ function normalizeLocalePack(raw, options = {}) {
         packVersion: String(raw.packVersion || raw.version || '1.0.0'),
         minAppVersion: raw.minAppVersion ? String(raw.minAppVersion) : null,
         reviewedForAppVersion: raw.reviewedForAppVersion ? String(raw.reviewedForAppVersion) : null,
-        aliases: Array.isArray(raw.aliases) ? raw.aliases.map(value => String(value)).filter(Boolean) : [],
-        keywords: Array.isArray(raw.keywords) ? raw.keywords.map(value => String(value)).filter(Boolean) : [],
+        aliases: Array.isArray(raw.aliases) ? raw.aliases.map((value: any) => String(value)).filter(Boolean) : [],
+        keywords: Array.isArray(raw.keywords) ? raw.keywords.map((value: any) => String(value)).filter(Boolean) : [],
         source: builtIn ? 'built-in' : (installed ? 'downloaded' : 'remote'),
         strings: raw.strings
     };
 }
 
-function normalizeManifest(raw) {
+function normalizeManifest(raw: any): LanguageManifest {
     if (!isPlainObject(raw)) throw new Error('Manifest payload is not a JSON object.');
     if (!Array.isArray(raw.packs)) throw new Error('Manifest is missing the packs array.');
 
-    const packs = raw.packs.map((entry, index) => {
+    const packs = raw.packs.map((entry: any, index: number) => {
         if (!isPlainObject(entry)) throw new Error(`Manifest pack #${index + 1} is invalid.`);
         const code = normalizeLanguageCode(entry.code);
         if (!code) throw new Error(`Manifest pack #${index + 1} is missing a code.`);
@@ -164,8 +143,8 @@ function normalizeManifest(raw) {
             packVersion: String(entry.packVersion || entry.version || '1.0.0'),
             minAppVersion: entry.minAppVersion ? String(entry.minAppVersion) : null,
             reviewedForAppVersion: entry.reviewedForAppVersion ? String(entry.reviewedForAppVersion) : null,
-            aliases: Array.isArray(entry.aliases) ? entry.aliases.map(value => String(value)).filter(Boolean) : [],
-            keywords: Array.isArray(entry.keywords) ? entry.keywords.map(value => String(value)).filter(Boolean) : [],
+            aliases: Array.isArray(entry.aliases) ? entry.aliases.map((value: any) => String(value)).filter(Boolean) : [],
+            keywords: Array.isArray(entry.keywords) ? entry.keywords.map((value: any) => String(value)).filter(Boolean) : [],
             downloadUrl: String(entry.downloadUrl),
             sha256: String(entry.sha256).toLowerCase()
         };
@@ -178,7 +157,7 @@ function normalizeManifest(raw) {
     };
 }
 
-function summarizeLanguagePackUpdate(installedPack, manifestEntry) {
+function summarizeLanguagePackUpdate(installedPack: LanguagePackMeta, manifestEntry: ManifestPack) {
     return {
         code: installedPack.code,
         englishName: manifestEntry.englishName,
@@ -190,12 +169,22 @@ function summarizeLanguagePackUpdate(installedPack, manifestEntry) {
     };
 }
 
-function createLanguagePackServices({
+export interface LanguagePackServices {
+    applyLanguagePackUpdates(candidates: any[], options?: any): Promise<{ installed: any[]; failed: any[]; state: LanguageState | null }>;
+    buildLanguageState(): Promise<LanguageState>;
+    fetchLanguageManifest(): Promise<{ ok: boolean; offline: boolean; source: string; manifest: LanguageManifest | null; error: string | null }>;
+    getLanguagePackUpdateCandidates(languageState: LanguageState | null | undefined, manifest: LanguageManifest | null | undefined): any[];
+    installLanguagePack(code: string): Promise<{ ok: boolean; installedCode?: string; error?: string; reason?: string; state?: LanguageState | null; offline?: boolean }>;
+    isNetworkLikeError: typeof isNetworkLikeError;
+    repoUrl: string;
+}
+
+export function createLanguagePackServices({
     app,
     paths
-}) {
-    async function loadLocaleDirectory(dirPath, options = {}) {
-        const results = [];
+}: LanguagePackServicesOptions): LanguagePackServices {
+    async function loadLocaleDirectory(dirPath: string, options: { installed?: boolean; builtIn?: boolean } = {}): Promise<LanguagePack[]> {
+        const results: LanguagePack[] = [];
         try {
             const entries = await fs.readdir(dirPath, { withFileTypes: true });
             for (const entry of entries) {
@@ -208,7 +197,7 @@ function createLanguagePackServices({
                         ...options,
                         sourceLabel: filePath
                     }));
-                } catch (error) {
+                } catch (error: any) {
                     console.warn(`[MAIN][I18N] Skipping locale file ${filePath}: ${String((error && error.message) || error)}`);
                 }
             }
@@ -218,18 +207,18 @@ function createLanguagePackServices({
         return results;
     }
 
-    async function buildLanguageState() {
+    async function buildLanguageState(): Promise<LanguageState> {
         const builtInPacks = await loadLocaleDirectory(paths.builtInLocalesDir, { builtIn: true });
         const installedPacks = await loadLocaleDirectory(paths.userLocalesDir, { installed: true });
-        const locales = {};
-        const seenCodes = new Set();
+        const locales: Record<string, any> = {};
+        const seenCodes = new Set<string>();
 
         for (const pack of builtInPacks) {
             locales[pack.code] = pack.strings;
             seenCodes.add(pack.code);
         }
 
-        const installed = [];
+        const installed: LanguagePack[] = [];
         for (const pack of installedPacks) {
             if (seenCodes.has(pack.code)) continue;
             installed.push(pack);
@@ -247,25 +236,25 @@ function createLanguagePackServices({
         };
     }
 
-    async function readCachedLanguageManifest() {
+    async function readCachedLanguageManifest(): Promise<LanguageManifest | null> {
         const raw = await readJsonFile(paths.languagePackManifestCacheFile);
         if (!raw) return null;
         try {
             return normalizeManifest(raw);
-        } catch (error) {
+        } catch (error: any) {
             console.warn(`[MAIN][I18N] Ignoring invalid cached manifest: ${String((error && error.message) || error)}`);
             return null;
         }
     }
 
-    async function fetchLanguageManifest() {
+    async function fetchLanguageManifest(): Promise<{ ok: boolean; offline: boolean; source: string; manifest: LanguageManifest | null; error: string | null }> {
         if (paths.isDev) {
             const localManifest = await readJsonFile(paths.localLanguagePackManifestFile);
             if (localManifest) {
                 try {
                     const manifest = normalizeManifest(localManifest);
                     return { ok: true, offline: false, source: 'local', manifest, error: null };
-                } catch (error) {
+                } catch (error: any) {
                     console.warn(`[MAIN][I18N] Invalid local dev manifest: ${String((error && error.message) || error)}`);
                 }
             }
@@ -277,7 +266,7 @@ function createLanguagePackServices({
             const manifest = normalizeManifest(raw);
             await writeJsonFile(paths.languagePackManifestCacheFile, raw);
             return { ok: true, offline: false, source: 'remote', manifest, error: null };
-        } catch (error) {
+        } catch (error: any) {
             const cached = await readCachedLanguageManifest();
             if (cached) {
                 return {
@@ -299,7 +288,7 @@ function createLanguagePackServices({
         }
     }
 
-    async function installLanguagePackFromManifestEntry(entry, options = {}) {
+    async function installLanguagePackFromManifestEntry(entry: ManifestPack, options: any = {}): Promise<{ ok: boolean; installedCode?: string; error?: string; reason?: string; offline?: boolean }> {
         const normalizedCode = normalizeLanguageCode(entry && entry.code);
         const downloadTimeoutMs = Number(options.downloadTimeoutMs) > 0 ? Number(options.downloadTimeoutMs) : LANGUAGE_PACK_TIMEOUT_MS;
         if (!normalizedCode) {
@@ -316,7 +305,7 @@ function createLanguagePackServices({
         }
 
         try {
-            let buffer;
+            let buffer: Buffer | undefined;
             if (paths.isDev) {
                 const localPackPath = path.join(paths.localLanguagePacksDir, `${normalizedCode}.json`);
                 if (fsSync.existsSync(localPackPath)) {
@@ -360,7 +349,7 @@ function createLanguagePackServices({
                 ok: true,
                 installedCode: normalizedCode
             };
-        } catch (error) {
+        } catch (error: any) {
             return {
                 ok: false,
                 offline: isNetworkLikeError(error),
@@ -370,9 +359,9 @@ function createLanguagePackServices({
         }
     }
 
-    async function applyLanguagePackUpdates(candidates, options = {}) {
-        const installed = [];
-        const failed = [];
+    async function applyLanguagePackUpdates(candidates: any[], options: any = {}): Promise<{ installed: any[]; failed: any[]; state: LanguageState | null }> {
+        const installed: any[] = [];
+        const failed: any[] = [];
 
         for (const candidate of candidates) {
             const result = await installLanguagePackFromManifestEntry(candidate.manifestEntry, options);
@@ -396,7 +385,7 @@ function createLanguagePackServices({
         };
     }
 
-    async function installLanguagePack(code) {
+    async function installLanguagePack(code: string): Promise<{ ok: boolean; installedCode?: string; error?: string; reason?: string; state?: LanguageState | null; offline?: boolean }> {
         const normalizedCode = normalizeLanguageCode(code);
         if (!normalizedCode) {
             return { ok: false, error: 'Missing language pack code.', reason: 'invalid-code' };
@@ -428,12 +417,12 @@ function createLanguagePackServices({
         };
     }
 
-    function getLanguagePackUpdateCandidates(languageState, manifest) {
+    function getLanguagePackUpdateCandidates(languageState: LanguageState | null | undefined, manifest: LanguageManifest | null | undefined): any[] {
         if (!languageState || !Array.isArray(languageState.installed) || !manifest || !Array.isArray(manifest.packs)) {
             return [];
         }
 
-        const manifestByCode = new Map(manifest.packs.map(pack => [pack.code, pack]));
+        const manifestByCode = new Map<string, ManifestPack>(manifest.packs.map(pack => [pack.code, pack]));
         return languageState.installed
             .map((installedPack) => {
                 const manifestEntry = manifestByCode.get(installedPack.code);
@@ -445,7 +434,7 @@ function createLanguagePackServices({
                     summary: summarizeLanguagePackUpdate(installedPack, manifestEntry)
                 };
             })
-            .filter(Boolean);
+            .filter((candidate): candidate is any => !!candidate);
     }
 
     return {
@@ -458,7 +447,3 @@ function createLanguagePackServices({
         repoUrl: LANGUAGE_PACK_REPO_URL
     };
 }
-
-module.exports = {
-    createLanguagePackServices
-};

@@ -203,6 +203,20 @@ export function initSaveEditorUI() {
             const popoutBtn = overlay.querySelector('.save-editor-popout');
             if (popoutBtn) {
                 popoutBtn.onclick = () => {
+                    if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+                        if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to open in a separate window and discard them?')) {
+                            return;
+                        }
+                    }
+                    const stateToPass = {
+                        currentFileName: state.currentFileName,
+                        activeTab: state.activeTab,
+                        showEmpty: state.showEmpty,
+                        showImportant: state.showImportant,
+                        searchOptions: engine.searchOptions
+                    };
+                    localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
+                    
                     window.electronAPI.openSaveEditorWindow(gameKey);
                     close(true); // Force close without confirmation when opening in a popout window
                 };
@@ -258,15 +272,28 @@ export function initSaveEditorUI() {
             console.error('[SAVE-EDITOR] Failed to parse pinned variables:', e);
         }
 
+        let popoutState = null;
+        if (isStandalone) {
+            const stateStr = localStorage.getItem(`yumeshelf_popout_state_${gameKey}`);
+            if (stateStr) {
+                try {
+                    popoutState = JSON.parse(stateStr);
+                    localStorage.removeItem(`yumeshelf_popout_state_${gameKey}`);
+                } catch (e) {
+                    console.error('[SAVE-EDITOR] Failed to parse popout state:', e);
+                }
+            }
+        }
+
         // Central shared state context
         const state = {
             currentSaveData: null,
             currentMetadata: null,
-            currentFileName: null,
+            currentFileName: popoutState ? popoutState.currentFileName : null,
             originalSnapshot: null,
-            activeTab: 'gold',
-            showEmpty: false,
-            showImportant: true,
+            activeTab: popoutState ? popoutState.activeTab : 'gold',
+            showEmpty: popoutState && popoutState.showEmpty !== undefined ? popoutState.showEmpty : false,
+            showImportant: popoutState && popoutState.showImportant !== undefined ? popoutState.showImportant : true,
             gameKey,
             isStandalone,
             d,
@@ -309,8 +336,26 @@ export function initSaveEditorUI() {
             }
         });
 
+        if (popoutState && popoutState.searchOptions) {
+            engine.setSearchOptions(popoutState.searchOptions);
+            if (refs.searchInput) {
+                refs.searchInput.value = popoutState.searchOptions.query || '';
+            }
+            const exactCheck = overlay.querySelector('.exact-match-check');
+            if (exactCheck) exactCheck.checked = !!popoutState.searchOptions.exact;
+            
+            const searchNameCheck = overlay.querySelector('.search-name-check');
+            if (searchNameCheck) searchNameCheck.checked = !!popoutState.searchOptions.searchName;
+
+            const searchValueCheck = overlay.querySelector('.search-value-check');
+            if (searchValueCheck) searchValueCheck.checked = !!popoutState.searchOptions.searchValue;
+            
+            const searchIndexCheck = overlay.querySelector('.search-index-check');
+            if (searchIndexCheck) searchIndexCheck.checked = !!popoutState.searchOptions.searchIndex;
+        }
+
         // Load initial file list
-        reloadFileList(null);
+        reloadFileList(state.currentFileName);
 
         // Translation Button Trigger
         const translateBtn = overlay.querySelector('.translate-btn');

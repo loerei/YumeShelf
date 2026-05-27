@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { buildLanguagePackSearchHaystack, compareVersions, isFinalInstallPhase } from './helpers';
 import { renderAppUpdateReview, setOverlayChrome } from './review-surface';
+import { escapeHtml } from '../markdown-lite';
 
 export function createLanguagePackResultsController({
     getAppSectionMode,
@@ -121,7 +122,7 @@ export function createLanguagePackResultsController({
                 return;
             }
             if (manifestState.error && (!manifestState.packs || manifestState.packs.length === 0)) {
-                refs.languagePackResults.innerHTML = `<div class="language-pack-placeholder">${manifestState.error}</div>`;
+                refs.languagePackResults.innerHTML = `<div class="language-pack-placeholder">${escapeHtml(manifestState.error)}</div>`;
                 return;
             }
             refs.languagePackEmpty.style.display = 'block';

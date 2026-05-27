@@ -1,16 +1,15 @@
-// @ts-nocheck
-const path = require('path');
-const fsSync = require('fs');
-const { BrowserWindow, Tray, Menu, ipcMain } = require('electron');
+import * as path from 'path';
+import * as fsSync from 'fs';
+import { BrowserWindow, Tray, Menu, ipcMain, session } from 'electron';
 
-let tray = null;
+let tray: Tray | null = null;
 let minimizeToTray = false;
 let isQuitting = false;
-let mainWindow = null;
-let pathsConfig = null;
-let electronApp = null;
+let mainWindow: BrowserWindow | null = null;
+let pathsConfig: any = null;
+let electronApp: any = null;
 
-function createTrayIcon() {
+function createTrayIcon(): void {
     if (tray) return;
     if (!pathsConfig || !pathsConfig.mainWindowIconPath) return;
 
@@ -54,7 +53,7 @@ function createTrayIcon() {
     }
 }
 
-function destroyTrayIcon() {
+function destroyTrayIcon(): void {
     if (tray) {
         try {
             tray.destroy();
@@ -65,7 +64,7 @@ function destroyTrayIcon() {
     }
 }
 
-function updateTrayState() {
+function updateTrayState(): void {
     if (minimizeToTray) {
         if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
             createTrayIcon();
@@ -82,7 +81,7 @@ ipcMain.on('set-minimize-to-tray', (_event, enabled) => {
     updateTrayState();
 });
 
-function startupPathSummary(app) {
+export function startupPathSummary(app: any) {
     return {
         pid: process.pid,
         cwd: process.cwd(),
@@ -97,7 +96,7 @@ function startupPathSummary(app) {
     };
 }
 
-function probeWritableDir(dirPath) {
+export function probeWritableDir(dirPath: string) {
     const stamp = `${process.pid}-${Date.now()}`;
     const src = path.join(dirPath, `codex-probe-${stamp}.tmp`);
     const dst = path.join(dirPath, `codex-probe-${stamp}.moved.tmp`);
@@ -108,15 +107,15 @@ function probeWritableDir(dirPath) {
         fsSync.unlinkSync(dst);
         return { ok: true };
     } catch (err) {
-        return { ok: false, error: String((err && err.stack) || err) };
+        return { ok: false, error: String((err as any)?.stack || err) };
     }
 }
 
-function logStartupDiagnostics(app) {
+export function logStartupDiagnostics(app: any): void {
     const summary = startupPathSummary(app);
     console.log(`[MAIN][STARTUP] path summary=${JSON.stringify(summary)}`);
 
-        const dirsToProbe = [
+    const dirsToProbe: [string, string][] = [
         ['userData', summary.userData],
         ['sessionData', summary.sessionData],
         ['cache', summary.cache]
@@ -129,11 +128,17 @@ function logStartupDiagnostics(app) {
     }
 }
 
-function createMainWindow({
+export interface CreateMainWindowOptions {
+    app: any;
+    paths: any;
+    launchedAfterUpdate: boolean;
+}
+
+export function createMainWindow({
     app,
     paths,
     launchedAfterUpdate
-}) {
+}: CreateMainWindowOptions): BrowserWindow {
     // Read initial DB config for minimizeToTray
     try {
         if (paths && paths.dbFile && fsSync.existsSync(paths.dbFile)) {
@@ -163,6 +168,18 @@ function createMainWindow({
 
     win.removeMenu();
     win.setMenuBarVisibility(false);
+
+    // Dynamic Content Security Policy (SEC-06)
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                'Content-Security-Policy': [
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev"
+                ]
+            }
+        });
+    });
     win.on('page-title-updated', (event) => {
         if (!app.isPackaged) {
             event.preventDefault();
@@ -229,8 +246,3 @@ function createMainWindow({
 
     return win;
 }
-
-module.exports = {
-    createMainWindow,
-    logStartupDiagnostics
-};

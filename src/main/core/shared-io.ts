@@ -1,15 +1,14 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
-const crypto = require('crypto');
-const http = require('http');
-const https = require('https');
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import * as crypto from 'crypto';
+import * as http from 'http';
+import * as https from 'https';
 
-async function ensureDir(dirPath) {
+export async function ensureDir(dirPath: string): Promise<void> {
     await fs.mkdir(dirPath, { recursive: true });
 }
 
-async function readJsonFile(filePath) {
+export async function readJsonFile(filePath: string): Promise<any> {
     try {
         return JSON.parse(await fs.readFile(filePath, 'utf8'));
     } catch {
@@ -17,11 +16,11 @@ async function readJsonFile(filePath) {
     }
 }
 
-function sha256Hex(buffer) {
+export function sha256Hex(buffer: Buffer | string): string {
     return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
-function isNetworkLikeError(error) {
+export function isNetworkLikeError(error: any): boolean {
     const msg = String((error && error.message) || error || '').toLowerCase();
     const code = String((error && error.code) || '').toLowerCase();
     return [
@@ -38,14 +37,20 @@ function isNetworkLikeError(error) {
     ].some(token => msg.includes(token) || code.includes(token));
 }
 
-function downloadBuffer(urlString, redirectCount = 0, timeoutMs = 8000, onProgress = null, userAgentVersion = '0.0.0') {
+export function downloadBuffer(
+    urlString: string,
+    redirectCount = 0,
+    timeoutMs = 8000,
+    onProgress: ((downloaded: number, total: number) => void) | null = null,
+    userAgentVersion = '0.0.0'
+): Promise<Buffer> {
     return new Promise((resolve, reject) => {
         if (redirectCount > 5) {
             reject(new Error('Too many redirects while downloading data.'));
             return;
         }
 
-        let requestUrl;
+        let requestUrl: URL;
         try {
             requestUrl = new URL(urlString);
         } catch {
@@ -73,9 +78,9 @@ function downloadBuffer(urlString, redirectCount = 0, timeoutMs = 8000, onProgre
                 return;
             }
 
-            const total = parseInt(res.headers['content-length'], 10);
+            const total = parseInt(res.headers['content-length'] || '0', 10);
             let downloaded = 0;
-            const chunks = [];
+            const chunks: Buffer[] = [];
             res.on('data', chunk => {
                 chunks.push(Buffer.from(chunk));
                 downloaded += chunk.length;
@@ -93,10 +98,75 @@ function downloadBuffer(urlString, redirectCount = 0, timeoutMs = 8000, onProgre
     });
 }
 
-module.exports = {
-    downloadBuffer,
-    ensureDir,
-    isNetworkLikeError,
-    readJsonFile,
-    sha256Hex
-};
+export function downloadFile(
+    urlString: string,
+    targetPath: string,
+    redirectCount = 0,
+    timeoutMs = 8000,
+    onProgress: ((downloaded: number, total: number) => void) | null = null,
+    userAgentVersion = '0.0.0'
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (redirectCount > 5) {
+            reject(new Error('Too many redirects while downloading data.'));
+            return;
+        }
+
+        let requestUrl: URL;
+        try {
+            requestUrl = new URL(urlString);
+        } catch {
+            reject(new Error(`Invalid download URL: ${urlString}`));
+            return;
+        }
+
+        const client = requestUrl.protocol === 'http:' ? http : https;
+        const req = client.get(requestUrl, {
+            headers: {
+                'User-Agent': `YumeShelf/${userAgentVersion}`
+            }
+        }, (res) => {
+            const status = res.statusCode || 0;
+            if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
+                const redirected = new URL(res.headers.location, requestUrl).toString();
+                res.resume();
+                resolve(downloadFile(redirected, targetPath, redirectCount + 1, timeoutMs, onProgress, userAgentVersion));
+                return;
+            }
+
+            if (status !== 200) {
+                res.resume();
+                reject(new Error(`HTTP ${status} while downloading ${requestUrl.toString()}`));
+                return;
+            }
+
+            const total = parseInt(res.headers['content-length'] || '0', 10);
+            let downloaded = 0;
+            const fileStream = fsSync.createWriteStream(targetPath);
+            
+            res.pipe(fileStream);
+
+            res.on('data', chunk => {
+                downloaded += chunk.length;
+                if (typeof onProgress === 'function' && total) {
+                    onProgress(downloaded, total);
+                }
+            });
+
+            fileStream.on('finish', () => {
+                fileStream.close();
+                resolve();
+            });
+
+            fileStream.on('error', (err) => {
+                fileStream.close();
+                reject(err);
+            });
+        });
+
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error('Request timed out.'));
+        });
+        req.on('error', reject);
+    });
+}

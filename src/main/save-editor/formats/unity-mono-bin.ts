@@ -1,15 +1,14 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const path = require('path');
-const os = require('os');
-const { execSync } = require('child_process');
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
+import { execSync } from 'child_process';
 
 class UnityMonoBinFormat {
-    match(fileName) {
+    match(fileName: string): boolean {
         return fileName.endsWith('.bin');
     }
 
-    async findAssembly(dir) {
+    async findAssembly(dir: string): Promise<string | null> {
         try {
             const entries = await fs.readdir(dir, { withFileTypes: true });
             // Check files first in the current directory (for speed)
@@ -31,7 +30,7 @@ class UnityMonoBinFormat {
         return null;
     }
 
-    async getAssemblyPath(paths) {
+    async getAssemblyPath(paths: any): Promise<string> {
         let assemblyPath = await this.findAssembly(paths.exeDir);
         if (assemblyPath) return assemblyPath;
 
@@ -39,10 +38,11 @@ class UnityMonoBinFormat {
         
         // Search other games in library_db.json
         try {
-            const dbPath = path.join(process.env.APPDATA, 'yumeshelf', 'library_db.json');
+            const appDataDir = process.env.APPDATA || '';
+            const dbPath = path.join(appDataDir, 'yumeshelf', 'library_db.json');
             const dbStr = await fs.readFile(dbPath, 'utf8');
             const db = JSON.parse(dbStr);
-            for (const game of Object.values(db.games || {})) {
+            for (const game of Object.values(db.games || {}) as any[]) {
                 if (game.folderPath) {
                     const candidate = await this.findAssembly(game.folderPath);
                     if (candidate) {
@@ -70,7 +70,7 @@ class UnityMonoBinFormat {
         throw new Error(`Could not locate Assembly-CSharp.dll under: ${paths.exeDir} or any other game folders. Please make sure Sisters Connect or another Unity Hikari Sky game is installed/scanned.`);
     }
 
-    async decode(rawData, paths, fileName) {
+    async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         const assemblyPath = await this.getAssemblyPath(paths);
 
         const converterDll = path.resolve(__dirname, '..', 'bin', 'ModernSaveConverter.dll');
@@ -94,7 +94,7 @@ class UnityMonoBinFormat {
         }
     }
 
-    async encode(jsonData, paths, fileName) {
+    async encode(jsonData: any, paths: any, fileName: string): Promise<Buffer> {
         const assemblyPath = await this.getAssemblyPath(paths);
 
         const originalBin = path.join(paths.saveDir, fileName);
@@ -121,4 +121,5 @@ class UnityMonoBinFormat {
     }
 }
 
-module.exports = new UnityMonoBinFormat();
+const format = new UnityMonoBinFormat();
+export default format;

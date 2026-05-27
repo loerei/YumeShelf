@@ -1,8 +1,17 @@
-// @ts-nocheck
-const { normalizeText } = require('./runtime');
-const { pickReleaseName, pickReleaseNotes } = require('./update-info');
+import { normalizeText } from './runtime';
+import { pickReleaseName, pickReleaseNotes } from './update-info';
 
-function attachUpdaterEventLogging({
+export interface EventLoggingOptions {
+    appendUpdateLog: (message: string) => Promise<void>;
+    emitStatus: (payload: any) => void;
+    latestDownloadedEventRef: { set(val: any): void; get(): any };
+    latestUpdateInfoRef: { set(val: any): void; get(): any };
+    releasePageUrl: string;
+    summarizeUpdateState: (state: any) => any;
+    updater: any;
+}
+
+export function attachUpdaterEventLogging({
     appendUpdateLog,
     emitStatus,
     latestDownloadedEventRef,
@@ -10,12 +19,12 @@ function attachUpdaterEventLogging({
     releasePageUrl,
     summarizeUpdateState,
     updater
-}) {
+}: EventLoggingOptions): void {
     updater.on('checking-for-update', () => {
         void appendUpdateLog(`nsis-updater checking-for-update runtime=${JSON.stringify(updater.__yumeshelfRuntime || null)}`);
     });
 
-    updater.on('update-available', (updateInfo) => {
+    updater.on('update-available', (updateInfo: any) => {
         latestUpdateInfoRef.set(updateInfo);
         void appendUpdateLog(`nsis-updater update-available version=${normalizeText(updateInfo?.version, '')} releaseName=${normalizeText(updateInfo?.releaseName, '')} releaseDate=${normalizeText(updateInfo?.releaseDate, '')}`);
     });
@@ -26,7 +35,7 @@ function attachUpdaterEventLogging({
         void appendUpdateLog('nsis-updater update-not-available');
     });
 
-    updater.on('download-progress', (progress) => {
+    updater.on('download-progress', (progress: any) => {
         const latestUpdateInfo = latestUpdateInfoRef.get();
         const readyCandidate = summarizeUpdateState({
             available: true,
@@ -48,16 +57,12 @@ function attachUpdaterEventLogging({
         });
     });
 
-    updater.on('update-downloaded', (event) => {
+    updater.on('update-downloaded', (event: any) => {
         latestDownloadedEventRef.set(event);
         void appendUpdateLog(`nsis-updater update-downloaded version=${normalizeText(event?.version, '')} file=${normalizeText(event?.downloadedFile, '')}`);
     });
 
-    updater.on('error', (error) => {
+    updater.on('error', (error: any) => {
         void appendUpdateLog(`nsis-updater error=${String((error && error.stack) || error || '')}`);
     });
 }
-
-module.exports = {
-    attachUpdaterEventLogging
-};

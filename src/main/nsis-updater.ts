@@ -1,24 +1,33 @@
-// @ts-nocheck
-const fs = require('fs/promises');
-const fsSync = require('fs');
-const path = require('path');
-const { NsisUpdater } = require('electron-updater');
-const { createInstallerHandoff } = require('./nsis-updater/installer-handoff');
-const { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } = require('./nsis-updater/runtime');
-const { createStateFiles } = require('./nsis-updater/state-files');
-const { buildDownloadedState, normalizeDownloadedState, pickReleaseName, pickReleaseNotes, sha512FileBase64 } = require('./nsis-updater/update-info');
-const { attachUpdaterEventLogging } = require('./nsis-updater/updater-events');
-const { downloadBuffer } = require('./core/shared-io');
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import * as path from 'path';
+import { NsisUpdater } from 'electron-updater';
+import { createInstallerHandoff } from './nsis-updater/installer-handoff';
+import { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } from './nsis-updater/runtime';
+import { createStateFiles } from './nsis-updater/state-files';
+import { buildDownloadedState, normalizeDownloadedState, pickReleaseName, pickReleaseNotes, sha512FileBase64 } from './nsis-updater/update-info';
+import { attachUpdaterEventLogging } from './nsis-updater/updater-events';
+import { downloadBuffer } from './core/shared-io';
+import { configureDifferentialDownload } from './nsis-updater/cache-inputs';
+import { setupUpdateFlow } from './nsis-updater/update-flow';
 
-const {
-    configureDifferentialDownload
-} = require('./nsis-updater/cache-inputs');
-
-const { setupUpdateFlow } = require('./nsis-updater/update-flow');
+export { isFakeVersionRun };
 
 const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 
-function createNsisUpdaterService({
+export interface NsisUpdaterServiceConfig {
+    app: any;
+    appendUpdateLog: (message: string) => Promise<any> | any;
+    broadcastStatus: (payload: any) => void;
+    compareVersions: (a: string, b: string) => number;
+    ensureDir: (dirPath: string) => Promise<void>;
+    releasePageUrl: string;
+    resolveFeedOverride?: (options: any) => Promise<any>;
+    updateCacheDir: string;
+    postUpdateMarkerFile: string;
+}
+
+export function createNsisUpdaterService({
     app,
     appendUpdateLog,
     broadcastStatus,
@@ -28,9 +37,9 @@ function createNsisUpdaterService({
     resolveFeedOverride,
     updateCacheDir,
     postUpdateMarkerFile
-}) {
+}: NsisUpdaterServiceConfig) {
     // Shared State Contract
-    const state = {
+    const state: any = {
         updater: null,
         latestUpdateInfo: null,
         latestDownloadedEvent: null,
@@ -43,7 +52,7 @@ function createNsisUpdaterService({
     }
 
     function createUpdaterLogger() {
-        function forward(level, message) {
+        function forward(level: string, message: any) {
             if (level === 'debug' && !VERBOSE_UPDATE_LOG) return;
             const text = normalizeText(message, '');
             if (!text) return;
@@ -51,22 +60,22 @@ function createNsisUpdaterService({
         }
 
         return {
-            debug(message) {
+            debug(message: any) {
                 forward('debug', message);
             },
-            error(message) {
+            error(message: any) {
                 forward('error', message);
             },
-            info(message) {
+            info(message: any) {
                 forward('info', message);
             },
-            warn(message) {
+            warn(message: any) {
                 forward('warn', message);
             }
         };
     }
 
-    function summarizeUpdateState(updateState = {}) {
+    function summarizeUpdateState(updateState: any = {}) {
         return {
             available: toBoolean(updateState.available),
             canSelfUpdate: toBoolean(updateState.canSelfUpdate),
@@ -81,7 +90,7 @@ function createNsisUpdaterService({
         };
     }
 
-    function emitStatus(payload) {
+    function emitStatus(payload: any) {
         if (typeof broadcastStatus === 'function') {
             broadcastStatus({
                 scope: 'app-update',
@@ -109,7 +118,7 @@ function createNsisUpdaterService({
         writeDownloadedState
     } = stateFiles;
 
-    function summarizeReadyUpdateFromState(stateObj, patch = {}) {
+    function summarizeReadyUpdateFromState(stateObj: any, patch: any = {}) {
         return summarizeUpdateState({
             available: true,
             canSelfUpdate: true,
@@ -160,13 +169,13 @@ function createNsisUpdaterService({
             emitStatus,
             latestDownloadedEventRef: {
                 get: () => state.latestDownloadedEvent,
-                set: (value) => {
+                set: (value: any) => {
                     state.latestDownloadedEvent = value;
                 }
             },
             latestUpdateInfoRef: {
                 get: () => state.latestUpdateInfo,
-                set: (value) => {
+                set: (value: any) => {
                     state.latestUpdateInfo = value;
                 }
             },
@@ -178,9 +187,9 @@ function createNsisUpdaterService({
         return state.updater;
     }
 
-    async function configureUpdaterFeed(runtime) {
+    async function configureUpdaterFeed(runtime: any) {
         const nsisUpdater = createUpdater();
-        let feedOverride = null;
+        let feedOverride: any = null;
 
         if (typeof resolveFeedOverride === 'function') {
             try {
@@ -189,7 +198,7 @@ function createNsisUpdaterService({
                     runtime
                 });
             } catch (error) {
-                await appendUpdateLog(`nsis-updater feed-override-error error=${String((error && error.stack) || error || '')}`);
+                await appendUpdateLog(`nsis-updater feed-override-error error=${String((error as any)?.stack || error || '')}`);
             }
         }
 
@@ -264,15 +273,15 @@ function createNsisUpdaterService({
         return flow.checkForUpdates();
     }
 
-    async function downloadUpdate(releaseMetadata = {}) {
+    async function downloadUpdate(releaseMetadata: any = {}) {
         return flow.downloadUpdate(releaseMetadata);
     }
 
-    async function installDownloadedUpdateNow(releaseMetadata = {}) {
+    async function installDownloadedUpdateNow(releaseMetadata: any = {}) {
         return flow.installDownloadedUpdateNow(releaseMetadata);
     }
 
-    async function scheduleInstallOnNextLaunch(releaseMetadata = {}) {
+    async function scheduleInstallOnNextLaunch(releaseMetadata: any = {}) {
         return flow.scheduleInstallOnNextLaunch(releaseMetadata);
     }
 
@@ -303,8 +312,3 @@ function createNsisUpdaterService({
         summarizeUpdateState
     };
 }
-
-module.exports = {
-    createNsisUpdaterService,
-    isFakeVersionRun
-};

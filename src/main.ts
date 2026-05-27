@@ -1,28 +1,26 @@
-import 'dotenv/config';
 import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import { TelemetryShipper } from './main/telemetry/shipper';
+import fs from 'fs/promises';
+import fsSync from 'fs';
 
-// Import local services via require due to CommonJS module exports
-const { createAppPaths } = require('./main/core/app-paths');
-const { createCategoryState } = require('./main/category-state');
-const { applyVersionOverride, registerPrivilegedSchemes, logBootDiagnostics } = require('./main/core/runtime-bootstrap');
-const { installSafeConsole } = require('./main/core/safe-console');
-const { registerMainIpc } = require('./main/ipc/register');
-const { createInstallHandoffService } = require('./main/install-handoff');
-const { createLanguagePackServices } = require('./main/language-packs/service');
-const { createAppUpdateServices } = require('./main/app-updates');
-const { createLibraryState } = require('./main/library-state');
-const { createPlaytimeSessionManager } = require('./main/playtime-session-manager');
-const { createStartupServices } = require('./main/startup');
-const { startMainRuntime, attachProcessDiagnostics } = require('./main/window/app-lifecycle');
-const { createStatusBroadcaster } = require('./main/window/broadcast-status');
-const { createMainWindow, logStartupDiagnostics } = require('./main/window/main-window');
-const { createSaveEditorService } = require('./main/save-editor');
-const { createIconPipeline } = require('./main/icon-pipeline/service');
-
-const saveFolderResolver = require('./main/save-folder-resolver/index');
+import { createAppPaths } from './main/core/app-paths';
+import { createCategoryState } from './main/category-state';
+import { applyVersionOverride, registerPrivilegedSchemes, logBootDiagnostics } from './main/core/runtime-bootstrap';
+import { installSafeConsole } from './main/core/safe-console';
+import { compareNumericVersions } from './main/core/version-utils';
+import { createIconPipeline } from './main/icon-pipeline/service';
+import { registerMainIpc } from './main/ipc/register';
+import { createInstallHandoffService } from './main/install-handoff';
+import { createLanguagePackServices } from './main/language-packs/service';
+import { createAppUpdateServices } from './main/app-updates';
+import { createLibraryState } from './main/library-state';
+import { createPlaytimeSessionManager } from './main/playtime-session-manager';
+import * as saveFolderResolver from './main/save-folder-resolver/index';
+import { createStartupServices } from './main/startup';
+import { startMainRuntime, attachProcessDiagnostics } from './main/window/app-lifecycle';
+import { createStatusBroadcaster } from './main/window/broadcast-status';
+import { createMainWindow, logStartupDiagnostics } from './main/window/main-window';
+import { createSaveEditorService } from './main/save-editor';
+import { TranslationService } from './main/translation/translation-service';
 
 if (!app.isPackaged) {
     app.setName('YumeShelfDev');
@@ -49,12 +47,13 @@ installSafeConsole();
 
 const paths = createAppPaths(app, __dirname);
 
-// Initialize Telemetry Shipper immediately on boot
-TelemetryShipper.getInstance().initialize(app, paths).catch(err => {
-    console.error('[TELEMETRY] Failed to initialize TelemetryShipper:', err);
+const translationService = new TranslationService({
+    translatorsDir: paths.translatorsDir,
+    appVersion: app.getVersion(),
+    broadcastStatus: createStatusBroadcaster('translation-status')
 });
 
-async function loadDB() {
+async function loadDB(): Promise<any> {
     try {
         return JSON.parse(await fs.readFile(paths.dbFile, 'utf8'));
     } catch {
@@ -62,7 +61,7 @@ async function loadDB() {
     }
 }
 
-async function saveDB(db: any) {
+async function saveDB(db: any): Promise<void> {
     await fs.writeFile(paths.dbFile, JSON.stringify(db, null, 2));
 }
 
@@ -74,7 +73,7 @@ const languagePackServices = createLanguagePackServices({
 const appUpdateServices = createAppUpdateServices({
     app,
     broadcastStatus: createStatusBroadcaster('app-update-status'),
-    compareVersions: () => 0, // Fallback if required
+    compareVersions: compareNumericVersions,
     openExternalUrl: (url: string) => shell.openExternal(url),
     startupNetworkTimeoutMs: 3500
 });
@@ -157,6 +156,7 @@ app.whenReady().then(async () => {
         startupServices,
         categoryState,
         saveEditorService,
+        translationService,
         logStartupDiagnostics,
         paths,
         registerMainIpc,
@@ -164,13 +164,11 @@ app.whenReady().then(async () => {
     });
 });
 
-app.on('window-all-closed', () => {
-    // Flush telemetry before closing the application
-    TelemetryShipper.getInstance().flush().catch(err => {
-        console.error('[TELEMETRY] Failed to flush telemetry on exit:', err);
-    }).finally(() => {
-        if (process.platform !== 'darwin') {
-            app.quit();
-        }
-    });
+app.on('window-all-closed', async () => {
+    if (translationService) {
+        await translationService.stopProxy();
+    }
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
 });

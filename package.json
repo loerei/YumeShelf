@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "dist/main.js",
@@ -34,6 +34,10 @@
   "build": {
     "appId": "com.loerei.yumeshelf",
     "productName": "YumeShelf",
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/extract-file-icon/**/*"
+    ],
     "publish": [
       {
         "provider": "github",

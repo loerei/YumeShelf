@@ -88,7 +88,9 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
             }
         }
 
-        throw new Error(`Could not resolve node.exe; process.execPath=${process.execPath}`);
+        // Fallback to process.execPath (Electron) if node.exe is not found (like in packaged app)
+        resolvedNodeExecPath = process.execPath;
+        return resolvedNodeExecPath;
     }
 
     function buildExtractFileIconPath(): string {
@@ -117,10 +119,16 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
         const workerId = iconWorkers.length + 1;
         const nodeExecPath = resolveNodeExecPath();
         const workerPath = path.join(sourceRootDir, 'icon-extractor.js');
+        const isElectron = !nodeExecPath.toLowerCase().endsWith('node.exe');
+
         const worker: IconWorker = fork(workerPath, [], {
             execPath: nodeExecPath,
             stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-            windowsHide: true
+            windowsHide: true,
+            env: {
+                ...process.env,
+                ...(isElectron ? { ELECTRON_RUN_AS_NODE: '1' } : {})
+            }
         } as any) as IconWorker;
 
         worker.__workerId = workerId;

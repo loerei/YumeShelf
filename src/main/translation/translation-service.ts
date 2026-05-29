@@ -360,6 +360,12 @@ export class TranslationService {
         }
     }
 
+    async detectEngineSupport(exePath: string): Promise<string | null> {
+        const exeDir = path.dirname(exePath);
+        const detection = await this.detectUnityType(exePath);
+        return detection ? 'unity' : (await this.isRpgMaker(exeDir) ? 'rpg-maker' : null);
+    }
+
     async isRpgMaker(exeDir: string): Promise<boolean> {
         return fsSync.existsSync(path.join(exeDir, 'www', 'data')) || fsSync.existsSync(path.join(exeDir, 'data'));
     }

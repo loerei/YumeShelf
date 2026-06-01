@@ -28,12 +28,16 @@ nsYou are operating in a workspace powered by the **Purritize MCP Server**. To m
 - **Dummy Token Bypass**: The agent sandbox environment automatically injects a dummy `GITHUB_TOKEN=github_pat_antigravitydummytoken` by default. This will cause all `gh` CLI commands to fail with `401 Unauthorized (Bad credentials)`.
 - **Action**: Whenever running `gh` commands, you **MUST** temporarily clear the `GITHUB_TOKEN` environment variable so that the CLI correctly falls back to the user's valid authenticated system keyring (e.g., run `cmd.exe /c "set GITHUB_TOKEN=& gh <command>"` or `$env:GITHUB_TOKEN=$null; gh <command>` in PowerShell).
 
+## Phase 6: Changelogs & Releases
+- **Incremental Changelogs Only**: During active development of a task, **NEVER** run the compile-release-notes script with the `--release` or `--released` flags. ALWAYS keep the version heading in `CHANGELOG.md` at root marked as `## [<version>] - working` instead of `released`. Only run with `--release` when formally triggering a public release publication.
+- **Single Source of Truth**: Document all codebase changes incrementally in English inside `CHANGELOG.md` at the repository root. Do not create new/temporary version changelog markdown files inside `docs/changelogs/` unless formally compiling the release.
+
 Follow these phases strictly to maintain high-signal context and prevent destructive operations.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **_Games_H_Games_YumeShelf** (4309 symbols, 6806 relationships, 182 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **YumeShelf** (4438 symbols, 7842 relationships, 279 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -56,10 +60,10 @@ This project is indexed by GitNexus as **_Games_H_Games_YumeShelf** (4309 symbol
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/_Games_H_Games_YumeShelf/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/_Games_H_Games_YumeShelf/clusters` | All functional areas |
-| `gitnexus://repo/_Games_H_Games_YumeShelf/processes` | All execution flows |
-| `gitnexus://repo/_Games_H_Games_YumeShelf/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/YumeShelf/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/YumeShelf/clusters` | All functional areas |
+| `gitnexus://repo/YumeShelf/processes` | All execution flows |
+| `gitnexus://repo/YumeShelf/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

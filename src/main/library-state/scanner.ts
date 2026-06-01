@@ -74,9 +74,16 @@ interface ExecutableEntry {
 
 function pickPreferredExecutable(currentPath: string, executableEntries: ExecutableEntry[]): string | null {
     const folderName = path.basename(currentPath).toLowerCase();
-    const preferred = executableEntries.find((entry) => entry.name.toLowerCase().includes(folderName))
-        || executableEntries.find((entry) => entry.name.toLowerCase() === 'game.exe')
-        || executableEntries[0];
+    const nonConfigEntries = executableEntries.filter(
+        (entry) => {
+            const name = entry.name.toLowerCase();
+            return name !== 'config.exe' && name !== 'setup.exe' && name !== 'setting.exe' && name !== 'settings.exe' && name !== 'configure.exe';
+        }
+    );
+    const candidates = nonConfigEntries.length > 0 ? nonConfigEntries : executableEntries;
+    const preferred = candidates.find((entry) => entry.name.toLowerCase().includes(folderName))
+        || candidates.find((entry) => entry.name.toLowerCase() === 'game.exe')
+        || candidates[0];
     return preferred ? path.join(currentPath, preferred.name) : null;
 }
 

@@ -6,6 +6,17 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ## [Unreleased]
 
+## [1.5.10] - 2026-06-01 — released
+
+### 🔧 What Changed
+
+- Deprioritized common utility and setup executables (`config.exe`, `setup.exe`, `setting.exe`, `settings.exe`, `configure.exe`) during library scans so they are not selected as the primary game launcher if another executable is present.
+
+### 🛠️ For the Nerds
+
+- [library-state] Introduced a soft-filter (deprioritization) in `pickPreferredExecutable` that filters out utility executable entries before selecting candidates, falling back to them only if they are the only executables present in the directory.
+- [library-state] Added integration tests in `tests/library-state.test.js` to assert proper library scanning and executable selection when both `Config.exe` and a custom game executable coexist.
+
 ## [1.5.9] - 2026-06-01 — released
 
 ### ✨ What's New

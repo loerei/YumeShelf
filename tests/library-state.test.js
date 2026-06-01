@@ -246,3 +246,22 @@ test('duplicate stacks share one durable gameId and keep category assignment aft
     assert.equal(games[0].instances.length, 2);
     assert.deepEqual(games[0].categoryIds, ['cat_vn']);
 });
+
+test('scan ignores Config.exe if there is another executable', async () => {
+    const rootPath = await makeTempDir();
+    const gameFolderPath = path.join(rootPath, 'MyGame');
+    await writeExe(path.join(gameFolderPath, 'Config.exe'));
+    await writeExe(path.join(gameFolderPath, 'MyGameExecutable.exe'));
+
+    const { state } = createLibraryHarness(rootPath, {
+        config: {
+            libraryPath: rootPath,
+            maxDepth: 5
+        }
+    });
+
+    const games = await state.loadGamesForConfig({ libraryPath: rootPath, maxDepth: 5 });
+
+    assert.equal(games.length, 1);
+    assert.equal(games[0].exePath, path.join(gameFolderPath, 'MyGameExecutable.exe'));
+});

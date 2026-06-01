@@ -15,23 +15,23 @@ This guide is the master document for the build, packaging, asset verification, 
 
 ## 🚀 1. The Release Notes Compilation
 
-Before compiling the binaries, you must finalize and compile the release notes. The version logs are incrementally recorded by agents under `docs/changelogs/changelog.<version>.md` using the [yumeshelf-incremental-changelog.md](./yumeshelf-incremental-changelog.md) skill.
+Before compiling the binaries, you must finalize and compile the release notes. Version logs are accumulated incrementally by agents directly inside `CHANGELOG.md` at the repo root, following the [yumeshelf-incremental-changelog.md](./yumeshelf-incremental-changelog.md) skill.
 
-To automatically prepare user-facing, clean release notes:
+To prepare user-facing, clean release notes:
 1. Run the automated compiler script:
-   - **For Dry Run / Validation** (keeps changelog status unchanged):
+   - **For Dry Run / Validation** (does not modify `CHANGELOG.md`):
      ```bash
-     MCP tool compile_release_notes
+     node scripts/compile-release-notes.js
      ```
-   - **For Final Release** (marks changelog status as `"released"`):
+   - **For Final Release** (marks the version as `released` in `CHANGELOG.md`):
      ```bash
-     MCP tool compile_release_notes:release
+     node scripts/compile-release-notes.js --release
      ```
-   This will read `docs/changelogs/changelog.<version>.md` and:
-   - Strip frontmatter.
-   - Clean up technical bracket prefix tags (e.g. `[parallel-downloader]`, `[system-tray]`) to make bullet points cohesive and readable for end-users.
+   This will read the version block from `CHANGELOG.md` and:
+   - Strip technical bracket prefix tags (e.g. `[parallel-downloader]`, `[system-tray]`) to make bullet points readable for end-users.
+   - Auto-remove empty or placeholder sections.
    - Write the finalized public notes to `docs/changelogs/compiled.release-notes.<version>.md`.
-   - Update the status in the original changelog to `"released"` and insert the correct ISO release timestamp (only when using `--release`).
+   - Update the version heading in `CHANGELOG.md` to mark it as released (only when using `--release`).
 2. Read and verify `docs/changelogs/compiled.release-notes.<version>.md`. Copy its content to use as the GitHub Release description.
 
 ---

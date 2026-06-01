@@ -29,7 +29,6 @@ scratch/
 scripts/test-*.js
 scripts/wolf-*.js
 scripts/save-converter/
-docs/changelogs/
 docs/*
 !docs/*.md
 docs/Report.md

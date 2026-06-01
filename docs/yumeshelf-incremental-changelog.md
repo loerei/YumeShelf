@@ -1,6 +1,6 @@
 ---
 name: yumeshelf-incremental-changelog
-description: Multi-agent cooperative incremental changelog manager for YumeShelf. Use at the end of each task to document changes incrementally in English inside docs/changelogs/changelog.<version>.md. Ensure the active version is confirmed with the user, initialize files if missing, and maintain the frontmatter metadata.
+description: Multi-agent cooperative incremental changelog manager for YumeShelf. Use at the end of each task to document changes incrementally in English inside CHANGELOG.md at the repo root. Confirm the active version, locate the correct version block, and append new bullet points under the appropriate section.
 ---
 
 # YumeShelf Incremental Changelog Manager
@@ -12,71 +12,36 @@ Use this skill when you finish a task, apply source changes, or prepare a new re
 ## 📌 Core Rules
 
 1. **Version Confirmation & Git Discovery**:
-   - Before writing any log entries, **ALWAYS** confirm with the user (or carefully check the current context) which specific version is being targetted (e.g., `1.5.3`).
-   - **Self-Discovery using Git**: If the version is not explicitly stated in the context, you can run `git tag -n` to view the already released versions/tags. Compare the latest tagged release (e.g., `v1.5.2`) with the version declared in `package.json` to verify the active working version (e.g., if latest tag is `v1.5.2` and `package.json` version is `1.5.3`, then you are working on version `1.5.3`).
+   - Before writing any log entries, **ALWAYS** confirm with the user (or carefully check the current context) which specific version is being targeted (e.g., `1.5.9`).
+   - **Self-Discovery using Git**: If the version is not explicitly stated in the context, run `git tag -n` to view already released versions/tags. Compare the latest tagged release with the version declared in `package.json` to verify the active working version.
 
 2. **Codebase Version Synchronization**:
-   - If the current version declared in the project's codebase (specifically inside `package.json` at the root) is lower than the active confirmed version you are working on (the one in the changelog), you **MUST** automatically update the `"version"` field in `package.json` to match this target version.
+   - If the version declared in `package.json` is lower than the active confirmed version you are working on, you **MUST** automatically update the `"version"` field in `package.json` to match.
 
-3. **Release Synchronization**:
-   - The accumulated changelog file `docs/changelogs/changelog.<version>.md` is the **absolute source of truth** when publishing a release.
-   - When a release is triggered, you must compile and package the release notes using the automated script:
+3. **Single Source of Truth**:
+   - **`CHANGELOG.md` at the repo root** is the single source of truth for all version history.
+   - It is **tracked by Git** and must never be gitignored.
+   - When a release is triggered, compile it using:
      ```bash
-     MCP tool compile_release_notes:release
+     node scripts/compile-release-notes.js          # dry run / preview
+     node scripts/compile-release-notes.js --release # marks version as released
      ```
-     or:
-     ```bash
-     MCP tool compile_release_notes -- --release
-     ```
-     This will generate `docs/changelogs/compiled.release-notes.<version>.md` and transition the changelog `status` to `"released"`. Refer to [yumeshelf-release-guide.md](./yumeshelf-release-guide.md) for full compilation, build, asset verification (including `latest.yml`, blockmaps, and signatures), and publishing instructions.
-   - > [!NOTE]
-     > Running the compilation script *without* the `--release` flag (e.g. `MCP tool compile_release_notes`) compiles the notes for local validation while leaving the changelog's status metadata and timestamp **unchanged**. This allows safe previewing of the release notes before finalizing.
-
+     Refer to [yumeshelf-release-guide.md](./yumeshelf-release-guide.md) for full publishing instructions.
 
 4. **Strict English Language Constraint**:
-   - **Both this skill file AND all generated changelog entries MUST be written in English.** This guarantees consistency across different agents and simplifies public release note generation.
+   - All changelog entries **MUST** be written in English for consistency across agents and public release note generation.
 
-5. **Auto-Initialization**:
-   - Check if the target changelog file exists at `docs/changelogs/changelog.<version>.md`.
-   - If it **DOES NOT EXIST**: You are the first agent to work on this version. You must automatically create the `docs/changelogs/` directory and initialize the `.md` file with the default YAML Frontmatter metadata and empty section headers.
-   - If it **EXISTS**: Read the existing file first to understand the previous changes made by other agents.
+5. **Active Version Block Discovery**:
+   - Open `CHANGELOG.md` and find the `## [<version>] - working` heading for the active version.
+   - If **no such block exists** (i.e., a new version cycle has started): you are the first agent. Add a new block **below `## [Unreleased]`** using the **New Version Block Template** below.
+   - If the block exists: read the existing entries first.
 
 6. **Incremental Appending**:
-   - **NEVER** delete or overwrite previous log entries unless you are explicitly refactoring or replacing that exact feature.
-   - Append your new change descriptions as bullet points at the bottom of the matching sections (`✨ What's New`, `🔧 What Changed`, `🛠️ For the Nerds`).
+   - **NEVER** delete or overwrite previous log entries unless explicitly replacing that exact feature.
+   - Append new bullet points at the **bottom** of the matching section (`### ✨ What's New`, `### 🔧 What Changed`, `### 🛠️ For the Nerds`).
 
-7. **Metadata Preservation**:
-   - Every `changelog.<version>.md` file must contain a YAML Frontmatter block at the top to track the version's release status and update timestamps.
-
-8. **No Specific Game Titles**:
-   - **NEVER** mention specific game names or titles in the changelog, release notes, or pull request logs. Keep all descriptions generic and engine/format-agnostic (e.g. refer to 'games utilizing plain JSON serialization' or 'games using zlib compression' instead of mentioning specific game titles).
-
----
-
-## 📊 Metadata Schema (YAML Frontmatter)
-
-Each `changelog.<version>.md` file must start with the following frontmatter block:
-
-```yaml
----
-version: "1.5.3"
-status: "working"  # Allowed values: "working" or "released"
-released_at: null  # ISO-8601 date string when transitioned to "released", otherwise null
-last_updated_by: "agent-name-or-purpose"
-last_updated_at: "2026-05-19T02:11:18+07:00"
----
-```
-
----
-
-## 🔍 How to Determine the Active Version using Git
-
-When starting a new session or task, run the following steps to self-determine the current version:
-1. Propose `git tag -n` (or `git describe --tags --abbrev=0`) using `run_command` to discover the highest released tag in Git.
-2. Read `package.json` to get the current project version.
-3. Check the changelog file `docs/changelogs/changelog.<version>.md` for the current version:
-   - **CRITICAL**: If the changelog file exists and is marked as `status: "released"`, or if `package.json` version matches a released tag, **DO NOT** edit this changelog and **DO NOT** automatically bump the version (e.g. from 1.5.3 to 1.5.4) yourself! In practice, the next version could be a patch (`1.5.4`) or a minor/major release (`1.6.0`). You **MUST** halt and ask the user immediately to confirm the next active development version.
-   - If the changelog has `status: "working"`, then you are safe to continue working on that version.
+7. **No Specific Game Titles**:
+   - **NEVER** mention specific game names or titles. Keep all descriptions generic and engine/format-agnostic (e.g., 'games utilizing plain JSON serialization', 'games using zlib compression').
 
 ---
 
@@ -84,96 +49,88 @@ When starting a new session or task, run the following steps to self-determine t
 
 Strictly follow the section definitions from [yumeshelf-release-notes.md](./yumeshelf-release-notes.md):
 
-- **`## ✨ What's New`**: For completely new, user-visible capabilities that the end-user can directly notice and experience.
-- **`## 🔧 What Changed`**: For modifications, bug fixes, UI polish, or updates to existing behaviors.
-- **`## 🛠️ For the Nerds`**: Low-level technical details for developer/agent continuity. This covers refactoring, API changes, caching, fallback pipelines, and structural modifications. **Importantly, any purely internal system or infrastructure updates that DO NOT alter any user-facing functionality (e.g., codebase file modularization, process isolation refactors, IPC bridge setup, or decoupled CSS/JS architecture) MUST be placed strictly here to avoid cluttering user-facing logs.**
+- **`### ✨ What's New`**: Completely new, user-visible capabilities.
+- **`### 🔧 What Changed`**: Modifications, bug fixes, UI polish, or updates to existing behaviors.
+- **`### 🛠️ For the Nerds`**: Low-level technical details for developer/agent continuity. Purely internal updates with no user-facing impact (modularization, refactors, IPC bridges, CSS/JS architecture) **MUST** go here only.
+
+---
+
+## 🔍 How to Determine the Active Version using Git
+
+1. Run `git tag -n` (or `git describe --tags --abbrev=0`) to discover the highest released tag.
+2. Read `package.json` to get the current project version.
+3. Open `CHANGELOG.md` and find the block for that version:
+   - If it is marked `## [<version>] - released`, that version is done.
+   - > [!WARNING]
+   - > If the version is already released, **DO NOT** automatically bump to the next version. **MUST** halt and ask the user to confirm the next active development version (e.g., patch, minor, or major).
+   - If it is marked `## [<version>] - working`, you are safe to append.
 
 ---
 
 ## 🛠️ Workflow
 
 ### Step 1: Confirm Active Version
-- Look at the current context, or run the **Git Discovery** step using `git describe --tags --abbrev=0` or `git tag -n`.
-- Check if the changelog for the version declared in `package.json` already has `status: "released"` in its frontmatter:
-  - > [!WARNING]
-  - > If the local version's changelog is marked as **"released"**, **DO NOT** automatically assume the next version is a simple patch bump (+1) and **DO NOT** auto-edit the version. Stop and ask the user immediately:
-  - > *"Confirm: I detected that version v<version> has been released. Which version should we target for the next development cycle (e.g., v1.5.4, v1.6.0)?"*
-- If still in doubt, ask the user directly to confirm.
-- **Verify & Bump Codebase Version**: Once the user has explicitly confirmed the new target version, check the `"version"` field in `package.json`. If it is lower than the confirmed active version, update it to match the confirmed version.
 
-### Step 2: Check or Initialize the Changelog File
-- Targeted path: `docs/changelogs/changelog.<version>.md` (e.g., `docs/changelogs/changelog.1.5.3.md`).
-- If missing:
-  - Initialize the new file using the **New Changelog Template** below.
-  - Set `status: "working"`, `version: "<version>"`, and `released_at: null`.
-- If present:
-  - Read and parse the file contents to locate the sections.
+- Check context, or run the **Git Discovery** step.
+- Open `CHANGELOG.md` and find the version block.
+- **Verify & Bump Codebase Version**: If `package.json` is behind the confirmed target version, update it.
+
+### Step 2: Locate or Initialize the Version Block
+
+- Find `## [<version>] - working` in `CHANGELOG.md`.
+- If missing, insert a new block immediately after `## [Unreleased]` using the template below.
 
 ### Step 3: Append Changelog Bullet Points
-- Write clear, concise bullet points in English under the appropriate sections.
-- Prefix your bullet points with your agent name or feature focus in brackets (e.g., `- [parallel-downloader] ...`).
-- Put new points at the bottom of the section list to maintain chronological progression.
 
-### Step 4: Update YAML Frontmatter
-- Update `last_updated_by` to your agent/purpose identifier.
-- Update `last_updated_at` to the current time in ISO-8601 format with timezone offset (e.g., `2026-05-19T02:12:00+07:00`).
+- Write clear, concise bullet points in English under the appropriate `###` section.
+- Prefix your bullet points with your agent name or feature focus in brackets (e.g., `- [parallel-downloader] ...`).
+- Add new points at the **bottom** of the section to maintain chronological order.
+
+### Step 4: Commit the Change
+
+- Stage `CHANGELOG.md` (and `package.json` if bumped) and commit with a clear message.
 
 ---
 
 ## 📄 Templates
 
-### 1. New Changelog Template (`changelog.<version>.md`):
+### New Version Block (insert below `## [Unreleased]` in `CHANGELOG.md`):
+
 ```markdown
----
-version: "1.5.3"
-status: "working"
-released_at: null
-last_updated_by: "initial-initializer"
-last_updated_at: "2026-05-19T02:11:18+07:00"
----
+## [1.5.10] - working
 
-# YumeShelf Changelog - v1.5.3
-
-## ✨ What's New
+### ✨ What's New
 
 - ...
 
-## 🔧 What Changed
+### 🔧 What Changed
 
 - ...
 
 ---
 
-## 🛠️ For the Nerds
+### 🛠️ For the Nerds
 
 - ...
+
+---
 ```
 
-### 2. Multi-Agent Incremental Example (After multiple updates):
+### Multi-Agent Incremental Example (after multiple updates):
+
 ```markdown
----
-version: "1.5.3"
-status: "working"
-released_at: null
-last_updated_by: "parallel-downloader"
-last_updated_at: "2026-05-19T02:15:30+07:00"
----
+## [1.5.10] - working
 
-# YumeShelf Changelog - v1.5.3
-
-## ✨ What's New
-
-- ...
-
-## 🔧 What Changed
+### 🔧 What Changed
 
 - [parallel-downloader] Accelerated update installer downloading by downloading 8 segments in parallel.
 - [parallel-downloader] Added seamless single-stream downloading fallback for CDNs that do not support Range Requests.
 
 ---
 
-## 🛠️ For the Nerds
+### 🛠️ For the Nerds
 
 - [parallel-downloader] Implemented concurrent segment requests using native fetch and concurrent `fileHandle.write` calls at distinct byte offsets.
 - [parallel-downloader] Throttled IPC progress updates to a minimum interval of 300ms to eliminate main thread UI lag.
+- [save-editor] Fixed internal renderer state leak when closing the editor mid-save cycle.
 ```

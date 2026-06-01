@@ -79,8 +79,35 @@ When creating a new GitHub Release for `YumeShelf`, you **MUST** upload the foll
 
 ## 📢 4. Publishing the Release
 
-Once built and verified:
-1. Review the writing guidelines and templates in **[yumeshelf-release-notes.md](./yumeshelf-release-notes.md)** to ensure perfect tone and style.
-2. Create and publish the release on GitHub. You can use the GitHub CLI (`gh release create`) or upload them manually.
-3. Make sure all 4 required assets (Setup `.exe`, `latest.yml`, `.blockmap`, `.sha256`) are uploaded together.
-4. Ensure the corresponding git tag (e.g. `v1.5.3`) is created and pushed.
+Once built and verified, execute the following steps to publish the release:
+
+1. **Commit and Push Source Changes**:
+   Make sure all code changes, package.json version bump, and the updated `CHANGELOG.md` are committed and pushed:
+   ```bash
+   git add CHANGELOG.md package.json package-lock.json src/
+   git commit -m "release: vX.Y.Z - description of major changes"
+   git push origin main
+   ```
+
+2. **Tag and Push Git Release Tag**:
+   Create the git release tag matching the version and push it:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+3. **Verify/Generate SHA-256 File**:
+   If the `.sha256` asset file is not generated inside `build_output/nsis/sha256/` automatically, calculate the SHA-256 hash of the final Setup `.exe` and save it inside the output folder:
+   ```bash
+   # Formatted as: <hash> *YumeShelf-Setup-X.Y.Z.exe
+   node -e "const fs = require('fs'); const crypto = require('crypto'); const installer = 'build_output/nsis/application/YumeShelf-Setup-X.Y.Z.exe'; const hash = crypto.createHash('sha256').update(fs.readFileSync(installer)).digest('hex'); fs.writeFileSync('build_output/nsis/sha256/YumeShelf-Setup-X.Y.Z.exe.sha256', hash + ' *YumeShelf-Setup-X.Y.Z.exe\n', 'utf8');"
+   ```
+
+4. **Create GitHub Release and Upload Assets**:
+   Create the release on GitHub using the GitHub CLI (`gh`), setting the tag, title, compiled release notes body, and uploading the 4 required assets:
+   ```bash
+   gh release create vX.Y.Z --title "vX.Y.Z" -F docs/changelogs/compiled.release-notes.X.Y.Z.md build_output/nsis/application/YumeShelf-Setup-X.Y.Z.exe build_output/nsis/feed/latest.yml build_output/nsis/blockmap/YumeShelf-Setup-X.Y.Z.exe.blockmap build_output/nsis/sha256/YumeShelf-Setup-X.Y.Z.exe.sha256
+   ```
+
+5. Make sure all 4 required assets (Setup `.exe`, `latest.yml`, `.blockmap`, `.sha256`) are uploaded together.
+

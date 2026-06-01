@@ -60,7 +60,6 @@ export function applyWelcomeAndSettingsStrings(context: UITextContext, d: any, d
     if (refs.uiMinimizeToTrayLabel) refs.uiMinimizeToTrayLabel.innerText = d.minimize_to_tray_label || getEnglishStrings().minimize_to_tray_label;
     if (refs.uiMinimizeToTrayOff) refs.uiMinimizeToTrayOff.innerText = d.option_off || getEnglishStrings().option_off;
     if (refs.uiMinimizeToTrayOn) refs.uiMinimizeToTrayOn.innerText = d.option_on || getEnglishStrings().option_on;
-    if (refs.btnChangePath) refs.btnChangePath.innerText = d.change;
     if (refs.uiFooterDesc) refs.uiFooterDesc.innerText = d.footer_desc || getEnglishStrings().footer_desc;
 }
 

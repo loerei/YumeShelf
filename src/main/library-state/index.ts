@@ -18,6 +18,9 @@ export const {
 export const {
     resolveLibraryConfig,
     setupLibrary,
+    addLibraryPath,
+    removeLibraryPath,
+    changeLibraryPath,
     updateLibraryConfig,
     resolveLibraryFolderToOpen
 } = config;
@@ -71,6 +74,9 @@ export function createLibraryState(options: LibraryContext) {
         resolveLibraryFolderToOpen: () => resolveLibraryFolderToOpen(context),
         setSaveFolderOverride: (gameKey: string, folderPath: string) => setSaveFolderOverride(context, gameKey, folderPath),
         setupLibrary: (type: 'default' | 'custom') => setupLibrary(context, type),
+        addLibraryPath: () => addLibraryPath(context),
+        removeLibraryPath: (path: string) => removeLibraryPath(context, path),
+        changeLibraryPath: (oldPath: string) => changeLibraryPath(context, oldPath),
         toggleFavorite: (gameKey: string) => toggleFavorite(context, gameKey),
         toggleRunInBackground: (gameKey: string) => toggleRunInBackground(context, gameKey),
         toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),

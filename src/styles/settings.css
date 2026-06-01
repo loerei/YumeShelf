@@ -239,3 +239,120 @@
 .wide-setting-btn {
     text-align: center;
 }
+
+/* LIBRARY PATHS LIST */
+.setting-item-paths {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.setting-paths-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.text-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    padding: 5px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.text-btn:hover {
+    color: var(--text-main);
+    border-color: var(--text-sub);
+    background: var(--hover-bg);
+}
+
+.library-paths-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.library-path-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--field-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    transition: border-color 0.2s ease;
+}
+
+.library-path-entry:hover {
+    border-color: var(--text-sub);
+}
+
+.library-path-icon {
+    flex-shrink: 0;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+}
+
+.library-path-link {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s ease;
+    user-select: none;
+}
+
+.library-path-link:hover {
+    color: var(--text-main);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.library-path-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.library-path-action-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-sub);
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.library-path-action-btn:hover {
+    color: var(--text-main);
+    background: var(--hover-bg);
+    border-color: var(--border-color);
+}
+
+.library-path-action-btn.remove-btn:hover {
+    color: #f66;
+    border-color: rgba(255, 100, 100, 0.3);
+    background: rgba(255, 100, 100, 0.08);
+}
+
+.library-path-action-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+}

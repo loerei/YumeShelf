@@ -8,6 +8,7 @@ const EXECUTABLE_BLACKLIST = ['crashhandler', 'notification', 'unins', 'updater'
 const WRAPPER_DIRECTORY_NAMES = new Set(['app', 'bin', 'binaries', 'data', 'game', 'release', 'runtime', 'win64', 'windows', 'x64', 'x86']);
 
 export interface LibraryConfig {
+    libraryPaths: string[];
     libraryPath: string;
     maxDepth: number;
     autoLaunch: boolean | 'minimized';
@@ -27,8 +28,13 @@ export function clampLibraryMaxDepth(value: any): number {
 
 export function normalizeLibraryConfigShape(config: any): LibraryConfig {
     const base = isPlainObject(config) ? config : {};
+    const rawPaths = base.libraryPaths || (base.libraryPath ? [base.libraryPath] : []);
+    const libraryPaths = Array.isArray(rawPaths)
+        ? rawPaths.filter((p: any) => typeof p === 'string' && p.trim() !== '')
+        : [];
     return {
-        libraryPath: typeof base.libraryPath === 'string' ? base.libraryPath : '',
+        libraryPaths,
+        libraryPath: libraryPaths[0] || '',
         maxDepth: clampLibraryMaxDepth(base.maxDepth),
         autoLaunch: (base.autoLaunch === 'minimized')
             ? 'minimized'

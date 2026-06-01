@@ -92,9 +92,6 @@ export function bindControlEvents({
     if (refs.buttons.chooseCustom) {
         refs.buttons.chooseCustom.onclick = async () => { await startupController.handleSetupCustom(); };
     }
-    if (refs.buttons.changePath) {
-        refs.buttons.changePath.onclick = async () => { await startupController.handleChangePath(); };
-    }
     if (refs.buttons.settingsOpen) {
         refs.buttons.settingsOpen.onclick = () => { settingsController.openSettings(); };
     }

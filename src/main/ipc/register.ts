@@ -141,28 +141,31 @@ export function registerMainIpc({
         return { success: true };
     });
     ipcMain.on('reveal-game', async (_event, targetPath) => {
-        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
-        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+        const config = await libraryState.resolveLibraryConfig();
+        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
             shell.showItemInFolder(targetPath);
         } else {
             console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
         }
     });
     ipcMain.on('open-path', async (_event, targetPath) => {
-        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
-        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+        const config = await libraryState.resolveLibraryConfig();
+        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
             shell.openPath(targetPath);
         } else {
             console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
         }
     });
     ipcMain.handle('delete-game', async (_event, targetPath) => {
-        const libraryPath = await libraryState.resolveLibraryFolderToOpen();
-        if (libraryPath && isPathWithinLibrary(targetPath, libraryPath)) {
+        const config = await libraryState.resolveLibraryConfig();
+        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
             return shell.trashItem(targetPath);
         }
         return { ok: false, error: 'unauthorized-path' };
     });
+    ipcMain.handle('library:add-path', async () => libraryState.addLibraryPath());
+    ipcMain.handle('library:remove-path', async (_event, targetPath) => libraryState.removeLibraryPath(targetPath));
+    ipcMain.handle('library:change-path', async (_event, oldPath) => libraryState.changeLibraryPath(oldPath));
 
     ipcMain.handle('get-save-folder', async (_event, gameKey) => {
         console.log(`[IPC][get-save-folder] Received request for: ${gameKey}`);

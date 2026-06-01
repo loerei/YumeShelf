@@ -6,7 +6,13 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ## [Unreleased]
 
-## [1.5.9] - working
+## [1.5.9] - 2026-06-01 — released
+
+### ✨ What's New
+
+- Added support for configuring **multiple game library paths**, enabling users to organize and scan games across different hard drives, partitions, or directories.
+- Redesigned the "Library Path" setting UI into a dynamic, highly interactive list of configured folders. Each path is presented as a clickable link that opens the folder directly in File Explorer.
+- Implemented robust directory path manipulation directly from the settings panel including **+ Add Path**, replace (**Change**), and delete (**Remove**) controls.
 
 ### 🔧 What Changed
 
@@ -15,6 +21,11 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ### 🛠️ For the Nerds
 
+- [library-state] Upgraded `LibraryConfig` interface to store `libraryPaths: string[]` with seamless migration path from legacy `libraryPath: string`.
+- [library-state] Implemented atomic database mutation operations `addLibraryPath`, `removeLibraryPath`, and `changeLibraryPath` with path collision deduplication.
+- [library-state] Restructured scanning engine `loader.ts` to iterate through all active library paths and safely aggregate candidates before executing unique path deduplication.
+- [security] Updated IPC boundary validators (`isPathWithinLibrary`) to dynamically check boundaries against the complete array of allowed library paths.
+- [renderer] Safely migrated Renderer bootstrap and event lifecycle controllers to drop legacy `btnChangePath` DOM references.
 - [antigravity-icon-pipeline] Fallback to `process.execPath` (Electron) as Node interpreter using `ELECTRON_RUN_AS_NODE: '1'` for spawning the background extraction worker when a global Node environment is absent.
 - [antigravity-icon-pipeline] Added `"asarUnpack"` entry in `package.json` for `extract-file-icon` dependency to unpack compiled native addon binary from the ASAR archive, ensuring seamless require calls inside Electron-as-Node environment.
 - [antigravity-translation-pipeline] Implemented missing `detectEngineSupport` method in `TranslationService` to resolve `TypeError: translationService.detectEngineSupport is not a function` when invoking `translation:check-support`.

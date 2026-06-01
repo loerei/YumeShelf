@@ -43,7 +43,6 @@ export interface RendererRefs {
     buttons: {
         setupDefault: HTMLElement | null;
         chooseCustom: HTMLElement | null;
-        changePath: HTMLElement | null;
         settingsOpen: HTMLElement | null;
         settingsClose: HTMLElement | null;
         languagePackClose: HTMLElement | null;
@@ -52,7 +51,6 @@ export interface RendererRefs {
     };
     moreLanguagesBtn: HTMLElement | null;
     uiTextRefs: {
-        btnChangePath: HTMLElement | null;
         moreLanguagesBtn: HTMLElement | null;
         searchInput: HTMLInputElement | null;
         searchPlaceholder: HTMLElement | null;
@@ -173,7 +171,6 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         buttons: {
             setupDefault:    documentRef.getElementById('btn-setup-default'),
             chooseCustom:    documentRef.getElementById('btn-choose-custom'),
-            changePath:      documentRef.getElementById('btn-change-path'),
             settingsOpen:    documentRef.getElementById('settings-open-btn'),
             settingsClose:   documentRef.getElementById('settings-close-btn'),
             languagePackClose: documentRef.getElementById('language-pack-close-btn'),
@@ -184,7 +181,6 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         // === UI Text refs ===
         moreLanguagesBtn: documentRef.getElementById('more-languages-btn'),
         uiTextRefs: {
-            btnChangePath:             documentRef.getElementById('btn-change-path'),
             moreLanguagesBtn:          documentRef.getElementById('more-languages-btn'),
             searchInput:               searchContainer ? searchContainer.querySelector('#search-input') as HTMLInputElement : null,
             searchPlaceholder:         searchContainer ? searchContainer.querySelector('#search-placeholder') : null,

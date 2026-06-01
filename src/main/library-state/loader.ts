@@ -37,25 +37,41 @@ function removeLegacyGames(db: any): void {
 export async function loadGamesForConfig(context: any, config: LibraryConfig): Promise<any[]> {
     const { categoryState, fs, fsSync, loadDB, saveDB } = context;
     const normalizedConfig = normalizeLibraryConfigShape(config);
-    if (!normalizedConfig.libraryPath || !fsSync.existsSync(normalizedConfig.libraryPath)) return [];
+    const activePaths = normalizedConfig.libraryPaths.filter((p: string) => p && fsSync.existsSync(p));
+    if (activePaths.length === 0) return [];
 
     const db = await loadDB();
     const storedGames = readStoredGames(db);
     const storedGamesByFolderPath = mapStoredGamesByFolderPath(storedGames);
     const legacyGames = readLegacyGames(db);
-    const candidates = dedupeCandidates(
-        await collectGameCandidates(fs, normalizedConfig.libraryPath, normalizedConfig.libraryPath, 0, normalizedConfig.maxDepth)
+
+    // Collect candidates from all active library paths and merge
+    const allCandidatesNested = await Promise.all(
+        activePaths.map((libraryPath: string) =>
+            collectGameCandidates(fs, libraryPath, libraryPath, 0, normalizedConfig.maxDepth)
+        )
     );
+    const candidates = dedupeCandidates(allCandidatesNested.flat());
+
     const legacyMigrationMap = buildLegacyMigrationMap(candidates, legacyGames);
-    const moveMigrationMap = buildMoveMigrationMap({
-        candidates,
-        libraryPath: normalizedConfig.libraryPath,
-        storedGames
-    });
+
+    // Build move migration map from all library paths
+    const moveMigrationMaps = activePaths.map((libraryPath: string) =>
+        buildMoveMigrationMap({ candidates, libraryPath, storedGames })
+    );
+    const moveMigrationMap = new Map<string, any>();
+    for (const m of moveMigrationMaps) {
+        for (const [k, v] of m.entries()) moveMigrationMap.set(k, v);
+    }
+
     const nextGames: Record<string, any> = {};
 
     for (const candidate of candidates) {
-        const gameKey = buildGameKey(normalizedConfig.libraryPath, candidate.folderPath);
+        // Determine which libraryPath this candidate belongs to
+        const owningLibPath = activePaths.find((lp: string) =>
+            candidate.folderPath.toLowerCase().startsWith(lp.toLowerCase())
+        ) || activePaths[0];
+        const gameKey = buildGameKey(owningLibPath, candidate.folderPath);
         const folderPathKey = normalizePathForComparison(candidate.folderPath);
         const existingRecord = storedGames[gameKey]
             || storedGamesByFolderPath.get(folderPathKey)

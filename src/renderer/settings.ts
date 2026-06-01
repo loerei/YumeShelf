@@ -48,6 +48,8 @@ export function createSettingsController({
     const autoLaunchSelect      = container.querySelector('#auto-launch-select') as HTMLSelectElement | null;
     const minimizeToTraySelect  = container.querySelector('#minimize-to-tray-select') as HTMLSelectElement | null;
     const telemetrySelect       = container.querySelector('#telemetry-select') as HTMLSelectElement | null;
+    const libraryPathsContainer  = container.querySelector('#library-paths-container') as HTMLElement | null;
+    const btnAddLibraryPath      = container.querySelector('#btn-add-library-path') as HTMLButtonElement | null;
 
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
     let currentAppUpdates = localStorage.getItem('yumeshelf_app_updates_pref') || 'notify';
@@ -126,12 +128,61 @@ export function createSettingsController({
         return currentLocationDisplayMode;
     }
 
+    function renderLibraryPaths(libraryPaths: string[]): void {
+        if (!libraryPathsContainer) return;
+        libraryPathsContainer.innerHTML = '';
+        const paths = Array.isArray(libraryPaths) && libraryPaths.length > 0 ? libraryPaths : [];
+        const canRemove = paths.length > 1;
+
+        for (const p of paths) {
+            const entry = document.createElement('div');
+            entry.className = 'library-path-entry';
+
+            // Folder icon
+            entry.innerHTML = `
+                <span class="library-path-icon">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                </span>
+                <span class="library-path-link" title="${p}">${p}</span>
+                <div class="library-path-actions">
+                    <button class="library-path-action-btn change-btn" type="button">Change</button>
+                    <button class="library-path-action-btn remove-btn" type="button" ${canRemove ? '' : 'disabled'}>Remove</button>
+                </div>
+            `;
+
+            const pathLink = entry.querySelector('.library-path-link') as HTMLElement;
+            pathLink.onclick = () => (window as any).electronAPI.openPath(p);
+
+            const changeBtn = entry.querySelector('.change-btn') as HTMLButtonElement;
+            changeBtn.onclick = async () => {
+                const result = await (window as any).electronAPI.changeLibraryPath(p);
+                if (result) location.reload();
+            };
+
+            const removeBtn = entry.querySelector('.remove-btn') as HTMLButtonElement;
+            removeBtn.onclick = async () => {
+                if (!canRemove) return;
+                const result = await (window as any).electronAPI.removeLibraryPath(p);
+                if (result) location.reload();
+            };
+
+            libraryPathsContainer.appendChild(entry);
+        }
+    }
+
     function applyLibraryConfig(libraryConfig: any = null): void {
         currentMaxDepth = clampMaxDepth(libraryConfig?.maxDepth);
         if (maxDepthInput) maxDepthInput.value = String(currentMaxDepth);
         if (maxDepthDecreaseBtn) maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
         if (maxDepthIncreaseBtn) maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
-        
+
+        const paths = Array.isArray(libraryConfig?.libraryPaths)
+            ? libraryConfig.libraryPaths
+            : (libraryConfig?.libraryPath ? [libraryConfig.libraryPath] : []);
+        renderLibraryPaths(paths);
+
         if (libraryConfig) {
             if (libraryConfig.autoLaunch === 'minimized') {
                 currentAutoLaunch = 'minimized';
@@ -183,6 +234,13 @@ export function createSettingsController({
         return {
             appUpdatesMode: currentAppUpdates,
             languagePackUpdatesMode: currentLanguagePackUpdates
+        };
+    }
+
+    if (btnAddLibraryPath) {
+        btnAddLibraryPath.onclick = async () => {
+            const result = await (window as any).electronAPI.addLibraryPath();
+            if (result) location.reload();
         };
     }
 

@@ -5,6 +5,9 @@ export interface ElectronAPI {
     checkConfig: () => Promise<any>;
     setupLibrary: (type: string) => Promise<any>;
     updateLibraryConfig: (updates: any) => Promise<any>;
+    addLibraryPath: () => Promise<any>;
+    removeLibraryPath: (path: string) => Promise<any>;
+    changeLibraryPath: (oldPath: string) => Promise<any>;
     
     // Library & Games
     getGames: () => Promise<any>;
@@ -71,6 +74,7 @@ export interface ElectronAPI {
     onAppUpdateStatus: (callback: (payload: any) => void) => void;
     onGameStopped: (callback: (payload: any) => void) => void;
     onGamePlaytimeUpdated: (callback: (payload: any) => void) => void;
+    onTranslationStatus: (callback: (payload: any) => void) => void;
 }
 
 declare global {

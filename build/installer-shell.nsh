@@ -69,6 +69,8 @@ Function WriteInstallerFirstLaunchMarker
 FunctionEnd
 
 !macro customInit
+  nsExec::Exec "taskkill /F /IM YumeShelf.exe"
+  nsExec::Exec "taskkill /F /IM playtime-helper.exe"
   !ifndef ONE_CLICK
   StrCpy $isForceCurrentInstall "1"
   !endif

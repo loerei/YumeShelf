@@ -52,46 +52,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
     let iconReqIdCounter = 0;
     let activeExtractionReq: QueueItem | null = null;
     let isExtracting = false;
-    let resolvedNodeExecPath: string | null = null;
     let workerBootstrapPromise: Promise<IconWorker> | null = null;
-
-    function resolveNodeExecPath(): string {
-        if (resolvedNodeExecPath) return resolvedNodeExecPath;
-
-        const candidates = [
-            process.env.npm_node_execpath,
-            process.env.NODE,
-            process.execPath.toLowerCase().endsWith('\\node.exe') ? process.execPath : null,
-            process.env.ProgramFiles ? path.join(process.env.ProgramFiles, 'nodejs', 'node.exe') : null,
-            process.env['ProgramFiles(x86)'] ? path.join(process.env['ProgramFiles(x86)'], 'nodejs', 'node.exe') : null
-        ].filter((x): x is string => !!x);
-
-        for (const candidate of candidates) {
-            if (fsSync.existsSync(candidate) && candidate.toLowerCase().endsWith('\\node.exe')) {
-                resolvedNodeExecPath = candidate;
-                return resolvedNodeExecPath;
-            }
-        }
-
-        const whereResult = spawnSync('where.exe', ['node'], {
-            encoding: 'utf8',
-            windowsHide: true
-        });
-        if (whereResult.status === 0) {
-            const matches = String(whereResult.stdout || '')
-                .split(/\r?\n/)
-                .map(line => line.trim())
-                .filter(line => line && fsSync.existsSync(line) && line.toLowerCase().endsWith('\\node.exe'));
-            if (matches.length > 0) {
-                resolvedNodeExecPath = matches[0];
-                return resolvedNodeExecPath;
-            }
-        }
-
-        // Fallback to process.execPath (Electron) if node.exe is not found (like in packaged app)
-        resolvedNodeExecPath = process.execPath;
-        return resolvedNodeExecPath;
-    }
 
     function buildExtractFileIconPath(): string {
         const candidate = path.join(app.getAppPath(), 'node_modules', 'extract-file-icon');
@@ -117,17 +78,15 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
 
     function createIconWorker(): IconWorker {
         const workerId = iconWorkers.length + 1;
-        const nodeExecPath = resolveNodeExecPath();
         const workerPath = path.join(sourceRootDir, 'icon-extractor.js');
-        const isElectron = !nodeExecPath.toLowerCase().endsWith('node.exe');
 
         const worker: IconWorker = fork(workerPath, [], {
-            execPath: nodeExecPath,
+            execPath: process.execPath,
             stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
             windowsHide: true,
             env: {
                 ...process.env,
-                ...(isElectron ? { ELECTRON_RUN_AS_NODE: '1' } : {})
+                ELECTRON_RUN_AS_NODE: '1'
             }
         } as any) as IconWorker;
 
@@ -201,37 +160,11 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
 
     function probeIconWorker(worker: IconWorker, attempt: number): Promise<boolean> {
         return new Promise((resolve) => {
-            const timeoutMs = 3000 + (attempt - 1) * 2000;
+            const timeoutMs = 4000;
             let timeout: NodeJS.Timeout;
 
-            const runProbe = () => {
-                const probeId = `probe-${worker.pid}-${attempt}-${Date.now()}`;
-
-                timeout = setTimeout(() => {
-                    pendingIconRequests.delete(probeId);
-                    resolve(false);
-                }, timeoutMs);
-
-                pendingIconRequests.set(probeId, {
-                    worker,
-                    timeout,
-                    resolve: ({ meta }) => {
-                        const rawLength = meta && typeof meta.rawLength === 'number' ? meta.rawLength : 0;
-                        const ok = rawLength > 0;
-                        resolve(ok);
-                    }
-                });
-
-                worker.send({
-                    type: 'extract',
-                    id: probeId,
-                    path: ICON_WORKER_PROBE_PATH,
-                    extPath: buildExtractFileIconPath()
-                });
-            };
-
             if (worker.__ready) {
-                runProbe();
+                resolve(true);
             } else {
                 timeout = setTimeout(() => {
                     worker.__onReady = null;
@@ -241,7 +174,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
                 worker.__onReady = () => {
                     clearTimeout(timeout);
                     worker.__onReady = null;
-                    runProbe();
+                    resolve(true);
                 };
             }
         });
@@ -260,7 +193,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
                     worker.__healthy = true;
                     return worker;
                 }
-                recycleWorker(worker, `probe_failed_attempt_${attempt}`);
+                recycleWorker(worker, `boot_failed_attempt_${attempt}`);
             }
             throw new Error(`No healthy icon worker after ${ICON_WORKER_BOOT_MAX_ATTEMPTS} attempts`);
         })();

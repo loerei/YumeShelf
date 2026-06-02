@@ -217,7 +217,7 @@ export function initSaveEditorUI() {
                     };
                     localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
                     
-                    window.electronAPI.openSaveEditorWindow(gameKey);
+                    window.electronAPI.send('open-save-editor-window', gameKey);
                     close(true); // Force close without confirmation when opening in a popout window
                 };
                 popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
@@ -396,7 +396,7 @@ export function initSaveEditorUI() {
             const originalText = saveBtn.textContent;
             saveBtn.textContent = 'Saving...';
             try {
-                await window.electronAPI.writeSaveData({
+                await window.electronAPI.invoke('save-editor:write-data', {
                     gameKey,
                     fileName: state.currentFileName,
                     data: state.currentSaveData

@@ -69,8 +69,8 @@ export function createStartupController({
             }
         }
 
-        const nextGames = bootstrapData ? (bootstrapData.games || []) : await electronAPI.getGames();
-        const nextCategoryTree = bootstrapData ? (bootstrapData.categoryTree || []) : await electronAPI.getCategoryTree();
+        const nextGames = bootstrapData ? (bootstrapData.games || []) : await electronAPI.invoke('get-games');
+        const nextCategoryTree = bootstrapData ? (bootstrapData.categoryTree || []) : await electronAPI.invoke('get-category-tree');
         if (typeof setCategoryTree === 'function') {
             setCategoryTree(nextCategoryTree);
         }

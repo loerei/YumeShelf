@@ -213,7 +213,7 @@ export function createGameCardFactory({
         };
         const launchGame = () => {
             card.style.opacity = '0.5';
-            electronAPI.launchYume({ gameKey, exePath: game.exePath, runInBackground: game.runInBackground });
+            electronAPI.send('launch-yume', { gameKey, exePath: game.exePath, runInBackground: game.runInBackground });
             if (typeof onGameLaunched === 'function') {
                 onGameLaunched(gameKey);
             } else {

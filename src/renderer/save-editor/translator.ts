@@ -30,8 +30,8 @@ export class Translator {
 
         // Try to fetch UI strings for the current language
         try {
-            if (this.api && typeof this.api.getLanguageState === 'function') {
-                const langState = await this.api.getLanguageState();
+            if (this.api) {
+                const langState = await this.api.invoke('get-language-state');
                 const currentLang = localStorage.getItem('yumeshelf_lang') || 'en';
                 const englishStrings = langState?.locales?.en || {};
                 const localStrings = langState?.locales?.[currentLang] || {};
@@ -73,9 +73,9 @@ export class Translator {
             this.targetLang = currentLang;
 
             // First try to load from AppData via IPC
-            if (this.api && typeof this.api.loadTranslations === 'function') {
+            if (this.api) {
                 console.log(`[SAVE-EDITOR] Fetching persisted translations from AppData for language: ${currentLang}...`);
-                const persisted = await this.api.loadTranslations(currentLang);
+                const persisted = await this.api.invoke('save-editor:load-translations', currentLang);
                 if (persisted && typeof persisted === 'object') {
                     this.translationCache = persisted;
                     console.log(`[SAVE-EDITOR] Successfully loaded ${Object.keys(this.translationCache).length} translations from AppData.`);
@@ -116,9 +116,9 @@ export class Translator {
 
         // Save to AppData via IPC (with identical results stripped)
         try {
-            if (this.api && typeof this.api.saveTranslations === 'function') {
+            if (this.api) {
                 console.log(`[SAVE-EDITOR] Persisting translations to AppData for language: ${currentLang}...`);
-                await this.api.saveTranslations(currentLang, this.translationCache);
+                await this.api.invoke('save-editor:save-translations', { lang: currentLang, translations: this.translationCache });
             }
         } catch (e) {
             console.error('[SAVE-EDITOR] IPC AppData save failed:', e);

@@ -2,6 +2,25 @@ import { App, IpcMain, Shell, BrowserWindow } from 'electron';
 import * as fsSync from 'fs';
 import { TelemetryShipper } from '../telemetry/shipper';
 import { isPathWithinLibrary } from './path-validator';
+import { IpcInvokes, IpcSends } from '../../shared/types/ipc';
+
+export class TypedIpcRouter {
+    constructor(private ipcMain: IpcMain) {}
+
+    handle<K extends keyof IpcInvokes>(
+        channel: K,
+        handler: (event: any, ...args: IpcInvokes[K]['args']) => Promise<IpcInvokes[K]['return']> | IpcInvokes[K]['return']
+    ): void {
+        this.ipcMain.handle(channel, handler as any);
+    }
+
+    on<K extends keyof IpcSends>(
+        channel: K,
+        handler: (event: any, ...args: IpcSends[K]) => void
+    ): void {
+        this.ipcMain.on(channel, handler as any);
+    }
+}
 
 export interface RegisterIpcOptions {
     app: App;
@@ -36,22 +55,24 @@ export function registerMainIpc({
     defaultGamesDir,
     paths
 }: RegisterIpcOptions): void {
-    ipcMain.handle('get-app-version', async () => app.getVersion());
-    ipcMain.handle('get-language-state', async () => languagePackServices.buildLanguageState());
-    ipcMain.handle('bootstrap-app', async (event, options = {}) => startupServices.bootstrapAppState(event.sender, options));
-    ipcMain.handle('log-app-update-debug', async (_event, message) => {
+    const router = new TypedIpcRouter(ipcMain);
+
+    router.handle('get-app-version', async () => app.getVersion());
+    router.handle('get-language-state', async () => languagePackServices.buildLanguageState());
+    router.handle('bootstrap-app', async (event, options = {}) => startupServices.bootstrapAppState(event.sender, options));
+    router.handle('log-app-update-debug', async (_event, message) => {
         if (typeof appUpdateServices.logDebug === 'function') {
             await appUpdateServices.logDebug(String(message || ''));
         }
         return { ok: true };
     });
 
-    ipcMain.handle('start-app-update-download', async () => appUpdateServices.startBackgroundDownload());
-    ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices.restartAndInstallDownloadedUpdate());
-    ipcMain.handle('schedule-app-update-next-launch', async () => appUpdateServices.scheduleInstallOnNextLaunch());
-    ipcMain.handle('begin-deferred-app-update-install', async () => appUpdateServices.beginDeferredInstallOnLaunch());
-    ipcMain.handle('open-app-update-download-page', async () => appUpdateServices.openAppUpdateDownloadPage());
-    ipcMain.handle('open-external-url', async (_event, url) => {
+    router.handle('start-app-update-download', async () => appUpdateServices.startBackgroundDownload());
+    router.handle('restart-and-install-app-update', async () => appUpdateServices.restartAndInstallDownloadedUpdate());
+    router.handle('schedule-app-update-next-launch', async () => appUpdateServices.scheduleInstallOnNextLaunch());
+    router.handle('begin-deferred-app-update-install', async () => appUpdateServices.beginDeferredInstallOnLaunch());
+    router.handle('open-app-update-download-page', async () => appUpdateServices.openAppUpdateDownloadPage());
+    router.handle('open-external-url', async (_event, url) => {
         const normalizedUrl = String(url || '').trim();
         if (!/^https?:\/\//i.test(normalizedUrl)) {
             return { ok: false, reason: 'invalid-url' };
@@ -59,7 +80,7 @@ export function registerMainIpc({
         await shell.openExternal(normalizedUrl);
         return { ok: true };
     });
-    ipcMain.handle('get-language-pack-manifest', async () => {
+    router.handle('get-language-pack-manifest', async () => {
         const result = await languagePackServices.fetchLanguageManifest();
         return {
             ok: result.ok,
@@ -70,19 +91,19 @@ export function registerMainIpc({
             packs: result.manifest ? result.manifest.packs : []
         };
     });
-    ipcMain.handle('install-language-pack', async (_event, code) => languagePackServices.installLanguagePack(code));
+    router.handle('install-language-pack', async (_event, code) => languagePackServices.installLanguagePack(code));
 
-    ipcMain.handle('check-config', async () => startupServices.resolveLibraryConfig());
-    ipcMain.handle('get-default-path', () => defaultGamesDir);
-    ipcMain.handle('setup-library', async (_event, type) => libraryState.setupLibrary(type));
-    ipcMain.handle('update-library-config', async (_event, updates = {}) => {
+    router.handle('check-config', async () => startupServices.resolveLibraryConfig());
+    router.handle('get-default-path', () => defaultGamesDir);
+    router.handle('setup-library', async (_event, type) => libraryState.setupLibrary(type));
+    router.handle('update-library-config', async (_event, updates = {}) => {
         const result = await libraryState.updateLibraryConfig(updates);
         if (updates && 'telemetryEnabled' in updates) {
             await TelemetryShipper.getInstance().setTelemetryEnabled(updates.telemetryEnabled);
         }
         return result;
     });
-    ipcMain.handle('get-games', async () => {
+    router.handle('get-games', async () => {
         await playtimeSessionManager.refreshSessions({ recover: true, emit: false });
         const games = await startupServices.loadGamesForConfig(await startupServices.resolveLibraryConfig());
         return playtimeSessionManager.overlayGames(games).map((game: any) => {
@@ -90,13 +111,13 @@ export function registerMainIpc({
             return rest;
         });
     });
-    ipcMain.handle('get-category-tree', async () => categoryState.getCategoryTree());
-    ipcMain.handle('create-category', async (_event, payload = {}) => categoryState.createCategory(payload));
-    ipcMain.handle('rename-category', async (_event, { categoryId, name }) => categoryState.renameCategory(categoryId, name));
-    ipcMain.handle('delete-category', async (_event, categoryId) => categoryState.deleteCategory(categoryId));
-    ipcMain.handle('assign-game-categories', async (_event, { gameId, categoryIds }) => categoryState.assignGameCategories(gameId, categoryIds));
-    ipcMain.handle('remove-game-category', async (_event, { gameId, categoryId }) => categoryState.removeGameFromCategory(gameId, categoryId));
-    ipcMain.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
+    router.handle('get-category-tree', async () => categoryState.getCategoryTree());
+    router.handle('create-category', async (_event, payload = {}) => categoryState.createCategory(payload));
+    router.handle('rename-category', async (_event, { categoryId, name }) => categoryState.renameCategory(categoryId, name));
+    router.handle('delete-category', async (_event, categoryId) => categoryState.deleteCategory(categoryId));
+    router.handle('assign-game-categories', async (_event, { gameId, categoryIds }) => categoryState.assignGameCategories(gameId, categoryIds));
+    router.handle('remove-game-category', async (_event, { gameId, categoryId }) => categoryState.removeGameFromCategory(gameId, categoryId));
+    router.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
         try {
             const record = await libraryState.getGameRecord(gameKey);
             if (record && record.autoTranslate) {
@@ -110,37 +131,37 @@ export function registerMainIpc({
         }
     });
 
-    ipcMain.on('open-folder', async () => {
+    router.on('open-folder', async () => {
         const libraryPath = await libraryState.resolveLibraryFolderToOpen();
         if (libraryPath) {
             shell.openPath(libraryPath);
         }
     });
-    ipcMain.handle('rename-game', async (_event, { gameKey, newName }) => libraryState.renameGame(gameKey, newName));
-    ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
-    ipcMain.handle('toggle-run-in-background', async (_event, gameKey) => libraryState.toggleRunInBackground(gameKey));
-    ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState.toggleAutoTranslate(gameKey));
-    ipcMain.handle('translation:check-support', async (_event, gameKey) => {
+    router.handle('rename-game', async (_event, { gameKey, newName }) => libraryState.renameGame(gameKey, newName));
+    router.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
+    router.handle('toggle-run-in-background', async (_event, gameKey) => libraryState.toggleRunInBackground(gameKey));
+    router.handle('toggle-auto-translate', async (_event, gameKey) => libraryState.toggleAutoTranslate(gameKey));
+    router.handle('translation:check-support', async (_event, gameKey) => {
         const record = await libraryState.getGameRecord(gameKey);
         if (!record || !record.exePath) return { supported: false, engine: null };
         const engine = await translationService.detectEngineSupport(record.exePath);
         return { supported: !!engine, engine };
     });
-    ipcMain.handle('translation:start-sync', async (_event, { gameKey, targetLang }) => {
+    router.handle('translation:start-sync', async (_event, { gameKey, targetLang }) => {
         const record = await libraryState.getGameRecord(gameKey);
         if (!record || !record.exePath) return { success: false, error: 'game-not-found' };
         translationService.queueDeepSync(gameKey, record.exePath, targetLang, record.name);
         return { success: true };
     });
-    ipcMain.handle('translation:cancel-sync', async (_event, gameKey) => {
+    router.handle('translation:cancel-sync', async (_event, gameKey) => {
         translationService.cancelDeepSync(gameKey);
         return { success: true };
     });
-    ipcMain.handle('translation:move-queue', async (_event, { gameKey, direction }) => {
+    router.handle('translation:move-queue', async (_event, { gameKey, direction }) => {
         translationService.moveQueue(gameKey, direction);
         return { success: true };
     });
-    ipcMain.on('reveal-game', async (_event, targetPath) => {
+    router.on('reveal-game', async (_event, targetPath) => {
         const config = await libraryState.resolveLibraryConfig();
         if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
             shell.showItemInFolder(targetPath);
@@ -148,7 +169,7 @@ export function registerMainIpc({
             console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
         }
     });
-    ipcMain.on('open-path', async (_event, targetPath) => {
+    router.on('open-path', async (_event, targetPath) => {
         const config = await libraryState.resolveLibraryConfig();
         if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
             shell.openPath(targetPath);
@@ -156,18 +177,18 @@ export function registerMainIpc({
             console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
         }
     });
-    ipcMain.handle('delete-game', async (_event, targetPath) => {
+    router.handle('delete-game', async (_event, targetPath) => {
         const config = await libraryState.resolveLibraryConfig();
         if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
             return shell.trashItem(targetPath);
         }
         return { ok: false, error: 'unauthorized-path' };
     });
-    ipcMain.handle('library:add-path', async () => libraryState.addLibraryPath());
-    ipcMain.handle('library:remove-path', async (_event, targetPath) => libraryState.removeLibraryPath(targetPath));
-    ipcMain.handle('library:change-path', async (_event, oldPath) => libraryState.changeLibraryPath(oldPath));
+    router.handle('library:add-path', async () => libraryState.addLibraryPath());
+    router.handle('library:remove-path', async (_event, targetPath) => libraryState.removeLibraryPath(targetPath));
+    router.handle('library:change-path', async (_event, oldPath) => libraryState.changeLibraryPath(oldPath));
 
-    ipcMain.handle('get-save-folder', async (_event, gameKey) => {
+    router.handle('get-save-folder', async (_event, gameKey) => {
         console.log(`[IPC][get-save-folder] Received request for: ${gameKey}`);
         const record = await libraryState.getGameRecord(gameKey);
         if (!record) {
@@ -181,39 +202,39 @@ export function registerMainIpc({
         console.log(`[IPC][get-save-folder] Resolved to record: ${record.name} (${record.exePath})`);
         return saveFolderResolver.resolveSaveFolder(record.exePath, record.saveFolderOverride);
     });
-    ipcMain.handle('set-save-folder-override', async (_event, { gameKey, folderPath }) => {
+    router.handle('set-save-folder-override', async (_event, { gameKey, folderPath }) => {
         return libraryState.setSaveFolderOverride(gameKey, folderPath);
     });
 
     // Save Editor
-    ipcMain.handle('save-editor:list-files', async (_event, gameKey) => {
+    router.handle('save-editor:list-files', async (_event, gameKey) => {
         console.log(`[IPC] save-editor:list-files gameKey: ${gameKey}`);
         return saveEditorService.listSaveFiles(gameKey);
     });
-    ipcMain.handle('save-editor:load-data', async (_event, { gameKey, fileName }) => {
+    router.handle('save-editor:load-data', async (_event, { gameKey, fileName }) => {
         console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
         return saveEditorService.loadSaveData(gameKey, fileName);
     });
-    ipcMain.handle('save-editor:write-data', async (_event, { gameKey, fileName, data }) => {
+    router.handle('save-editor:write-data', async (_event, { gameKey, fileName, data }) => {
         console.log(`[IPC] save-editor:write-data gameKey: ${gameKey}, fileName: ${fileName}`);
         return saveEditorService.writeSaveData(gameKey, fileName, data);
     });
-    ipcMain.handle('save-editor:update-mapping', async (_event, { gameKey, name, offset, dataType }) => {
+    router.handle('save-editor:update-mapping', async (_event, { gameKey, name, offset, dataType }) => {
         console.log(`[IPC] save-editor:update-mapping gameKey: ${gameKey}`);
         return saveEditorService.updateMapping(gameKey, name, offset, dataType);
     });
 
-    ipcMain.handle('save-editor:load-translations', async (_event, lang) => {
+    router.handle('save-editor:load-translations', async (_event, lang) => {
         console.log(`[IPC] save-editor:load-translations for lang: ${lang}`);
         return saveEditorService.loadTranslations(lang);
     });
 
-    ipcMain.handle('save-editor:save-translations', async (_event, { lang, translations }) => {
+    router.handle('save-editor:save-translations', async (_event, { lang, translations }) => {
         console.log(`[IPC] save-editor:save-translations for lang: ${lang} (${Object.keys(translations || {}).length} keys)`);
         return saveEditorService.saveTranslations(lang, translations);
     });
 
-    ipcMain.on('open-save-editor-window', (_event, gameKey) => {
+    router.on('open-save-editor-window', (_event, gameKey) => {
         const saveEditorWin = new BrowserWindow({
             width: 1000,
             height: 700,
@@ -244,7 +265,7 @@ export function registerMainIpc({
         }
     });
 
-    ipcMain.handle('is-dev', () => !app.isPackaged);
+    router.handle('is-dev', () => !app.isPackaged);
 
     let devAutoLaunchState = 'off';
 
@@ -275,7 +296,7 @@ export function registerMainIpc({
         console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch on startup:', e);
     }
 
-    ipcMain.handle('set-auto-launch', async (_event, value) => {
+    router.handle('set-auto-launch', async (_event, value) => {
         try {
             const openAtLogin = (value === 'on' || value === 'minimized' || value === true);
             const args = (value === 'minimized') ? ['--minimized'] : [];
@@ -296,7 +317,7 @@ export function registerMainIpc({
         }
     });
 
-    ipcMain.handle('get-auto-launch', async () => {
+    router.handle('get-auto-launch', async () => {
         try {
             if (!app.isPackaged) {
                 return devAutoLaunchState;

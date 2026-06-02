@@ -337,7 +337,8 @@ export class TranslationService {
     async getDictionaryPath(gameKey: string, exePath: string): Promise<string | null> {
         const exeDir = path.dirname(exePath);
         if (await this.isWolfRpg(exeDir)) {
-            const patchDir = path.join(this.translatorsDir, 'patches', gameKey);
+            const sanitizedKey = gameKey.replace(/:/g, '_');
+            const patchDir = path.join(this.translatorsDir, 'patches', sanitizedKey);
             await ensureDir(patchDir);
             return path.join(patchDir, 'wolf_dictionary.txt');
         }

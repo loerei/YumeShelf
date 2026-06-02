@@ -17,7 +17,8 @@ export class WolfRpgExtractor implements TranslationExtractor {
     }
 
     private getPatchDir(): string {
-        return path.join(this.translatorsDir, 'patches', this.gameKey || 'wolf-temp');
+        const sanitizedKey = (this.gameKey || 'wolf-temp').replace(/:/g, '_');
+        return path.join(this.translatorsDir, 'patches', sanitizedKey);
     }
 
     async extract(gameDir: string): Promise<string[]> {

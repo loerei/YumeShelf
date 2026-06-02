@@ -12,11 +12,13 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ### 🔧 What Changed
 
+- [translation-system] Sanitized WOLF RPG translation patch directory paths by replacing invalid OS colon characters (`:`) with underscores (`_`) to prevent `ENOENT` folder creation crashes on Windows systems.
 - [translation-system] Patched `rewolf-trans` internals at runtime to support WOLF RPG v3.x dynamic lookahead command boundary detection. The boundary finder checks CID patterns and strictly enforces layout indent bounds to resolve offset alignment crashes.
 - [translation-system] Patched the base archive decoder to support WOLF RPG v3.x signature formats, handling zero-length empty string pointers cleanly.
 
 ### 🛠️ For the Nerds
 
+- [translation-system] Updated `WolfRpgExtractor.getPatchDir` and `TranslationService.getDictionaryPath` to ensure cross-platform safety for temporary and persistent patch output paths.
 - [translation-system] Implemented `patchRewolfTrans` inside `WolfRpgExtractor` to runtime-apply structural fixes to the local `rewolf-trans` dependency structure before invoking translation.
 - [translation-system] Upgraded `expectByte` inside the file-coder compiler to perform on-the-fly 1-byte misalignment realignment when encountering boundary event indicators.
 

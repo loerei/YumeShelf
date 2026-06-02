@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createRendererComposition } from './renderer/bootstrap/app-composition.js';
 import { buildRendererRefs } from './renderer/bootstrap/dom-refs.js';
 import { bindControlEvents, bindGlobalUiEvents, bindWindowStatusEvents } from './renderer/events/global-events.js';
@@ -6,6 +5,7 @@ import { bindIpcEvents } from './renderer/events/ipc-events.js';
 import { runRendererBootstrap } from './renderer/lifecycle/bootstrap.js';
 import { createUiRuntimeState } from './renderer/state/ui-runtime-state.js';
 import { initSaveEditorUI } from './renderer/save-editor-ui.js';
+import { GameEntry } from './renderer/state/types';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -18,7 +18,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadingEl.style.display = 'none';
         }
         initSaveEditorUI();
-        window.showSaveEditor(gameKey, { isStandaloneWindow: true });
+        const win = window as any;
+        if (typeof win.showSaveEditor === 'function') {
+            win.showSaveEditor(gameKey, { isStandaloneWindow: true });
+        }
         return;
     }
 
@@ -40,8 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         getAllGames: () => state.getAllGames(),
         getCurrentSort: () => state.getCurrentSort(),
         setAllGames: composition.libraryRuntime.setAllGames,
-        setRunningFlag: (gameKey, isRunning) => {
-            const target = state.getAllGames().find((game) => (
+        setRunningFlag: (gameKey: string, isRunning: boolean) => {
+            const target = state.getAllGames().find((game: GameEntry) => (
                 game.gameId === gameKey
                 || game.gameKey === gameKey
                 || (Array.isArray(game.instances) && game.instances.some((instance) => (
@@ -53,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 target.isRunning = isRunning;
             }
         },
-        sortGames: (type) => composition.libraryRuntime.sortGames(type)
+        sortGames: (type: string) => composition.libraryRuntime.sortGames(type)
     });
 
     bindControlEvents({
@@ -63,10 +66,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         languagePackController: composition.languagePackController,
         startupController: composition.startupController,
         searchController: composition.searchController,
-        sortGames: (type) => composition.libraryRuntime.sortGames(type),
+        sortGames: (type: string) => composition.libraryRuntime.sortGames(type),
         reannotateGames: () => composition.libraryRuntime.reannotateGames(),
         currentSort: () => state.getCurrentSort(),
-        setCurrentLanguage: (code) => composition.localeController.setCurrentLanguage(code)
+        setCurrentLanguage: (code: string) => composition.localeController.setCurrentLanguage(code)
     });
     bindGlobalUiEvents({
         categoryFilterController: composition.categoryFilterController,

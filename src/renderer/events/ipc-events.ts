@@ -1,4 +1,17 @@
-// @ts-nocheck
+import { ElectronAPI } from '../../shared/types/ipc';
+import { GameEntry } from '../state/types';
+
+export interface BindIpcEventsOptions {
+    electronAPI: ElectronAPI;
+    bootController: any;
+    updateNotificationFeature: any;
+    getAllGames: () => GameEntry[];
+    getCurrentSort: () => string;
+    setAllGames: (games: GameEntry[], config?: any) => void;
+    setRunningFlag: (gameKey: string, isRunning: boolean) => void;
+    sortGames: (sortType: string) => void;
+}
+
 export function bindIpcEvents({
     electronAPI,
     bootController,
@@ -8,7 +21,7 @@ export function bindIpcEvents({
     setAllGames,
     setRunningFlag,
     sortGames
-}) {
+}: BindIpcEventsOptions) {
     electronAPI.on('boot-status', (payload) => {
         bootController.show(payload);
     });
@@ -35,11 +48,11 @@ export function bindIpcEvents({
         sortGames(getCurrentSort());
     });
 
-    electronAPI.on('translation-status', (payload) => {
+    electronAPI.on('translation-status', (payload: any) => {
         const isBlocking = ['preparing', 'downloading', 'extracting-binaries'].includes(payload.status);
         
         if (isBlocking) {
-            const messageMap = {
+            const messageMap: Record<string, string> = {
                 'preparing': 'Preparing Auto-Translator...',
                 'downloading': `Downloading Translator (${Math.round((payload.progress || 0) * 100)}%)...`,
                 'extracting-binaries': 'Extracting Translator binaries...'
@@ -89,20 +102,24 @@ export function bindIpcEvents({
                         </div>
                     `;
                     host.appendChild(card);
-                    card.querySelector('#translation-dismiss-btn').onclick = () => {
-                        card.style.display = 'none';
-                    };
+                    
+                    const dismissBtn = card.querySelector('#translation-dismiss-btn') as HTMLElement | null;
+                    if (dismissBtn) {
+                        dismissBtn.onclick = () => {
+                            if (card) card.style.display = 'none';
+                        };
+                    }
                 }
             }
 
             if (card) {
                 card.style.display = 'flex';
-                const titleEl = card.querySelector('#translation-title');
-                const messageEl = card.querySelector('#translation-message');
-                const fillEl = card.querySelector('#translation-progress-fill');
-                const cancelBtn = card.querySelector('#translation-cancel-btn');
-                const queueSection = card.querySelector('#translation-queue-section');
-                const queueItems = card.querySelector('#translation-queue-items');
+                const titleEl = card.querySelector('#translation-title') as HTMLElement | null;
+                const messageEl = card.querySelector('#translation-message') as HTMLElement | null;
+                const fillEl = card.querySelector('#translation-progress-fill') as HTMLElement | null;
+                const cancelBtn = card.querySelector('#translation-cancel-btn') as HTMLButtonElement | null;
+                const queueSection = card.querySelector('#translation-queue-section') as HTMLElement | null;
+                const queueItems = card.querySelector('#translation-queue-items') as HTMLElement | null;
 
                 if (cancelBtn) {
                     if (['sync-extracting', 'syncing', 'sync-queued'].includes(payload.status)) {
@@ -111,7 +128,7 @@ export function bindIpcEvents({
                             if (payload.gameKey) {
                                 cancelBtn.disabled = true;
                                 cancelBtn.textContent = 'Cancelling...';
-                                await electronAPI.cancelTranslationSync(payload.gameKey);
+                                await electronAPI.invoke('translation:cancel-sync', payload.gameKey);
                             }
                         };
                     } else {
@@ -124,7 +141,7 @@ export function bindIpcEvents({
                     if (payload.queue && payload.queue.length > 0) {
                         queueSection.style.display = 'flex';
                         queueItems.innerHTML = '';
-                        payload.queue.forEach((item, index) => {
+                        payload.queue.forEach((item: any) => {
                             const row = document.createElement('div');
                             row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border-radius: 4px; padding: 4px 6px; font-size: 11px; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.02);';
                             row.innerHTML = `
@@ -137,22 +154,31 @@ export function bindIpcEvents({
                             `;
                             
                             // Wire Up button click
-                            row.querySelector('.queue-btn-up').onclick = async (e) => {
-                                e.stopPropagation();
-                                await electronAPI.moveTranslationQueue({ gameKey: item.gameKey, direction: 'up' });
-                            };
+                            const upBtn = row.querySelector('.queue-btn-up') as HTMLElement | null;
+                            if (upBtn) {
+                                upBtn.onclick = async (e) => {
+                                    e.stopPropagation();
+                                    await electronAPI.invoke('translation:move-queue', { gameKey: item.gameKey, direction: 'up' });
+                                };
+                            }
 
                             // Wire Down button click
-                            row.querySelector('.queue-btn-down').onclick = async (e) => {
-                                e.stopPropagation();
-                                await electronAPI.moveTranslationQueue({ gameKey: item.gameKey, direction: 'down' });
-                            };
+                            const downBtn = row.querySelector('.queue-btn-down') as HTMLElement | null;
+                            if (downBtn) {
+                                downBtn.onclick = async (e) => {
+                                    e.stopPropagation();
+                                    await electronAPI.invoke('translation:move-queue', { gameKey: item.gameKey, direction: 'down' });
+                                };
+                            }
 
                             // Wire Remove button click
-                            row.querySelector('.queue-btn-remove').onclick = async (e) => {
-                                e.stopPropagation();
-                                await electronAPI.cancelTranslationSync(item.gameKey);
-                            };
+                            const removeBtn = row.querySelector('.queue-btn-remove') as HTMLElement | null;
+                            if (removeBtn) {
+                                removeBtn.onclick = async (e) => {
+                                    e.stopPropagation();
+                                    await electronAPI.invoke('translation:cancel-sync', item.gameKey);
+                                };
+                            }
 
                             queueItems.appendChild(row);
                         });
@@ -161,40 +187,42 @@ export function bindIpcEvents({
                     }
                 }
 
-                if (payload.status === 'sync-queued') {
-                    titleEl.textContent = 'Sync Queued';
-                    messageEl.textContent = `Waiting in queue (Position: ${payload.queuePosition || 1})...`;
-                    fillEl.style.width = '0%';
-                } else if (payload.status === 'sync-extracting') {
-                    titleEl.textContent = payload.activeJobName ? `Extracting: ${payload.activeJobName}` : 'Syncing Translation';
-                    messageEl.textContent = 'Scanning database and maps for strings...';
-                    fillEl.style.width = '0%';
-                } else if (payload.status === 'syncing') {
-                    titleEl.textContent = payload.activeJobName ? `Syncing: ${payload.activeJobName}` : 'Syncing Translation';
-                    if (payload.translated !== undefined && payload.total !== undefined) {
-                        messageEl.textContent = `Translating strings: ${payload.translated} / ${payload.total}`;
-                    } else {
-                        messageEl.textContent = `Translating and caching game text to local database...`;
+                if (titleEl && messageEl && fillEl) {
+                    if (payload.status === 'sync-queued') {
+                        titleEl.textContent = 'Sync Queued';
+                        messageEl.textContent = `Waiting in queue (Position: ${payload.queuePosition || 1})...`;
+                        fillEl.style.width = '0%';
+                    } else if (payload.status === 'sync-extracting') {
+                        titleEl.textContent = payload.activeJobName ? `Extracting: ${payload.activeJobName}` : 'Syncing Translation';
+                        messageEl.textContent = 'Scanning database and maps for strings...';
+                        fillEl.style.width = '0%';
+                    } else if (payload.status === 'syncing') {
+                        titleEl.textContent = payload.activeJobName ? `Syncing: ${payload.activeJobName}` : 'Syncing Translation';
+                        if (payload.translated !== undefined && payload.total !== undefined) {
+                            messageEl.textContent = `Translating strings: ${payload.translated} / ${payload.total}`;
+                        } else {
+                            messageEl.textContent = `Translating and caching game text to local database...`;
+                        }
+                        fillEl.style.width = `${(payload.progress || 0) * 100}%`;
+                    } else if (payload.status === 'synced') {
+                        titleEl.textContent = payload.activeJobName ? `Synced: ${payload.activeJobName}!` : 'Translation Synced!';
+                        messageEl.textContent = 'All dialogue and UI components are fully translated locally.';
+                        fillEl.style.width = '100%';
+                        setTimeout(() => {
+                            if (card) card.style.display = 'none';
+                        }, 5000);
+                    } else if (payload.status === 'sync-cancelled') {
+                        titleEl.textContent = 'Sync Cancelled';
+                        messageEl.textContent = 'Translation sync job was cancelled.';
+                        fillEl.style.width = '0%';
+                        setTimeout(() => {
+                            if (card) card.style.display = 'none';
+                        }, 3000);
+                    } else if (payload.status === 'sync-error') {
+                        titleEl.textContent = 'Sync Error';
+                        messageEl.textContent = 'An error occurred during translation sync.';
+                        fillEl.style.width = '0%';
                     }
-                    fillEl.style.width = `${(payload.progress || 0) * 100}%`;
-                } else if (payload.status === 'synced') {
-                    titleEl.textContent = payload.activeJobName ? `Synced: ${payload.activeJobName}!` : 'Translation Synced!';
-                    messageEl.textContent = 'All dialogue and UI components are fully translated locally.';
-                    fillEl.style.width = '100%';
-                    setTimeout(() => {
-                        card.style.display = 'none';
-                    }, 5000);
-                } else if (payload.status === 'sync-cancelled') {
-                    titleEl.textContent = 'Sync Cancelled';
-                    messageEl.textContent = 'Translation sync job was cancelled.';
-                    fillEl.style.width = '0%';
-                    setTimeout(() => {
-                        card.style.display = 'none';
-                    }, 3000);
-                } else if (payload.status === 'sync-error') {
-                    titleEl.textContent = 'Sync Error';
-                    messageEl.textContent = 'An error occurred during translation sync.';
-                    fillEl.style.width = '0%';
                 }
             }
         }

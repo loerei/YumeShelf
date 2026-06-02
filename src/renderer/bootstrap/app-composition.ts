@@ -1,22 +1,32 @@
-// @ts-nocheck
-import { createBootController } from '../boot';
-import { createCategoryFilterController } from '../category-filter';
-import { createAppUpdateController } from '../app-updates';
-import { createDragDropGridController } from '../drag-drop-grid';
-import { createDuplicateStackOverlayController } from '../duplicate-stack-overlay';
-import { createGameCardFactory } from '../game-cards';
-import { createLocaleController } from '../i18n';
-import { createLanguagePackController } from '../language-packs';
-import { createLibraryGridController } from '../library-grid';
-import { getGameKey } from '../library-order';
-import { createLibraryRuntime } from '../library/runtime';
-import { createSearchController } from '../search';
-import { createSettingsController } from '../settings';
-import { createStackCardFactory } from '../stack-cards';
-import { createStartupController } from '../startup';
-import { createTooltipController } from '../tooltips';
-import { createUpdateNotificationFeature } from '../update-notification-feature';
-import { createUITextController } from '../ui-text';
+import { createBootController } from '../boot.js';
+import { createCategoryFilterController } from '../category-filter.js';
+import { createAppUpdateController } from '../app-updates.js';
+import { createDragDropGridController } from '../drag-drop-grid.js';
+import { createDuplicateStackOverlayController } from '../duplicate-stack-overlay.js';
+import { createGameCardFactory } from '../game-cards.js';
+import { createLocaleController } from '../i18n.js';
+import { createLanguagePackController } from '../language-packs.js';
+import { createLibraryGridController } from '../library-grid.js';
+import { getGameKey } from '../library-order.js';
+import { createLibraryRuntime } from '../library/runtime.js';
+import { createSearchController } from '../search.js';
+import { createSettingsController } from '../settings.js';
+import { createStackCardFactory } from '../stack-cards.js';
+import { createStartupController } from '../startup.js';
+import { createTooltipController } from '../tooltips.js';
+import { createUpdateNotificationFeature } from '../update-notification-feature.js';
+import { createUITextController } from '../ui-text.js';
+import { CentralStore, GameEntry } from '../state/types';
+import { ElectronAPI } from '../../shared/types/ipc';
+
+export interface RendererCompositionOptions {
+    refs: any;
+    state: CentralStore;
+    electronAPI: ElectronAPI;
+    builtInLanguageOrder: string[];
+    dragRowTolerance: number;
+    dragPointerSlop: number;
+}
 
 export function createRendererComposition({
     refs,
@@ -25,7 +35,7 @@ export function createRendererComposition({
     builtInLanguageOrder,
     dragRowTolerance,
     dragPointerSlop
-}) {
+}: RendererCompositionOptions) {
     const bootController = createBootController({
         loading: refs.loading,
         bootProgress: refs.bootProgress,
@@ -47,7 +57,8 @@ export function createRendererComposition({
         sortGames: () => libraryRuntime.sortGames(state.getCurrentSort())
     });
     const tooltipController = createTooltipController();
-    function withLogicalGameMutation(gameKey, mutator) {
+
+    function withLogicalGameMutation(gameKey: string, mutator: (entry: GameEntry) => void) {
         state.setAllGames(
             state.getAllGames().map((entry) => {
                 if (getGameKey(entry) !== gameKey) {
@@ -63,6 +74,7 @@ export function createRendererComposition({
             })
         );
     }
+
     function getVisibleGames() {
         const activeCategoryId = state.getActiveCategoryId();
         const allGames = state.getAllGames();
@@ -76,7 +88,7 @@ export function createRendererComposition({
     // Each controller receives its root container element and queries its own internal DOM.
 
     const searchController = createSearchController({
-        attachTooltip: (element, getContent) => {
+        attachTooltip: (element: HTMLElement, getContent: () => string) => {
             tooltipController.attachTooltip(element, getContent);
         },
         advancePlaceholderIndex: () => localeController.advancePlaceholderIndex(),
@@ -88,7 +100,7 @@ export function createRendererComposition({
         getPlaceholders: () => localeController.getPlaceholders(),
         getStrings: () => getStrings(),
         container: refs.containers.search,
-        setDraggedGameFolder: (value) => {
+        setDraggedGameFolder: (value: string | null) => {
             state.setDraggedGameFolder(value);
         }
     });
@@ -98,7 +110,7 @@ export function createRendererComposition({
         getCategoryTree: () => state.getCategoryTree(),
         getVisibleGames,
         container: refs.containers.categoryFilter,
-        setActiveCategoryId: (value) => {
+        setActiveCategoryId: (value: string | null) => {
             state.setActiveCategoryId(value);
         },
         sortGames: () => libraryRuntime.sortGames(state.getCurrentSort())
@@ -111,8 +123,9 @@ export function createRendererComposition({
         container: refs.containers.settings
     });
 
-    let languagePackController = null;
-    let updateNotificationFeature = null;
+    let languagePackController: any = null;
+    let updateNotificationFeature: any = null;
+
     const appUpdateController = createAppUpdateController({
         bootController,
         electronAPI,
@@ -122,13 +135,13 @@ export function createRendererComposition({
         },
         reloadWindow: () => window.location.reload(),
         updateNotificationFeature: {
-            present: (...args) => updateNotificationFeature.present(...args)
+            present: (...args: any[]) => updateNotificationFeature.present(...args)
         }
     });
 
     languagePackController = createLanguagePackController({
         electronAPI,
-        getAppUpdateState: (mode) => appUpdateController.getAppUpdateState(mode),
+        getAppUpdateState: (mode: string) => appUpdateController.getAppUpdateState(mode),
         localeController,
         onOverlayOpen: () => {
             tooltipController.hide();
@@ -139,7 +152,7 @@ export function createRendererComposition({
         performAppUpdateAction: () => appUpdateController.performReviewUpdate(),
         suppressPostUpdateReview: () => appUpdateController.suppressPostUpdateNotice(),
         container: refs.containers.languagePack,
-        subscribeAppUpdateState: (listener) => appUpdateController.subscribe(listener)
+        subscribeAppUpdateState: (listener: any) => appUpdateController.subscribe(listener)
     });
 
     updateNotificationFeature = createUpdateNotificationFeature({
@@ -167,35 +180,34 @@ export function createRendererComposition({
             separator: refs.separator,
             unfavGrid: refs.unfavGrid
         },
-        setCurrentSort: (value) => {
+        setCurrentSort: (value: string) => {
             state.setCurrentSort(value);
         },
-        setDraggedGameFolder: (value) => {
+        setDraggedGameFolder: (value: string | null) => {
             state.setDraggedGameFolder(value);
         },
-        setDragTargetInfo: (value) => {
+        setDragTargetInfo: (value: any) => {
             state.setDragTargetInfo(value);
         },
-        sortGames: (type) => libraryRuntime.sortGames(type)
+        sortGames: (type: string) => libraryRuntime.sortGames(type)
     });
 
     const gameCardFactory = createGameCardFactory({
-        attachTooltip: (element, getContent) => {
+        attachTooltip: (element: HTMLElement, getContent: () => string) => {
             tooltipController.attachTooltip(element, getContent);
         },
         electronAPI,
         getStrings: () => getStrings(),
-        onCardDeleted: (gameKey) => {
+        onCardDeleted: (gameKey: string) => {
             state.setAllGames(state.getAllGames().filter(g => getGameKey(g) !== gameKey));
-            libraryRuntime.reannotateGames();
         },
-        onDragStart: (gameKey) => {
+        onDragStart: (gameKey: string) => {
             dragDropGridController.startDrag(gameKey);
         },
         onDragStateReset: () => {
             dragDropGridController.resetDragState();
         },
-        onFavoriteToggled: (gameKey, favorite) => {
+        onFavoriteToggled: (gameKey: string, favorite: boolean) => {
             withLogicalGameMutation(gameKey, (entry) => {
                 entry.favorite = favorite;
                 if (Array.isArray(entry.instances)) {
@@ -215,7 +227,7 @@ export function createRendererComposition({
     });
 
     const duplicateStackOverlayController = createDuplicateStackOverlayController({
-        createCard: (game, options) => createCard(game, options),
+        createCard: (game: any, options: any) => createCard(game, options),
         onOpen: () => {
             tooltipController.hide();
         },
@@ -223,18 +235,18 @@ export function createRendererComposition({
     });
 
     const stackCardFactory = createStackCardFactory({
-        attachTooltip: (element, getContent) => {
+        attachTooltip: (element: HTMLElement, getContent: () => string) => {
             tooltipController.attachTooltip(element, getContent);
         },
         electronAPI,
         getStrings: () => getStrings(),
-        onDragStart: (gameKey) => {
+        onDragStart: (gameKey: string) => {
             dragDropGridController.startDrag(gameKey);
         },
         onDragStateReset: () => {
             dragDropGridController.resetDragState();
         },
-        onFavoriteToggled: (gameKey, favorite) => {
+        onFavoriteToggled: (gameKey: string, favorite: boolean) => {
             withLogicalGameMutation(gameKey, (entry) => {
                 entry.favorite = favorite;
                 if (Array.isArray(entry.instances)) {
@@ -247,10 +259,10 @@ export function createRendererComposition({
                 }
             });
         },
-        onOpenStack: (stack) => {
+        onOpenStack: (stack: any) => {
             duplicateStackOverlayController.open(stack);
         },
-        onRenamed: (gameKey, newName) => {
+        onRenamed: (gameKey: string, newName: string) => {
             withLogicalGameMutation(gameKey, (entry) => {
                 entry.name = newName;
                 if (Array.isArray(entry.instances)) {
@@ -269,7 +281,7 @@ export function createRendererComposition({
     });
 
     const libraryGridController = createLibraryGridController({
-        createLibraryItem: (item, options) => libraryRuntime.createLibraryItem(item, options),
+        createLibraryItem: (item: any, options: any) => libraryRuntime.createLibraryItem(item, options),
         getAllGames: () => state.getAllGames(),
         getActiveCategoryId: () => state.getActiveCategoryId(),
         getFilteredEmptyState: () => categoryFilterController.getFilteredEmptyState(),
@@ -284,7 +296,7 @@ export function createRendererComposition({
             separator: refs.separator,
             unfavGrid: refs.unfavGrid
         },
-        setCurrentSort: (value) => {
+        setCurrentSort: (value: string) => {
             state.setCurrentSort(value);
         }
     });
@@ -294,8 +306,8 @@ export function createRendererComposition({
         settingsController,
         duplicateStackOverlayController,
         libraryGridController,
-        createCard: (game, options) => gameCardFactory.createCard(game, options),
-        createStackCard: (stack, options) => stackCardFactory.createStackCard(stack, options),
+        createCard: (game: any, options: any) => gameCardFactory.createCard(game, options),
+        createStackCard: (stack: any, options: any) => stackCardFactory.createStackCard(stack, options),
         getVisibleGames
     });
 
@@ -310,12 +322,11 @@ export function createRendererComposition({
             welcome: refs.welcome,
             telemetryModal: refs.telemetryModal
         },
-        setCategoryTree: (tree) => {
+        setCategoryTree: (tree: any) => {
             state.setCategoryTree(tree);
-            categoryFilterController.renderMenu();
         },
         setAllGames: libraryRuntime.setAllGames,
-        sortGames: (type) => libraryRuntime.sortGames(type)
+        sortGames: (type: string) => libraryRuntime.sortGames(type)
     });
 
     const uiTextController = createUITextController({
@@ -329,7 +340,25 @@ export function createRendererComposition({
         getStrings: () => getStrings(),
         refs: refs.uiTextRefs,
         renderLanguagePackResults: () => languagePackController.renderLanguagePackResults(),
-        updateSearch: (query) => searchController.updateSearch(query)
+        updateSearch: (query: string) => searchController.updateSearch(query)
+    });
+
+    // --- Wire Up Central Store Subscriptions (Decoupling logic) ---
+    state.subscribe('categoryTree', () => {
+        categoryFilterController.renderMenu();
+    });
+
+    state.subscribe('activeCategoryId', () => {
+        categoryFilterController.renderMenu();
+        libraryRuntime.sortGames(state.getCurrentSort());
+    });
+
+    state.subscribe('currentSort', (sortType) => {
+        libraryRuntime.sortGames(sortType);
+    });
+
+    state.subscribe('allGames', () => {
+        libraryRuntime.reannotateGames();
     });
 
     dragDropGridController.attachZoneHandlers();
@@ -344,7 +373,7 @@ export function createRendererComposition({
         return localeController.getStrings();
     }
 
-    function getText(key, fallback = '') {
+    function getText(key: string, fallback = '') {
         return getStrings()[key] || getEnglishStrings()[key] || fallback;
     }
 
@@ -353,7 +382,7 @@ export function createRendererComposition({
         categoryFilterController.renderMenu();
     }
 
-    function createCard(game, options) {
+    function createCard(game: any, options: any) {
         return gameCardFactory.createCard(game, options);
     }
 

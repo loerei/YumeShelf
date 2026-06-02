@@ -36,3 +36,11 @@ docs/Report.md
 .env
 .env.local
 .purritize/\
+
+# Agent skills & configs
+.agents/
+.claude/
+skills-lock.json
+
+# Temporary backups & zip archives
+*.zip

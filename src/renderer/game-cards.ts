@@ -46,7 +46,7 @@ export function createGameCardFactory({
                 <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>Open Save Folder</span></div>
                 <div class="dropdown-item action-save-editor">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor}</span></div>
                 <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span></div>
-                <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('save-editor')}<span>Pre-Translate Game</span></div>
+                <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('translate')}<span>Pre-Translate Game</span></div>
                 <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
                 <div class=\"dropdown-item danger action-delete\">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
                 </div>

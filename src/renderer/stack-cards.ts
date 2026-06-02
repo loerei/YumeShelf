@@ -1,8 +1,20 @@
-// @ts-nocheck
 import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
+import { ElectronAPI } from '../shared/types/ipc';
+
+export interface StackCardFactoryOptions {
+    attachTooltip: (element: HTMLElement, getContent: () => any) => void;
+    electronAPI: ElectronAPI;
+    getStrings: () => any;
+    onOpenStack: (stack: any) => void;
+    onDragStart: (gameKey: string) => boolean | void;
+    onDragStateReset: () => void;
+    onFavoriteToggled: (gameKey: string, favorite: boolean) => void;
+    onRefreshRequested: () => void;
+    onRenamed: (gameKey: string, newName: string) => void;
+}
 
 export function createStackCardFactory({
     attachTooltip,
@@ -14,12 +26,12 @@ export function createStackCardFactory({
     onFavoriteToggled,
     onRefreshRequested,
     onRenamed
-}) {
-    function createStackCard(stack, options = {}) {
+}: StackCardFactoryOptions) {
+    function createStackCard(stack: any, options: any = {}) {
         const { primaryGame, representativeKey, stackSize } = stack;
         const interactiveSelector = '.fav-btn, .menu-btn, .dropdown-menu, .rename-input';
         const draggable = options.draggable !== false;
-        const uniqueLocations = [...new Set(stack.games.map((game) => game.locationLabel).filter(Boolean))];
+        const uniqueLocations = [...new Set(stack.games.map((game: any) => game.locationLabel).filter(Boolean))];
         const locationSummary = uniqueLocations.length > 1
             ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
             : (uniqueLocations[0] || primaryGame.locationLabel || '');
@@ -33,7 +45,7 @@ export function createStackCardFactory({
         card.dataset.duplicateSignature = primaryGame.duplicateSignature || '';
         card.draggable = draggable;
         const d = getStrings();
-        const isStackRunning = stack.games.some(g => g.isRunning);
+        const isStackRunning = stack.games.some((g: any) => g.isRunning);
         card.innerHTML = `
             <div class="fav-btn stack-fav-indicator ${stack.favorite ? 'active' : ''}">★</div>
             <div class="menu-btn"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
@@ -53,18 +65,18 @@ export function createStackCardFactory({
                 fit: primaryGame.iconFit,
                 source: primaryGame.iconSource,
                 debug: primaryGame.iconDebug
-            }, card.querySelector('.game-icon img'));
+            }, card.querySelector('.game-icon img') as HTMLImageElement);
         }
 
         if (!primaryGame.iconData) {
-            window.electronAPI.getIcon(primaryGame.exePath).then((iconPayload) => {
+            window.electronAPI.invoke('get-icon', primaryGame.exePath).then((iconPayload: any) => {
                 const normalizedIcon = applyIconPayload(primaryGame, iconPayload);
                 if (!normalizedIcon) return;
                 cacheIconPayload(primaryGame.exePath, normalizedIcon);
                 const iconDiv = card.querySelector('.game-icon');
                 if (iconDiv) {
                     iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
-                    logIconRender('stack-card-async', representativeKey, normalizedIcon, iconDiv.querySelector('img'));
+                    logIconRender('stack-card-async', representativeKey, normalizedIcon, iconDiv.querySelector('img') as HTMLImageElement);
                 }
             });
         }
@@ -74,7 +86,7 @@ export function createStackCardFactory({
             subtitle: primaryGame.fullLocationLabel || locationSummary
         }));
 
-        const favoriteButton = card.querySelector('.fav-btn');
+        const favoriteButton = card.querySelector('.fav-btn') as HTMLElement;
         favoriteButton.draggable = false;
         favoriteButton.onmousedown = (event) => {
             event.preventDefault();
@@ -85,7 +97,7 @@ export function createStackCardFactory({
             if (typeof event.stopImmediatePropagation === 'function') {
                 event.stopImmediatePropagation();
             }
-            const nextFavorite = await electronAPI.toggleFavorite(representativeKey);
+            const nextFavorite = await electronAPI.invoke('toggle-favorite', representativeKey);
             stack.favorite = nextFavorite;
             favoriteButton.classList.toggle('active', nextFavorite);
             card.classList.toggle('favorited', nextFavorite);
@@ -105,28 +117,30 @@ export function createStackCardFactory({
             gameKey: representativeKey,
             onRefreshRequested,
             onRenamed,
-            onSaveData: (nextName) => { primaryGame.name = nextName; }
+            onSaveData: (nextName: string) => { primaryGame.name = nextName; }
         });
 
-
         let suppressNextClick = false;
-        card.onclick = (event) => {
-            if (event.target.closest(interactiveSelector)) return;
+        card.onclick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (target.closest(interactiveSelector)) return;
             if (suppressNextClick) {
                 suppressNextClick = false;
                 return;
             }
             onOpenStack(stack);
         };
-        card.ondblclick = (event) => {
-            if (event.target.closest(interactiveSelector)) return;
+        card.ondblclick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (target.closest(interactiveSelector)) return;
             event.preventDefault();
             event.stopPropagation();
             onOpenStack(stack);
         };
         if (draggable) {
-            card.ondragstart = (event) => {
-                if (event.target.closest(interactiveSelector)) {
+            card.ondragstart = (event: DragEvent) => {
+                const target = event.target as HTMLElement;
+                if (target.closest(interactiveSelector)) {
                     event.preventDefault();
                     return false;
                 }
@@ -136,8 +150,10 @@ export function createStackCardFactory({
                     return false;
                 }
                 suppressNextClick = true;
-                event.dataTransfer.setData('gameKey', representativeKey);
-                event.dataTransfer.effectAllowed = 'move';
+                if (event.dataTransfer) {
+                    event.dataTransfer.setData('gameKey', representativeKey);
+                    event.dataTransfer.effectAllowed = 'move';
+                }
                 requestAnimationFrame(() => {
                     card.style.opacity = '0.01';
                 });
@@ -146,10 +162,10 @@ export function createStackCardFactory({
                 card.style.opacity = '1';
                 onDragStateReset();
             };
-            card.ondragenter = (event) => { event.preventDefault(); };
-            card.ondragleave = (event) => { event.preventDefault(); };
-            card.ondragover = (event) => { event.preventDefault(); };
-            card.ondrop = (event) => { event.preventDefault(); };
+            card.ondragenter = (event: DragEvent) => { event.preventDefault(); };
+            card.ondragleave = (event: DragEvent) => { event.preventDefault(); };
+            card.ondragover = (event: DragEvent) => { event.preventDefault(); };
+            card.ondrop = (event: DragEvent) => { event.preventDefault(); };
         }
 
         return card;

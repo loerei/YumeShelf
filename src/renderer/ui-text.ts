@@ -1,8 +1,9 @@
 import { RendererRefs } from './bootstrap/dom-refs';
+import { ElectronAPI } from '../shared/types/ipc';
 
 export interface UITextControllerOptions {
     bootController: any;
-    electronAPI: any;
+    electronAPI: ElectronAPI;
     getCurrentSort: () => string;
     getEnglishStrings: () => any;
     getLocaleState: () => any;
@@ -21,7 +22,7 @@ export interface UITextController {
 
 export interface UITextContext {
     bootController: any;
-    electronAPI: any;
+    electronAPI: ElectronAPI;
     getCurrentSort: () => string;
     getEnglishStrings: () => any;
     getLocaleState: () => any;
@@ -143,7 +144,7 @@ export function createUITextController({
             if (versionLink) {
                 versionLink.onclick = async (event) => {
                     event.preventDefault();
-                    await electronAPI.openExternalUrl(releaseUrl);
+                    await electronAPI.invoke('open-external-url', releaseUrl);
                 };
             }
             return;
@@ -157,8 +158,8 @@ export function createUITextController({
     async function applyUIStrings(): Promise<void> {
         const d = getStrings();
         (window as any).currentUIStrings = d;
-        const defPath = await electronAPI.getDefaultPath();
-        const isDev = await electronAPI.isDev();
+        const defPath = await electronAPI.invoke('get-default-path');
+        const isDev = await electronAPI.invoke('is-dev');
 
         const context: UITextContext = {
             bootController,

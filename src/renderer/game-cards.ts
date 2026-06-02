@@ -92,28 +92,18 @@ export function createGameCardFactory({
         }
 
         electronAPI.invoke('translation:check-support', gameKey).then((result) => {
-            const liveItem = card.querySelector('.action-live-translate');
-            const preItem = card.querySelector('.action-pre-translate');
+            const liveItem = card.querySelector('.action-live-translate') as HTMLElement | null;
+            const preItem = card.querySelector('.action-pre-translate') as HTMLElement | null;
             
             const isLiveSupported = result.supported && result.engine === 'unity';
             const isPreSupported = result.supported && ['unity', 'rpg-maker'].includes(result.engine);
 
             if (!isLiveSupported && liveItem) {
-                liveItem.className = 'dropdown-item action-live-translate disabled';
-                liveItem.style.opacity = '0.4';
-                liveItem.style.cursor = 'not-allowed';
-                liveItem.querySelector('span').textContent = result.engine && result.engine !== 'unity'
-                    ? 'Live Translation Not Supported'
-                    : (d.not_supported || 'Not yet supported');
-                liveItem.onclick = (e) => e.stopPropagation();
+                liveItem.style.display = 'none';
             }
 
             if (!isPreSupported && preItem) {
-                preItem.className = 'dropdown-item action-pre-translate disabled';
-                preItem.style.opacity = '0.4';
-                preItem.style.cursor = 'not-allowed';
-                preItem.querySelector('span').textContent = d.not_supported || 'Not yet supported';
-                preItem.onclick = (e) => e.stopPropagation();
+                preItem.style.display = 'none';
             }
         });
 

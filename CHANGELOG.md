@@ -12,6 +12,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ### 🔧 What Changed
 
+- [translation-system] Redesigned the game context dropdown UI: instead of showing disabled "Not supported" translation items, any unsupported translation action (e.g. Live Translation for non-Unity, or Pre-Translate for unsupported engines like WOLF RPG) is now hidden entirely (`display: none`) from the dropdown. This significantly declutters the context menu for a cleaner and more premium user experience.
 - [translation-system] Refactored UI translation support verification in `game-cards.ts` to use a positive whitelist-based check (e.g., explicitly allowing Pre-Translate only for `'unity'` and `'rpg-maker'`, and Live only for `'unity'`) instead of negative blacklists. This hardens the UI state machine against false-positives.
 - [translation-system] Temporarily disabled WOLF RPG engine detection inside the translation pipeline to isolate runtime schema parse issues in v3.x games. Save Editor support for WOLF RPG remains fully active and unaffected.
 - [translation-system] Fixed false-positive detection of WOLF RPG games as RPG Maker on case-insensitive filesystems (like Windows NTFS) where `Data/` matched `data/`, ensuring WOLF RPG translation is fully disabled and rendered as unsupported in the UI.

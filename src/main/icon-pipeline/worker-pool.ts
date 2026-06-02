@@ -1,6 +1,7 @@
 import * as fsSync from 'fs';
 import * as path from 'path';
 import { fork, spawnSync, ChildProcess } from 'child_process';
+import { IconWorkerMessageRequest, IconWorkerMessageResponse } from './icon-extractor';
 
 const ICON_WORKER_BOOT_MAX_ATTEMPTS = 5;
 const ICON_WORKER_PROBE_PATH = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'notepad.exe');
@@ -78,7 +79,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
 
     function createIconWorker(): IconWorker {
         const workerId = iconWorkers.length + 1;
-        const workerPath = path.join(sourceRootDir, 'icon-extractor.js');
+        const workerPath = path.join(__dirname, 'icon-extractor.js');
 
         const worker: IconWorker = fork(workerPath, [], {
             execPath: process.execPath,
@@ -101,23 +102,25 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
             worker.stderr.on('data', (data) => process.stderr.write(`[NW${workerId} STDERR] ${data}`));
         }
 
-        worker.on('message', (msg: any) => {
+        worker.on('message', (msg: IconWorkerMessageResponse | { type: 'ready' }) => {
             if (!msg) return;
-            if (msg.type === 'ready') {
+            if ('type' in msg && msg.type === 'ready') {
                 worker.__ready = true;
                 if (typeof worker.__onReady === 'function') {
                     worker.__onReady();
                 }
                 return;
             }
-            if (msg.id === undefined) return;
-            const pending = pendingIconRequests.get(msg.id);
+            
+            const response = msg as IconWorkerMessageResponse;
+            if (response.id === undefined) return;
+            const pending = pendingIconRequests.get(response.id);
             if (pending) {
                 clearTimeout(pending.timeout);
-                pendingIconRequests.delete(msg.id);
-                pending.resolve({ base64: msg.base64 || '', meta: msg.meta || null });
+                pendingIconRequests.delete(response.id);
+                pending.resolve({ base64: response.base64 || '', meta: response.meta || null });
             }
-            if (activeExtractionReq && activeExtractionReq.id === msg.id) {
+            if (activeExtractionReq && activeExtractionReq.id === response.id) {
                 activeExtractionReq = null;
                 isExtracting = false;
                 processExtractionQueue();

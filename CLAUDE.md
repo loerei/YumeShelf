@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **_Games_H_Games_YumeShelf** (4309 symbols, 6806 relationships, 182 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **YumeShelf** (4438 symbols, 7842 relationships, 279 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -24,10 +24,10 @@ This project is indexed by GitNexus as **_Games_H_Games_YumeShelf** (4309 symbol
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/_Games_H_Games_YumeShelf/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/_Games_H_Games_YumeShelf/clusters` | All functional areas |
-| `gitnexus://repo/_Games_H_Games_YumeShelf/processes` | All execution flows |
-| `gitnexus://repo/_Games_H_Games_YumeShelf/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/YumeShelf/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/YumeShelf/clusters` | All functional areas |
+| `gitnexus://repo/YumeShelf/processes` | All execution flows |
+| `gitnexus://repo/YumeShelf/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

@@ -95,30 +95,25 @@ export function createGameCardFactory({
             const liveItem = card.querySelector('.action-live-translate');
             const preItem = card.querySelector('.action-pre-translate');
             
-            // Live translation is only supported for Unity (uses BepInEx + XUnity shims)
-            if (result.engine !== 'unity' && liveItem) {
+            const isLiveSupported = result.supported && result.engine === 'unity';
+            const isPreSupported = result.supported && ['unity', 'rpg-maker'].includes(result.engine);
+
+            if (!isLiveSupported && liveItem) {
                 liveItem.className = 'dropdown-item action-live-translate disabled';
                 liveItem.style.opacity = '0.4';
                 liveItem.style.cursor = 'not-allowed';
-                liveItem.querySelector('span').textContent = 'Live Translation Not Supported';
+                liveItem.querySelector('span').textContent = result.engine && result.engine !== 'unity'
+                    ? 'Live Translation Not Supported'
+                    : (d.not_supported || 'Not yet supported');
                 liveItem.onclick = (e) => e.stopPropagation();
             }
 
-            if (!result.supported) {
-                if (liveItem) {
-                    liveItem.className = 'dropdown-item action-live-translate disabled';
-                    liveItem.style.opacity = '0.4';
-                    liveItem.style.cursor = 'not-allowed';
-                    liveItem.querySelector('span').textContent = d.not_supported || 'Not yet supported';
-                    liveItem.onclick = (e) => e.stopPropagation();
-                }
-                if (preItem) {
-                    preItem.className = 'dropdown-item action-pre-translate disabled';
-                    preItem.style.opacity = '0.4';
-                    preItem.style.cursor = 'not-allowed';
-                    preItem.querySelector('span').textContent = d.not_supported || 'Not yet supported';
-                    preItem.onclick = (e) => e.stopPropagation();
-                }
+            if (!isPreSupported && preItem) {
+                preItem.className = 'dropdown-item action-pre-translate disabled';
+                preItem.style.opacity = '0.4';
+                preItem.style.cursor = 'not-allowed';
+                preItem.querySelector('span').textContent = d.not_supported || 'Not yet supported';
+                preItem.onclick = (e) => e.stopPropagation();
             }
         });
 

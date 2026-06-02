@@ -13,6 +13,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 ### 🔧 What Changed
 
 - [translation-system] Temporarily disabled WOLF RPG engine detection inside the translation pipeline to isolate runtime schema parse issues in v3.x games. Save Editor support for WOLF RPG remains fully active and unaffected.
+- [translation-system] Fixed false-positive detection of WOLF RPG games as RPG Maker on case-insensitive filesystems (like Windows NTFS) where `Data/` matched `data/`, ensuring WOLF RPG translation is fully disabled and rendered as unsupported in the UI.
 - [translation-system] Sanitized WOLF RPG translation patch directory paths by replacing invalid OS colon characters (`:`) with underscores (`_`) to prevent `ENOENT` folder creation crashes on Windows systems.
 - [translation-system] Patched `rewolf-trans` internals at runtime to support WOLF RPG v3.x dynamic lookahead command boundary detection. The boundary finder checks CID patterns and strictly enforces layout indent bounds to resolve offset alignment crashes.
 - [translation-system] Patched the base archive decoder to support WOLF RPG v3.x signature formats, handling zero-length empty string pointers cleanly.

@@ -421,12 +421,24 @@ export class TranslationService {
         return null;
     }
 
+    async checkIsWolfRpgInternal(exeDir: string): Promise<boolean> {
+        const dataDir = path.join(exeDir, 'Data');
+        if (!fsSync.existsSync(dataDir)) return false;
+        try {
+            const files = await fs.readdir(dataDir);
+            return files.some(f => f.toLowerCase().endsWith('.wolf') || ['basicdata', 'mapdata'].includes(f.toLowerCase()));
+        } catch {
+            return false;
+        }
+    }
+
     async isWolfRpg(exeDir: string): Promise<boolean> {
         // WOLF RPG translation is temporarily disabled due to rewolf-trans parser instability with v3.x games.
         return false;
     }
 
     async isRpgMaker(exeDir: string): Promise<boolean> {
+        if (await this.checkIsWolfRpgInternal(exeDir)) return false;
         return fsSync.existsSync(path.join(exeDir, 'www', 'data')) || fsSync.existsSync(path.join(exeDir, 'data'));
     }
 

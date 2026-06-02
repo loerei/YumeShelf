@@ -19,7 +19,7 @@ export function setupInstallActions({
         });
         installFlow.beginInstallShellSequence('install-preparing');
         await installFlow.waitForNextPaint();
-        const installResult = await electronAPI.restartAndInstallAppUpdate();
+        const installResult = await electronAPI.invoke('restart-and-install-app-update');
         if (!installResult || !installResult.ok) {
             installFlow.clearInstallShellTimers();
             bootController.hide();
@@ -42,7 +42,7 @@ export function setupInstallActions({
             return { ok: false, reason: 'no-downloaded-update' };
         }
 
-        const scheduleResult = await electronAPI.scheduleAppUpdateNextLaunch();
+        const scheduleResult = await electronAPI.invoke('schedule-app-update-next-launch');
         if (!scheduleResult || !scheduleResult.ok) {
             state.patchCurrentUpdate({
                 actionState: currentUpdate.downloadReady ? 'ready' : 'idle'
@@ -67,7 +67,7 @@ export function setupInstallActions({
         });
         installFlow.beginInstallShellSequence('install-preparing');
         await installFlow.waitForNextPaint();
-        const result = await electronAPI.beginDeferredAppUpdateInstall();
+        const result = await electronAPI.invoke('begin-deferred-app-update-install');
         if (result && result.launched) {
             state.patchCurrentUpdate({
                 actionState: 'installing',

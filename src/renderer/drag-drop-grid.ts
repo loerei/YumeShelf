@@ -159,7 +159,7 @@ export function createDragDropGridController({
                         const game = allGames.find((entry) => getGameKey(entry) === key);
                         if (!game || game.favorite === isFavZone) return;
                         applyFavoriteToLogicalGame(game, isFavZone);
-                        electronAPI.toggleFavorite(key);
+                        electronAPI.invoke('toggle-favorite', key);
                     });
                     needsSave = true;
                 }

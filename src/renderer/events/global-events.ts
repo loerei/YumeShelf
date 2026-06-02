@@ -223,13 +223,13 @@ export function bindControlEvents({
         refs.telemetrySelect.onchange = async (event) => {
             const selectEl = event.target as HTMLSelectElement;
             const enabled = selectEl.value === 'on';
-            await (window as any).electronAPI.updateLibraryConfig({ telemetryEnabled: enabled });
+            await (window as any).electronAPI.invoke('update-library-config', { telemetryEnabled: enabled });
         };
     }
 
     if (refs.buttons.telemetryOptIn) {
         refs.buttons.telemetryOptIn.onclick = async () => {
-            await (window as any).electronAPI.updateLibraryConfig({ telemetryEnabled: true });
+            await (window as any).electronAPI.invoke('update-library-config', { telemetryEnabled: true });
             if (refs.telemetryModal) {
                 refs.telemetryModal.style.display = 'none';
             }
@@ -241,7 +241,7 @@ export function bindControlEvents({
 
     if (refs.buttons.telemetryOptOut) {
         refs.buttons.telemetryOptOut.onclick = async () => {
-            await (window as any).electronAPI.updateLibraryConfig({ telemetryEnabled: false });
+            await (window as any).electronAPI.invoke('update-library-config', { telemetryEnabled: false });
             if (refs.telemetryModal) {
                 refs.telemetryModal.style.display = 'none';
             }

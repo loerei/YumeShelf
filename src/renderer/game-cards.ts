@@ -68,7 +68,7 @@ export function createGameCardFactory({
         }
 
         if (!game.iconData) {
-            electronAPI.getIcon(game.exePath).then((iconPayload) => {
+            electronAPI.invoke('get-icon', game.exePath).then((iconPayload) => {
                 const normalizedIcon = applyIconPayload(game, iconPayload);
                 if (!normalizedIcon) return;
                 cacheIconPayload(game.exePath, normalizedIcon);
@@ -91,7 +91,7 @@ export function createGameCardFactory({
             });
         }
 
-        electronAPI.checkTranslationSupport(gameKey).then((result) => {
+        electronAPI.invoke('translation:check-support', gameKey).then((result) => {
             const liveItem = card.querySelector('.action-live-translate');
             const preItem = card.querySelector('.action-pre-translate');
             if (!result.supported) {
@@ -128,7 +128,7 @@ export function createGameCardFactory({
             if (typeof event.stopImmediatePropagation === 'function') {
                 event.stopImmediatePropagation();
             }
-            const nextFavorite = await electronAPI.toggleFavorite(gameKey);
+            const nextFavorite = await electronAPI.invoke('toggle-favorite', gameKey);
             game.favorite = nextFavorite;
             if (typeof onFavoriteToggled === 'function') {
                 onFavoriteToggled(gameKey, nextFavorite);
@@ -145,15 +145,15 @@ export function createGameCardFactory({
         });
         card.querySelector('.action-reveal').onclick = (event) => {
             event.stopPropagation();
-            electronAPI.revealGame(game.exePath);
+            electronAPI.send('reveal-game', game.exePath);
         };
         card.querySelector('.action-save-folder').onclick = async (event) => {
             event.stopPropagation();
             console.log(`[FRONTEND][ACTION] Open Save Folder clicked for ${gameKey}`);
             card.querySelector('.dropdown-menu').classList.remove('show');
-            const result = await electronAPI.getSaveFolder(gameKey);
+            const result = await electronAPI.invoke('get-save-folder', gameKey);
             if (result && result.path) {
-                electronAPI.openPath(result.path);
+                electronAPI.send('open-path', result.path);
             } else {
                 const item = card.querySelector('.action-save-folder');
                 const originalText = item.querySelector('span').textContent;
@@ -177,14 +177,14 @@ export function createGameCardFactory({
         };
         card.querySelector('.action-background-run').onclick = async (event) => {
             event.stopPropagation();
-            const nextRunInBackground = await electronAPI.toggleRunInBackground(gameKey);
+            const nextRunInBackground = await electronAPI.invoke('toggle-run-in-background', gameKey);
             game.runInBackground = nextRunInBackground;
             const item = card.querySelector('.action-background-run');
             item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
         };
         card.querySelector('.action-live-translate').onclick = async (event) => {
             event.stopPropagation();
-            const nextAutoTranslate = await electronAPI.toggleAutoTranslate(gameKey);
+            const nextAutoTranslate = await electronAPI.invoke('toggle-auto-translate', gameKey);
             game.autoTranslate = nextAutoTranslate;
             const item = card.querySelector('.action-live-translate');
             if (item) {
@@ -196,17 +196,17 @@ export function createGameCardFactory({
             card.querySelector('.dropdown-menu').classList.remove('show');
             let targetLang = 'en';
             try {
-                const langState = await electronAPI.getLanguageState();
+                const langState = await electronAPI.invoke('get-language-state');
                 targetLang = (langState && langState.current) ? langState.current : 'en';
             } catch (e) {
                 // fall back to 'en'
             }
-            await electronAPI.startTranslationSync({ gameKey, targetLang });
+            await electronAPI.invoke('translation:start-sync', { gameKey, targetLang });
         };
         card.querySelector('.action-delete').onclick = async (event) => {
             event.stopPropagation();
             if (confirm(d.confirm)) {
-                await electronAPI.deleteGame(game.folderPath);
+                await electronAPI.invoke('delete-game', game.folderPath);
                 onCardDeleted(gameKey);
                 onRefreshRequested();
             }

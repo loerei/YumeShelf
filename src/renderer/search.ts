@@ -89,7 +89,7 @@ export function createSearchController({
             }
 
             if (!game.iconData) {
-                electronAPI.getIcon(game.exePath).then((iconPayload) => {
+                electronAPI.invoke('get-icon', game.exePath).then((iconPayload) => {
                     const normalizedIcon = applyIconPayload(game, iconPayload);
                     if (!normalizedIcon) return;
                     cacheIconPayload(game.exePath, normalizedIcon);
@@ -134,9 +134,10 @@ export function createSearchController({
             item.ondblclick = (event) => {
                 if (event.target.closest('.search-launch-icon-wrapper')) return;
                 event.stopPropagation();
-                electronAPI.launchYume({
+                electronAPI.send('launch-yume', {
                     gameKey: game.primaryInstance?.gameKey || game.gameKey || getGameKey(game),
-                    exePath: game.primaryInstance?.exePath || game.exePath
+                    exePath: game.primaryInstance?.exePath || game.exePath,
+                    runInBackground: game.primaryInstance?.runInBackground || game.runInBackground || false
                 });
                 hideSearchDropdown();
                 searchInput.value = '';

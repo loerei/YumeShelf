@@ -26,7 +26,7 @@ export function createLanguagePackActions({
         });
         renderLanguagePackResults();
 
-        const response = await electronAPI.getLanguagePackManifest();
+        const response = await electronAPI.invoke('get-language-pack-manifest');
         updateManifestState({
             loaded: true,
             loading: false,
@@ -102,7 +102,7 @@ export function createLanguagePackActions({
         const { activateAfterInstall = true } = options;
         setDownloadingLanguageCode(code);
         renderLanguagePackResults();
-        const result = await electronAPI.installLanguagePack(code);
+        const result = await electronAPI.invoke('install-language-pack', code);
         setDownloadingLanguageCode(null);
 
         if (!result || !result.ok) {

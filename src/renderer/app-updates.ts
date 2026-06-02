@@ -59,7 +59,7 @@ export function createAppUpdateController({
                 actionState: 'manual'
             });
             try {
-                return await electronAPI.openAppUpdateDownloadPage();
+                return await electronAPI.invoke('open-app-update-download-page');
             } finally {
                 reviewState.actionInFlight = false;
             }
@@ -70,7 +70,7 @@ export function createAppUpdateController({
                 actionState: 'downloading',
                 deferredUntilNextLaunch: false
             });
-            const downloadResult = await electronAPI.startAppUpdateDownload();
+            const downloadResult = await electronAPI.invoke('start-app-update-download');
             if (!downloadResult || !downloadResult.ok) {
                 state.patchCurrentUpdate({
                     actionState: 'failed'
@@ -95,7 +95,7 @@ export function createAppUpdateController({
     }
 
     async function initialize(bootstrapData) {
-        electronAPI.onAppUpdateStatus(handleRuntimeStatus);
+        electronAPI.on('app-update-status', handleRuntimeStatus);
         let presentedPostUpdate = false;
 
         const deferredAppUpdateInstall = bootstrapData?.deferredAppUpdateInstall || null;

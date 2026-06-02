@@ -124,9 +124,9 @@ export function createLocaleController({
     }
 
     async function loadLanguageState(nextState = null) {
-        const appVersion = await electronAPI.getAppVersion();
+        const appVersion = await electronAPI.invoke('get-app-version');
         console.log(`[I18N][RENDERER] loadLanguageState: fetched appVersion from Electron = ${appVersion}`);
-        const incomingState = nextState || await electronAPI.getLanguageState();
+        const incomingState = nextState || await electronAPI.invoke('get-language-state');
         if (incomingState && incomingState.locales && incomingState.locales.en) {
             console.log(`[I18N][RENDERER] loadLanguageState: overwriting localeState with incomingState.`);
             localeState = incomingState;

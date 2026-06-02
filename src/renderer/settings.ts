@@ -65,8 +65,8 @@ export function createSettingsController({
             onOpen();
         }
         try {
-            const freshConfig = await (window as any).electronAPI.checkConfig();
-            const actualAutoLaunch = await (window as any).electronAPI.getAutoLaunch();
+            const freshConfig = await (window as any).electronAPI.invoke('check-config');
+            const actualAutoLaunch = await (window as any).electronAPI.invoke('get-auto-launch');
             if (freshConfig) {
                 applyLibraryConfig({
                     ...freshConfig,
@@ -153,18 +153,18 @@ export function createSettingsController({
             `;
 
             const pathLink = entry.querySelector('.library-path-link') as HTMLElement;
-            pathLink.onclick = () => (window as any).electronAPI.openPath(p);
+            pathLink.onclick = () => (window as any).electronAPI.send('open-path', p);
 
             const changeBtn = entry.querySelector('.change-btn') as HTMLButtonElement;
             changeBtn.onclick = async () => {
-                const result = await (window as any).electronAPI.changeLibraryPath(p);
+                const result = await (window as any).electronAPI.invoke('library:change-path', p);
                 if (result) location.reload();
             };
 
             const removeBtn = entry.querySelector('.remove-btn') as HTMLButtonElement;
             removeBtn.onclick = async () => {
                 if (!canRemove) return;
-                const result = await (window as any).electronAPI.removeLibraryPath(p);
+                const result = await (window as any).electronAPI.invoke('library:remove-path', p);
                 if (result) location.reload();
             };
 
@@ -217,16 +217,16 @@ export function createSettingsController({
 
     async function handleAutoLaunchChange(nextValue: string): Promise<string> {
         currentAutoLaunch = nextValue;
-        await (window as any).electronAPI.setAutoLaunch(nextValue);
-        await (window as any).electronAPI.updateLibraryConfig({ autoLaunch: nextValue });
+        await (window as any).electronAPI.invoke('set-auto-launch', nextValue);
+        await (window as any).electronAPI.invoke('update-library-config', { autoLaunch: nextValue });
         return nextValue;
     }
 
     async function handleMinimizeToTrayChange(nextValue: string): Promise<boolean> {
         const enabled = nextValue === 'on';
         currentMinimizeToTray = enabled;
-        (window as any).electronAPI.setMinimizeToTray(enabled);
-        await (window as any).electronAPI.updateLibraryConfig({ minimizeToTray: enabled });
+        (window as any).electronAPI.send('set-minimize-to-tray', enabled);
+        await (window as any).electronAPI.invoke('update-library-config', { minimizeToTray: enabled });
         return enabled;
     }
 
@@ -239,7 +239,7 @@ export function createSettingsController({
 
     if (btnAddLibraryPath) {
         btnAddLibraryPath.onclick = async () => {
-            const result = await (window as any).electronAPI.addLibraryPath();
+            const result = await (window as any).electronAPI.invoke('library:add-path');
             if (result) location.reload();
         };
     }

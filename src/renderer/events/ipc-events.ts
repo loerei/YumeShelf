@@ -193,7 +193,7 @@ export function bindIpcEvents({
                     }, 3000);
                 } else if (payload.status === 'sync-error') {
                     titleEl.textContent = 'Sync Error';
-                    messageEl.textContent = 'An error occurred during translation sync.';
+                    messageEl.textContent = payload.error || 'An error occurred during translation sync.';
                     fillEl.style.width = '0%';
                 }
             }

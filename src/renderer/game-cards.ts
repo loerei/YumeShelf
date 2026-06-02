@@ -94,6 +94,16 @@ export function createGameCardFactory({
         electronAPI.invoke('translation:check-support', gameKey).then((result) => {
             const liveItem = card.querySelector('.action-live-translate');
             const preItem = card.querySelector('.action-pre-translate');
+            
+            // Live translation is only supported for Unity (uses BepInEx + XUnity shims)
+            if (result.engine !== 'unity' && liveItem) {
+                liveItem.className = 'dropdown-item action-live-translate disabled';
+                liveItem.style.opacity = '0.4';
+                liveItem.style.cursor = 'not-allowed';
+                liveItem.querySelector('span').textContent = 'Live Translation Not Supported';
+                liveItem.onclick = (e) => e.stopPropagation();
+            }
+
             if (!result.supported) {
                 if (liveItem) {
                     liveItem.className = 'dropdown-item action-live-translate disabled';

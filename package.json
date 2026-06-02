@@ -97,6 +97,8 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "electron-updater": "^6.8.3",
-    "extract-file-icon": "^0.3.2"
+    "extract-file-icon": "^0.3.2",
+    "lz4": "^0.6.5",
+    "rewolf-trans": "^0.1.8"
   }
 }

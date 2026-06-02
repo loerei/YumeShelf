@@ -6,6 +6,20 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ## [Unreleased]
 
+### ✨ What's New
+
+- [translation-system] Added offline translation support for **WOLF RPG Editor v3.x** games. The pipeline decompresses LZ4 dynamic databases (`.dat`) and event assets (`.common`) on the fly, applies localized language dictionary overrides, and re-compresses them back to the original engine format seamlessly with a single click.
+
+### 🔧 What Changed
+
+- [translation-system] Patched `rewolf-trans` internals at runtime to support WOLF RPG v3.x dynamic lookahead command boundary detection. The boundary finder checks CID patterns and strictly enforces layout indent bounds to resolve offset alignment crashes.
+- [translation-system] Patched the base archive decoder to support WOLF RPG v3.x signature formats, handling zero-length empty string pointers cleanly.
+
+### 🛠️ For the Nerds
+
+- [translation-system] Implemented `patchRewolfTrans` inside `WolfRpgExtractor` to runtime-apply structural fixes to the local `rewolf-trans` dependency structure before invoking translation.
+- [translation-system] Upgraded `expectByte` inside the file-coder compiler to perform on-the-fly 1-byte misalignment realignment when encountering boundary event indicators.
+
 ## [1.5.10] - 2026-06-01 — released
 
 ### 🔧 What Changed

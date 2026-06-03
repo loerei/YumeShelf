@@ -4,7 +4,7 @@
     <source media="(prefers-color-scheme: light)" srcset="assets/yumeshelf_wordmark_refined_icon.svg">
     <img alt="YumeShelf" src="assets/yumeshelf_wordmark_refined_icon.svg" width="600">
   </picture>
-  <p><b>Your dreams, organized. A minimalist, modern, and fast game library for your personal collection.</b></p>
+  <p><b>Visual Novels, offline save editing, and automated translations—rescuing you from drowning in File Explorer.</b></p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![Electron](https://img.shields.io/badge/Framework-Electron-blue)](https://www.electronjs.org/)

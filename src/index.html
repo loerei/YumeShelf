@@ -138,14 +138,14 @@
             </div>
             <div class="settings-body">
                 <div class="setting-item">
-                    <label id="ui-lang-label">Language</label>
+                    <label id="ui-lang-label" for="lang-select">Language</label>
                     <div class="setting-control-zone setting-field-group">
                         <button class="small-btn secondary-btn" id="more-languages-btn">More languages...</button>
                         <select id="lang-select"></select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-theme-label">Theme Mode</label>
+                    <label id="ui-theme-label" for="theme-select">Theme Mode</label>
                     <div class="setting-control-zone">
                         <select id="theme-select">
                             <option value="system" id="ui-theme-system">System</option>
@@ -156,13 +156,13 @@
                 </div>
                 <div class="setting-item setting-item-paths">
                     <div class="setting-paths-header">
-                        <label id="ui-path-label">Library Paths</label>
+                        <span class="setting-label" id="ui-path-label">Library Paths</span>
                         <button class="small-btn text-btn" id="btn-add-library-path" type="button">+ Add Path</button>
                     </div>
                     <div class="library-paths-list" id="library-paths-container"></div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-location-display-label">Path Display</label>
+                    <label id="ui-location-display-label" for="location-display-select">Path Display</label>
                     <div class="setting-control-zone">
                         <select id="location-display-select">
                             <option value="parent" id="ui-location-display-parent">Category only</option>
@@ -171,7 +171,7 @@
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-max-depth-label">Max Depth</label>
+                    <label id="ui-max-depth-label" for="max-depth-input">Max Depth</label>
                     <div class="setting-control-zone">
                         <div class="max-depth-stepper">
                             <button class="max-depth-stepper-btn" id="max-depth-decrease-btn" type="button" aria-label="Decrease max depth">
@@ -190,7 +190,7 @@
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-app-updates-label">App Updates</label>
+                    <label id="ui-app-updates-label" for="app-updates-select">App Updates</label>
                     <div class="setting-control-zone">
                         <select id="app-updates-select">
                             <option value="automatic" id="ui-update-automatic">Automatic</option>
@@ -200,7 +200,7 @@
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-language-pack-updates-label">Language Pack Updates</label>
+                    <label id="ui-language-pack-updates-label" for="language-pack-updates-select">Language Pack Updates</label>
                     <div class="setting-control-zone">
                         <select id="language-pack-updates-select">
                             <option value="automatic" id="ui-pack-update-automatic">Automatic</option>
@@ -210,7 +210,7 @@
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-auto-launch-label">Auto-launch on startup</label>
+                    <label id="ui-auto-launch-label" for="auto-launch-select">Auto-launch on startup</label>
                     <div class="setting-control-zone">
                         <select id="auto-launch-select">
                             <option value="off" id="ui-auto-launch-off">Off</option>
@@ -220,7 +220,7 @@
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-minimize-to-tray-label">Minimize to System Tray</label>
+                    <label id="ui-minimize-to-tray-label" for="minimize-to-tray-select">Minimize to System Tray</label>
                     <div class="setting-control-zone">
                         <select id="minimize-to-tray-select">
                             <option value="off" id="ui-minimize-to-tray-off">Off</option>
@@ -229,7 +229,7 @@
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-telemetry-label">Telemetry & Privacy</label>
+                    <label id="ui-telemetry-label" for="telemetry-select">Telemetry & Privacy</label>
                     <div class="setting-control-zone">
                         <select id="telemetry-select">
                             <option value="off" id="ui-telemetry-off">Disabled (Keep Private)</option>

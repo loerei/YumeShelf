@@ -1,5 +1,5 @@
-const path = require('path');
-const fs = require('fs/promises');
+const path = require('node:path');
+const fs = require('node:fs/promises');
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { readInstallerContract, writeInstallerContract } = require('../shared/installer-contract');
 

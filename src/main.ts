@@ -1,7 +1,7 @@
 import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
-import fs from 'fs/promises';
-import fsSync from 'fs';
-import net from 'net';
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import net from 'node:net';
 
 function getFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {

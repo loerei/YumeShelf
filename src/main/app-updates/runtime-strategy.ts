@@ -1,5 +1,5 @@
-import * as fsSync from 'fs';
-import * as path from 'path';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 
 export interface PortableEnvironment {
     detected: boolean;

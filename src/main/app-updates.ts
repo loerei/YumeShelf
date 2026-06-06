@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { ensureDir } from './core/shared-io';
 import { compareAppReleaseVersions } from './app-updates/release-utils';
 import { createNsisUpdaterService } from './nsis-updater';

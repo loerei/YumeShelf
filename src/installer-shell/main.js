@@ -85,7 +85,7 @@ async function loadLocales() {
                     localeMap.set(locale.code, locale);
                 }
             } catch (error) {
-                console.warn(`[INSTALLER-SHELL] failed to load locale ${entry.name}: ${String((error && error.message) || error || '')}`);
+                console.warn(`[INSTALLER-SHELL] failed to load locale ${entry.name}: ${String(error?.message || error || '')}`);
             }
         }
     }
@@ -220,6 +220,6 @@ async function createInstallerShellRuntime() {
 }
 
 void createInstallerShellRuntime().catch((error) => {
-    console.error(`[INSTALLER-SHELL] fatal ${String((error && error.stack) || error || '')}`);
+    console.error(`[INSTALLER-SHELL] fatal ${String(error?.stack || error || '')}`);
     app.exit(1);
 });

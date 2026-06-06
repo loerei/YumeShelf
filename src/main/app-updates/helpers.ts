@@ -74,7 +74,7 @@ export async function enrichUpdateInfo(context: any, update: any, runtimeStrateg
                 enriched.releaseUrl = newerReleases[0].htmlUrl || enriched.releaseUrl;
             }
         } catch (error: any) {
-            await appendUpdateLog(context, `enrichUpdateInfo release-refresh-failed error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(context, `enrichUpdateInfo release-refresh-failed error=${String(error?.stack || error || '')}`);
         }
     }
 

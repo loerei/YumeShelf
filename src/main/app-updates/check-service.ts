@@ -75,12 +75,12 @@ export async function checkForAppUpdate(context: AppUpdateCheckContext): Promise
         const offline = isNetworkLikeError(error);
         context.latestKnownUpdate = {
             ...initial,
-            error: String((error && error.message) || error || ''),
+            error: String(error?.message || error || ''),
             fallbackReason: offline ? 'offline' : 'error',
             offline,
             source: offline ? 'offline' : 'error'
         };
-        await context.appendUpdateLog(`checkForAppUpdate error=${String((error && error.stack) || error || '')}`);
+        await context.appendUpdateLog(`checkForAppUpdate error=${String(error?.stack || error || '')}`);
         return context.latestKnownUpdate;
     }
 }

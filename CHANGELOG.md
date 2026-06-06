@@ -26,6 +26,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [translation-system] Updated `WolfRpgExtractor.getPatchDir` and `TranslationService.getDictionaryPath` to ensure cross-platform safety for temporary and persistent patch output paths.
 - [translation-system] Implemented `patchRewolfTrans` inside `WolfRpgExtractor` to runtime-apply structural fixes to the local `rewolf-trans` dependency structure before invoking translation.
 - [translation-system] Upgraded `expectByte` inside the file-coder compiler to perform on-the-fly 1-byte misalignment realignment when encountering boundary event indicators.
+- [refactor] Modernized legacy error-handling logic (replacing `(error && error.stack)` / `(error && error.message)`) to use modern ES2020 optional chaining (`error?.stack`, `error?.message`) across check service, post-update marker service, app updates helper, and installer shell.
 
 ## [1.5.10] - 2026-06-01 — released
 

@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 
 export function extractVersion(tagName: string | null | undefined): string {
     const value = String(tagName || '').trim();

@@ -76,9 +76,9 @@ The Main process must compile cleanly with strict flags:
 npm run build:main
 ```
 
-### 4. Test Coverage
-Automated static analysis (e.g. SonarQube) is not yet configured for this project. In the meantime:
-* Any new core business logic should be accompanied by appropriate tests where feasible.
-* Strict typing (`strict: true`) must be maintained — do not regress type coverage.
+### 4. Code Quality & Test Coverage
+Automated static analysis is configured via **SonarCloud**. You can view the project status and issues on the [SonarCloud dashboard](https://sonarcloud.io/organizations/loerei/projects).
+* Ensure any new core business logic is accompanied by appropriate tests where feasible.
+* Strict typing (`strict: true`) must be maintained — do not regress type coverage or trigger new quality gate failures.
 
 Thank you for contributing to YumeShelf.

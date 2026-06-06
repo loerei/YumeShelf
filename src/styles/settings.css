@@ -57,7 +57,8 @@
     margin-bottom: 25px;
 }
 
-.setting-item label {
+.setting-item label,
+.setting-item .setting-label {
     color: var(--text-main);
     font-weight: 600;
     font-size: 16px;

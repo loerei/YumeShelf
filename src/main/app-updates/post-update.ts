@@ -43,14 +43,14 @@ export function setupPostUpdateMarker({
             await appendVerboseUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
             marker = JSON.parse(sanitizedText);
         } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String(error?.stack || error || '')}`);
         }
 
         try {
             await fs.unlink(postUpdateMarkerFile);
             await appendVerboseUpdateLog('consumePostUpdateMarker deleted-marker-file');
         } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker delete-failed error=${String((error && error.message) || error || '')}`);
+            await appendUpdateLog(`consumePostUpdateMarker delete-failed error=${String(error?.message || error || '')}`);
         }
 
         if (!marker || typeof marker !== 'object') {
@@ -101,7 +101,7 @@ export function setupPostUpdateMarker({
                 }
             }
         } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String(error?.stack || error || '')}`);
         }
 
         await appendVerboseUpdateLog(`consumePostUpdateMarker notice=${JSON.stringify({

@@ -1,6 +1,27 @@
 import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
 import fs from 'fs/promises';
 import fsSync from 'fs';
+import net from 'net';
+
+function getFreePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const server = net.createServer();
+        server.unref();
+        server.on('error', reject);
+        server.listen(0, () => {
+            const port = (server.address() as net.AddressInfo).port;
+            server.close(() => resolve(port));
+        });
+    });
+}
+
+// Enable remote debugging port for HoverSource injection dynamically
+getFreePort().then(port => {
+    app.commandLine.appendSwitch('remote-debugging-port', port.toString());
+    console.log(`[HoverSource] Remote debugging enabled on port ${port}`);
+}).catch(err => {
+    console.error('[HoverSource] Failed to find free port for remote debugging:', err);
+});
 
 import { createAppPaths } from './main/core/app-paths';
 import { createCategoryState } from './main/category-state';

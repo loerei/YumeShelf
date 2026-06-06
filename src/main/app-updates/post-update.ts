@@ -17,7 +17,47 @@ export interface PostUpdateMarkerOptions {
 }
 
 export interface PostUpdateMarkerService {
-    consumePostUpdateMarker(): Promise<any | null>;
+    consumePostUpdateMarker(): Promise<any>;
+}
+
+async function readAndParseMarker(
+    filePath: string,
+    appendVerboseUpdateLog: (msg: string) => Promise<void>,
+    appendUpdateLog: (msg: string) => Promise<void>
+): Promise<any | null> {
+    try {
+        const rawText = await fs.readFile(filePath, 'utf8');
+        const sanitizedText = rawText.replace(/^\uFEFF/, '');
+        const hasBom = rawText.codePointAt(0) === 0xFEFF;
+        await appendVerboseUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
+        return JSON.parse(sanitizedText);
+    } catch (error: any) {
+        await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String(error?.stack || error || '')}`);
+        return null;
+    }
+}
+
+async function resolveReleaseDetails(notice: any, resolver: any, appendUpdateLog: (msg: string) => Promise<void>): Promise<void> {
+    try {
+        const includePrerelease = shouldIncludePrereleaseReleases(notice.fromVersion, notice.version);
+        const newReleases = notice.fromVersion
+            ? await resolver.resolveNewerReleases(notice.fromVersion, notice.version, { includePrerelease })
+            : [];
+        if (newReleases.length > 0) {
+            notice.releaseName = getReleaseDisplayName(newReleases[0]);
+            notice.releaseNotes = formatStackedReleaseNotes(newReleases);
+            notice.releaseUrl = newReleases[0].htmlUrl || notice.releaseUrl;
+        } else {
+            const latestRelease = await resolver.resolveLatestRelease({ includePrerelease });
+            if (latestRelease?.version === notice.version) {
+                notice.releaseName = getReleaseDisplayName(latestRelease);
+                notice.releaseNotes = formatStackedReleaseNotes([latestRelease]);
+                notice.releaseUrl = latestRelease.htmlUrl || notice.releaseUrl;
+            }
+        }
+    } catch (error: any) {
+        await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String(error?.stack || error || '')}`);
+    }
 }
 
 export function setupPostUpdateMarker({
@@ -28,23 +68,14 @@ export function setupPostUpdateMarker({
     appendUpdateLog,
     appendVerboseUpdateLog
 }: PostUpdateMarkerOptions): PostUpdateMarkerService {
-    async function consumePostUpdateMarker(): Promise<any | null> {
+    async function consumePostUpdateMarker(): Promise<any> {
         const markerExists = await fs.access(postUpdateMarkerFile).then(() => true).catch(() => false);
         await appendVerboseUpdateLog(`consumePostUpdateMarker begin exists=${markerExists}`);
         if (!markerExists) {
             return null;
         }
 
-        let marker: any = null;
-        try {
-            const rawText = await fs.readFile(postUpdateMarkerFile, 'utf8');
-            const sanitizedText = rawText.replace(/^\uFEFF/, '');
-            const hasBom = rawText.charCodeAt(0) === 0xFEFF;
-            await appendVerboseUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
-            marker = JSON.parse(sanitizedText);
-        } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String(error?.stack || error || '')}`);
-        }
+        const marker = await readAndParseMarker(postUpdateMarkerFile, appendVerboseUpdateLog, appendUpdateLog);
 
         try {
             await fs.unlink(postUpdateMarkerFile);
@@ -58,6 +89,13 @@ export function setupPostUpdateMarker({
             return null;
         }
 
+        let targetVersion = '';
+        if (marker.toVersion) {
+            targetVersion = String(marker.toVersion);
+        } else if (marker.version) {
+            targetVersion = String(marker.version);
+        }
+
         const notice: any = {
             actionState: 'installed',
             available: false,
@@ -69,7 +107,7 @@ export function setupPostUpdateMarker({
             releaseNotes: normalizeReleaseNotesForReview(marker.releaseNotes || ''),
             releaseUrl: marker.releaseUrl ? String(marker.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
             selfApplicable: true,
-            version: marker.toVersion ? String(marker.toVersion) : (marker.version ? String(marker.version) : '')
+            version: targetVersion
         };
 
         if (!notice.version) {
@@ -83,26 +121,7 @@ export function setupPostUpdateMarker({
             return null;
         }
 
-        try {
-            const includePrerelease = shouldIncludePrereleaseReleases(notice.fromVersion, notice.version);
-            const newReleases = notice.fromVersion
-                ? await resolver.resolveNewerReleases(notice.fromVersion, notice.version, { includePrerelease })
-                : [];
-            if (newReleases.length > 0) {
-                notice.releaseName = getReleaseDisplayName(newReleases[0]);
-                notice.releaseNotes = formatStackedReleaseNotes(newReleases);
-                notice.releaseUrl = newReleases[0].htmlUrl || notice.releaseUrl;
-            } else {
-                const latestRelease = await resolver.resolveLatestRelease({ includePrerelease });
-                if (latestRelease?.version === notice.version) {
-                    notice.releaseName = getReleaseDisplayName(latestRelease);
-                    notice.releaseNotes = formatStackedReleaseNotes([latestRelease]);
-                    notice.releaseUrl = latestRelease.htmlUrl || notice.releaseUrl;
-                }
-            }
-        } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String(error?.stack || error || '')}`);
-        }
+        await resolveReleaseDetails(notice, resolver, appendUpdateLog);
 
         await appendVerboseUpdateLog(`consumePostUpdateMarker notice=${JSON.stringify({
             fromVersion: notice.fromVersion,

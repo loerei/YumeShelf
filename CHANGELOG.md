@@ -27,6 +27,13 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [translation-system] Implemented `patchRewolfTrans` inside `WolfRpgExtractor` to runtime-apply structural fixes to the local `rewolf-trans` dependency structure before invoking translation.
 - [translation-system] Upgraded `expectByte` inside the file-coder compiler to perform on-the-fly 1-byte misalignment realignment when encountering boundary event indicators.
 - [refactor] Modernized legacy error-handling logic (replacing `(error && error.stack)` / `(error && error.message)`) to use modern ES2020 optional chaining (`error?.stack`, `error?.message`) across check service, post-update marker service, app updates helper, and installer shell.
+- [refactor] Resolved various SonarQube code smells and quality gate warnings, including:
+  - Replacing legacy `window` references with `globalThis` in the installer shell renderer.
+  - Converting literal global string replacements from regex `replace` to `replaceAll` in language code normalization and HTML entity decoding.
+  - Using a `Set` for candidate lookup optimization in installer locale matching.
+  - Utilizing `RegExp.exec()` instead of `String.match()` for hex digest extraction.
+  - Resolving redundant `any | null` union types in the post-update marker service.
+  - Reducing Cognitive Complexity inside `loadLocales` and `compareAppReleaseVersions` by modularizing and extracting inner loops into helper functions.
 
 ## [1.5.10] - 2026-06-01 — released
 

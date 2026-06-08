@@ -22,7 +22,7 @@ function getArgValue(flagName) {
 function normalizeLocaleCode(value) {
     return String(value || '')
         .trim()
-        .replace(/_/g, '-')
+        .replaceAll('_', '-')
         .toLowerCase();
 }
 
@@ -38,13 +38,14 @@ function matchLocale(locales, requestedCode) {
     const normalizedRequestedCode = normalizeLocaleCode(requestedCode);
     const normalizedBaseCode = normalizedRequestedCode.split('-')[0];
     return locales.find((locale) => {
-        const candidates = [
+        const candidatesList = [
             locale.code,
             ...(Array.isArray(locale.aliases) ? locale.aliases : [])
         ]
             .map(normalizeLocaleCode)
             .filter(Boolean);
-        return candidates.includes(normalizedRequestedCode) || candidates.includes(normalizedBaseCode);
+        const candidates = new Set(candidatesList);
+        return candidates.has(normalizedRequestedCode) || candidates.has(normalizedBaseCode);
     }) || null;
 }
 
@@ -60,6 +61,29 @@ async function readLocaleFile(filePath) {
     };
 }
 
+async function loadLocalesFromDir(dirPath, localeMap) {
+    let entries = [];
+    try {
+        entries = await fs.readdir(dirPath, { withFileTypes: true });
+    } catch {
+        return;
+    }
+
+    for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.json')) {
+            continue;
+        }
+        try {
+            const locale = await readLocaleFile(path.join(dirPath, entry.name));
+            if (locale.code && !localeMap.has(locale.code)) {
+                localeMap.set(locale.code, locale);
+            }
+        } catch (error) {
+            console.warn(`[INSTALLER-SHELL] failed to load locale ${entry.name}: ${String(error?.message || error || '')}`);
+        }
+    }
+}
+
 async function loadLocales() {
     const localeDirs = [
         path.join(__dirname, '..', 'locales', 'builtins'),
@@ -68,26 +92,7 @@ async function loadLocales() {
     const localeMap = new Map();
 
     for (const dirPath of localeDirs) {
-        let entries = [];
-        try {
-            entries = await fs.readdir(dirPath, { withFileTypes: true });
-        } catch {
-            entries = [];
-        }
-
-        for (const entry of entries) {
-            if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.json')) {
-                continue;
-            }
-            try {
-                const locale = await readLocaleFile(path.join(dirPath, entry.name));
-                if (locale.code && !localeMap.has(locale.code)) {
-                    localeMap.set(locale.code, locale);
-                }
-            } catch (error) {
-                console.warn(`[INSTALLER-SHELL] failed to load locale ${entry.name}: ${String(error?.message || error || '')}`);
-            }
-        }
+        await loadLocalesFromDir(dirPath, localeMap);
     }
 
     return Array.from(localeMap.values()).sort((left, right) => left.nativeName.localeCompare(right.nativeName));

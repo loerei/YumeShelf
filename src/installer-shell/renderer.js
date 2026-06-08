@@ -54,7 +54,7 @@ function render() {
 }
 
 async function changePath() {
-    const result = await window.installerShellAPI.pickInstallDir(state.currentPath || state.bootstrap.defaultInstallDir);
+    const result = await globalThis.installerShellAPI.pickInstallDir(state.currentPath || state.bootstrap.defaultInstallDir);
     if (!result?.canceled && result?.path) {
         state.currentPath = result.path;
         render();
@@ -64,7 +64,7 @@ async function changePath() {
 async function cancelInstall() {
     if (state.submitting) return;
     state.submitting = true;
-    await window.installerShellAPI.cancel();
+    await globalThis.installerShellAPI.cancel();
 }
 
 async function submitInstall() {
@@ -74,7 +74,7 @@ async function submitInstall() {
         if (!state.currentPath) return;
     }
     state.submitting = true;
-    await window.installerShellAPI.submit({
+    await globalThis.installerShellAPI.submit({
         deleteSetupFile: document.getElementById('delete-setup-checkbox').checked,
         installDir: state.currentPath,
         locale: state.currentLocale
@@ -82,7 +82,7 @@ async function submitInstall() {
 }
 
 async function bootstrap() {
-    const bootstrapData = await window.installerShellAPI.getBootstrap();
+    const bootstrapData = await globalThis.installerShellAPI.getBootstrap();
     const localizedStrings = {};
     for (const locale of bootstrapData.localeOptions) {
         localizedStrings[locale.code] = bootstrapData.localeMaps[locale.code] || {};

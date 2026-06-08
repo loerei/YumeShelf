@@ -14,7 +14,7 @@ export function parseAppReleaseVersion(value: string | null | undefined): { core
     const [corePart, ...prereleaseParts] = String(normalized || '0').split('-');
     const core = corePart
         .split('.')
-        .map(part => parseInt(part, 10))
+        .map(part => Number.parseInt(part, 10))
         .map(part => Number.isFinite(part) ? part : 0);
     const prerelease = prereleaseParts
         .join('-')
@@ -28,6 +28,34 @@ export function parseAppReleaseVersion(value: string | null | undefined): { core
     };
 }
 
+function comparePrereleaseParts(aPrerelease: (string | number)[], bPrerelease: (string | number)[]): number {
+    const aHasPrerelease = aPrerelease.length > 0;
+    const bHasPrerelease = bPrerelease.length > 0;
+    if (!aHasPrerelease && !bHasPrerelease) return 0;
+    if (!aHasPrerelease) return 1;
+    if (!bHasPrerelease) return -1;
+
+    const prereleaseLength = Math.max(aPrerelease.length, bPrerelease.length);
+    for (let index = 0; index < prereleaseLength; index += 1) {
+        const leftPart = aPrerelease[index];
+        const rightPart = bPrerelease[index];
+        if (leftPart === undefined) return -1;
+        if (rightPart === undefined) return 1;
+        if (leftPart === rightPart) continue;
+
+        const leftIsNumber = typeof leftPart === 'number';
+        const rightIsNumber = typeof rightPart === 'number';
+        if (leftIsNumber && rightIsNumber) return leftPart - rightPart;
+        if (leftIsNumber) return -1;
+        if (rightIsNumber) return 1;
+
+        const delta = String(leftPart).localeCompare(String(rightPart));
+        if (delta !== 0) return delta;
+    }
+
+    return 0;
+}
+
 export function compareAppReleaseVersions(left: string, right: string): number {
     const a = parseAppReleaseVersion(left);
     const b = parseAppReleaseVersion(right);
@@ -37,31 +65,7 @@ export function compareAppReleaseVersions(left: string, right: string): number {
         if (delta !== 0) return delta;
     }
 
-    const aHasPrerelease = a.prerelease.length > 0;
-    const bHasPrerelease = b.prerelease.length > 0;
-    if (!aHasPrerelease && !bHasPrerelease) return 0;
-    if (!aHasPrerelease) return 1;
-    if (!bHasPrerelease) return -1;
-
-    const prereleaseLength = Math.max(a.prerelease.length, b.prerelease.length);
-    for (let index = 0; index < prereleaseLength; index += 1) {
-        const leftPart = a.prerelease[index];
-        const rightPart = b.prerelease[index];
-        if (leftPart === undefined) return -1;
-        if (rightPart === undefined) return 1;
-        if (leftPart === rightPart) continue;
-
-        const leftIsNumber = typeof leftPart === 'number';
-        const rightIsNumber = typeof rightPart === 'number';
-        if (leftIsNumber && rightIsNumber) return (leftPart as number) - (rightPart as number);
-        if (leftIsNumber) return -1;
-        if (rightIsNumber) return 1;
-
-        const delta = String(leftPart).localeCompare(String(rightPart));
-        if (delta !== 0) return delta;
-    }
-
-    return 0;
+    return comparePrereleaseParts(a.prerelease, b.prerelease);
 }
 
 export function isPrereleaseVersion(value: string | null | undefined): boolean {
@@ -73,7 +77,7 @@ export function shouldIncludePrereleaseReleases(...versions: string[]): boolean 
 }
 
 export function firstHexDigest(text: string | null | undefined): string | null {
-    const match = String(text || '').match(/\b[a-f0-9]{64}\b/i);
+    const match = (/\b[a-f0-9]{64}\b/i).exec(String(text || ''));
     return match ? match[0].toLowerCase() : null;
 }
 
@@ -87,12 +91,12 @@ export function readAssetName(asset: any): string {
 
 export function decodeHtmlEntities(value: string | null | undefined): string {
     return String(value || '')
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'");
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
 }
 
 export function normalizeInlineHtmlToMarkdown(value: string | null | undefined): string {

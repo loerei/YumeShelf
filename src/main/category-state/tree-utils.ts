@@ -35,7 +35,7 @@ export function normalizeCategoryName(value: any): string {
 
 export function createCategoryId(): string {
     if (typeof randomUUID === 'function') {
-        return `cat_${randomUUID().replace(/-/g, '')}`;
+        return `cat_${randomUUID().replaceAll('-', '')}`;
     }
     return `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }

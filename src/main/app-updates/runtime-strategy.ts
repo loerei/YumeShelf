@@ -82,7 +82,7 @@ export function probeWritableDir(dirPath: string): { ok: boolean; reason: string
     } catch (error: any) {
         return {
             ok: false,
-            reason: String((error && error.code) || 'not-writable').toLowerCase()
+            reason: String(error?.code || 'not-writable').toLowerCase()
         };
     }
 }

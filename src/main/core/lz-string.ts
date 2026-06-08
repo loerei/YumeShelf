@@ -256,13 +256,13 @@ export const LZString = {
 
     compressToEncodedURIComponent(input: string | null | undefined): string {
         if (input == null) return "";
-        return LZString.compressToBase64(input).replace(/=/g, "$").replace(/\//g, "-");
+        return LZString.compressToBase64(input).replaceAll("=", "$").replaceAll("/", "-");
     },
 
     decompressFromEncodedURIComponent(input: string | null | undefined): string | null {
         if (input == null) return "";
         if (input === "") return null;
-        const cleaned = input.replace(/\$/g, "=").replace(/-/g, "/");
+        const cleaned = input.replaceAll("$", "=").replaceAll("-", "/");
         return LZString.decompressFromBase64(cleaned);
     },
 
@@ -271,15 +271,15 @@ export const LZString = {
         let t: number, n: number, r: Record<string, number> = {}, i: Record<string, boolean> = {}, s = "", o = "", u = "", a = 2, fVal = 3, l = 2, c = "", h = 0, p = 0, d: number, v = LZString._f;
         for (d = 0; d < input.length; d += 1) {
             s = input.charAt(d);
-            if (!Object.prototype.hasOwnProperty.call(r, s)) {
+            if (!Object.hasOwn(r, s)) {
                 r[s] = fVal++;
                 i[s] = true;
             }
             o = u + s;
-            if (Object.prototype.hasOwnProperty.call(r, o)) {
+            if (Object.hasOwn(r, o)) {
                 u = o;
             } else {
-                if (Object.prototype.hasOwnProperty.call(i, u)) {
+                if (Object.hasOwn(i, u)) {
                     if (u.charCodeAt(0) < 256) {
                         for (t = 0; t < l; t++) {
                             h = h << 1;
@@ -359,7 +359,7 @@ export const LZString = {
             }
         }
         if (u !== "") {
-            if (Object.prototype.hasOwnProperty.call(i, u)) {
+            if (Object.hasOwn(i, u)) {
                 if (u.charCodeAt(0) < 256) {
                     for (t = 0; t < l; t++) {
                         h = h << 1;

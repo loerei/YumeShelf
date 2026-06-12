@@ -16,12 +16,31 @@ function getFreePort(): Promise<number> {
 }
 
 // Enable remote debugging port for HoverSource injection dynamically
-getFreePort().then(port => {
-    app.commandLine.appendSwitch('remote-debugging-port', port.toString());
-    console.log(`[HoverSource] Remote debugging enabled on port ${port}`);
-}).catch(err => {
-    console.error('[HoverSource] Failed to find free port for remote debugging:', err);
-});
+let portToUse: string | null = null;
+
+const extraArgs = process.env.ELECTRON_EXTRA_LAUNCH_ARGS;
+if (extraArgs) {
+    const match = extraArgs.match(/--remote-debugging-port=(\d+)/);
+    if (match) {
+        portToUse = match[1];
+    }
+}
+
+if (app.commandLine.hasSwitch('remote-debugging-port')) {
+    portToUse = app.commandLine.getSwitchValue('remote-debugging-port');
+}
+
+if (portToUse) {
+    app.commandLine.appendSwitch('remote-debugging-port', portToUse);
+    console.log(`[HoverSource] Remote debugging enabled on port ${portToUse}`);
+} else {
+    getFreePort().then(port => {
+        app.commandLine.appendSwitch('remote-debugging-port', port.toString());
+        console.log(`[HoverSource] Remote debugging enabled on port ${port}`);
+    }).catch(err => {
+        console.error('[HoverSource] Failed to find free port for remote debugging:', err);
+    });
+}
 
 import { createAppPaths } from './main/core/app-paths';
 import { createCategoryState } from './main/category-state';

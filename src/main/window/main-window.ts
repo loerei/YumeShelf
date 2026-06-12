@@ -171,11 +171,15 @@ export function createMainWindow({
 
     // Dynamic Content Security Policy (SEC-06)
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        const connectSrc = app.isPackaged
+            ? "connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev"
+            : "connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev http://127.0.0.1:* ws://127.0.0.1:*";
+
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
-                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev"
+                    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; ${connectSrc}`
                 ]
             }
         });

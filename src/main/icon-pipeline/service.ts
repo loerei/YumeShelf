@@ -70,7 +70,7 @@ export function createIconPipeline({
                 const imgPath = path.join(dir, `${name}.${ext}`);
                 if (fsSync.existsSync(imgPath)) {
                     return createIconPayload(
-                        `file:///${imgPath.replace(/\\/g, '/')}`,
+                        `file:///${imgPath.replaceAll('\\', '/')}`,
                         'contain',
                         'local-image',
                         { imagePath: imgPath }

@@ -79,7 +79,7 @@ export class PureJsonEngine {
                     const currentVal = self._getDeep(target, /** @type {string} */(key));
                     if (typeof currentVal === 'number') {
                         const num = Number(value);
-                        self._setDeep(target, /** @type {string} */(key), isNaN(num) ? value : num);
+                        self._setDeep(target, /** @type {string} */(key), Number.isNaN(num) ? value : num);
                     } else {
                         self._setDeep(target, /** @type {string} */(key), value);
                     }

@@ -8,7 +8,7 @@ export function formatTemplate(template, replacements = {}) {
 export function compareVersions(left, right) {
     const toParts = (value) => String(value || '0')
         .split('.')
-        .map(part => parseInt(part, 10))
+        .map(part => Number.parseInt(part, 10))
         .map(part => Number.isFinite(part) ? part : 0);
 
     const a = toParts(left);
@@ -35,7 +35,7 @@ export function buildLanguagePackSearchHaystack(pack) {
 }
 
 export function formatDataSize(bytes) {
-    if (!bytes || isNaN(bytes) || bytes < 0) return '0 B';
+    if (!bytes || Number.isNaN(bytes) || bytes < 0) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let size = bytes;
     let unitIndex = 0;

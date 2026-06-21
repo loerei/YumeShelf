@@ -78,7 +78,7 @@ export function downloadBuffer(
                 return;
             }
 
-            const total = parseInt(res.headers['content-length'] || '0', 10);
+            const total = Number.parseInt(res.headers['content-length'] || '0', 10);
             let downloaded = 0;
             const chunks: Buffer[] = [];
             res.on('data', chunk => {
@@ -140,7 +140,7 @@ export function downloadFile(
                 return;
             }
 
-            const total = parseInt(res.headers['content-length'] || '0', 10);
+            const total = Number.parseInt(res.headers['content-length'] || '0', 10);
             let downloaded = 0;
             const fileStream = fsSync.createWriteStream(targetPath);
             

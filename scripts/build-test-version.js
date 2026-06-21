@@ -123,7 +123,7 @@ function main() {
         if (!fs.existsSync(installerPath)) {
             throw new Error(`Expected NSIS installer was not found: ${installerPath}`);
         }
-        console.log(`[build:test-version] built ${path.relative(repoRoot, installerPath).replace(/\//g, '\\')}`);
+        console.log(`[build:test-version] built ${path.relative(repoRoot, installerPath).replaceAll('/', '\\')}`);
     } finally {
         restoreSnapshot(snapshot);
         console.log(`[build:test-version] restored workspace metadata to ${originalVersion}`);

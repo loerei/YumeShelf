@@ -38,9 +38,9 @@ export const LZString = {
             o = ((n & 3) << 4) | (r >> 4);
             u = ((r & 15) << 2) | (i >> 6);
             a = i & 63;
-            if (isNaN(r)) {
+            if (Number.isNaN(r)) {
                 u = a = 64;
-            } else if (isNaN(i)) {
+            } else if (Number.isNaN(i)) {
                 a = 64;
             }
             t = t + LZString._keyStr.charAt(s) + LZString._keyStr.charAt(o) + LZString._keyStr.charAt(u) + LZString._keyStr.charAt(a);
@@ -52,7 +52,7 @@ export const LZString = {
         if (input == null) return "";
         if (input === "") return null;
         let t = "", n = 0, r = 0, i = 0, s = 0, o = 0, u = 0, a = 0, fVal = 0, l = 0, c = 0, h = LZString._f;
-        const cleanedInput = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+        const cleanedInput = input.replace(/[^A-Za-z0-9+/=]/g, "");
         while (c < cleanedInput.length) {
             u = LZString._keyStr.indexOf(cleanedInput.charAt(c++));
             a = LZString._keyStr.indexOf(cleanedInput.charAt(c++));

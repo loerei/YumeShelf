@@ -47,7 +47,7 @@ function main() {
     let cleanBody = rawBlock.replace(/^(\s*-\s+)\[[^\]]+\]\s*/gm, '$1');
 
     // 4. Parse sections and automatically strip empty/placeholder sections
-    let normalized = cleanBody.replace(/\r\n/g, '\n');
+    let normalized = cleanBody.replaceAll('\r\n', '\n');
     let parts = normalized.split('\n### ');
     let firstPart = parts[0];
     let activeSections = [];

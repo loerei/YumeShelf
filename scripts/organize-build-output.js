@@ -43,7 +43,7 @@ function moveEntry(entryName, destinationDir) {
     ensureDir(destinationDir);
     fs.rmSync(destinationPath, { recursive: true, force: true });
     fs.renameSync(sourcePath, destinationPath);
-    console.log(`[organize-build-output] moved ${entryName} -> ${path.relative(buildOutputDir, destinationPath).replace(/\//g, '\\')}`);
+    console.log(`[organize-build-output] moved ${entryName} -> ${path.relative(buildOutputDir, destinationPath).replaceAll('/', '\\')}`);
 }
 
 function classifyEntry(entryName) {
@@ -146,7 +146,7 @@ function normalizeNestedEntries(parentDir, classifyNestedEntry) {
         ensureDir(destinationDir);
         fs.rmSync(destinationPath, { recursive: true, force: true });
         fs.renameSync(sourcePath, destinationPath);
-        console.log(`[organize-build-output] moved ${path.relative(buildOutputDir, sourcePath).replace(/\//g, '\\')} -> ${path.relative(buildOutputDir, destinationPath).replace(/\//g, '\\')}`);
+        console.log(`[organize-build-output] moved ${path.relative(buildOutputDir, sourcePath).replaceAll('/', '\\')} -> ${path.relative(buildOutputDir, destinationPath).replaceAll('/', '\\')}`);
     }
 }
 

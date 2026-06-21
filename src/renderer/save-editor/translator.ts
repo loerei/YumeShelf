@@ -201,7 +201,7 @@ export class Translator {
             if (isASCII && originalName.length < 2) return;
 
             // Skip pure punctuation/symbol rows
-            const isPunctuation = /^[ \t\r\n\-\_\+\=\!\@\#\$\%\^\&\*\(\)\{\}\[\]\:\;\"\'\<\>\,\.\?\/\\|~`]*$/.test(originalName);
+            const isPunctuation = /^[ \t\r\n\-_+=!@#$%^&*(){}[\]:;"'<>,.?/\\|~`]*$/.test(originalName);
             if (isPunctuation) return;
 
             if (this.translationCache[originalName]) {

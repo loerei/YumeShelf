@@ -48,7 +48,7 @@ function main() {
     const fast = process.argv.includes('--fast');
     runShellBuild({ fast });
     ensureArtifactPresent();
-    console.log(`[installer-shell] ready ${path.relative(repoRoot, shellArtifactPath).replace(/\//g, '\\')}`);
+    console.log(`[installer-shell] ready ${path.relative(repoRoot, shellArtifactPath).replaceAll('/', '\\')}`);
 }
 
 main();

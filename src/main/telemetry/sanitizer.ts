@@ -24,7 +24,7 @@ try {
  * Standardize path slashes to forward slashes for backend consistency and remove local drive letters
  */
 export function normalizePathSlashes(p: string): string {
-    return p.replace(/\\/g, '/');
+    return p.replaceAll('\\', '/');
 }
 
 /**

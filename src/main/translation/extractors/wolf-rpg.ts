@@ -351,7 +351,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const fileCoderPath = path.join(nodeModulesDir, 'dist', 'src', 'archive', 'file-coder.js');
             if (fsSync.existsSync(fileCoderPath)) {
                 let content = await fs.readFile(fileCoderPath, 'utf8');
-                content = content.replaceAll('\r\n', '\n');
+                content = content.replace(/\r\n/g, '\n');
                 if (!content.includes('toleration for WOLF RPG 3.x empty strings')) {
                     console.log('[WOLF-EXTRACTOR] Patching file-coder.js expect and readString methods...');
                     const target = `    expect(expected) {
@@ -429,7 +429,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const utilPath = path.join(nodeModulesDir, 'dist', 'src', 'util.js');
             if (fsSync.existsSync(utilPath)) {
                 let content = await fs.readFile(utilPath, 'utf8');
-                content = content.replaceAll('\r\n', '\n');
+                content = content.replace(/\r\n/g, '\n');
                 if (!content.includes('toleration for WOLF RPG 3.x')) {
                     console.log('[WOLF-EXTRACTOR] Patching util.js bufferStartsWith method...');
                     const target = `function bufferStartsWith(buffer, start) {
@@ -479,7 +479,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const dbPath = path.join(nodeModulesDir, 'dist', 'src', 'wolf', 'wolf-database.js');
             if (fsSync.existsSync(dbPath)) {
                 let content = await fs.readFile(dbPath, 'utf8');
-                content = content.replaceAll('\r\n', '\n');
+                content = content.replace(/\r\n/g, '\n');
                 if (!content.includes('toleration for WOLF RPG 3.x')) {
                     console.log('[WOLF-EXTRACTOR] Patching wolf-database.js parse and serializeData methods...');
                     const targetParse = `    parse() {
@@ -548,7 +548,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const cePath = path.join(nodeModulesDir, 'dist', 'src', 'wolf', 'wolf-ce.js');
             if (fsSync.existsSync(cePath)) {
                 let content = await fs.readFile(cePath, 'utf8');
-                content = content.replaceAll('\r\n', '\n');
+                content = content.replace(/\r\n/g, '\n');
                 if (!content.includes('toleration for WOLF RPG 3.x')) {
                     console.log('[WOLF-EXTRACTOR] Patching wolf-ce.js parse and serialize methods...');
                     const targetParse = `    parse() {
@@ -580,7 +580,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const gamePath = path.join(nodeModulesDir, 'dist', 'src', 'archive', 'rewt-game.js');
             if (fsSync.existsSync(gamePath)) {
                 let content = await fs.readFile(gamePath, 'utf8');
-                content = content.replaceAll('\r\n', '\n');
+                content = content.replace(/\r\n/g, '\n');
                 if (!content.includes('archive is not parseable')) {
                     console.log('[WOLF-EXTRACTOR] Patching rewt-game.js parse method...');
                     const target = `    parse() {
@@ -610,7 +610,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const cmdPath = path.join(nodeModulesDir, 'dist', 'src', 'wolf', 'wolf-command.js');
             if (fsSync.existsSync(cmdPath)) {
                 let content = await fs.readFile(cmdPath, 'utf8');
-                content = content.replaceAll('\r\n', '\n');
+                content = content.replace(/\r\n/g, '\n');
                 
                 // Un-patch old createCommand and writeTeminator if present to start from a clean state
                 const oldCreate = `// toleration for WOLF RPG 3.x command structures:

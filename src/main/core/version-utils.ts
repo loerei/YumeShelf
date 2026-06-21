@@ -1,7 +1,7 @@
 export function compareNumericVersions(left: string | number | null | undefined, right: string | number | null | undefined): number {
     const toParts = (value: string | number | null | undefined): number[] => String(value || '0')
         .split('.')
-        .map(part => Number.parseInt(part, 10))
+        .map(part => parseInt(part, 10))
         .map(part => Number.isFinite(part) ? part : 0);
 
     const a = toParts(left);

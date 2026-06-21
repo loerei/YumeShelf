@@ -128,7 +128,7 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
 
             const acceptRanges = headRes.headers.get('accept-ranges');
             const contentLengthStr = headRes.headers.get('content-length');
-            const contentLength = contentLengthStr ? Number.parseInt(contentLengthStr, 10) : NaN;
+            const contentLength = contentLengthStr ? parseInt(contentLengthStr, 10) : NaN;
 
             if (VERBOSE_UPDATE_LOG) {
                 await appendUpdateLog(`nsis-updater parallel-download info accept-ranges=${acceptRanges} content-length=${contentLength}`);
@@ -157,7 +157,7 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
             }
 
             // Fallback to single-stream sequential if accepts-ranges is not supported or content length is missing
-            if (acceptRanges !== 'bytes' || Number.isNaN(contentLength) || contentLength <= 0) {
+            if (acceptRanges !== 'bytes' || isNaN(contentLength) || contentLength <= 0) {
                 if (VERBOSE_UPDATE_LOG) {
                     await appendUpdateLog(`nsis-updater parallel-download range-requests unsupported, falling back to single stream`);
                 }

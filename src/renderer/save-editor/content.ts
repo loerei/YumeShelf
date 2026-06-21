@@ -56,7 +56,7 @@ export function renderTabContent(context) {
                     renderTabContent(context);
                 };
                 const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
-                    goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
+                    goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
                 }, originalGoldVal, isPinned, onPinToggle);
                 row.style.gridColumn = '1 / -1';
                 row.style.maxWidth = '300px';
@@ -74,7 +74,7 @@ export function renderTabContent(context) {
                 const meta = state.currentMetadata ? state.currentMetadata.variables : {};
                 renderBitset(context, variables, meta || {}, grid, (id, val, newVal, container) => {
                     const num = Number(newVal);
-                    container[id] = Number.isNaN(num) ? newVal : num;
+                    container[id] = isNaN(num) ? newVal : num;
                 }, true, originalVariables, 'variables', true);
             }
 
@@ -110,7 +110,7 @@ export function renderTabContent(context) {
                 };
 
                 const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
-                    goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
+                    goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
                 }, originalGoldVal, isPinned, onPinToggle);
                 row.style.gridColumn = '1 / -1';
                 row.style.maxWidth = '300px';
@@ -132,12 +132,12 @@ export function renderTabContent(context) {
             });
             renderBitset(context, filteredVars, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                 const num = Number(newVal);
-                container[id] = Number.isNaN(num) ? newVal : num;
+                container[id] = isNaN(num) ? newVal : num;
             }, true, originalVariables, 'variables');
         } else if (tabId === 'variables' && variables) {
             renderBitset(context, variables, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                 const num = Number(newVal);
-                container[id] = Number.isNaN(num) ? newVal : num;
+                container[id] = isNaN(num) ? newVal : num;
             }, true, originalVariables, 'variables');
         } else if (tabId === 'switches' && switches) {
             renderBitset(context, switches, state.currentMetadata.switches, grid, (id, val, newVal, container) => {
@@ -317,7 +317,7 @@ export function renderInventory(context, target, key, metaSource, grid, original
         };
 
         const row = UIComponents.createDataRow(id, val, meta.name, (newVal) => {
-            const parsedVal = Number.parseInt(newVal) || 0;
+            const parsedVal = parseInt(newVal) || 0;
             if (parsedVal === 0 && !state.showEmpty) {
                 delete items[id]; // Delete if value is 0 and showEmpty is false to keep save file clean
             } else {

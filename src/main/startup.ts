@@ -127,6 +127,32 @@ export function createStartupServices({
         return updateResult.state || currentLanguageState;
     }
 
+    async function checkForLanguagePackUpdates(
+        webContents: any,
+        currentLanguageState: any,
+        manifestResult: any,
+        languagePackUpdatesMode: string,
+        languagePackCheck: any
+    ) {
+        if (!manifestResult.ok || !manifestResult.manifest) {
+            return currentLanguageState;
+        }
+
+        emitBootStatus(webContents, {
+            key: 'boot_checking_language_pack_updates',
+            fallbackText: 'Checking installed language pack updates'
+        });
+
+        const candidates = getLanguagePackUpdateCandidates(currentLanguageState, manifestResult.manifest);
+        languagePackCheck.updatesChecked = true;
+        languagePackCheck.availableUpdates = candidates.map(candidate => candidate.summary);
+
+        if (languagePackUpdatesMode === 'automatic' && candidates.length > 0 && !manifestResult.offline) {
+            return installLanguagePackUpdates(webContents, candidates, languagePackCheck, currentLanguageState);
+        }
+        return currentLanguageState;
+    }
+
     async function performLanguagePackCheck(webContents: any, languagePackUpdatesMode: string, languagePackCheck: any, languageState: any) {
         if (languagePackUpdatesMode === 'off') return languageState;
 
@@ -166,36 +192,10 @@ export function createStartupServices({
         languagePackCheck.offline = !!manifestResult.offline;
         languagePackCheck.error = manifestResult.error || null;
 
-        let key = 'boot_language_pack_source_ready';
-        let fallbackText = 'Language pack source ready';
-        if (manifestResult.source === 'cache') {
-            key = 'boot_language_pack_source_cached';
-            fallbackText = 'Using cached language pack source';
-        } else if (manifestResult.offline) {
-            key = 'boot_language_pack_source_offline';
-            fallbackText = 'No internet, skipping language pack check';
-        } else if (!manifestResult.ok) {
-            key = 'boot_language_pack_source_failed';
-            fallbackText = 'Language pack check failed, continuing startup';
-        }
+        const bootStatus = getLanguagePackBootStatus(manifestResult);
+        emitBootStatus(webContents, bootStatus);
 
-        emitBootStatus(webContents, { key, fallbackText });
-
-        if (manifestResult.ok && manifestResult.manifest) {
-            emitBootStatus(webContents, {
-                key: 'boot_checking_language_pack_updates',
-                fallbackText: 'Checking installed language pack updates'
-            });
-
-            const candidates = getLanguagePackUpdateCandidates(currentLanguageState, manifestResult.manifest);
-            languagePackCheck.updatesChecked = true;
-            languagePackCheck.availableUpdates = candidates.map(candidate => candidate.summary);
-
-            if (languagePackUpdatesMode === 'automatic' && candidates.length > 0 && !manifestResult.offline) {
-                currentLanguageState = await installLanguagePackUpdates(webContents, candidates, languagePackCheck, currentLanguageState);
-            }
-        }
-        return currentLanguageState;
+        return checkForLanguagePackUpdates(webContents, currentLanguageState, manifestResult, languagePackUpdatesMode, languagePackCheck);
     }
 
     async function loadLibraryData(webContents: any, config: any) {
@@ -358,5 +358,31 @@ export function createStartupServices({
         bootstrapAppState,
         loadGamesForConfig,
         resolveLibraryConfig
+    };
+}
+
+
+function getLanguagePackBootStatus(manifestResult: any) {
+    if (manifestResult.source === 'cache') {
+        return {
+            key: 'boot_language_pack_source_cached',
+            fallbackText: 'Using cached language pack source'
+        };
+    }
+    if (manifestResult.offline) {
+        return {
+            key: 'boot_language_pack_source_offline',
+            fallbackText: 'No internet, skipping language pack check'
+        };
+    }
+    if (!manifestResult.ok) {
+        return {
+            key: 'boot_language_pack_source_failed',
+            fallbackText: 'Language pack check failed, continuing startup'
+        };
+    }
+    return {
+        key: 'boot_language_pack_source_ready',
+        fallbackText: 'Language pack source ready'
     };
 }

@@ -40,7 +40,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
         GetClassNameA(hwnd, className, sizeof(className));
         
         char logBuf[512];
-        sprintf(logBuf, "Found window for our PID. Class: %s, Visible: %d", className, IsWindowVisible(hwnd));
+        snprintf(logBuf, sizeof(logBuf), "Found window for our PID. Class: %s, Visible: %d", className, IsWindowVisible(hwnd));
         LogToFile(logBuf);
 
         if (IsWindowVisible(hwnd) && lstrcmpA(className, "ConsoleWindowClass") != 0) {
@@ -48,7 +48,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
             if (OriginalWndProc) {
                 LogToFile("Successfully subclassed the window!");
             } else {
-                sprintf(logBuf, "SetWindowLongPtr failed with error: %lu", GetLastError());
+                snprintf(logBuf, sizeof(logBuf), "SetWindowLongPtr failed with error: %lu", GetLastError());
                 LogToFile(logBuf);
             }
             return FALSE; // Stop enumeration

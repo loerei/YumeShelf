@@ -203,7 +203,7 @@ export function createStartupServices({
             fallbackText: 'Checking library configuration'
         });
         const config = await resolveLibraryConfig();
-        if (!config || !config.libraryPath) {
+        if (!config?.libraryPath) {
             emitBootStatus(webContents, {
                 key: 'boot_waiting_for_library_setup',
                 fallbackText: 'Library not configured yet'

@@ -23,10 +23,10 @@ export function normalizeIconPayload(payload) {
 }
 
 export function ensureIconCache() {
-    if (!window.iconCache) {
-        window.iconCache = new Map();
+    if (!globalThis.iconCache) {
+        globalThis.iconCache = new Map();
     }
-    return window.iconCache;
+    return globalThis.iconCache;
 }
 
 export function applyIconPayload(target, payload) {

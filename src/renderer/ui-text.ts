@@ -157,7 +157,7 @@ export function createUITextController({
 
     async function applyUIStrings(): Promise<void> {
         const d = getStrings();
-        (window as any).currentUIStrings = d;
+        (globalThis as any).currentUIStrings = d;
         const defPath = await electronAPI.invoke('get-default-path');
         const isDev = await electronAPI.invoke('is-dev');
 

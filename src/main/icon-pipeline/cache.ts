@@ -78,7 +78,7 @@ export async function deleteIconCacheFileIfUnused(app: CacheAppInterface, state:
     const { cacheDir } = resolveCachePaths(app);
     const stillUsed = Object.entries(state.entriesByPath).some(([entryPath, entry]) => {
         if (exceptPath && entryPath === exceptPath) return false;
-        return entry && entry.fileName === fileName;
+        return entry?.fileName === fileName;
     });
     if (stillUsed) return;
     try {

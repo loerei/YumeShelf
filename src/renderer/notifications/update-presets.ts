@@ -78,7 +78,7 @@ export function presentBootUpdateNotifications({
     scheduleAppUpdateNextLaunch,
     updateNotificationController
 }) {
-    if (!bootstrapData || !bootstrapData.bootChecks) return;
+    if (!bootstrapData?.bootChecks) return;
     const { bootChecks } = bootstrapData;
     const languagePackCheck = bootChecks.languagePackCheck || null;
     const appUpdateCheck = bootChecks.appUpdateCheck || null;

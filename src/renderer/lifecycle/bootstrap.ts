@@ -18,7 +18,7 @@ export async function runRendererBootstrap({
 
     let bootstrapData = null;
     try {
-        bootstrapData = await window.electronAPI.invoke('bootstrap-app', {
+        bootstrapData = await globalThis.electronAPI.invoke('bootstrap-app', {
             ...settingsController.getBootstrapPreferences()
         });
     } catch (error) {
@@ -41,11 +41,11 @@ export async function runRendererBootstrap({
     }
 
     const appUpdateInit = await appUpdateController.initialize(bootstrapData) || { presentedPostUpdate: false };
-    if (window.electronAPI) {
-        void window.electronAPI.invoke('log-app-update-debug', `renderer initialize result=${JSON.stringify(appUpdateInit)}`);
+    if (globalThis.electronAPI) {
+        void globalThis.electronAPI.invoke('log-app-update-debug', `renderer initialize result=${JSON.stringify(appUpdateInit)}`);
         const bootChecks = bootstrapData?.bootChecks || null;
         const appUpdateCheck = bootChecks?.appUpdateCheck || null;
-        void window.electronAPI.invoke('log-app-update-debug', `renderer bootChecks appUpdatesMode=${bootChecks?.appUpdatesMode || ''} languagePackUpdatesMode=${bootChecks?.languagePackUpdatesMode || ''} appUpdateCheck=${JSON.stringify(appUpdateCheck ? {
+        void globalThis.electronAPI.invoke('log-app-update-debug', `renderer bootChecks appUpdatesMode=${bootChecks?.appUpdatesMode || ''} languagePackUpdatesMode=${bootChecks?.languagePackUpdatesMode || ''} appUpdateCheck=${JSON.stringify(appUpdateCheck ? {
             available: !!appUpdateCheck.available,
             deferredUntilNextLaunch: !!appUpdateCheck.deferredUntilNextLaunch,
             downloadable: !!appUpdateCheck.downloadable,
@@ -56,11 +56,11 @@ export async function runRendererBootstrap({
     }
     if (!deferredInstallPending && !appUpdateInit.presentedPostUpdate) {
         updateNotificationFeature.presentBootNotifications(bootstrapData);
-        if (window.electronAPI) {
-            void window.electronAPI.invoke('log-app-update-debug', 'renderer presentBootNotifications=true');
+        if (globalThis.electronAPI) {
+            void globalThis.electronAPI.invoke('log-app-update-debug', 'renderer presentBootNotifications=true');
         }
-    } else if (window.electronAPI) {
-        void window.electronAPI.invoke('log-app-update-debug', `renderer presentBootNotifications=false reason=${deferredInstallPending ? 'deferred-install-pending' : 'post-update-presented'}`);
+    } else if (globalThis.electronAPI) {
+        void globalThis.electronAPI.invoke('log-app-update-debug', `renderer presentBootNotifications=false reason=${deferredInstallPending ? 'deferred-install-pending' : 'post-update-presented'}`);
     }
 
     await uiTextController.applyUIStrings();

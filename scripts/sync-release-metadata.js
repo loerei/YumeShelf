@@ -47,7 +47,7 @@ function main() {
 
     const packageLock = readJson(packageLockPath);
     packageLock.version = nextVersion;
-    if (packageLock.packages && packageLock.packages['']) {
+    if (packageLock.packages?.['']) {
         packageLock.packages[''].version = nextVersion;
     }
     writeJson(packageLockPath, packageLock);

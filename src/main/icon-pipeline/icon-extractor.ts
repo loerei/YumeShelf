@@ -41,7 +41,7 @@ function summarizePathFlavor(targetPath: string) {
 }
 
 process.on('message', (msg: IconWorkerMessageRequest) => {
-    if (msg && msg.type === 'extract' && msg.id && msg.path && msg.extPath) {
+    if (msg?.type === 'extract' && msg.id && msg.path && msg.extPath) {
         const startedAt = Date.now();
         const normalizedPath = path.win32.normalize(msg.path);
         const rawExists = fs.existsSync(msg.path);

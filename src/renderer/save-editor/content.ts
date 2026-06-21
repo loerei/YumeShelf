@@ -278,7 +278,7 @@ export function renderInventory(context, target, key, metaSource, grid, original
         Object.keys(metaSource).forEach(id => {
             if (id === '0') return;
             const meta = metaSource[id];
-            if (meta && meta.name && meta.name.trim() !== '') {
+            if (meta?.name && meta.name.trim() !== '') {
                 allIds.add(id);
             }
         });

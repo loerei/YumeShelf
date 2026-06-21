@@ -40,7 +40,7 @@ function safeGetPath(app: App, name: any): string {
     try {
         return app.getPath(name);
     } catch (err: any) {
-        return `ERROR:${String((err && err.message) || err)}`;
+        return `ERROR:${String((err?.message) || err)}`;
     }
 }
 

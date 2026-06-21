@@ -106,7 +106,7 @@ export function setupSearchBar(refs, state, engine, renderTabContent) {
             // @ts-ignore
             if (e.target.checked) {
                 const other = /** @type {HTMLInputElement | null} */(overlay.querySelector('.switch-false-check'));
-                if (other && other.checked) {
+                if (other?.checked) {
                     other.checked = false;
                     engine.setSearchOptions({ switchOnlyFalse: false });
                 }
@@ -123,7 +123,7 @@ export function setupSearchBar(refs, state, engine, renderTabContent) {
             // @ts-ignore
             if (e.target.checked) {
                 const other = /** @type {HTMLInputElement | null} */(overlay.querySelector('.switch-true-check'));
-                if (other && other.checked) {
+                if (other?.checked) {
                     other.checked = false;
                     engine.setSearchOptions({ switchOnlyTrue: false });
                 }

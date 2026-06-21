@@ -301,7 +301,7 @@ class RpgWolfSavFormat {
             gameTitle: 'WOLF RPG Game'
         };
 
-        if (!paths || !paths.exeDir) return metadata;
+        if (!paths?.exeDir) return metadata;
         
         try {
             const dataDir = path.join(paths.exeDir, 'Data', 'BasicData');

@@ -42,7 +42,7 @@ export function createCategoryId(): string {
 
 export function flattenTree(tree: CategoryTree, bucket: Map<string, CategoryNode> = new Map()): Map<string, CategoryNode> {
     for (const node of Array.isArray(tree) ? tree : []) {
-        if (!node || !node.id) continue;
+        if (!node?.id) continue;
         bucket.set(node.id, node);
         flattenTree(node.children, bucket);
     }

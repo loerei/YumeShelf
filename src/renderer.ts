@@ -8,7 +8,7 @@ import { initSaveEditorUI } from './renderer/save-editor-ui.js';
 import { GameEntry } from './renderer/state/types';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(globalThis.location.search);
     const isStandaloneSaveEditor = urlParams.get('mode') === 'save-editor';
     if (isStandaloneSaveEditor) {
         document.body.classList.add('standalone-save-editor');
@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadingEl.style.display = 'none';
         }
         initSaveEditorUI();
-        const win = window as any;
+        const win = globalThis as any;
         if (typeof win.showSaveEditor === 'function') {
             win.showSaveEditor(gameKey, { isStandaloneWindow: true });
         }
@@ -30,14 +30,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const composition = createRendererComposition({
         refs,
         state,
-        electronAPI: window.electronAPI,
+        electronAPI: (globalThis as any).electronAPI,
         builtInLanguageOrder: ['en', 'ja', 'zh'],
         dragRowTolerance: 15,
         dragPointerSlop: 18
     });
 
     bindIpcEvents({
-        electronAPI: window.electronAPI,
+        electronAPI: (globalThis as any).electronAPI,
         bootController: composition.bootController,
         updateNotificationFeature: composition.updateNotificationFeature,
         getAllGames: () => state.getAllGames(),

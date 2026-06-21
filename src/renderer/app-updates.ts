@@ -11,7 +11,7 @@ export function createAppUpdateController({
     electronAPI,
     getText,
     openUpdatesReviewModal,
-    reloadWindow = () => window.location.reload(),
+    reloadWindow = () => globalThis.location.reload(),
     updateNotificationFeature
 }) {
     const reviewState = { actionInFlight: false };
@@ -71,7 +71,7 @@ export function createAppUpdateController({
                 deferredUntilNextLaunch: false
             });
             const downloadResult = await electronAPI.invoke('start-app-update-download');
-            if (!downloadResult || !downloadResult.ok) {
+            if (!downloadResult?.ok) {
                 state.patchCurrentUpdate({
                     actionState: 'failed'
                 });
@@ -86,7 +86,7 @@ export function createAppUpdateController({
         }
 
         const installResult = await actions.runRestartAndInstall();
-        if (!installResult || !installResult.ok) {
+        if (!installResult?.ok) {
             reviewState.actionInFlight = false;
             return installResult || { ok: false, reason: 'install' };
         }

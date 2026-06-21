@@ -32,7 +32,7 @@ export function bindGlobalUiEvents({
     duplicateStackOverlayController,
     closeLanguagePackModal
 }: BindGlobalUiEventsOptions): void {
-    window.addEventListener('keydown', (event) => {
+    globalThis.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             const saveEditorOverlay = document.querySelector('.save-editor-overlay');
             if (saveEditorOverlay) {
@@ -66,10 +66,10 @@ export function bindGlobalUiEvents({
 }
 
 export function bindWindowStatusEvents(uiTextController: BindWindowStatusEventsController): void {
-    window.addEventListener('online', () => {
+    globalThis.addEventListener('online', () => {
         uiTextController.refreshAppVersionLink();
     });
-    window.addEventListener('offline', () => {
+    globalThis.addEventListener('offline', () => {
         uiTextController.refreshAppVersionLink();
     });
 }
@@ -223,13 +223,13 @@ export function bindControlEvents({
         refs.telemetrySelect.onchange = async (event) => {
             const selectEl = event.target as HTMLSelectElement;
             const enabled = selectEl.value === 'on';
-            await (window as any).electronAPI.invoke('update-library-config', { telemetryEnabled: enabled });
+            await (globalThis as any).electronAPI.invoke('update-library-config', { telemetryEnabled: enabled });
         };
     }
 
     if (refs.buttons.telemetryOptIn) {
         refs.buttons.telemetryOptIn.onclick = async () => {
-            await (window as any).electronAPI.invoke('update-library-config', { telemetryEnabled: true });
+            await (globalThis as any).electronAPI.invoke('update-library-config', { telemetryEnabled: true });
             if (refs.telemetryModal) {
                 refs.telemetryModal.style.display = 'none';
             }
@@ -241,7 +241,7 @@ export function bindControlEvents({
 
     if (refs.buttons.telemetryOptOut) {
         refs.buttons.telemetryOptOut.onclick = async () => {
-            await (window as any).electronAPI.invoke('update-library-config', { telemetryEnabled: false });
+            await (globalThis as any).electronAPI.invoke('update-library-config', { telemetryEnabled: false });
             if (refs.telemetryModal) {
                 refs.telemetryModal.style.display = 'none';
             }

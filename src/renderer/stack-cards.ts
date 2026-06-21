@@ -69,7 +69,7 @@ export function createStackCardFactory({
         }
 
         if (!primaryGame.iconData) {
-            window.electronAPI.invoke('get-icon', primaryGame.exePath).then((iconPayload: any) => {
+            (globalThis as any).electronAPI.invoke('get-icon', primaryGame.exePath).then((iconPayload: any) => {
                 const normalizedIcon = applyIconPayload(primaryGame, iconPayload);
                 if (!normalizedIcon) return;
                 cacheIconPayload(primaryGame.exePath, normalizedIcon);

@@ -3,7 +3,7 @@ const CATEGORY_FILTER_ALL_VALUE = '__all__';
 
 function flattenCategoryTree(tree, depth = 0, bucket = [], parentNames = []) {
     for (const node of Array.isArray(tree) ? tree : []) {
-        if (!node || !node.id) continue;
+        if (!node?.id) continue;
         const ancestry = [...parentNames, node.name];
         bucket.push({
             depth,

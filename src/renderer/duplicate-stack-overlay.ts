@@ -49,7 +49,7 @@ export function createDuplicateStackOverlayController({
             grid.innerHTML = '';
             activeStackKey = null;
         };
-        window.setTimeout(finalize, 220);
+        globalThis.setTimeout(finalize, 220);
     }
 
     function open(stack) {

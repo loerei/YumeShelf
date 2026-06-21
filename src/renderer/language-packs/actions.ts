@@ -105,14 +105,14 @@ export function createLanguagePackActions({
         const result = await electronAPI.invoke('install-language-pack', code);
         setDownloadingLanguageCode(null);
 
-        if (!result || !result.ok) {
-            if (result && result.reason === 'checksum') {
+        if (!result?.ok) {
+            if (result?.reason === 'checksum') {
                 setLanguagePackBanner(getText('lang_modal_checksum_failed', 'Checksum verification failed.'), true);
-            } else if (result && result.reason === 'schema') {
+            } else if (result?.reason === 'schema') {
                 setLanguagePackBanner(getText('lang_modal_schema_failed', 'Language pack schema is invalid.'), true);
-            } else if (result && result.reason === 'not-compatible') {
+            } else if (result?.reason === 'not-compatible') {
                 setLanguagePackBanner(getText('lang_modal_not_compatible', 'This language pack needs a newer version of YumeShelf.'), true);
-            } else if (result && result.reason === 'offline') {
+            } else if (result?.reason === 'offline') {
                 setLanguagePackBanner(getText('lang_modal_offline', 'You are offline.'), true);
             } else {
                 setLanguagePackBanner(getText('lang_modal_install_error', 'Could not install that language pack.'), true);

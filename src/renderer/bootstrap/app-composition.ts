@@ -133,7 +133,7 @@ export function createRendererComposition({
         openUpdatesReviewModal: async (options = {}) => {
             await languagePackController.openUpdatesReviewModal(options);
         },
-        reloadWindow: () => window.location.reload(),
+        reloadWindow: () => globalThis.location.reload(),
         updateNotificationFeature: {
             present: (...args: any[]) => updateNotificationFeature.present(...args)
         }

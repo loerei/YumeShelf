@@ -113,6 +113,20 @@ export function createStartupServices({
         }
     }
 
+    async function installLanguagePackUpdates(webContents: any, candidates: any[], languagePackCheck: any, currentLanguageState: any) {
+        emitBootStatus(webContents, {
+            key: 'boot_installing_language_pack_updates',
+            fallbackText: 'Installing language pack updates'
+        });
+
+        const updateResult = await applyLanguagePackUpdates(candidates, {
+            downloadTimeoutMs: startupNetworkTimeoutMs
+        });
+        languagePackCheck.installedUpdates = updateResult.installed || [];
+        languagePackCheck.failedUpdates = updateResult.failed || [];
+        return updateResult.state || currentLanguageState;
+    }
+
     async function performLanguagePackCheck(webContents: any, languagePackUpdatesMode: string, languagePackCheck: any, languageState: any) {
         if (languagePackUpdatesMode === 'off') return languageState;
 
@@ -132,7 +146,10 @@ export function createStartupServices({
                 key: 'boot_language_pack_source_timeout',
                 fallbackText: 'Language pack check timed out, continuing startup'
             });
-        } else if (!manifestProbe.ok) {
+            return currentLanguageState;
+        }
+
+        if (!manifestProbe.ok) {
             const offline = isNetworkLikeError(manifestProbe.error);
             languagePackCheck.source = offline ? 'offline' : 'error';
             languagePackCheck.offline = offline;
@@ -141,52 +158,41 @@ export function createStartupServices({
                 key: offline ? 'boot_language_pack_source_offline' : 'boot_language_pack_source_failed',
                 fallbackText: offline ? 'No internet, skipping language pack check' : 'Language pack check failed, continuing startup'
             });
-        } else {
-            const manifestResult = manifestProbe.value as any;
-            languagePackCheck.source = manifestResult.source || 'none';
-            languagePackCheck.offline = !!manifestResult.offline;
-            languagePackCheck.error = manifestResult.error || null;
+            return currentLanguageState;
+        }
 
-            let key = 'boot_language_pack_source_ready';
-            let fallbackText = 'Language pack source ready';
-            if (manifestResult.source === 'cache') {
-                key = 'boot_language_pack_source_cached';
-                fallbackText = 'Using cached language pack source';
-            } else if (manifestResult.offline) {
-                key = 'boot_language_pack_source_offline';
-                fallbackText = 'No internet, skipping language pack check';
-            } else if (!manifestResult.ok) {
-                key = 'boot_language_pack_source_failed';
-                fallbackText = 'Language pack check failed, continuing startup';
-            }
+        const manifestResult = manifestProbe.value as any;
+        languagePackCheck.source = manifestResult.source || 'none';
+        languagePackCheck.offline = !!manifestResult.offline;
+        languagePackCheck.error = manifestResult.error || null;
 
-            emitBootStatus(webContents, { key, fallbackText });
+        let key = 'boot_language_pack_source_ready';
+        let fallbackText = 'Language pack source ready';
+        if (manifestResult.source === 'cache') {
+            key = 'boot_language_pack_source_cached';
+            fallbackText = 'Using cached language pack source';
+        } else if (manifestResult.offline) {
+            key = 'boot_language_pack_source_offline';
+            fallbackText = 'No internet, skipping language pack check';
+        } else if (!manifestResult.ok) {
+            key = 'boot_language_pack_source_failed';
+            fallbackText = 'Language pack check failed, continuing startup';
+        }
 
-            if (manifestResult.ok && manifestResult.manifest) {
-                emitBootStatus(webContents, {
-                    key: 'boot_checking_language_pack_updates',
-                    fallbackText: 'Checking installed language pack updates'
-                });
+        emitBootStatus(webContents, { key, fallbackText });
 
-                const candidates = getLanguagePackUpdateCandidates(currentLanguageState, manifestResult.manifest);
-                languagePackCheck.updatesChecked = true;
-                languagePackCheck.availableUpdates = candidates.map(candidate => candidate.summary);
+        if (manifestResult.ok && manifestResult.manifest) {
+            emitBootStatus(webContents, {
+                key: 'boot_checking_language_pack_updates',
+                fallbackText: 'Checking installed language pack updates'
+            });
 
-                if (languagePackUpdatesMode === 'automatic' && candidates.length > 0 && !manifestResult.offline) {
-                    emitBootStatus(webContents, {
-                        key: 'boot_installing_language_pack_updates',
-                        fallbackText: 'Installing language pack updates'
-                    });
+            const candidates = getLanguagePackUpdateCandidates(currentLanguageState, manifestResult.manifest);
+            languagePackCheck.updatesChecked = true;
+            languagePackCheck.availableUpdates = candidates.map(candidate => candidate.summary);
 
-                    const updateResult = await applyLanguagePackUpdates(candidates, {
-                        downloadTimeoutMs: startupNetworkTimeoutMs
-                    });
-                    languagePackCheck.installedUpdates = updateResult.installed || [];
-                    languagePackCheck.failedUpdates = updateResult.failed || [];
-                    if (updateResult.state) {
-                        currentLanguageState = updateResult.state;
-                    }
-                }
+            if (languagePackUpdatesMode === 'automatic' && candidates.length > 0 && !manifestResult.offline) {
+                currentLanguageState = await installLanguagePackUpdates(webContents, candidates, languagePackCheck, currentLanguageState);
             }
         }
         return currentLanguageState;

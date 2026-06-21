@@ -1,26 +1,12 @@
 import { pickReleaseName, pickReleaseNotes } from './update-info';
+import { UpdaterState, UpdaterStateFiles } from './types';
 
 export interface CheckForUpdatesContext {
     app: any;
     compareVersions: (a: string, b: string) => number;
     releasePageUrl: string;
-    state: {
-        updater: any;
-        latestUpdateInfo: any;
-        latestDownloadedEvent: any;
-        activeDownloadPromise: any;
-        updaterFeedKey: any;
-    };
-    stateFiles: {
-        clearDeferredInstallState: () => Promise<void>;
-        clearDownloadedState: () => Promise<void>;
-        getValidatedDeferredInstallState: () => Promise<any>;
-        getValidatedDownloadedStateForVersion: (version: string) => Promise<any>;
-        readDeferredInstallState: () => Promise<any>;
-        readDownloadedState: () => Promise<any>;
-        writeDeferredInstallState: (state: any) => Promise<void>;
-        writeDownloadedState: (state: any) => Promise<void>;
-    };
+    state: UpdaterState;
+    stateFiles: UpdaterStateFiles;
     resolveRuntime: () => any;
     configureUpdaterFeed: (runtime: any) => Promise<{ updater: any; feedOverride: any }>;
     appendUpdateLog: (message: string) => Promise<any> | any;

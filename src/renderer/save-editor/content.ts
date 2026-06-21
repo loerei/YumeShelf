@@ -16,6 +16,23 @@ function attachSaveEditorTooltip(element, getContent) {
     }
 }
 
+function getPinHandler(context, pinId) {
+    const { state } = context;
+    const isPinned = state.pinnedVariables ? state.pinnedVariables.has(pinId) : false;
+    const onPinToggle = () => {
+        if (!state.pinnedVariables) return;
+        if (state.pinnedVariables.has(pinId)) {
+            state.pinnedVariables.delete(pinId);
+        } else {
+            state.pinnedVariables.add(pinId);
+        }
+        if (state.savePinnedVariables) state.savePinnedVariables();
+        if (typeof context.setupTabs === 'function') context.setupTabs();
+        renderTabContent(context);
+    };
+    return { isPinned, onPinToggle };
+}
+
 export function renderTabContent(context) {
     const { refs, state, engine, translator, activeVisibleTabs } = context;
     const { content } = refs;
@@ -56,7 +73,7 @@ export function renderTabContent(context) {
                     renderTabContent(context);
                 };
                 const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
-                    goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
+                    goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
                 }, originalGoldVal, isPinned, onPinToggle);
                 row.style.gridColumn = '1 / -1';
                 row.style.maxWidth = '300px';
@@ -74,7 +91,7 @@ export function renderTabContent(context) {
                 const meta = state.currentMetadata ? state.currentMetadata.variables : {};
                 renderBitset(context, variables, meta || {}, grid, (id, val, newVal, container) => {
                     const num = Number(newVal);
-                    container[id] = isNaN(num) ? newVal : num;
+                    container[id] = Number.isNaN(num) ? newVal : num;
                 }, true, originalVariables, 'variables', true);
             }
 
@@ -110,7 +127,7 @@ export function renderTabContent(context) {
                 };
 
                 const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
-                    goldInfo.obj[goldInfo.key] = parseInt(val) || 0;
+                    goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
                 }, originalGoldVal, isPinned, onPinToggle);
                 row.style.gridColumn = '1 / -1';
                 row.style.maxWidth = '300px';
@@ -132,12 +149,12 @@ export function renderTabContent(context) {
             });
             renderBitset(context, filteredVars, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                 const num = Number(newVal);
-                container[id] = isNaN(num) ? newVal : num;
+                container[id] = Number.isNaN(num) ? newVal : num;
             }, true, originalVariables, 'variables');
         } else if (tabId === 'variables' && variables) {
             renderBitset(context, variables, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
                 const num = Number(newVal);
-                container[id] = isNaN(num) ? newVal : num;
+                container[id] = Number.isNaN(num) ? newVal : num;
             }, true, originalVariables, 'variables');
         } else if (tabId === 'switches' && switches) {
             renderBitset(context, switches, state.currentMetadata.switches, grid, (id, val, newVal, container) => {
@@ -303,21 +320,10 @@ export function renderInventory(context, target, key, metaSource, grid, original
         
         if (!engine.matchesQuery(id, val, meta.name) && !engine.matchesQuery(id, val, translated)) return;
 
-        const isPinned = state.pinnedVariables ? state.pinnedVariables.has(pinId) : false;
-        const onPinToggle = () => {
-            if (!state.pinnedVariables) return;
-            if (state.pinnedVariables.has(pinId)) {
-                state.pinnedVariables.delete(pinId);
-            } else {
-                state.pinnedVariables.add(pinId);
-            }
-            if (state.savePinnedVariables) state.savePinnedVariables();
-            if (typeof context.setupTabs === 'function') context.setupTabs();
-            renderTabContent(context);
-        };
+        const { isPinned, onPinToggle } = getPinHandler(context, pinId);
 
         const row = UIComponents.createDataRow(id, val, meta.name, (newVal) => {
-            const parsedVal = parseInt(newVal) || 0;
+            const parsedVal = Number.parseInt(newVal) || 0;
             if (parsedVal === 0 && !state.showEmpty) {
                 delete items[id]; // Delete if value is 0 and showEmpty is false to keep save file clean
             } else {
@@ -377,18 +383,7 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
 
         const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
 
-        const isPinned = state.pinnedVariables ? state.pinnedVariables.has(pinId) : false;
-        const onPinToggle = () => {
-            if (!state.pinnedVariables) return;
-            if (state.pinnedVariables.has(pinId)) {
-                state.pinnedVariables.delete(pinId);
-            } else {
-                state.pinnedVariables.add(pinId);
-            }
-            if (state.savePinnedVariables) state.savePinnedVariables();
-            if (typeof context.setupTabs === 'function') context.setupTabs();
-            renderTabContent(context);
-        };
+        const { isPinned, onPinToggle } = getPinHandler(context, pinId);
 
         if (isNumeric) {
             const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv, raw), originalVal, isPinned, onPinToggle);

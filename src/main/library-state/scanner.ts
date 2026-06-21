@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 
 export const DEFAULT_LIBRARY_MAX_DEPTH = 5;
 export const MIN_LIBRARY_MAX_DEPTH = 0;

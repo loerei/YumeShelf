@@ -1,5 +1,5 @@
-import * as path from 'path';
-import * as fsSync from 'fs';
+import * as path from 'node:path';
+import * as fsSync from 'node:fs';
 import { BrowserWindow, Tray, Menu, ipcMain, session } from 'electron';
 
 let tray: Tray | null = null;

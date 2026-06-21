@@ -1,6 +1,6 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 import { NsisUpdater } from 'electron-updater';
 import { createInstallerHandoff } from './nsis-updater/installer-handoff';
 import { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } from './nsis-updater/runtime';

@@ -1,6 +1,6 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import { cropTransparentPaddingFromDataUrl, summarizeNativeImageForDebug } from './cropper';
 import {
     tryGetCachedIconDataUrl,

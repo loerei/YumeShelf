@@ -1,7 +1,7 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import { exec } from 'child_process';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import { exec } from 'node:child_process';
 const lz4 = require('lz4');
 import { TranslationExtractor } from './base';
 import { downloadFile, ensureDir } from '../../core/shared-io';

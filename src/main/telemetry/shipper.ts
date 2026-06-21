@@ -1,8 +1,8 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
-import * as http from 'http';
-import * as https from 'https';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
+import * as http from 'node:http';
+import * as https from 'node:https';
 import { sanitizeLogPayload, TelemetryPayload } from './sanitizer';
 
 export class TelemetryShipper {

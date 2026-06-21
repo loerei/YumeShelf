@@ -1,6 +1,6 @@
-import * as fsSync from 'fs';
-import * as path from 'path';
-import { fork, spawnSync, ChildProcess } from 'child_process';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
+import { fork, spawnSync, ChildProcess } from 'node:child_process';
 import { IconWorkerMessageRequest, IconWorkerMessageResponse } from './icon-extractor';
 
 const ICON_WORKER_BOOT_MAX_ATTEMPTS = 5;

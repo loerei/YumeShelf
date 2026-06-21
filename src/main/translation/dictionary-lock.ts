@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 
 export class DictionaryLocker {
     private static lockPromise: Promise<void> = Promise.resolve();

@@ -1,5 +1,5 @@
-import * as util from 'util';
-import { execSync } from 'child_process';
+import * as util from 'node:util';
+import { execSync } from 'node:child_process';
 
 function isBrokenPipeError(error: any): boolean {
     if (!error) return false;

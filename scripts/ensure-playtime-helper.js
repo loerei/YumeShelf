@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { spawnSync } = require('child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const repoRoot = path.resolve(__dirname, '..');
 const HELPER_EXE_NAME = 'playtime-helper.exe';
 const helperProjectDir = path.join(repoRoot, 'native', 'playtime-helper');

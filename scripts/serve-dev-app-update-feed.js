@@ -1,6 +1,6 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const DEFAULT_PORT = Number(process.env.YUMESHELF_DEV_FEED_PORT || 5505);
 

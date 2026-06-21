@@ -1,18 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 
 // 1. Core Format Strategies to load and test
-const formatsDir = path.resolve(__dirname, '../src/main/save-editor/formats');
+const formatsDir = path.resolve(__dirname, '../dist/main/save-editor/formats');
+const getFormat = (name) => {
+    const mod = require(path.join(formatsDir, name));
+    return mod.default || mod;
+};
 const formats = {
-    'rpg-maker-mv': require(path.join(formatsDir, 'rpg-maker-mv')),
-    'rpg-maker-mz': require(path.join(formatsDir, 'rpg-maker-mz')),
-    'rpg-wolf-sav': require(path.join(formatsDir, 'rpg-wolf-sav')),
-    'renpy': require(path.join(formatsDir, 'renpy')),
-    'unity-mono-bin': require(path.join(formatsDir, 'unity-mono-bin')),
-    'pure-json': require(path.join(formatsDir, 'pure-json'))
+    'rpg-maker-mv': getFormat('rpg-maker-mv'),
+    'rpg-maker-mz': getFormat('rpg-maker-mz'),
+    'rpg-wolf-sav': getFormat('rpg-wolf-sav'),
+    'renpy': getFormat('renpy'),
+    'unity-mono-bin': getFormat('unity-mono-bin'),
+    'pure-json': getFormat('pure-json')
 };
 
 test('Strict Strategy Interface Contracts - All formats must implement standard API', () => {
@@ -24,7 +28,7 @@ test('Strict Strategy Interface Contracts - All formats must implement standard 
     }
 });
 
-test('RPG Maker MV Format Contract - High-fidelity Base64 LZ-String compression round-trip', () => {
+test('RPG Maker MV Format Contract - High-fidelity Base64 LZ-String compression round-trip', async () => {
     const strategy = formats['rpg-maker-mv'];
     assert.equal(strategy.match('save.rpgsave'), true);
     assert.equal(strategy.match('save.rpgsave2'), false);
@@ -36,15 +40,15 @@ test('RPG Maker MV Format Contract - High-fidelity Base64 LZ-String compression 
     };
 
     // Encode
-    const encodedBuffer = strategy.encode(testPayload);
+    const encodedBuffer = await strategy.encode(testPayload);
     assert.ok(Buffer.isBuffer(encodedBuffer), 'MV encode must return a Buffer');
 
     // Decode
-    const decodedJson = strategy.decode(encodedBuffer);
+    const decodedJson = await strategy.decode(encodedBuffer);
     assert.deepEqual(decodedJson, testPayload, 'MV round-trip must preserve exact JSON structure');
 });
 
-test('RPG Maker MZ Format Contract - Standard zlib-deflate compression round-trip', () => {
+test('RPG Maker MZ Format Contract - Standard zlib-deflate compression round-trip', async () => {
     const strategy = formats['rpg-maker-mz'];
     assert.equal(strategy.match('file1.rmmzsave'), true);
     assert.equal(strategy.match('file1.rmmzsave_backup'), false);
@@ -55,15 +59,15 @@ test('RPG Maker MZ Format Contract - Standard zlib-deflate compression round-tri
     };
 
     // Encode
-    const encodedBuffer = strategy.encode(testPayload);
+    const encodedBuffer = await strategy.encode(testPayload);
     assert.ok(Buffer.isBuffer(encodedBuffer), 'MZ encode must return a Buffer');
 
     // Decode
-    const decodedJson = strategy.decode(encodedBuffer);
+    const decodedJson = await strategy.decode(encodedBuffer);
     assert.deepEqual(decodedJson, testPayload, 'MZ round-trip must preserve exact JSON structure');
 });
 
-test('RPG Wolf SAV Format Contract - LCG XOR Cipher Involution & Sum-Checksum integrity', () => {
+test('RPG Wolf SAV Format Contract - LCG XOR Cipher Involution & Sum-Checksum integrity', async () => {
     const strategy = formats['rpg-wolf-sav'];
     assert.equal(strategy.match('Save01.sav'), true);
     assert.equal(strategy.match('Save01.rpgsave'), false, 'Wolf strategy must exclude .rpgsave files');
@@ -96,7 +100,7 @@ test('RPG Wolf SAV Format Contract - LCG XOR Cipher Involution & Sum-Checksum in
         _varArrayOffset: 16 + 4
     };
 
-    const finalBuffer = strategy.encode(inputPayload);
+    const finalBuffer = await strategy.encode(inputPayload);
     assert.ok(Buffer.isBuffer(finalBuffer), 'Wolf encode must output a valid Buffer');
     assert.equal(finalBuffer.length, 220, 'Wolf encode must preserve correct total file length');
 

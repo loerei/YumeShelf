@@ -1,12 +1,12 @@
-const fs = require('fs/promises');
-const path = require('path');
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 const rpgWolfSav = require('../dist/main/save-editor/formats/rpg-wolf-sav.js');
 
 const SAVE_DIR = path.join(__dirname, '..', 'YumeShelf', '[Kimochi] Imouto -Fantasy- DLC V0.1 Translation', '[Kimochi] Imouto -Fantasy- DLC V0.1 Translation', 'Save');
 
-async function testWolfSavRoundtrip() {
-    console.log('=== RPG Wolf Save Format Unit Test ===');
-    
+test('RPG Wolf Save Format Unit Test', async () => {
     const saveFile = path.join(SAVE_DIR, 'SaveData03.sav.temp_bak');
     try {
         await fs.access(saveFile);
@@ -38,9 +38,7 @@ async function testWolfSavRoundtrip() {
     const newGold = reDecoded.variables[7];
     console.log(`   Encoded Gold (Var #7): ${newGold}`);
     
-    if (newGold !== 123456) {
-        throw new Error(`Expected Gold to be 123456, but got ${newGold}`);
-    }
+    assert.equal(newGold, 123456, `Expected Gold to be 123456, but got ${newGold}`);
     
     // 5. Verify checksum byte in the encoded header
     const expectedChecksum = Buffer.from(reDecoded._decryptedBase64, 'base64')
@@ -50,14 +48,6 @@ async function testWolfSavRoundtrip() {
     console.log(`   Expected Header Checksum Byte: 0x${expectedChecksum.toString(16).toUpperCase()}`);
     console.log(`   Actual Header Checksum Byte:   0x${actualChecksum.toString(16).toUpperCase()}`);
     
-    if (actualChecksum !== expectedChecksum) {
-        throw new Error(`Checksum mismatch! Expected 0x${expectedChecksum.toString(16)}, got 0x${actualChecksum.toString(16)}`);
-    }
-    
-    console.log('=== TEST PASSED SUCCESSFULLY ===\n');
-}
-
-testWolfSavRoundtrip().catch(err => {
-    console.error('Test failed:', err);
-    process.exit(1);
+    assert.equal(actualChecksum, expectedChecksum, `Checksum mismatch! Expected 0x${expectedChecksum.toString(16)}, got 0x${actualChecksum.toString(16)}`);
 });
+

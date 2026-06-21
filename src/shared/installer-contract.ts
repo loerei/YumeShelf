@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 
 export function escapeIniValue(value: any): string {
     return String(value ?? '').replace(/\r?\n/g, ' ').trim();

@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const { spawnSync } = require('child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { resolveInstallerArtifactPath } = require('./release-artifacts');
 
 const repoRoot = path.resolve(__dirname, '..');

@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { exists, getExeStemFromPath } from './utils';
 import { detectEngine } from './engine-detectors';
 import {

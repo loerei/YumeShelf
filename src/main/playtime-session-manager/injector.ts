@@ -1,5 +1,5 @@
-import { spawn, execFile } from 'child_process';
-import * as path from 'path';
+import { spawn, execFile } from 'node:child_process';
+import * as path from 'node:path';
 import { assertPlaytimeHelperExists, resolvePlaytimeHelperPath } from '../playtime-helper-paths';
 
 export function isPidAlive(pid: number): boolean {

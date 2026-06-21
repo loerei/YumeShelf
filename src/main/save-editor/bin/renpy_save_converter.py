@@ -6,6 +6,14 @@ import io
 import json
 from types import ModuleType
 
+def validate_path(path):
+    base_dir = os.path.realpath(os.getcwd()) + os.sep
+    canonical_path = os.path.realpath(path)
+    if not canonical_path.startswith(base_dir):
+        print(f"Error: Access denied to path {path}", file=sys.stderr)
+        sys.exit(1)
+    return canonical_path
+
 def get_or_create_class(module_path, class_name):
     parts = module_path.split('.')
     current_module_name = ""
@@ -164,6 +172,8 @@ def deserialize_val(json_val, original_val=None):
     return json_val
 
 def to_json(save_path, json_out_path):
+    save_path = validate_path(save_path)
+    json_out_path = validate_path(json_out_path)
     if not os.path.exists(save_path):
         print(f"Error: Save file {save_path} does not exist", file=sys.stderr)
         sys.exit(1)
@@ -186,6 +196,9 @@ def to_json(save_path, json_out_path):
     print(f"Successfully converted {save_path} to JSON at {json_out_path}")
 
 def to_save(original_save_path, json_in_path, output_save_path):
+    original_save_path = validate_path(original_save_path)
+    json_in_path = validate_path(json_in_path)
+    output_save_path = validate_path(output_save_path)
     if not os.path.exists(original_save_path):
         print(f"Error: Original save file {original_save_path} does not exist", file=sys.stderr)
         sys.exit(1)

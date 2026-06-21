@@ -52,62 +52,43 @@ export class DataEngine {
      * @param {any} label
      * @returns {boolean}
      */
-    matchesQuery(id, value, label) {
-        const { 
-            query, exact, searchName, searchValue, searchIndex, 
-            switchOnlyTrue, switchOnlyFalse 
-        } = this.searchOptions;
+    evaluateRelationalQuery(id, value, relMatch, searchIndex, searchValue) {
+        const op = relMatch[1];
+        const target = Number.parseFloat(relMatch[2]);
         
-        // Boolean filters for switches (AND logic)
-        if (switchOnlyTrue && value !== true) return false;
-        if (switchOnlyFalse && value !== false) return false;
-
-        if (!query) return true;
-        
-        // Relational numeric search support: e.g. ">170", ">=170", "<50", "=10", "!=0"
-        const relMatch = query.trim().match(/^(>=|<=|>|<|==|=|!=)\s*(-?\d+(\.\d+)?)$/);
-        if (relMatch) {
-            const op = relMatch[1];
-            const target = Number.parseFloat(relMatch[2]);
-            
-            /**
-             * @param {number} val
-             * @param {string} op
-             * @param {number} targetVal
-             * @returns {boolean}
-             */
-            const compare = (val, op, targetVal) => {
-                switch (op) {
-                    case '>': return val > targetVal;
-                    case '>=': return val >= targetVal;
-                    case '<': return val < targetVal;
-                    case '<=': return val <= targetVal;
-                    case '=':
-                    case '==': return val === targetVal;
-                    case '!=': return val !== targetVal;
-                    default: return false;
-                }
-            };
-
-            // Evaluate on index
-            if (searchIndex && id !== null && id !== undefined) {
-                const numericId = Number(id);
-                if (!Number.isNaN(numericId) && compare(numericId, op, target)) {
-                    return true;
-                }
+        const compare = (val, op, targetVal) => {
+            switch (op) {
+                case '>': return val > targetVal;
+                case '>=': return val >= targetVal;
+                case '<': return val < targetVal;
+                case '<=': return val <= targetVal;
+                case '=':
+                case '==': return val === targetVal;
+                case '!=': return val !== targetVal;
+                default: return false;
             }
+        };
 
-            // Evaluate on value
-            if (searchValue && value !== null && value !== undefined) {
-                const numericVal = Number(value);
-                if (!Number.isNaN(numericVal) && compare(numericVal, op, target)) {
-                    return true;
-                }
+        // Evaluate on index
+        if (searchIndex && id !== null && id !== undefined) {
+            const numericId = Number(id);
+            if (!Number.isNaN(numericId) && compare(numericId, op, target)) {
+                return true;
             }
-
-            return false;
         }
 
+        // Evaluate on value
+        if (searchValue && value !== null && value !== undefined) {
+            const numericVal = Number(value);
+            if (!Number.isNaN(numericVal) && compare(numericVal, op, target)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    evaluateTextQuery(id, value, label, query, exact, searchIndex, searchValue, searchName) {
         const q = query.toLowerCase();
         
         // Search by Index (ID)
@@ -137,6 +118,27 @@ export class DataEngine {
         }
         
         return false;
+    }
+
+    matchesQuery(id, value, label) {
+        const { 
+            query, exact, searchName, searchValue, searchIndex, 
+            switchOnlyTrue, switchOnlyFalse 
+        } = this.searchOptions;
+        
+        // Boolean filters for switches (AND logic)
+        if (switchOnlyTrue && value !== true) return false;
+        if (switchOnlyFalse && value !== false) return false;
+
+        if (!query) return true;
+        
+        // Relational numeric search support: e.g. ">170", ">=170", "<50", "=10", "!=0"
+        const relMatch = query.trim().match(/^(>=|<=|>|<|==|=|!=)\s*(-?\d+(\.\d+)?)$/);
+        if (relMatch) {
+            return this.evaluateRelationalQuery(id, value, relMatch, searchIndex, searchValue);
+        }
+
+        return this.evaluateTextQuery(id, value, label, query, exact, searchIndex, searchValue, searchName);
     }
 
     /**

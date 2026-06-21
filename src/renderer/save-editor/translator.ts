@@ -25,10 +25,7 @@ export class Translator {
         this.targetLang = undefined;
     }
 
-    async initialize() {
-        if (this.isInitialized) return;
-
-        // Try to fetch UI strings for the current language
+    async loadUIStrings() {
         try {
             if (this.api) {
                 const langState = await this.api.invoke('get-language-state');
@@ -67,7 +64,9 @@ export class Translator {
         } catch (e) {
             console.error('[SAVE-EDITOR-TRANSLATOR] Failed to load UI strings:', e);
         }
+    }
 
+    async loadTranslationCache() {
         try {
             const currentLang = localStorage.getItem('yumeshelf_lang') || 'en';
             this.targetLang = currentLang;
@@ -79,7 +78,6 @@ export class Translator {
                 if (persisted && typeof persisted === 'object') {
                     this.translationCache = persisted;
                     console.log(`[SAVE-EDITOR] Successfully loaded ${Object.keys(this.translationCache).length} translations from AppData.`);
-                    this.isInitialized = true;
                     return;
                 }
             }
@@ -94,6 +92,12 @@ export class Translator {
         } catch (e) {
             this.translationCache = {};
         }
+    }
+
+    async initialize() {
+        if (this.isInitialized) return;
+        await this.loadUIStrings();
+        await this.loadTranslationCache();
         this.isInitialized = true;
     }
 

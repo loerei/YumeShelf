@@ -6,7 +6,7 @@ import { setupGridRenderer } from './save-editor/grid-renderer';
 import { setupSearchBar } from './save-editor/search-bar';
 
 export function initSaveEditorUI() {
-    globalThis.showSaveEditor = async (gameKey, options = {}) => {
+    window.showSaveEditor = async (gameKey, options = {}) => {
         const engine = new DataEngine();
         const translator = new Translator(globalThis.electronAPI);
         await translator.initialize();
@@ -292,8 +292,8 @@ export function initSaveEditorUI() {
             currentFileName: popoutState ? popoutState.currentFileName : null,
             originalSnapshot: null,
             activeTab: popoutState ? popoutState.activeTab : 'gold',
-            showEmpty: popoutState?.showEmpty !== undefined ? popoutState.showEmpty : false,
-            showImportant: popoutState?.showImportant !== undefined ? popoutState.showImportant : true,
+            showEmpty: popoutState?.showEmpty ?? false,
+            showImportant: popoutState?.showImportant ?? true,
             gameKey,
             isStandalone,
             d,

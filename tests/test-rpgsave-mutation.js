@@ -17,12 +17,12 @@ function testMutation() {
 
     const variablesObj = clonedJson.variables || clonedJson._variables;
     let rawVars = variablesObj;
-    if (variablesObj && variablesObj._data !== undefined) {
+    if (variablesObj?._data !== undefined) {
         rawVars = variablesObj._data;
     }
     if (rawVars && rawVars['@a'] !== undefined) {
         rawVars = rawVars['@a'];
-    } else if (rawVars && rawVars._data !== undefined) {
+    } else if (rawVars?._data !== undefined) {
         rawVars = rawVars._data;
     }
     if (!Array.isArray(rawVars)) {
@@ -46,12 +46,12 @@ function testMutation() {
     const decodedMutated = format.decode(encodedBuffer);
     const decodedVarsObj = decodedMutated.variables || decodedMutated._variables;
     let decodedRawVars = decodedVarsObj;
-    if (decodedVarsObj && decodedVarsObj._data !== undefined) {
+    if (decodedVarsObj?._data !== undefined) {
         decodedRawVars = decodedVarsObj._data;
     }
     if (decodedRawVars && decodedRawVars['@a'] !== undefined) {
         decodedRawVars = decodedRawVars['@a'];
-    } else if (decodedRawVars && decodedRawVars._data !== undefined) {
+    } else if (decodedRawVars?._data !== undefined) {
         decodedRawVars = decodedRawVars._data;
     }
     console.log('Decoded variable 15 value:', decodedRawVars[15]);

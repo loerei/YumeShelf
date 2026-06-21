@@ -21,8 +21,8 @@ export function sha256Hex(buffer: Buffer | string): string {
 }
 
 export function isNetworkLikeError(error: any): boolean {
-    const msg = String((error && error.message) || error || '').toLowerCase();
-    const code = String((error && error.code) || '').toLowerCase();
+    const msg = String((error?.message) || error || '').toLowerCase();
+    const code = String((error?.code) || '').toLowerCase();
     return [
         'econnreset',
         'econnrefused',

@@ -120,7 +120,7 @@ export function registerMainIpc({
     router.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
         try {
             const record = await libraryState.getGameRecord(gameKey);
-            if (record && record.autoTranslate) {
+            if (record?.autoTranslate) {
                 await translationService.prepareTranslator(gameKey, exePath);
             } else {
                 await translationService.removeTranslator(exePath);
@@ -143,13 +143,13 @@ export function registerMainIpc({
     router.handle('toggle-auto-translate', async (_event, gameKey) => libraryState.toggleAutoTranslate(gameKey));
     router.handle('translation:check-support', async (_event, gameKey) => {
         const record = await libraryState.getGameRecord(gameKey);
-        if (!record || !record.exePath) return { supported: false, engine: null };
+        if (!record?.exePath) return { supported: false, engine: null };
         const engine = await translationService.detectEngineSupport(record.exePath);
         return { supported: !!engine, engine };
     });
     router.handle('translation:start-sync', async (_event, { gameKey, targetLang }) => {
         const record = await libraryState.getGameRecord(gameKey);
-        if (!record || !record.exePath) return { success: false, error: 'game-not-found' };
+        if (!record?.exePath) return { success: false, error: 'game-not-found' };
         translationService.queueDeepSync(gameKey, record.exePath, targetLang, record.name);
         return { success: true };
     });
@@ -270,9 +270,9 @@ export function registerMainIpc({
     let devAutoLaunchState = 'off';
 
     try {
-        if (paths && paths.dbFile && fsSync.existsSync(paths.dbFile)) {
+        if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
             const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
-            if (db && db.config) {
+            if (db?.config) {
                 const configVal = db.config.autoLaunch;
                 const value = (configVal === 'minimized') ? 'minimized' : (configVal === 'on' || configVal === 'true' || configVal === true ? 'on' : 'off');
                 

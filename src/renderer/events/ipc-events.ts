@@ -28,7 +28,7 @@ export function bindIpcEvents({
 
     electronAPI.on('game-stopped', async (payload) => {
         console.log('[FRONTEND] Received \'game-stopped\' event for gameKey:', payload ? payload.gameKey : 'unknown');
-        if (payload && payload.gameKey) {
+        if (payload?.gameKey) {
             setRunningFlag(payload.gameKey, false);
             console.log(`[FRONTEND] Set target.isRunning=false synchronously for ${payload.gameKey}`);
         }

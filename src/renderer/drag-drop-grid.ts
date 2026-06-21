@@ -182,7 +182,7 @@ export function createDragDropGridController({
                         });
 
                         let insertIdx = customOrder.length;
-                        if (dragTargetInfo && dragTargetInfo.gameKey) {
+                        if (dragTargetInfo?.gameKey) {
                             const targetGroupKeys = getGroupedKeysForGame(allGames, dragTargetInfo.gameKey, customOrder);
                             const draggingIntoOwnGroup = targetGroupKeys.every((key) => draggedGroupKeys.includes(key));
                             const targetIndexes = targetGroupKeys

@@ -61,7 +61,7 @@ export function createInstallHandoffService({
                 await writeLog(`marker_read_success path=${candidate}`);
                 return { contract, markerPath: candidate };
             } catch (error: any) {
-                const errorMessage = String((error && error.code) || (error && error.message) || error || '');
+                const errorMessage = String((error?.code) || (error?.message) || error || '');
                 await writeLog(`marker_read_miss path=${candidate} error=${errorMessage}`);
             }
         }
@@ -74,9 +74,9 @@ export function createInstallHandoffService({
                 await fs.unlink(candidate);
                 await writeLog(`marker_deleted path=${candidate}`);
             } catch (error: any) {
-                const code = String((error && error.code) || '');
+                const code = String((error?.code) || '');
                 if (code && code !== 'ENOENT') {
-                    await writeLog(`marker_delete_failed path=${candidate} error=${String((error && error.message) || error || '')}`);
+                    await writeLog(`marker_delete_failed path=${candidate} error=${String((error?.message) || error || '')}`);
                 }
             }
         }
@@ -134,8 +134,8 @@ export function createInstallHandoffService({
                     shouldDeleteSetupFile
                 };
             } catch (error: any) {
-                const errorCode = String((error && error.code) || '');
-                const errorMessage = String((error && error.message) || error || '');
+                const errorCode = String((error?.code) || '');
+                const errorMessage = String((error?.message) || error || '');
                 if (errorCode === 'ENOENT') {
                     await writeLog(`cleanup_already_missing installerPath=${installerPath} attempt=${index + 1}`);
                     return {

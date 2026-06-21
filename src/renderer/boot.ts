@@ -18,16 +18,16 @@ export function createBootController({
     function resolveBootMessage(payload = latestBootPayload) {
         const d = getStrings();
         const en = getEnglishStrings();
-        if (payload && payload.key) {
+        if (payload?.key) {
             return d[payload.key] || en[payload.key] || payload.fallbackText || '';
         }
-        return (payload && payload.fallbackText) || '';
+        return (payload?.fallbackText) || '';
     }
 
     function resolveBootTitle(payload = latestBootPayload) {
         const d = getStrings();
         const en = getEnglishStrings();
-        if (payload && payload.titleKey) {
+        if (payload?.titleKey) {
             return d[payload.titleKey] || en[payload.titleKey] || payload.titleText || '';
         }
         return payload?.titleText || d.boot_title || en.boot_title || 'Starting YumeShelf';

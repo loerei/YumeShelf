@@ -147,7 +147,7 @@ export function createGameCardFactory({
             console.log(`[FRONTEND][ACTION] Open Save Folder clicked for ${gameKey}`);
             card.querySelector('.dropdown-menu').classList.remove('show');
             const result = await electronAPI.invoke('get-save-folder', gameKey);
-            if (result && result.path) {
+            if (result?.path) {
                 electronAPI.send('open-path', result.path);
             } else {
                 const item = card.querySelector('.action-save-folder');
@@ -166,8 +166,8 @@ export function createGameCardFactory({
             card.querySelector('.dropdown-menu').classList.remove('show');
             
             // We'll call a global editor UI handler that we'll define later
-            if (window.showSaveEditor) {
-                window.showSaveEditor(gameKey);
+            if (globalThis.showSaveEditor) {
+                globalThis.showSaveEditor(gameKey);
             }
         };
         card.querySelector('.action-background-run').onclick = async (event) => {
@@ -192,7 +192,7 @@ export function createGameCardFactory({
             let targetLang = 'en';
             try {
                 const langState = await electronAPI.invoke('get-language-state');
-                targetLang = (langState && langState.current) ? langState.current : 'en';
+                targetLang = (langState?.current) ? langState.current : 'en';
             } catch (e) {
                 // fall back to 'en'
             }

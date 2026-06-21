@@ -34,7 +34,7 @@ export function createLanguagePackInstalledGroup(installedUpdates, getText) {
 }
 
 export function buildAppAvailableGroup(appUpdateCheck, getText) {
-    if (!appUpdateCheck || !appUpdateCheck.available) return null;
+    if (!appUpdateCheck?.available) return null;
     return {
         count: 1,
         kind: 'app',
@@ -51,7 +51,7 @@ export function buildAppAvailableGroup(appUpdateCheck, getText) {
 }
 
 export function createAppReadyGroup(appUpdateCheck, getText) {
-    if (!appUpdateCheck || !appUpdateCheck.available || !appUpdateCheck.downloadReady) return null;
+    if (!appUpdateCheck?.available || !appUpdateCheck.downloadReady) return null;
     return {
         count: 1,
         kind: 'app-ready',
@@ -65,7 +65,7 @@ export function createAppReadyGroup(appUpdateCheck, getText) {
 }
 
 export function createAppScheduledGroup(appUpdateCheck, getText) {
-    if (!appUpdateCheck || !appUpdateCheck.available || !appUpdateCheck.downloadReady || !appUpdateCheck.deferredUntilNextLaunch) return null;
+    if (!appUpdateCheck?.available || !appUpdateCheck.downloadReady || !appUpdateCheck.deferredUntilNextLaunch) return null;
     return {
         count: 1,
         kind: 'app-scheduled',

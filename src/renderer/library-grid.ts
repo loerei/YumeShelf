@@ -33,7 +33,7 @@ export function createLibraryGridController({
         if (!previousRects || previousRects.size === 0) {
             return;
         }
-        if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+        if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
             return;
         }
 

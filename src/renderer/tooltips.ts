@@ -71,11 +71,11 @@ export function createTooltipController() {
     function attachTooltip(element, getContent) {
         element.addEventListener('mouseenter', (event) => {
             const dropdown = element.querySelector('.dropdown-menu');
-            if (dropdown && dropdown.classList.contains('show')) {
+            if (dropdown?.classList.contains('show')) {
                 hide();
                 return;
             }
-            if (event.target && event.target.closest && event.target.closest('.dropdown-menu')) {
+            if (event.target?.closest && event.target.closest('.dropdown-menu')) {
                 hide();
                 return;
             }
@@ -83,11 +83,11 @@ export function createTooltipController() {
         });
         element.addEventListener('mousemove', (event) => {
             const dropdown = element.querySelector('.dropdown-menu');
-            if (dropdown && dropdown.classList.contains('show')) {
+            if (dropdown?.classList.contains('show')) {
                 hide();
                 return;
             }
-            if (event.target && event.target.closest && event.target.closest('.dropdown-menu')) {
+            if (event.target?.closest && event.target.closest('.dropdown-menu')) {
                 hide();
                 return;
             }

@@ -86,7 +86,7 @@ export function createIconPipeline({
 
         try {
             const result = await pool.enqueueExtraction(targetPath);
-            if (result && result.base64) {
+            if (result?.base64) {
                 try {
                     await storeHighResIconInCache(app, targetPath, result.base64, result.meta || null);
                 } catch (cacheErr) {
@@ -140,7 +140,7 @@ export function createIconPipeline({
                 const state = await loadIconCacheState(app);
                 const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
                 const entry = state.entriesByPath[normalizedPath];
-                if (entry && entry.fingerprint === fingerprint) {
+                if (entry?.fingerprint === fingerprint) {
                     const cacheFilePath = path.join(cacheDir, entry.fileName);
                     try {
                         const buffer = await fs.readFile(cacheFilePath);
@@ -151,7 +151,7 @@ export function createIconPipeline({
 
             try {
                 const result = await pool.enqueueExtraction(targetPath);
-                if (result && result.base64) {
+                if (result?.base64) {
                     const buffer = Buffer.from(result.base64, 'base64');
                     storeHighResIconInCache(app, targetPath, result.base64, result.meta || null).catch(() => {});
                     return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });

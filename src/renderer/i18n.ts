@@ -127,7 +127,7 @@ export function createLocaleController({
         const appVersion = await electronAPI.invoke('get-app-version');
         console.log(`[I18N][RENDERER] loadLanguageState: fetched appVersion from Electron = ${appVersion}`);
         const incomingState = nextState || await electronAPI.invoke('get-language-state');
-        if (incomingState && incomingState.locales && incomingState.locales.en) {
+        if (incomingState?.locales && incomingState.locales.en) {
             console.log(`[I18N][RENDERER] loadLanguageState: overwriting localeState with incomingState.`);
             localeState = incomingState;
         }
@@ -149,7 +149,7 @@ export function createLocaleController({
 
         const welcomeBox = document.querySelector('.welcome-box');
         const welcomeScreen = document.getElementById('welcome-screen');
-        const isWelcomeVisible = welcomeScreen && welcomeScreen.style.display === 'flex';
+        const isWelcomeVisible = welcomeScreen?.style.display === 'flex';
 
         if (welcomeBox && isWelcomeVisible && currentLang !== nextLang) {
             welcomeBox.classList.remove('reassemble');

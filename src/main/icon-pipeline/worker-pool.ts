@@ -120,7 +120,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
                 pendingIconRequests.delete(response.id);
                 pending.resolve({ base64: response.base64 || '', meta: response.meta || null });
             }
-            if (activeExtractionReq && activeExtractionReq.id === response.id) {
+            if (activeExtractionReq?.id === response.id) {
                 activeExtractionReq = null;
                 isExtracting = false;
                 processExtractionQueue();
@@ -149,7 +149,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
                 });
             }
 
-            if (activeExtractionReq && activeExtractionReq.worker === worker) {
+            if (activeExtractionReq?.worker === worker) {
                 console.error(`[MAIN][NODE-WORKER] Active request #${activeExtractionReq.id} lost because worker pid=${worker.pid} exited`);
                 activeExtractionReq = null;
                 isExtracting = false;
@@ -245,7 +245,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
                     cause: 'worker_healthcheck_failed',
                     requestId: req.id,
                     mode: 'node-worker',
-                    error: String((error && error.stack) || error)
+                    error: String((error?.stack) || error)
                 }
             });
             activeExtractionReq = null;

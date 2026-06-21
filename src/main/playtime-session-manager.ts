@@ -243,7 +243,7 @@ export function createPlaytimeSessionManager({
             await writeSessionJournal(journalPath, {
                 ...initialJournal,
                 status: 'failed',
-                failureReason: String((error && error.message) || error || 'failed-to-spawn-helper')
+                failureReason: String((error?.message) || error || 'failed-to-spawn-helper')
             });
             throw error;
         }

@@ -8,9 +8,9 @@ import { setupSearchBar } from './save-editor/search-bar';
 export function initSaveEditorUI() {
     window.showSaveEditor = async (gameKey, options = {}) => {
         const engine = new DataEngine();
-        const translator = new Translator(window.electronAPI);
+        const translator = new Translator(globalThis.electronAPI);
         await translator.initialize();
-        const d = window.currentUIStrings || {};
+        const d = globalThis.currentUIStrings || {};
         const isStandalone = !!options.isStandaloneWindow;
         
         const overlay = document.createElement('div');
@@ -191,7 +191,7 @@ export function initSaveEditorUI() {
             }
             document.removeEventListener('keydown', handleGlobalKeydown);
             if (isStandalone) {
-                window.close();
+                globalThis.close();
             } else {
                 document.body.removeChild(overlay);
             }
@@ -217,7 +217,7 @@ export function initSaveEditorUI() {
                     };
                     localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
                     
-                    window.electronAPI.send('open-save-editor-window', gameKey);
+                    globalThis.electronAPI.send('open-save-editor-window', gameKey);
                     close(true); // Force close without confirmation when opening in a popout window
                 };
                 popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
@@ -292,8 +292,8 @@ export function initSaveEditorUI() {
             currentFileName: popoutState ? popoutState.currentFileName : null,
             originalSnapshot: null,
             activeTab: popoutState ? popoutState.activeTab : 'gold',
-            showEmpty: popoutState && popoutState.showEmpty !== undefined ? popoutState.showEmpty : false,
-            showImportant: popoutState && popoutState.showImportant !== undefined ? popoutState.showImportant : true,
+            showEmpty: popoutState?.showEmpty ?? false,
+            showImportant: popoutState?.showImportant ?? true,
             gameKey,
             isStandalone,
             d,
@@ -336,7 +336,7 @@ export function initSaveEditorUI() {
             }
         });
 
-        if (popoutState && popoutState.searchOptions) {
+        if (popoutState?.searchOptions) {
             engine.setSearchOptions(popoutState.searchOptions);
             if (refs.searchInput) {
                 refs.searchInput.value = popoutState.searchOptions.query || '';
@@ -396,7 +396,7 @@ export function initSaveEditorUI() {
             const originalText = saveBtn.textContent;
             saveBtn.textContent = 'Saving...';
             try {
-                await window.electronAPI.invoke('save-editor:write-data', {
+                await globalThis.electronAPI.invoke('save-editor:write-data', {
                     gameKey,
                     fileName: state.currentFileName,
                     data: state.currentSaveData

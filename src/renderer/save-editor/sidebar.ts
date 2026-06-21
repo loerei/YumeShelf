@@ -46,7 +46,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
     async function reloadFileList(selectFile = state.currentFileName) {
         const d = state.d || {};
         try {
-            const files = await window.electronAPI.invoke('save-editor:list-files', gameKey);
+            const files = await globalThis.electronAPI.invoke('save-editor:list-files', gameKey);
             sidebar.innerHTML = '';
             if (files.length === 0) {
                 sidebar.innerHTML = `<div class="save-editor-empty" data-i18n="save_editor_no_saves">${d.save_editor_no_saves || 'No saves found'}</div>`;
@@ -126,7 +126,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         engine.setSearchOptions({ query: '' });
         
         try {
-            const { data, metadata } = await window.electronAPI.invoke('save-editor:load-data', { gameKey, fileName });
+            const { data, metadata } = await globalThis.electronAPI.invoke('save-editor:load-data', { gameKey, fileName });
             state.currentSaveData = data;
             state.originalSnapshot = JSON.parse(JSON.stringify(data));
             state.currentMetadata = metadata;

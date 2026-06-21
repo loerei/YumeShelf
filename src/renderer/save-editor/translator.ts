@@ -48,7 +48,7 @@ export class Translator {
                     .find(p => p.code === currentLang);
                 
                 let resolved = null;
-                if (activeMeta && activeMeta.bcp47 && /^[a-zA-Z0-9-]+$/.test(activeMeta.bcp47)) {
+                if (activeMeta?.bcp47 && /^[a-zA-Z0-9-]+$/.test(activeMeta.bcp47)) {
                     resolved = activeMeta.bcp47;
                 } else if (currentLang && /^[a-zA-Z0-9-]+$/.test(currentLang)) {
                     resolved = currentLang;
@@ -61,7 +61,7 @@ export class Translator {
                 this.resolvedBcp47 = resolved;
                 console.log(`[SAVE-EDITOR-TRANSLATOR] Resolved BCP-47 target language: ${this.resolvedBcp47}`);
                 // Expose globally so components can access it
-                /** @type {any} */ (window).currentUIStrings = this.uiStrings;
+                /** @type {any} */ (globalThis).currentUIStrings = this.uiStrings;
                 console.log(`[SAVE-EDITOR-TRANSLATOR] UI strings loaded for language: ${currentLang}`);
             }
         } catch (e) {
@@ -130,7 +130,7 @@ export class Translator {
      * @param {Document | HTMLElement} [container]
      */
     async applyTranslations(container = document) {
-        const strings = /** @type {any} */ (window).currentUIStrings || this.uiStrings || {};
+        const strings = /** @type {any} */ (globalThis).currentUIStrings || this.uiStrings || {};
         const elements = container.querySelectorAll('[data-i18n]');
         for (const el of elements) {
             const key = el.getAttribute('data-i18n');
@@ -286,7 +286,7 @@ export class Translator {
                                     const res = await fetch(singleUrl);
                                     if (res.ok) {
                                         const singleResult = await res.json();
-                                        if (singleResult && singleResult[0] && singleResult[0][0] && singleResult[0][0][0]) {
+                                        if (singleResult?.[0]?.[0]?.[0]) {
                                             const translatedText = singleResult[0][0][0].trim();
                                             if (original !== translatedText) {
                                                 if (this.translationCache[original] !== translatedText) {

@@ -198,7 +198,7 @@ export function createLanguagePackServices({
                         sourceLabel: filePath
                     }));
                 } catch (error: any) {
-                    console.warn(`[MAIN][I18N] Skipping locale file ${filePath}: ${String((error && error.message) || error)}`);
+                    console.warn(`[MAIN][I18N] Skipping locale file ${filePath}: ${String((error?.message) || error)}`);
                 }
             }
         } catch {
@@ -242,7 +242,7 @@ export function createLanguagePackServices({
         try {
             return normalizeManifest(raw);
         } catch (error: any) {
-            console.warn(`[MAIN][I18N] Ignoring invalid cached manifest: ${String((error && error.message) || error)}`);
+            console.warn(`[MAIN][I18N] Ignoring invalid cached manifest: ${String((error?.message) || error)}`);
             return null;
         }
     }
@@ -255,7 +255,7 @@ export function createLanguagePackServices({
                     const manifest = normalizeManifest(localManifest);
                     return { ok: true, offline: false, source: 'local', manifest, error: null };
                 } catch (error: any) {
-                    console.warn(`[MAIN][I18N] Invalid local dev manifest: ${String((error && error.message) || error)}`);
+                    console.warn(`[MAIN][I18N] Invalid local dev manifest: ${String((error?.message) || error)}`);
                 }
             }
         }
@@ -274,7 +274,7 @@ export function createLanguagePackServices({
                     offline: true,
                     source: 'cache',
                     manifest: cached,
-                    error: String((error && error.message) || error)
+                    error: String((error?.message) || error)
                 };
             }
 
@@ -283,13 +283,13 @@ export function createLanguagePackServices({
                 offline: isNetworkLikeError(error),
                 source: 'none',
                 manifest: null,
-                error: String((error && error.message) || error)
+                error: String((error?.message) || error)
             };
         }
     }
 
     async function installLanguagePackFromManifestEntry(entry: ManifestPack, options: any = {}): Promise<{ ok: boolean; installedCode?: string; error?: string; reason?: string; offline?: boolean }> {
-        const normalizedCode = normalizeLanguageCode(entry && entry.code);
+        const normalizedCode = normalizeLanguageCode(entry?.code);
         const downloadTimeoutMs = Number(options.downloadTimeoutMs) > 0 ? Number(options.downloadTimeoutMs) : LANGUAGE_PACK_TIMEOUT_MS;
         if (!normalizedCode) {
             return { ok: false, error: 'Missing language pack code.', reason: 'invalid-code' };
@@ -353,7 +353,7 @@ export function createLanguagePackServices({
             return {
                 ok: false,
                 offline: isNetworkLikeError(error),
-                error: String((error && error.message) || error),
+                error: String((error?.message) || error),
                 reason: isNetworkLikeError(error) ? 'offline' : 'download'
             };
         }

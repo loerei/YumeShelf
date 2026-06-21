@@ -63,6 +63,6 @@ export function attachUpdaterEventLogging({
     });
 
     updater.on('error', (error: any) => {
-        void appendUpdateLog(`nsis-updater error=${String((error && error.stack) || error || '')}`);
+        void appendUpdateLog(`nsis-updater error=${String((error?.stack) || error || '')}`);
     });
 }

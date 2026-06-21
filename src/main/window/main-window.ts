@@ -11,7 +11,7 @@ let electronApp: any = null;
 
 function createTrayIcon(): void {
     if (tray) return;
-    if (!pathsConfig || !pathsConfig.mainWindowIconPath) return;
+    if (!pathsConfig?.mainWindowIconPath) return;
 
     try {
         tray = new Tray(pathsConfig.mainWindowIconPath);
@@ -141,9 +141,9 @@ export function createMainWindow({
 }: CreateMainWindowOptions): BrowserWindow {
     // Read initial DB config for minimizeToTray
     try {
-        if (paths && paths.dbFile && fsSync.existsSync(paths.dbFile)) {
+        if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
             const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
-            if (db && db.config && typeof db.config.minimizeToTray === 'boolean') {
+            if (db?.config && typeof db.config.minimizeToTray === 'boolean') {
                 minimizeToTray = db.config.minimizeToTray;
             }
         }

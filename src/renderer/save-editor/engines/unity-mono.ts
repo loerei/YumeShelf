@@ -56,8 +56,8 @@ export class UnityMonoEngine {
                 return new Proxy(obj, {
                     get(target, key) {
                         if (target[key] !== undefined && typeof target[key] === 'number') return target[key];
-                        if (target.int_map && target.int_map[key] !== undefined) return target.int_map[key];
-                        if (target.float_map && target.float_map[key] !== undefined) return target.float_map[key];
+                        if (target.int_map?.[key] !== undefined) return target.int_map[key];
+                        if (target.float_map?.[key] !== undefined) return target.float_map[key];
                         return undefined;
                     },
                     set(target, key, value) {
@@ -135,7 +135,7 @@ export class UnityMonoEngine {
                 return new Proxy(obj, {
                     get(target, key) {
                         if (target[key] !== undefined && typeof target[key] === 'boolean') return target[key];
-                        if (target.bool_map && target.bool_map[key] !== undefined) return target.bool_map[key];
+                        if (target.bool_map?.[key] !== undefined) return target.bool_map[key];
                         return undefined;
                     },
                     set(target, key, value) {

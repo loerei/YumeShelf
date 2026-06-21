@@ -62,7 +62,7 @@ export class TelemetryShipper {
             if (fsSync.existsSync(this.dbFile)) {
                 const dbRaw = await fs.readFile(this.dbFile, 'utf8');
                 const db = JSON.parse(dbRaw);
-                if (db && db.config) {
+                if (db?.config) {
                     this.enabled = !!db.config.telemetryEnabled;
                     return;
                 }

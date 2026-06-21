@@ -261,11 +261,11 @@ class RpgWolfSavFormat {
             console.log(`[WOLF-SAV] encode writing variables...`);
             console.log(`[WOLF-SAV] variables[7] value to write: ${jsonData.variables[7]}`);
             for (const [key, value] of Object.entries(jsonData.variables)) {
-                const index = parseInt(key);
-                if (!isNaN(index) && index < 800) {
+                const index = Number.parseInt(key);
+                if (!Number.isNaN(index) && index < 800) {
                     const offset = varArrayOffset + index * 4;
                     if (offset + 4 <= decrypted.length) {
-                        decrypted.writeInt32LE(parseInt(value as string), offset);
+                        decrypted.writeInt32LE(Number.parseInt(value as string), offset);
                     }
                 }
             }
@@ -344,7 +344,7 @@ class RpgWolfSavFormat {
                         if (markerIndex + 1 + i < strings.length) {
                             let name = strings[markerIndex + 1 + i];
                             if (name && !name.includes('<なし>') && !name.includes('<変化なし>')) {
-                                metadata.variables[i] = name.replace(/\0/g, '').trim();
+                                metadata.variables[i] = name.replaceAll('\0', '').trim();
                             }
                         }
                     }

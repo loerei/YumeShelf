@@ -68,7 +68,7 @@ export class DataEngine {
         const relMatch = query.trim().match(/^(>=|<=|>|<|==|=|!=)\s*(-?\d+(\.\d+)?)$/);
         if (relMatch) {
             const op = relMatch[1];
-            const target = parseFloat(relMatch[2]);
+            const target = Number.parseFloat(relMatch[2]);
             
             /**
              * @param {number} val
@@ -92,7 +92,7 @@ export class DataEngine {
             // Evaluate on index
             if (searchIndex && id !== null && id !== undefined) {
                 const numericId = Number(id);
-                if (!isNaN(numericId) && compare(numericId, op, target)) {
+                if (!Number.isNaN(numericId) && compare(numericId, op, target)) {
                     return true;
                 }
             }
@@ -100,7 +100,7 @@ export class DataEngine {
             // Evaluate on value
             if (searchValue && value !== null && value !== undefined) {
                 const numericVal = Number(value);
-                if (!isNaN(numericVal) && compare(numericVal, op, target)) {
+                if (!Number.isNaN(numericVal) && compare(numericVal, op, target)) {
                     return true;
                 }
             }

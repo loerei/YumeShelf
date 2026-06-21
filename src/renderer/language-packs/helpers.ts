@@ -6,17 +6,12 @@ export function formatTemplate(template, replacements = {}) {
 }
 
 export function compareVersions(left, right) {
-    const toParts = (value) => String(value || '0')
-        .split('.')
-        .map(part => parseInt(part, 10))
-        .map(part => Number.isFinite(part) ? part : 0);
-
-    const a = toParts(left);
-    const b = toParts(right);
-    const len = Math.max(a.length, b.length);
-    for (let i = 0; i < len; i += 1) {
-        const delta = (a[i] || 0) - (b[i] || 0);
-        if (delta !== 0) return delta;
+    const parse = (v) => String(v || '0').split('.').map(p => Number.parseInt(p, 10) || 0);
+    const a = parse(left);
+    const b = parse(right);
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const diff = (a[i] || 0) - (b[i] || 0);
+        if (diff) return diff;
     }
     return 0;
 }
@@ -35,7 +30,7 @@ export function buildLanguagePackSearchHaystack(pack) {
 }
 
 export function formatDataSize(bytes) {
-    if (!bytes || isNaN(bytes) || bytes < 0) return '0 B';
+    if (!bytes || Number.isNaN(bytes) || bytes < 0) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let size = bytes;
     let unitIndex = 0;

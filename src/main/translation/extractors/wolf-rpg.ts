@@ -347,14 +347,31 @@ export class WolfRpgExtractor implements TranslationExtractor {
 
             console.log('[WOLF-EXTRACTOR] Checking and patching rewolf-trans for WOLF RPG v3.x signature support...');
 
+            const patchJsFile = async (filePath: string, includeCheck: string, logMsg: string, patches: { target: string, replacement: string }[]) => {
+                if (fsSync.existsSync(filePath)) {
+                    let content = await fs.readFile(filePath, 'utf8');
+                    content = content.replaceAll('\r\n', '\n');
+                    if (!content.includes(includeCheck)) {
+                        console.log(logMsg);
+                        let isPatched = false;
+                        for (const p of patches) {
+                            if (content.includes(p.target)) {
+                                content = content.replace(p.target, p.replacement);
+                                isPatched = true;
+                            }
+                        }
+                        if (isPatched) {
+                            await fs.writeFile(filePath, content, 'utf8');
+                        }
+                    }
+                }
+            };
+
             // 1. Patch file-coder.js
             const fileCoderPath = path.join(nodeModulesDir, 'dist', 'src', 'archive', 'file-coder.js');
-            if (fsSync.existsSync(fileCoderPath)) {
-                let content = await fs.readFile(fileCoderPath, 'utf8');
-                content = content.replace(/\r\n/g, '\n');
-                if (!content.includes('toleration for WOLF RPG 3.x empty strings')) {
-                    console.log('[WOLF-EXTRACTOR] Patching file-coder.js expect and readString methods...');
-                    const target = `    expect(expected) {
+            await patchJsFile(fileCoderPath, 'toleration for WOLF RPG 3.x empty strings', '[WOLF-EXTRACTOR] Patching file-coder.js expect and readString methods...', [
+                {
+                    target: `    expect(expected) {
         this.assertLength(expected.length);
         for (let i = 0; i < expected.length; i++) {
             this.assert(this.buffer_[this.offset_ + i] === expected[i], \`Expected [\${expected.join(',')}] but got [\${this.buffer_
@@ -362,8 +379,8 @@ export class WolfRpgExtractor implements TranslationExtractor {
                 .join(',')}]\`);
         }
         this.offset_ += expected.length;
-    }`;
-                    const replacement = `    expect(expected) {
+    }`,
+                    replacement: `    expect(expected) {
         this.assertLength(expected.length);
         let match = true;
         for (let i = 0; i < expected.length; i++) {
@@ -384,23 +401,18 @@ export class WolfRpgExtractor implements TranslationExtractor {
         }
         this.assert(match, 'Expected [' + expected.join(',') + '] but got [' + this.buffer_.slice(this.offset_, this.offset_ + expected.length).join(',') + ']');
         this.offset_ += expected.length;
-    }`;
-                    let isPatched = false;
-                    if (content.includes(target)) {
-                        content = content.replace(target, replacement);
-                        isPatched = true;
-                    }
-                    
-                    // Also patch readString to support WOLF RPG 3.x empty strings (len === 0)
-                    const targetString = `    readString(readLenFn = DefaultReadValueFn, encoding = options_1.GlobalOptions.readEncoding) {
+    }`
+                },
+                {
+                    target: `    readString(readLenFn = DefaultReadValueFn, encoding = options_1.GlobalOptions.readEncoding) {
         const len = readLenFn(this);
         this.assert(len > 0, \`Unexpected string length \${len}\`);
         const bytes = this.readBytes(len - 1);
         this.expectByte(0);
         const str = iconv.decode(bytes, encoding);
         return str;
-    }`;
-                    const replacementString = `    readString(readLenFn = DefaultReadValueFn, encoding = options_1.GlobalOptions.readEncoding) {
+    }`,
+                    replacement: `    readString(readLenFn = DefaultReadValueFn, encoding = options_1.GlobalOptions.readEncoding) {
         const len = readLenFn(this);
         if (len === 0) {
             return '';
@@ -410,29 +422,15 @@ export class WolfRpgExtractor implements TranslationExtractor {
         this.expectByte(0);
         const str = iconv.decode(bytes, encoding);
         return str;
-    }`;
-                    if (content.includes(targetString)) {
-                        content = content.replace(targetString, replacementString);
-                        isPatched = true;
-                    }
-
-                    if (isPatched) {
-                        await fs.writeFile(fileCoderPath, content, 'utf8');
-                        console.log('[WOLF-EXTRACTOR] file-coder.js patched successfully.');
-                    } else {
-                        console.log('[WOLF-EXTRACTOR] file-coder.js is already fully patched.');
-                    }
+    }`
                 }
-            }
+            ]);
 
             // 2. Patch util.js (bufferStartsWith)
             const utilPath = path.join(nodeModulesDir, 'dist', 'src', 'util.js');
-            if (fsSync.existsSync(utilPath)) {
-                let content = await fs.readFile(utilPath, 'utf8');
-                content = content.replace(/\r\n/g, '\n');
-                if (!content.includes('toleration for WOLF RPG 3.x')) {
-                    console.log('[WOLF-EXTRACTOR] Patching util.js bufferStartsWith method...');
-                    const target = `function bufferStartsWith(buffer, start) {
+            await patchJsFile(utilPath, 'toleration for WOLF RPG 3.x', '[WOLF-EXTRACTOR] Patching util.js bufferStartsWith method...', [
+                {
+                    target: `function bufferStartsWith(buffer, start) {
     if (buffer.length < start.length) {
         return false;
     }
@@ -442,8 +440,8 @@ export class WolfRpgExtractor implements TranslationExtractor {
         }
     }
     return true;
-}`;
-                    const replacement = `function bufferStartsWith(buffer, start) {
+}`,
+                    replacement: `function bufferStartsWith(buffer, start) {
     if (buffer.length < start.length) {
         return false;
     }
@@ -464,25 +462,15 @@ export class WolfRpgExtractor implements TranslationExtractor {
         }
     }
     return match;
-}`;
-                    if (content.includes(target)) {
-                        content = content.replace(target, replacement);
-                        await fs.writeFile(utilPath, content, 'utf8');
-                        console.log('[WOLF-EXTRACTOR] util.js patched successfully.');
-                    } else {
-                        console.warn('[WOLF-EXTRACTOR] util.js target not found for patching.');
-                    }
+}`
                 }
-            }
+            ]);
 
             // 3. Patch wolf-database.js to preserve header/end signature on serializing
             const dbPath = path.join(nodeModulesDir, 'dist', 'src', 'wolf', 'wolf-database.js');
-            if (fsSync.existsSync(dbPath)) {
-                let content = await fs.readFile(dbPath, 'utf8');
-                content = content.replace(/\r\n/g, '\n');
-                if (!content.includes('toleration for WOLF RPG 3.x')) {
-                    console.log('[WOLF-EXTRACTOR] Patching wolf-database.js parse and serializeData methods...');
-                    const targetParse = `    parse() {
+            await patchJsFile(dbPath, 'toleration for WOLF RPG 3.x', '[WOLF-EXTRACTOR] Patching wolf-database.js parse and serializeData methods...', [
+                {
+                    target: `    parse() {
         const projTypesCount = this.project_.readUIntLE();
         this.types_ = [];
         for (let i = 0; i < projTypesCount; i++) {
@@ -493,8 +481,8 @@ export class WolfRpgExtractor implements TranslationExtractor {
         }
         else {
             this.file_.expect(constants_1.WOLF_DAT.HEADER);
-        }`;
-                    const replacementParse = `    parse() {
+        }`,
+                    replacement: `    parse() {
         const projTypesCount = this.project_.readUIntLE();
         this.types_ = [];
         for (let i = 0; i < projTypesCount; i++) {
@@ -508,9 +496,10 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const startOffset = this.file_.offset;
             this.file_.expect(constants_1.WOLF_DAT.HEADER);
             this.header_ = this.file_.buffer.slice(startOffset, this.file_.offset);
-        }`;
-
-                    const targetSerialize = `    serializeData(stream) {
+        }`
+                },
+                {
+                    target: `    serializeData(stream) {
         if (this.isEncrypted) {
             stream.appendByte(this.unknownEncrypted1_);
         }
@@ -519,8 +508,8 @@ export class WolfRpgExtractor implements TranslationExtractor {
         }
         stream.appendCustomArray(this.types_, (s, type) => type.serializeData(s));
         stream.appendByte(constants_1.WOLF_DAT.END);
-    }`;
-                    const replacementSerialize = `    serializeData(stream) {
+    }`,
+                    replacement: `    serializeData(stream) {
         if (this.isEncrypted) {
             stream.appendByte(this.unknownEncrypted1_);
         }
@@ -531,80 +520,50 @@ export class WolfRpgExtractor implements TranslationExtractor {
         stream.appendCustomArray(this.types_, (s, type) => type.serializeData(s));
         // toleration for WOLF RPG 3.x header signatures:
         stream.appendByte((this.header_ && this.header_[10]) || constants_1.WOLF_DAT.END);
-    }`;
-
-                    if (content.includes(targetParse) && content.includes(targetSerialize)) {
-                        content = content.replace(targetParse, replacementParse);
-                        content = content.replace(targetSerialize, replacementSerialize);
-                        await fs.writeFile(dbPath, content, 'utf8');
-                        console.log('[WOLF-EXTRACTOR] wolf-database.js patched successfully.');
-                    } else {
-                        console.warn('[WOLF-EXTRACTOR] wolf-database.js targets not found for patching.', content.includes(targetParse), content.includes(targetSerialize));
-                    }
+    }`
                 }
-            }
+            ]);
 
             // 4. Patch wolf-ce.js to preserve header signature on serializing
             const cePath = path.join(nodeModulesDir, 'dist', 'src', 'wolf', 'wolf-ce.js');
-            if (fsSync.existsSync(cePath)) {
-                let content = await fs.readFile(cePath, 'utf8');
-                content = content.replace(/\r\n/g, '\n');
-                if (!content.includes('toleration for WOLF RPG 3.x')) {
-                    console.log('[WOLF-EXTRACTOR] Patching wolf-ce.js parse and serialize methods...');
-                    const targetParse = `    parse() {
-        this.file_.expect(constants_1.WOLF_CE.HEADER);`;
-                    const replacementParse = `    parse() {
+            await patchJsFile(cePath, 'toleration for WOLF RPG 3.x', '[WOLF-EXTRACTOR] Patching wolf-ce.js parse and serialize methods...', [
+                {
+                    target: `    parse() {
+        this.file_.expect(constants_1.WOLF_CE.HEADER);`,
+                    replacement: `    parse() {
         // toleration for WOLF RPG 3.x header signatures:
         const startOffset = this.file_.offset;
         this.file_.expect(constants_1.WOLF_CE.HEADER);
-        this.header_ = this.file_.buffer.slice(startOffset, this.file_.offset);`;
-
-                    const targetSerialize = `    serialize(stream) {
-        stream.appendBytes(constants_1.WOLF_CE.HEADER);`;
-                    const replacementSerialize = `    serialize(stream) {
+        this.header_ = this.file_.buffer.slice(startOffset, this.file_.offset);`
+                },
+                {
+                    target: `    serialize(stream) {
+        stream.appendBytes(constants_1.WOLF_CE.HEADER);`,
+                    replacement: `    serialize(stream) {
         // toleration for WOLF RPG 3.x header signatures:
-        stream.appendBytes(this.header_ || constants_1.WOLF_CE.HEADER);`;
-
-                    if (content.includes(targetParse) && content.includes(targetSerialize)) {
-                        content = content.replace(targetParse, replacementParse);
-                        content = content.replace(targetSerialize, replacementSerialize);
-                        await fs.writeFile(cePath, content, 'utf8');
-                        console.log('[WOLF-EXTRACTOR] wolf-ce.js patched successfully.');
-                    } else {
-                        console.warn('[WOLF-EXTRACTOR] wolf-ce.js targets not found for patching.');
-                    }
+        stream.appendBytes(this.header_ || constants_1.WOLF_CE.HEADER);`
                 }
-            }
+            ]);
 
             // 5. Patch rewt-game.js (diagnostics for parse error)
             const gamePath = path.join(nodeModulesDir, 'dist', 'src', 'archive', 'rewt-game.js');
-            if (fsSync.existsSync(gamePath)) {
-                let content = await fs.readFile(gamePath, 'utf8');
-                content = content.replace(/\r\n/g, '\n');
-                if (!content.includes('archive is not parseable')) {
-                    console.log('[WOLF-EXTRACTOR] Patching rewt-game.js parse method...');
-                    const target = `    parse() {
+            await patchJsFile(gamePath, 'archive is not parseable', '[WOLF-EXTRACTOR] Patching rewt-game.js parse method...', [
+                {
+                    target: `    parse() {
         for (const archive of this.archives_) {
             archive.parse();
         }
-    }`;
-                    const replacement = `    parse() {
+    }`,
+                    replacement: `    parse() {
         for (const archive of this.archives_) {
             if (typeof archive.parse !== 'function') {
                 console.error('[WOLF-DEBUG] archive is not parseable!', archive.filename, archive.constructor ? archive.constructor.name : 'no constructor', Object.keys(archive));
             }
             archive.parse();
         }
-    }`;
-                    if (content.includes(target)) {
-                        content = content.replace(target, replacement);
-                        await fs.writeFile(gamePath, content, 'utf8');
-                        console.log('[WOLF-EXTRACTOR] rewt-game.js patched successfully.');
-                    } else {
-                        console.warn('[WOLF-EXTRACTOR] rewt-game.js target not found for patching.');
-                    }
+    }`
                 }
-            }
+            ]);
 
             // 6. Patch wolf-command.js (createCommand terminator & writeTeminator with lookahead)
             const cmdPath = path.join(nodeModulesDir, 'dist', 'src', 'wolf', 'wolf-command.js');

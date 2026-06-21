@@ -243,7 +243,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
     }
 
     function getTranslationFilePath(lang = 'en') {
-        const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_\-]/g, '');
+        const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_-]/g, '');
         return path.join(app.getPath('userData'), `save_editor_translations_${cleanLang}.json`);
     }
 

@@ -49,7 +49,7 @@ function initiateDownload(
     timeoutMs: number,
     userAgentVersion: string,
     onRedirect: (redirectedUrl: string) => Promise<any>
-): Promise<DownloadResponse | any> {
+): Promise<any> {
     return new Promise((resolve, reject) => {
         if (redirectCount > 5) {
             reject(new Error('Too many redirects while downloading data.'));

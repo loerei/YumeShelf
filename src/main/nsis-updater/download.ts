@@ -114,7 +114,7 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
 
             const acceptRanges = headRes.headers.get('accept-ranges');
             const contentLengthStr = headRes.headers.get('content-length');
-            const contentLength = contentLengthStr ? Number.parseInt(contentLengthStr, 10) : NaN;
+            const contentLength = contentLengthStr ? Number.parseInt(contentLengthStr, 10) : Number.NaN;
 
             if (VERBOSE_UPDATE_LOG) {
                 await appendUpdateLog(`nsis-updater parallel-download info accept-ranges=${acceptRanges} content-length=${contentLength}`);

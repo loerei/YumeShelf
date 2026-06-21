@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <stdio.h>
+#include <format>
+#include <string>
 
 WNDPROC OriginalWndProc = nullptr;
 
@@ -39,17 +41,16 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
         char className[256];
         GetClassNameA(hwnd, className, sizeof(className));
         
-        char logBuf[512];
-        sprintf(logBuf, "Found window for our PID. Class: %s, Visible: %d", className, IsWindowVisible(hwnd));
-        LogToFile(logBuf);
+        std::string logStr = std::format("Found window for our PID. Class: {}, Visible: {}", className, IsWindowVisible(hwnd));
+        LogToFile(logStr.c_str());
 
         if (IsWindowVisible(hwnd) && lstrcmpA(className, "ConsoleWindowClass") != 0) {
             OriginalWndProc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)HookedWndProc);
             if (OriginalWndProc) {
                 LogToFile("Successfully subclassed the window!");
             } else {
-                sprintf(logBuf, "SetWindowLongPtr failed with error: %lu", GetLastError());
-                LogToFile(logBuf);
+                std::string errStr = std::format("SetWindowLongPtr failed with error: {}", GetLastError());
+                LogToFile(errStr.c_str());
             }
             return FALSE; // Stop enumeration
         }

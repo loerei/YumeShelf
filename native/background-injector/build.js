@@ -15,11 +15,11 @@ const INJECTOR_OUT = path.join(BUILD_DIR, 'injector.exe');
 
 try {
     console.log('Compiling payload.dll...');
-    execSync(`g++ -shared -o "${PAYLOAD_OUT}" "${PAYLOAD_SRC}" -Wl,--kill-at`, { stdio: 'inherit' });
+    execSync(`g++ -std=c++20 -shared -o "${PAYLOAD_OUT}" "${PAYLOAD_SRC}" -Wl,--kill-at`, { stdio: 'inherit' });
 
     console.log('Compiling injector.exe...');
     // We statically link standard libraries to avoid needing MinGW DLLs on the target system
-    execSync(`g++ -o "${INJECTOR_OUT}" "${INJECTOR_SRC}" -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic`, { stdio: 'inherit' });
+    execSync(`g++ -std=c++20 -o "${INJECTOR_OUT}" "${INJECTOR_SRC}" -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic`, { stdio: 'inherit' });
 
     console.log('Build successful!');
 } catch (e) {

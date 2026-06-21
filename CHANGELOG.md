@@ -28,6 +28,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [translation-system] Upgraded `expectByte` inside the file-coder compiler to perform on-the-fly 1-byte misalignment realignment when encountering boundary event indicators.
 - [refactor] Modernized legacy error-handling logic (replacing `(error && error.stack)` / `(error && error.message)`) to use modern ES2020 optional chaining (`error?.stack`, `error?.message`) across check service, post-update marker service, app updates helper, and installer shell.
 - [refactor] Resolved various SonarQube code smells and quality gate warnings, including:
+  - Replaced unsafe `sprintf` usage with `snprintf` in the native background-injector payload `payload.cpp` to resolve SonarCloud security warnings (rule `cpp:S6069`).
   - Replacing legacy `window` references with `globalThis` in the installer shell renderer.
   - Converting literal global string replacements from regex `replace` to `replaceAll` in language code normalization and HTML entity decoding.
   - Using a `Set` for candidate lookup optimization in installer locale matching.

@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 
 export interface InstallContext {
     postUpdateMarkerFile: string;

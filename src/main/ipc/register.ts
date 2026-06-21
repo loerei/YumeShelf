@@ -1,5 +1,5 @@
 import { App, IpcMain, Shell, BrowserWindow } from 'electron';
-import * as fsSync from 'fs';
+import * as fsSync from 'node:fs';
 import { TelemetryShipper } from '../telemetry/shipper';
 import { isPathWithinLibrary } from './path-validator';
 import { IpcInvokes, IpcSends } from '../../shared/types/ipc';

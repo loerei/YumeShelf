@@ -1,6 +1,6 @@
-const fs = require('fs/promises');
-const path = require('path');
-const zlib = require('zlib');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const zlib = require('node:zlib');
 
 /**
  * RPG Maker MV/MZ save files are often LZString compressed JSON strings.

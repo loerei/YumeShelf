@@ -1,9 +1,9 @@
-import path from 'path';
-import fs from 'fs/promises';
-import fsSync from 'fs';
-import http from 'http';
-import https from 'https';
-import { exec } from 'child_process';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import { exec } from 'node:child_process';
 import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
 import { RpgMakerExtractor } from './extractors/rpg-maker';
 import { UnityExtractor } from './extractors/unity';

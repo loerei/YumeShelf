@@ -1,5 +1,5 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
 export const SESSION_SCHEMA_VERSION = 1;
 export const SESSION_READ_RETRY_DELAY_MS = 40;

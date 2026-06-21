@@ -1,5 +1,5 @@
-const fs = require('fs/promises');
-const path = require('path');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 // Since I don't have lz-string installed in node_modules, I'll need to implement the decompressor or use a simple base64-based approach if it's not actually compressed in a complex way.
 // Actually, let's just read the file and see what the raw content looks like first to identify the format.
 

@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const LZString = require('../dist/main/core/lz-string');
 const format = require('../dist/main/save-editor/formats/rpg-maker-mv');
 

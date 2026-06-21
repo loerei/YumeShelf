@@ -1,8 +1,8 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as crypto from 'crypto';
-import * as http from 'http';
-import * as https from 'https';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as crypto from 'node:crypto';
+import * as http from 'node:http';
+import * as https from 'node:https';
 
 export async function ensureDir(dirPath: string): Promise<void> {
     await fs.mkdir(dirPath, { recursive: true });

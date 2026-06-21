@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 
 /**
  * Validates whether the targetPath is strictly inside any of the provided libraryPaths.

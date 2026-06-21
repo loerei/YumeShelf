@@ -1,6 +1,6 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { setTimeout as delay } from 'timers/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { readInstallerContract } from '../shared/installer-contract';
 
 function toBoolean(value: any, fallback = false): boolean {

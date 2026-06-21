@@ -33,7 +33,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
   - Using a `Set` for candidate lookup optimization in installer locale matching.
   - Utilizing `RegExp.exec()` instead of `String.match()` for hex digest extraction.
   - Resolving redundant `any | null` union types in the post-update marker service.
-  - Reducing Cognitive Complexity inside `loadLocales` and `compareAppReleaseVersions` by modularizing and extracting inner loops into helper functions.
+  - Reducing Cognitive Complexity inside `createStartupServices`, `bindIpcEvents`, `renderAppUpdateReview`, `initialize` (in `Translator`), `matchesQuery`, and `patchRewolfTrans` by modularizing and extracting nested code blocks into clean helper functions and methods.
 
 ## [1.5.10] - 2026-06-01 — released
 

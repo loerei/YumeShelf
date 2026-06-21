@@ -52,10 +52,77 @@ export class DataEngine {
      * @param {any} label
      * @returns {boolean}
      */
-    matchesQuery(id, value, label) {
+    evaluateRelationalQuery(id: any, value: any, relMatch: RegExpMatchArray): boolean {
+        const { searchIndex, searchValue } = this.searchOptions;
+        const op = relMatch[1];
+        const target = Number.parseFloat(relMatch[2]);
+        
+        const compare = (val: number, op: string, targetVal: number) => {
+            switch (op) {
+                case '>': return val > targetVal;
+                case '>=': return val >= targetVal;
+                case '<': return val < targetVal;
+                case '<=': return val <= targetVal;
+                case '=':
+                case '==': return val === targetVal;
+                case '!=': return val !== targetVal;
+                default: return false;
+            }
+        };
+
+        // Evaluate on index
+        if (searchIndex && id !== null && id !== undefined) {
+            const numericId = Number(id);
+            if (!Number.isNaN(numericId) && compare(numericId, op, target)) {
+                return true;
+            }
+        }
+
+        // Evaluate on value
+        if (searchValue && value !== null && value !== undefined) {
+            const numericVal = Number(value);
+            if (!Number.isNaN(numericVal) && compare(numericVal, op, target)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    matchIndex(id: any, query: string, exact: boolean): boolean {
+        const idStr = (id !== null && id !== undefined) ? id.toString() : '';
+        return exact ? idStr === query : idStr.includes(query);
+    }
+
+    matchValue(value: any, query: string, q: string, exact: boolean): boolean {
+        const valStr = (value !== null && value !== undefined) ? value.toString() : '';
+        return exact ? valStr === query : valStr.toLowerCase().includes(q);
+    }
+
+    matchName(label: any, q: string): boolean {
+        const labStr = (label !== null && label !== undefined) ? label.toString() : '';
+        return labStr.toLowerCase().includes(q);
+    }
+
+    evaluateTextQuery(id: any, value: any, label: any): boolean {
+        const { query, exact, searchIndex, searchValue, searchName } = this.searchOptions;
+        const q = query.toLowerCase();
+
+        if (searchIndex && this.matchIndex(id, query, exact)) {
+            return true;
+        }
+        if (searchValue && this.matchValue(value, query, q, exact)) {
+            return true;
+        }
+        if (searchName && this.matchName(label, q)) {
+            return true;
+        }
+        return false;
+    }
+
+    matchesQuery(id: any, value: any, label: any): boolean {
         const { 
-            query, exact, searchName, searchValue, searchIndex, 
-            switchOnlyTrue, switchOnlyFalse 
+            query, switchOnlyTrue, switchOnlyFalse 
         } = this.searchOptions;
         
         // Boolean filters for switches (AND logic)
@@ -67,76 +134,10 @@ export class DataEngine {
         // Relational numeric search support: e.g. ">170", ">=170", "<50", "=10", "!=0"
         const relMatch = query.trim().match(/^(>=|<=|>|<|==|=|!=)\s*(-?\d+(\.\d+)?)$/);
         if (relMatch) {
-            const op = relMatch[1];
-            const target = Number.parseFloat(relMatch[2]);
-            
-            /**
-             * @param {number} val
-             * @param {string} op
-             * @param {number} targetVal
-             * @returns {boolean}
-             */
-            const compare = (val, op, targetVal) => {
-                switch (op) {
-                    case '>': return val > targetVal;
-                    case '>=': return val >= targetVal;
-                    case '<': return val < targetVal;
-                    case '<=': return val <= targetVal;
-                    case '=':
-                    case '==': return val === targetVal;
-                    case '!=': return val !== targetVal;
-                    default: return false;
-                }
-            };
-
-            // Evaluate on index
-            if (searchIndex && id !== null && id !== undefined) {
-                const numericId = Number(id);
-                if (!Number.isNaN(numericId) && compare(numericId, op, target)) {
-                    return true;
-                }
-            }
-
-            // Evaluate on value
-            if (searchValue && value !== null && value !== undefined) {
-                const numericVal = Number(value);
-                if (!Number.isNaN(numericVal) && compare(numericVal, op, target)) {
-                    return true;
-                }
-            }
-
-            return false;
+            return this.evaluateRelationalQuery(id, value, relMatch);
         }
 
-        const q = query.toLowerCase();
-        
-        // Search by Index (ID)
-        if (searchIndex) {
-            const idStr = (id !== null && id !== undefined) ? id.toString() : '';
-            if (exact) {
-                if (idStr === query) return true;
-            } else {
-                if (idStr.includes(query)) return true;
-            }
-        }
-        
-        // Search by Value
-        if (searchValue) {
-            const valStr = (value !== null && value !== undefined) ? value.toString() : '';
-            if (exact) {
-                if (valStr === query) return true;
-            } else {
-                if (valStr.toLowerCase().includes(q)) return true;
-            }
-        }
-        
-        // Search by Name (Label)
-        if (searchName) {
-            const labStr = (label !== null && label !== undefined) ? label.toString() : '';
-            if (labStr.toLowerCase().includes(q)) return true;
-        }
-        
-        return false;
+        return this.evaluateTextQuery(id, value, label);
     }
 
     /**

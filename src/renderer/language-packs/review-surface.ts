@@ -23,6 +23,113 @@ export function setOverlayChrome({
     refs.languagePackSource.style.display = reviewOpen && updateOnlyFocus ? 'none' : 'block';
 }
 
+function getInstalledReleaseLabel(appUpdate: any, getText: any): string {
+    return formatTemplate(
+        getText('post_update_notification_title', 'YumeShelf Updated to v{version}'),
+        { version: appUpdate.version || '' }
+    );
+}
+
+function getAvailableReleaseLabel(appUpdate: any, getText: any): string {
+    return appUpdate.releaseName || formatTemplate(
+        getText('app_update_review_title', 'YumeShelf {version}'),
+        { version: appUpdate.version || '' }
+    );
+}
+
+function getInstalledStatusText(getText: any): string {
+    return getText('app_update_review_status_installed', 'YumeShelf was updated successfully. Review the release notes below.');
+}
+
+function getAvailableStatusText(appUpdate: any, getText: any, currentVersion: string): string {
+    if (appUpdate.actionState === 'downloading') {
+        return getText('app_update_review_status_downloading', 'Downloading and verifying the new build...');
+    }
+    if (appUpdate.installPhase === 'install-preparing') {
+        return getText('app_update_review_status_install_preparing', 'Preparing YumeShelf for installation...');
+    }
+    if (appUpdate.installPhase === 'install-handoff') {
+        return getText('app_update_review_status_install_handoff', 'Handing off to the installer and restarting YumeShelf...');
+    }
+    if (appUpdate.actionState === 'installing') {
+        return getText('app_update_review_status_installing', 'Closing YumeShelf and applying the update...');
+    }
+    if (appUpdate.actionState === 'scheduled' || appUpdate.deferredUntilNextLaunch) {
+        return getText('app_update_review_status_scheduled', 'This update will install automatically the next time you launch YumeShelf.');
+    }
+    if (!appUpdate.downloadable) {
+        return getText('app_update_review_status_manual', 'This update cannot be installed in place here. You can still open the download page.');
+    }
+    if (appUpdate.downloadReady) {
+        return getText('app_update_review_status_ready', 'The verified update is ready. Press Restart and Update to apply it now.');
+    }
+    return getText('app_update_review_status_available', 'Review the latest release notes, then press Update when you are ready.');
+}
+
+function getAvailablePrimaryLabel(appUpdate: any, getText: any): string {
+    if (appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing') {
+        return getText('lang_modal_downloading', 'Downloading...');
+    }
+    if (!appUpdate.downloadable) {
+        return getText('update_notification_open_download_page', 'Open download page');
+    }
+    if (appUpdate.downloadReady) {
+        return getText('update_notification_restart_and_update', 'Restart and Update');
+    }
+    return getText('app_update_review_action', 'Update');
+}
+
+function renderInstalledAppUpdateMeta(refs: any, appUpdate: any, getText: any): void {
+    const fromLabel = formatTemplate(
+        getText('app_update_review_previous_version', 'From v{version}'),
+        { version: appUpdate.fromVersion || '-' }
+    );
+    const toLabel = formatTemplate(
+        getText('app_update_review_installed_version', 'Now v{version}'),
+        { version: appUpdate.version || '-' }
+    );
+    refs.appUpdateReviewMeta.innerHTML = `
+        <span class="language-pack-chip">${fromLabel}</span>
+        <span class="language-pack-chip">${toLabel}</span>
+    `;
+}
+
+function renderAvailableAppUpdateMeta(refs: any, appUpdate: any, currentVersion: string, getText: any): void {
+    const fromLabel = formatTemplate(
+        getText('app_update_review_current_version', 'Current v{version}'),
+        { version: currentVersion || '-' }
+    );
+    const toLabel = formatTemplate(
+        getText('app_update_review_next_version', 'New v{version}'),
+        { version: appUpdate.version || '-' }
+    );
+    
+    let chips = `
+        <span class="language-pack-chip">${fromLabel}</span>
+        <span class="language-pack-chip">${toLabel}</span>
+    `;
+    if (appUpdate.downloadReady && !appUpdate.deferredUntilNextLaunch) {
+        chips += ` <span class="language-pack-chip">${getText('update_notification_label_ready', 'Ready to install')}</span>`;
+    }
+    if (appUpdate.deferredUntilNextLaunch) {
+        chips += ` <span class="language-pack-chip">${getText('update_notification_label_scheduled', 'Scheduled')}</span>`;
+    }
+    refs.appUpdateReviewMeta.innerHTML = chips;
+}
+
+function renderAppUpdateProgress(refs: any, appUpdate: any, getText: any): void {
+    if (appUpdate.actionState === 'downloading' && appUpdate.progress) {
+        const { percent, bytesPerSecond } = appUpdate.progress;
+        refs.appUpdateProgressContainer.style.display = 'block';
+        refs.appUpdateProgressFill.style.width = `${percent}%`;
+        refs.appUpdateProgressPercent.textContent = `${percent}%`;
+        refs.appUpdateProgressSpeed.textContent = `${formatDataSize(bytesPerSecond)}/s`;
+        refs.appUpdateReviewStatus.textContent = getText('app_update_review_status_downloading', 'Downloading update...');
+    } else {
+        refs.appUpdateProgressContainer.style.display = 'none';
+    }
+}
+
 export function renderAppUpdateReview({
     refs,
     getText,
@@ -37,78 +144,34 @@ export function renderAppUpdateReview({
     if (!reviewOpen || !appUpdate) return;
 
     const releaseLabel = installedMode
-        ? formatTemplate(
-            getText('post_update_notification_title', 'YumeShelf Updated to v{version}'),
-            { version: appUpdate.version || '' }
-        )
-        : appUpdate.releaseName || formatTemplate(
-            getText('app_update_review_title', 'YumeShelf {version}'),
-            { version: appUpdate.version || '' }
-        );
+        ? getInstalledReleaseLabel(appUpdate, getText)
+        : getAvailableReleaseLabel(appUpdate, getText);
+        
     const currentVersion = localeController.getLocaleState().appVersion || '';
+    
     const statusText = installedMode
-        ? getText('app_update_review_status_installed', 'YumeShelf was updated successfully. Review the release notes below.')
-        : appUpdate.actionState === 'downloading'
-            ? getText('app_update_review_status_downloading', 'Downloading and verifying the new build...')
-            : appUpdate.installPhase === 'install-preparing'
-                ? getText('app_update_review_status_install_preparing', 'Preparing YumeShelf for installation...')
-                : appUpdate.installPhase === 'install-handoff'
-                    ? getText('app_update_review_status_install_handoff', 'Handing off to the installer and restarting YumeShelf...')
-                    : appUpdate.actionState === 'installing'
-                        ? getText('app_update_review_status_installing', 'Closing YumeShelf and applying the update...')
-                        : appUpdate.actionState === 'scheduled' || appUpdate.deferredUntilNextLaunch
-                            ? getText('app_update_review_status_scheduled', 'This update will install automatically the next time you launch YumeShelf.')
-                            : !appUpdate.downloadable
-                                ? getText('app_update_review_status_manual', 'This update cannot be installed in place here. You can still open the download page.')
-                                : appUpdate.downloadReady
-                                    ? getText('app_update_review_status_ready', 'The verified update is ready. Press Restart and Update to apply it now.')
-                                    : getText('app_update_review_status_available', 'Review the latest release notes, then press Update when you are ready.');
+        ? getInstalledStatusText(getText)
+        : getAvailableStatusText(appUpdate, getText, currentVersion);
+        
     const primaryLabel = installedMode
         ? ''
-        : appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing'
-            ? getText('lang_modal_downloading', 'Downloading...')
-            : !appUpdate.downloadable
-                ? getText('update_notification_open_download_page', 'Open download page')
-                : appUpdate.downloadReady
-                    ? getText('update_notification_restart_and_update', 'Restart and Update')
-                    : getText('app_update_review_action', 'Update');
+        : getAvailablePrimaryLabel(appUpdate, getText);
 
     refs.appUpdateReviewEyebrow.textContent = getText('app_update_review_eyebrow', 'App update');
     refs.appUpdateReviewTitle.textContent = releaseLabel;
     refs.appUpdateReviewStatus.textContent = statusText;
-    refs.appUpdateReviewMeta.innerHTML = `
-        <span class="language-pack-chip">${formatTemplate(
-            getText(
-                installedMode ? 'app_update_review_previous_version' : 'app_update_review_current_version',
-                installedMode ? 'From v{version}' : 'Current v{version}'
-            ),
-            { version: (installedMode ? appUpdate.fromVersion : currentVersion) || '-' }
-        )}</span>
-        <span class="language-pack-chip">${formatTemplate(
-            getText(
-                installedMode ? 'app_update_review_installed_version' : 'app_update_review_next_version',
-                installedMode ? 'Now v{version}' : 'New v{version}'
-            ),
-            { version: appUpdate.version || '-' }
-        )}</span>
-        ${(!installedMode && appUpdate.downloadReady && !appUpdate.deferredUntilNextLaunch) ? `<span class="language-pack-chip">${getText('update_notification_label_ready', 'Ready to install')}</span>` : ''}
-        ${(!installedMode && appUpdate.deferredUntilNextLaunch) ? `<span class="language-pack-chip">${getText('update_notification_label_scheduled', 'Scheduled')}</span>` : ''}
-    `;
+    
+    if (installedMode) {
+        renderInstalledAppUpdateMeta(refs, appUpdate, getText);
+    } else {
+        renderAvailableAppUpdateMeta(refs, appUpdate, currentVersion, getText);
+    }
+    
     refs.appUpdateReviewNotes.innerHTML = renderMarkdownLite(
         appUpdate.releaseNotes || getText('app_update_review_notes_unavailable', 'Release notes are unavailable right now.')
     );
 
-    if (appUpdate.actionState === 'downloading' && appUpdate.progress) {
-        const { percent, bytesPerSecond } = appUpdate.progress;
-        refs.appUpdateProgressContainer.style.display = 'block';
-        refs.appUpdateProgressFill.style.width = `${percent}%`;
-        refs.appUpdateProgressPercent.textContent = `${percent}%`;
-        refs.appUpdateProgressSpeed.textContent = `${formatDataSize(bytesPerSecond)}/s`;
-
-        refs.appUpdateReviewStatus.textContent = getText('app_update_review_status_downloading', 'Downloading update...');
-    } else {
-        refs.appUpdateProgressContainer.style.display = 'none';
-    }
+    renderAppUpdateProgress(refs, appUpdate, getText);
 
     refs.appUpdateReviewActionBtn.style.display = installedMode || updateOnlyFocus ? 'none' : 'inline-flex';
     refs.appUpdateReviewActionBtn.textContent = primaryLabel;

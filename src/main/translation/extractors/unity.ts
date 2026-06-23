@@ -69,7 +69,7 @@ export class UnityExtractor implements TranslationExtractor {
         for (const match of englishMatches) {
             const clean = match.replaceAll('\x00', '').trim();
             if (this.isValidString(clean)) {
-                const escaped = clean.replaceAll('\r\n', '\\n').replaceAll('\n', '\\n').replaceAll('\r', '\\n');
+                const escaped = clean.replaceAll('\r\n', String.raw`\n`).replaceAll('\n', String.raw`\n`).replaceAll('\r', String.raw`\n`);
                 strings.add(escaped);
             }
         }
@@ -81,7 +81,7 @@ export class UnityExtractor implements TranslationExtractor {
         for (const match of cjkMatches) {
             const clean = match.replaceAll('\x00', '').trim();
             if (this.isValidString(clean)) {
-                const escaped = clean.replaceAll('\r\n', '\\n').replaceAll('\n', '\\n').replaceAll('\r', '\\n');
+                const escaped = clean.replaceAll('\r\n', String.raw`\n`).replaceAll('\n', String.raw`\n`).replaceAll('\r', String.raw`\n`);
                 strings.add(escaped);
             }
         }

@@ -248,7 +248,7 @@ export class TranslationService {
 
     async runTranslationLoop(gameKey: string, dictPath: string, exePath?: string): Promise<void> {
         const job = this.jobs.get(gameKey);
-        if (!job || job.status !== 'translating') return;
+        if (job?.status !== 'translating') return;
 
         const batchSize = 15;
         while (job.queue.length > 0) {
@@ -372,7 +372,9 @@ export class TranslationService {
                     if (idx !== -1) seen.add(line.substring(0, idx).trim());
                 });
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error(`[TRANSLATION-SERVICE] Failed to load existing dictionary from ${dictPath}:`, e);
+        }
         return seen;
     }
 
@@ -418,7 +420,9 @@ export class TranslationService {
                 } else {
                     await fs.unlink(targetPath);
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn(`[TRANSLATION-SERVICE] Failed to remove translation asset: ${name}`, e);
+            }
         }
     }
 
@@ -465,9 +469,13 @@ export class TranslationService {
             const peOffset = peOffsetBuf.readUInt32LE(0);
             const { buffer: machineBuf } = await handle.read(Buffer.alloc(2), 0, 2, peOffset + 4);
             const machine = machineBuf.readUInt16LE(0);
-            arch = machine === 0x8664 ? 'x64' : (machine === 0x14c ? 'x86' : 'x64');
+            const isX64 = machine === 0x8664;
+            const isX86 = machine === 0x14c;
+            arch = isX64 ? 'x64' : (isX86 ? 'x86' : 'x64');
             await handle.close();
-        } catch (e) {}
+        } catch (e) {
+            console.error(`[TRANSLATION-SERVICE] Failed to read PE architecture from ${exePath}:`, e);
+        }
 
         const managedDir = path.join(exeDir, dataDir, 'Managed');
         if (fsSync.existsSync(path.join(managedDir, 'mscorlib.dll'))) return { type: 'mono', arch };

@@ -15,7 +15,7 @@ export interface DownloadUpdateContext {
     ensureDir: (dirPath: string) => Promise<void>;
     configureUpdaterFeed: (runtime: any) => Promise<{ updater: any; feedOverride: any }>;
     resolveRuntime: () => any;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     VERBOSE_UPDATE_LOG?: boolean;
     checkForUpdates: () => Promise<any>;
 }

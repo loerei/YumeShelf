@@ -9,7 +9,7 @@ export interface CheckForUpdatesContext {
     stateFiles: UpdaterStateFiles;
     resolveRuntime: () => any;
     configureUpdaterFeed: (runtime: any) => Promise<{ updater: any; feedOverride: any }>;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     VERBOSE_UPDATE_LOG?: boolean;
 }
 

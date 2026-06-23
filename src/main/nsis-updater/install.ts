@@ -21,7 +21,7 @@ export interface InstallContext {
     emitStatus: (payload: any) => void;
     summarizeUpdateState: (payload: any) => any;
     VERBOSE_UPDATE_LOG?: boolean;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     app: any;
     compareVersions: (a: string, b: string) => number;
     resolveRuntime: () => any;

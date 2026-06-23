@@ -7,7 +7,7 @@ import { pickReleaseName, pickReleaseNotes } from './update-info';
 
 export interface InstallerHandoffConfig {
     app: any;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     delay: (ms: number) => Promise<void>;
     emitStatus: (payload: any) => void;
     ensureDir: (dirPath: string) => Promise<void>;

@@ -13,7 +13,7 @@ export interface DownloadedState {
 }
 
 export interface StateFilesConfig {
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     ensureDir: (dirPath: string) => Promise<void>;
     normalizeDownloadedState: (raw: any) => DownloadedState | null;
     updateCacheDir: string;

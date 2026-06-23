@@ -170,7 +170,7 @@ export async function finalizeTrackedSession(
     await saveDB(db);
 }
 
-export async function getGameRecord(context: any, gameKey: string): Promise<any | null> {
+export async function getGameRecord(context: any, gameKey: string): Promise<any> {
     const { loadDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);

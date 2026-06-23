@@ -13,7 +13,7 @@ const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 
 export interface NsisUpdaterServiceConfig {
     app: any;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     broadcastStatus: (payload: any) => void;
     compareVersions: (a: string, b: string) => number;
     ensureDir: (dirPath: string) => Promise<void>;
@@ -27,7 +27,7 @@ function forwardLog(level: string, message: any, verboseLog: boolean, appendLog:
     if (level === 'debug' && !verboseLog) return;
     const text = normalizeText(message, '');
     if (!text) return;
-    void appendLog(`nsis-updater:${level} ${text}`);
+    appendLog(`nsis-updater:${level} ${text}`);
 }
 
 export function createNsisUpdaterService({

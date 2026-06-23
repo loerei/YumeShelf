@@ -120,7 +120,9 @@ export class WolfRpgExtractor implements TranslationExtractor {
             console.log('[WOLF-EXTRACTOR] Spawning rewolf-trans generate command...');
             await new Promise<void>((resolve, reject) => {
                 const encOptions = this.isV3Game ? ' --renc utf-8 --wenc utf-8' : '';
-                const cmd = `npx rewolf-trans -r "${gameDir.replaceAll('"', String.raw`\\"`)}" -p "${patchDir.replaceAll('"', String.raw`\\"`)}"${encOptions} generate`;
+                const escGameDir = gameDir.replaceAll('"', String.raw`\\\"`);
+                const escPatchDir = patchDir.replaceAll('"', String.raw`\\\"`);
+                const cmd = `npx rewolf-trans -r "${escGameDir}" -p "${escPatchDir}"${encOptions} generate`;
                 exec(cmd, (err) => {
                     if (err) {
                         console.error('[WOLF-EXTRACTOR] rewolf-trans generate failed:', err.message);
@@ -205,7 +207,9 @@ export class WolfRpgExtractor implements TranslationExtractor {
             console.log('[WOLF-EXTRACTOR] Spawning rewolf-trans apply command...');
             await new Promise<void>((resolve, reject) => {
                 const encOptions = this.isV3Game ? ' --renc utf-8 --wenc utf-8' : '';
-                const cmd = `npx rewolf-trans -r "${gameDir.replaceAll('"', String.raw`\\"`)}" -p "${patchDir.replaceAll('"', String.raw`\\"`)}"${encOptions} apply`;
+                const escGameDir = gameDir.replaceAll('"', String.raw`\\\"`);
+                const escPatchDir = patchDir.replaceAll('"', String.raw`\\\"`);
+                const cmd = `npx rewolf-trans -r "${escGameDir}" -p "${escPatchDir}"${encOptions} apply`;
                 exec(cmd, (err) => {
                     if (err) {
                         console.error('[WOLF-EXTRACTOR] rewolf-trans apply failed:', err.message);

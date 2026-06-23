@@ -23,6 +23,7 @@
     --tooltip-bg: rgba(22, 22, 22, 0.96);
     --tooltip-border: rgba(255, 255, 255, 0.1);
     --tooltip-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    --danger-color: #ff6b6b;
 }
 
 body.light-theme {
@@ -48,6 +49,7 @@ body.light-theme {
     --tooltip-bg: rgba(255, 255, 255, 0.96);
     --tooltip-border: rgba(18, 18, 18, 0.12);
     --tooltip-shadow: 0 14px 36px rgba(18, 18, 18, 0.14);
+    --danger-color: #d32f2f;
 }
 
 @media (prefers-color-scheme: light) {
@@ -74,6 +76,7 @@ body.light-theme {
         --tooltip-bg: rgba(255, 255, 255, 0.96);
         --tooltip-border: rgba(18, 18, 18, 0.12);
         --tooltip-shadow: 0 14px 36px rgba(18, 18, 18, 0.14);
+        --danger-color: #d32f2f;
     }
 }
 

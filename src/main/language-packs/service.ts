@@ -179,33 +179,34 @@ export interface LanguagePackServices {
     repoUrl: string;
 }
 
+async function loadLocaleDirectory(dirPath: string, options: { installed?: boolean; builtIn?: boolean } = {}): Promise<LanguagePack[]> {
+    const results: LanguagePack[] = [];
+    try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== '.json') continue;
+            const filePath = path.join(dirPath, entry.name);
+            const raw = await readJsonFile(filePath);
+            if (!raw) continue;
+            try {
+                results.push(normalizeLocalePack(raw, {
+                    ...options,
+                    sourceLabel: filePath
+                }));
+            } catch (error: any) {
+                console.warn(`[MAIN][I18N] Skipping locale file ${filePath}: ${String((error?.message) || error)}`);
+            }
+        }
+    } catch {
+        return [];
+    }
+    return results;
+}
+
 export function createLanguagePackServices({
     app,
     paths
 }: LanguagePackServicesOptions): LanguagePackServices {
-    async function loadLocaleDirectory(dirPath: string, options: { installed?: boolean; builtIn?: boolean } = {}): Promise<LanguagePack[]> {
-        const results: LanguagePack[] = [];
-        try {
-            const entries = await fs.readdir(dirPath, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== '.json') continue;
-                const filePath = path.join(dirPath, entry.name);
-                const raw = await readJsonFile(filePath);
-                if (!raw) continue;
-                try {
-                    results.push(normalizeLocalePack(raw, {
-                        ...options,
-                        sourceLabel: filePath
-                    }));
-                } catch (error: any) {
-                    console.warn(`[MAIN][I18N] Skipping locale file ${filePath}: ${String((error?.message) || error)}`);
-                }
-            }
-        } catch {
-            return [];
-        }
-        return results;
-    }
 
     async function buildLanguageState(): Promise<LanguageState> {
         const builtInPacks = await loadLocaleDirectory(paths.builtInLocalesDir, { builtIn: true });

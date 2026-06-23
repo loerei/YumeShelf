@@ -42,6 +42,21 @@ export interface SaveEditorServiceConfig {
     saveFolderResolver: any;
 }
 
+async function exists(p: string): Promise<boolean> {
+    try {
+        await fs.access(p);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
+    const mappingMgr = new SaveMappingManager(gameKey);
+    mappingMgr.addMapping(name, offset, dataType);
+    return { ok: true };
+}
+
 export function createSaveEditorService({ libraryState, saveFolderResolver }: SaveEditorServiceConfig) {
     
     async function getGamePaths(gameKey: string) {
@@ -83,15 +98,6 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
             langDataDir,
             engine: saveInfo.engine
         };
-    }
-
-    async function exists(p: string): Promise<boolean> {
-        try {
-            await fs.access(p);
-            return true;
-        } catch {
-            return false;
-        }
     }
 
     async function listSaveFiles(gameKey: string): Promise<string[]> {
@@ -148,12 +154,6 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
             console.error(`[SAVE-EDITOR] Error loading save data:`, err);
             throw err;
         }
-    }
-
-    async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
-        const mappingMgr = new SaveMappingManager(gameKey);
-        mappingMgr.addMapping(name, offset, dataType);
-        return { ok: true };
     }
 
     async function loadMetadata(dataDir: string, langDataDir: string | null) {

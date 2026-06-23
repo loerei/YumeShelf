@@ -95,7 +95,7 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
             let downloadUrl = fileName;
             if (!/^https?:\/\//i.test(downloadUrl)) {
                 const base = feedOverride?.url || `https://github.com/loerei/YumeShelf/releases/download/v${version}`;
-                const encodedFileName = encodeURIComponent(fileName).replace(/%2B/g, '+');
+                const encodedFileName = encodeURIComponent(fileName).replaceAll('%2B', '+');
                 downloadUrl = `${base.replace(/\/$/, '')}/${encodedFileName}`;
             }
 

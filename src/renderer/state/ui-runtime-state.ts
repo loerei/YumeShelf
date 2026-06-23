@@ -51,14 +51,13 @@ export function createUiRuntimeState(): CentralStore {
             setProperty('categoryTree', Array.isArray(tree) ? tree : []);
         },
         getActiveCategoryId: () => state.activeCategoryId,
-        setActiveCategoryId: (value) => {
-            const nextValue = value || null;
-            if (nextValue) {
-                localStorage.setItem('yumeshelf_active_category_id', nextValue);
+        setActiveCategoryId: (value = null) => {
+            if (value) {
+                localStorage.setItem('yumeshelf_active_category_id', value);
             } else {
                 localStorage.removeItem('yumeshelf_active_category_id');
             }
-            setProperty('activeCategoryId', nextValue);
+            setProperty('activeCategoryId', value);
         },
         getCurrentLibraryConfig: () => state.currentLibraryConfig,
         setCurrentLibraryConfig: (config) => {

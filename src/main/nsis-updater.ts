@@ -1,13 +1,9 @@
-import * as fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
-import * as path from 'node:path';
 import { NsisUpdater } from 'electron-updater';
 import { createInstallerHandoff } from './nsis-updater/installer-handoff';
-import { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } from './nsis-updater/runtime';
+import { resolveUpdaterRuntime, delay, isFakeVersionRun, normalizeText, toBoolean } from './nsis-updater/runtime';
 import { createStateFiles } from './nsis-updater/state-files';
-import { buildDownloadedState, normalizeDownloadedState, pickReleaseName, pickReleaseNotes, sha512FileBase64 } from './nsis-updater/update-info';
+import { normalizeDownloadedState, sha512FileBase64 } from './nsis-updater/update-info';
 import { attachUpdaterEventLogging } from './nsis-updater/updater-events';
-import { downloadBuffer } from './core/shared-io';
 import { configureDifferentialDownload } from './nsis-updater/cache-inputs';
 import { setupUpdateFlow } from './nsis-updater/update-flow';
 
@@ -25,6 +21,13 @@ export interface NsisUpdaterServiceConfig {
     resolveFeedOverride?: (options: any) => Promise<any>;
     updateCacheDir: string;
     postUpdateMarkerFile: string;
+}
+
+function forwardLog(level: string, message: any, verboseLog: boolean, appendLog: (msg: string) => any) {
+    if (level === 'debug' && !verboseLog) return;
+    const text = normalizeText(message, '');
+    if (!text) return;
+    void appendLog(`nsis-updater:${level} ${text}`);
 }
 
 export function createNsisUpdaterService({
@@ -52,25 +55,18 @@ export function createNsisUpdaterService({
     }
 
     function createUpdaterLogger() {
-        function forward(level: string, message: any) {
-            if (level === 'debug' && !VERBOSE_UPDATE_LOG) return;
-            const text = normalizeText(message, '');
-            if (!text) return;
-            void appendUpdateLog(`nsis-updater:${level} ${text}`);
-        }
-
         return {
             debug(message: any) {
-                forward('debug', message);
+                forwardLog('debug', message, VERBOSE_UPDATE_LOG, appendUpdateLog);
             },
             error(message: any) {
-                forward('error', message);
+                forwardLog('error', message, VERBOSE_UPDATE_LOG, appendUpdateLog);
             },
             info(message: any) {
-                forward('info', message);
+                forwardLog('info', message, VERBOSE_UPDATE_LOG, appendUpdateLog);
             },
             warn(message: any) {
-                forward('warn', message);
+                forwardLog('warn', message, VERBOSE_UPDATE_LOG, appendUpdateLog);
             }
         };
     }

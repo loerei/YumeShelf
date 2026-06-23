@@ -7,8 +7,8 @@ import { TranslationExtractor } from './base';
 import { downloadFile, ensureDir } from '../../core/shared-io';
 
 export class WolfRpgExtractor implements TranslationExtractor {
-    private translatorsDir: string;
-    private gameKey: string;
+    private readonly translatorsDir: string;
+    private readonly gameKey: string;
     private isV3Game: boolean = false;
 
     constructor(translatorsDir: string = '', gameKey: string = '') {
@@ -17,7 +17,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
     }
 
     private getPatchDir(): string {
-        const sanitizedKey = (this.gameKey || 'wolf-temp').replace(/:/g, '_');
+        const sanitizedKey = (this.gameKey || 'wolf-temp').replaceAll(':', '_');
         return path.join(this.translatorsDir, 'patches', sanitizedKey);
     }
 
@@ -120,7 +120,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             console.log('[WOLF-EXTRACTOR] Spawning rewolf-trans generate command...');
             await new Promise<void>((resolve, reject) => {
                 const encOptions = this.isV3Game ? ' --renc utf-8 --wenc utf-8' : '';
-                const cmd = `npx rewolf-trans -r "${gameDir.replace(/"/g, '\\"')}" -p "${patchDir.replace(/"/g, '\\"')}"${encOptions} generate`;
+                const cmd = `npx rewolf-trans -r "${gameDir.replaceAll('"', String.raw`\\"`)}" -p "${patchDir.replaceAll('"', String.raw`\\"`)}"${encOptions} generate`;
                 exec(cmd, (err) => {
                     if (err) {
                         console.error('[WOLF-EXTRACTOR] rewolf-trans generate failed:', err.message);
@@ -205,7 +205,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             console.log('[WOLF-EXTRACTOR] Spawning rewolf-trans apply command...');
             await new Promise<void>((resolve, reject) => {
                 const encOptions = this.isV3Game ? ' --renc utf-8 --wenc utf-8' : '';
-                const cmd = `npx rewolf-trans -r "${gameDir.replace(/"/g, '\\"')}" -p "${patchDir.replace(/"/g, '\\"')}"${encOptions} apply`;
+                const cmd = `npx rewolf-trans -r "${gameDir.replaceAll('"', String.raw`\\"`)}" -p "${patchDir.replaceAll('"', String.raw`\\"`)}"${encOptions} apply`;
                 exec(cmd, (err) => {
                     if (err) {
                         console.error('[WOLF-EXTRACTOR] rewolf-trans apply failed:', err.message);
@@ -232,8 +232,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
         let originalText = '';
         let step = 0; // 0: looking for original, 1: looking for context, 2: looking for translation
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
+        for (const line of lines) {
             if (line.startsWith('> BEGIN STRING')) {
                 inBlock = true;
                 originalText = '';
@@ -269,8 +268,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
         let translationText = '';
         let step = 0; // 0: original, 1: context, 2: translation
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
+        for (const line of lines) {
             if (line.startsWith('> BEGIN STRING')) {
                 inBlock = true;
                 originalText = '';
@@ -285,17 +283,12 @@ export class WolfRpgExtractor implements TranslationExtractor {
                 const unescapedOrig = this.unescapeString(originalText.trim());
                 const translated = translations.get(unescapedOrig);
                 
-                // Write original
-                newLines.push(originalText);
-                // Write contexts
-                newLines.push(...contextLines);
-                // Write translation
-                if (translated) {
-                    newLines.push(this.escapeString(translated));
-                } else {
-                    newLines.push(translationText || originalText);
-                }
-                newLines.push(line);
+                newLines.push(
+                    originalText,
+                    ...contextLines,
+                    translated ? this.escapeString(translated) : (translationText || originalText),
+                    line
+                );
                 continue;
             }
 
@@ -319,11 +312,11 @@ export class WolfRpgExtractor implements TranslationExtractor {
     }
 
     private unescapeString(str: string): string {
-        return str.replace(/\\n/g, '\n');
+        return str.replaceAll(String.raw`\n`, '\n');
     }
 
     private escapeString(str: string): string {
-        return str.replace(/\n/g, '\\n');
+        return str.replaceAll('\n', String.raw`\n`);
     }
 
     private async getFilesRecursive(dir: string): Promise<string[]> {
@@ -332,7 +325,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             const res = path.resolve(dir, subdir);
             return (await fs.stat(res)).isDirectory() ? this.getFilesRecursive(res) : [res];
         }));
-        return files.reduce((a, f) => a.concat(f), []);
+        return files.flat();
     }
 
     private async patchJsFile(filePath: string, includeCheck: string, logMsg: string, patches: { target: string, replacement: string }[]): Promise<void> {
@@ -562,7 +555,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
         const cmdPath = path.join(nodeModulesDir, 'dist', 'src', 'wolf', 'wolf-command.js');
         if (fsSync.existsSync(cmdPath)) {
             let content = await fs.readFile(cmdPath, 'utf8');
-            content = content.replace(/\r\n/g, '\n');
+            content = content.replaceAll('\r\n', '\n');
             
             // Un-patch old createCommand and writeTeminator if present to start from a clean state
             const oldCreate = `// toleration for WOLF RPG 3.x command structures:

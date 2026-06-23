@@ -24,7 +24,7 @@ async function readAndParseMarker(
     filePath: string,
     appendVerboseUpdateLog: (msg: string) => Promise<void>,
     appendUpdateLog: (msg: string) => Promise<void>
-): Promise<any | null> {
+): Promise<any> {
     try {
         const rawText = await fs.readFile(filePath, 'utf8');
         const sanitizedText = rawText.replace(/^\uFEFF/, '');

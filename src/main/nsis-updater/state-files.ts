@@ -20,6 +20,14 @@ export interface StateFilesConfig {
     verifyInstallerHash: (filePath: string) => Promise<string>;
 }
 
+async function readJson(filePath: string): Promise<any> {
+    try {
+        return JSON.parse(await fs.readFile(filePath, 'utf8'));
+    } catch {
+        return null;
+    }
+}
+
 export function createStateFiles({
     appendUpdateLog,
     ensureDir,
@@ -33,14 +41,6 @@ export function createStateFiles({
     async function writeJson(filePath: string, value: any): Promise<void> {
         await ensureDir(path.dirname(filePath));
         await fs.writeFile(filePath, JSON.stringify(value, null, 2), 'utf8');
-    }
-
-    async function readJson(filePath: string): Promise<any> {
-        try {
-            return JSON.parse(await fs.readFile(filePath, 'utf8'));
-        } catch {
-            return null;
-        }
     }
 
     async function readDownloadedState(): Promise<DownloadedState | null> {

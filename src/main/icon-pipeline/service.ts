@@ -44,6 +44,15 @@ export interface IconPipeline {
     registerProtocolHandler(): void;
 }
 
+function createIconPayload(dataUrl: string, fit = 'contain', source = 'unknown', debug: any = null): IconPayload {
+    return {
+        dataUrl,
+        fit: fit === 'cover' ? 'cover' : 'contain',
+        source,
+        debug
+    };
+}
+
 export function createIconPipeline({
     app,
     protocol,
@@ -51,15 +60,6 @@ export function createIconPipeline({
     sourceRootDir
 }: IconPipelineOptions): IconPipeline {
     const pool = createWorkerPool({ app, sourceRootDir });
-
-    function createIconPayload(dataUrl: string, fit = 'contain', source = 'unknown', debug: any = null): IconPayload {
-        return {
-            dataUrl,
-            fit: fit === 'cover' ? 'cover' : 'contain',
-            source,
-            debug
-        };
-    }
 
     async function resolveIconDataUrl(targetPath: string): Promise<IconPayload> {
         const dir = path.dirname(targetPath);

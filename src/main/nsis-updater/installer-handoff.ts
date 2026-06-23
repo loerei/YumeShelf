@@ -78,7 +78,7 @@ export function createInstallerHandoff({
                 try {
                     app.quit();
                 } catch (error) {
-                    void appendUpdateLog(`${logPrefix} quit-failed error=${String((error as any)?.stack || error || '')}`);
+                    appendUpdateLog(`${logPrefix} quit-failed error=${String((error as any)?.stack || error || '')}`);
                 }
             }, 80);
             return {

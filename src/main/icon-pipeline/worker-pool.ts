@@ -1,7 +1,7 @@
 import * as fsSync from 'node:fs';
 import * as path from 'node:path';
-import { fork, spawnSync, ChildProcess } from 'node:child_process';
-import { IconWorkerMessageRequest, IconWorkerMessageResponse } from './icon-extractor';
+import { fork, ChildProcess } from 'node:child_process';
+import { IconWorkerMessageResponse } from './icon-extractor';
 
 const ICON_WORKER_BOOT_MAX_ATTEMPTS = 5;
 const ICON_WORKER_PROBE_PATH = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'notepad.exe');

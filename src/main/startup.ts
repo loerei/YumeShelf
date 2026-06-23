@@ -68,15 +68,6 @@ export function createStartupServices({
     resolveLibraryConfig,
     startupNetworkTimeoutMs
 }: StartupServicesOptions) {
-    function emitBootStatus(webContents: any, payload: any) {
-        if (!webContents || webContents.isDestroyed()) return;
-        webContents.send('boot-status', {
-            scope: 'startup',
-            timestamp: Date.now(),
-            ...payload
-        });
-    }
-
     async function performAppUpdateCheck(webContents: any, appUpdatesMode: string, appUpdateCheck: any) {
         if (appUpdatesMode === 'off') return;
 
@@ -385,4 +376,13 @@ function getLanguagePackBootStatus(manifestResult: any) {
         key: 'boot_language_pack_source_ready',
         fallbackText: 'Language pack source ready'
     };
+}
+
+function emitBootStatus(webContents: any, payload: any) {
+    if (!webContents || webContents.isDestroyed()) return;
+    webContents.send('boot-status', {
+        scope: 'startup',
+        timestamp: Date.now(),
+        ...payload
+    });
 }

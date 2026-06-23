@@ -64,23 +64,24 @@ export class UnityExtractor implements TranslationExtractor {
         
         // Scan for UTF-16LE string literals (printable Japanese/English sequences)
         // Match printable English UTF-16LE strings (3+ characters)
-        const englishMatches = content.match(/[A-Z\x00a-z\x000-9\x00\s\x00!,?.:;'"-]{6,100}/g) || [];
+        const englishRegex = new RegExp('[A-Za-z0-9\\s' + '\\x00' + '!,?.:;\'"-]{6,100}', 'g');
+        const englishMatches = content.match(englishRegex) || [];
         for (const match of englishMatches) {
-            const clean = match.replace(/\x00/g, '').trim();
+            const clean = match.replaceAll('\x00', '').trim();
             if (this.isValidString(clean)) {
-                const escaped = clean.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
+                const escaped = clean.replaceAll('\r\n', '\\n').replaceAll('\n', '\\n').replaceAll('\r', '\\n');
                 strings.add(escaped);
             }
         }
 
         // Match printable Japanese/Chinese/Korean UTF-16LE strings (contains CJK blocks)
         // Range: CJK Unified Ideographs [\u4e00-\u9faf] + Hiragana/Katakana [\u3040-\u30ff]
-        const cjkRegex = /[\u3040-\u30ff\u4e00-\u9faf\u3000-\u303f\uff00-\uffef\x00]{6,120}/g;
+        const cjkRegex = new RegExp('[\\u3040-\\u30ff\\u4e00-\\u9faf\\u3000-\\u303f\\uff00-\\uffef' + '\\x00' + ']{6,120}', 'g');
         const cjkMatches = content.match(cjkRegex) || [];
         for (const match of cjkMatches) {
-            const clean = match.replace(/\x00/g, '').trim();
+            const clean = match.replaceAll('\x00', '').trim();
             if (this.isValidString(clean)) {
-                const escaped = clean.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
+                const escaped = clean.replaceAll('\r\n', '\\n').replaceAll('\n', '\\n').replaceAll('\r', '\\n');
                 strings.add(escaped);
             }
         }

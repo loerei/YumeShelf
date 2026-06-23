@@ -5,7 +5,7 @@ import { isPathWithinLibrary } from './path-validator';
 import { IpcInvokes, IpcSends } from '../../shared/types/ipc';
 
 export class TypedIpcRouter {
-    constructor(private ipcMain: IpcMain) {}
+    constructor(private readonly ipcMain: IpcMain) {}
 
     handle<K extends keyof IpcInvokes>(
         channel: K,

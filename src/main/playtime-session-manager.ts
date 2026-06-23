@@ -36,6 +36,10 @@ export interface PlaytimeSessionManager {
     getRuntimeSnapshot(): { journals: SessionJournal[]; gameState: any[] };
 }
 
+function log(message: string): void {
+    console.log(`[PLAYTIME][SESSIONS] ${message}`);
+}
+
 export function createPlaytimeSessionManager({
     app,
     BrowserWindow,
@@ -48,10 +52,6 @@ export function createPlaytimeSessionManager({
     let currentJournals: SessionJournal[] = [];
     let currentGameState = new Map<string, ActiveGameState>();
     const pendingAttachRetries = new Map<string, number>();
-
-    function log(message: string): void {
-        console.log(`[PLAYTIME][SESSIONS] ${message}`);
-    }
 
     async function ensureSessionInfrastructure(): Promise<void> {
         await fs.mkdir(sessionsDir, { recursive: true });

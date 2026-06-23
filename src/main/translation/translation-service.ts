@@ -33,14 +33,14 @@ export interface UnityDetection {
 }
 
 export class TranslationService {
-    private translatorsDir: string;
-    private appVersion: string;
-    private broadcastStatus: (data: any) => void;
+    private readonly translatorsDir: string;
+    private readonly appVersion: string;
+    private readonly broadcastStatus: (data: any) => void;
     private isDownloading: boolean = false;
     private proxyServer: http.Server | null = null;
     private proxyPort: number = 0;
-    private extractors: Record<string, TranslationExtractor>;
-    private jobs: Map<string, TranslationJob>;
+    private readonly extractors: Record<string, TranslationExtractor>;
+    private readonly jobs: Map<string, TranslationJob>;
 
     constructor({ translatorsDir, appVersion, broadcastStatus }: TranslationServiceOptions) {
         this.translatorsDir = translatorsDir;
@@ -174,7 +174,14 @@ export class TranslationService {
 
         const exeDir = path.dirname(exePath);
         const detection = await this.detectUnityType(exePath);
-        const engineType = detection ? 'unity' : (await this.isWolfRpg(exeDir) ? 'wolf-rpg' : (await this.isRpgMaker(exeDir) ? 'rpg-maker' : null));
+        let engineType: string | null = null;
+        if (detection) {
+            engineType = 'unity';
+        } else if (await this.isWolfRpg(exeDir)) {
+            engineType = 'wolf-rpg';
+        } else if (await this.isRpgMaker(exeDir)) {
+            engineType = 'rpg-maker';
+        }
 
         let extractor = engineType ? this.extractors[engineType] : null;
         if (engineType === 'wolf-rpg') {
@@ -225,7 +232,9 @@ export class TranslationService {
                         });
                         const wolfExtractor = new WolfRpgExtractor(this.translatorsDir, gameKey);
                         await wolfExtractor.applyTranslations(exeDir, translations);
-                    } catch (e) {}
+                    } catch (e) {
+                        console.error('[DEEP-SYNC] Failed applying Wolf RPG translations:', e);
+                    }
                 }
                 job.status = 'complete';
                 this.broadcastStatus({ gameKey, status: 'synced' });
@@ -337,7 +346,7 @@ export class TranslationService {
     async getDictionaryPath(gameKey: string, exePath: string): Promise<string | null> {
         const exeDir = path.dirname(exePath);
         if (await this.isWolfRpg(exeDir)) {
-            const sanitizedKey = gameKey.replace(/:/g, '_');
+            const sanitizedKey = gameKey.replaceAll(':', '_');
             const patchDir = path.join(this.translatorsDir, 'patches', sanitizedKey);
             await ensureDir(patchDir);
             return path.join(patchDir, 'wolf_dictionary.txt');

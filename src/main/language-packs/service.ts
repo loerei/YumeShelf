@@ -117,8 +117,8 @@ function normalizeLocalePack(raw: any, options: { installed?: boolean; builtIn?:
         packVersion: String(raw.packVersion || raw.version || '1.0.0'),
         minAppVersion: raw.minAppVersion ? String(raw.minAppVersion) : null,
         reviewedForAppVersion: raw.reviewedForAppVersion ? String(raw.reviewedForAppVersion) : null,
-        aliases: Array.isArray(raw.aliases) ? raw.aliases.map((value: any) => String(value)).filter(Boolean) : [],
-        keywords: Array.isArray(raw.keywords) ? raw.keywords.map((value: any) => String(value)).filter(Boolean) : [],
+        aliases: Array.isArray(raw.aliases) ? raw.aliases.map(String).filter(Boolean) : [],
+        keywords: Array.isArray(raw.keywords) ? raw.keywords.map(String).filter(Boolean) : [],
         source: builtIn ? 'built-in' : (installed ? 'downloaded' : 'remote'),
         strings: raw.strings
     };
@@ -143,8 +143,8 @@ function normalizeManifest(raw: any): LanguageManifest {
             packVersion: String(entry.packVersion || entry.version || '1.0.0'),
             minAppVersion: entry.minAppVersion ? String(entry.minAppVersion) : null,
             reviewedForAppVersion: entry.reviewedForAppVersion ? String(entry.reviewedForAppVersion) : null,
-            aliases: Array.isArray(entry.aliases) ? entry.aliases.map((value: any) => String(value)).filter(Boolean) : [],
-            keywords: Array.isArray(entry.keywords) ? entry.keywords.map((value: any) => String(value)).filter(Boolean) : [],
+            aliases: Array.isArray(entry.aliases) ? entry.aliases.map(String).filter(Boolean) : [],
+            keywords: Array.isArray(entry.keywords) ? entry.keywords.map(String).filter(Boolean) : [],
             downloadUrl: String(entry.downloadUrl),
             sha256: String(entry.sha256).toLowerCase()
         };

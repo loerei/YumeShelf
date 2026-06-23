@@ -20,8 +20,8 @@ export class TelemetryShipper {
 
     // The endpoint is proxy-secured by Cloudflare Workers to protect the Supabase key.
     // Client has a general Client App Token to prevent generic spamming.
-    private workerEndpoint: string = process.env.TELEMETRY_WORKER_ENDPOINT || 'https://yumeshelf-telemetry.sayusumat.workers.dev/v1/ship';
-    private clientAppToken: string = process.env.TELEMETRY_CLIENT_TOKEN || '';
+    private readonly workerEndpoint: string = process.env.TELEMETRY_WORKER_ENDPOINT || 'https://yumeshelf-telemetry.sayusumat.workers.dev/v1/ship';
+    private readonly clientAppToken: string = process.env.TELEMETRY_CLIENT_TOKEN || '';
 
     private constructor() {}
 

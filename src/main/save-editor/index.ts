@@ -37,11 +37,6 @@ function getFormat(fileName: string): SaveFormat {
     return matched;
 }
 
-export interface SaveEditorServiceConfig {
-    libraryState: any;
-    saveFolderResolver: any;
-}
-
 async function exists(p: string): Promise<boolean> {
     try {
         await fs.access(p);
@@ -50,6 +45,70 @@ async function exists(p: string): Promise<boolean> {
         return false;
     }
 }
+
+async function loadMetadata(dataDir: string, langDataDir: string | null) {
+    const metadata: any = {
+        variables: [],
+        switches: [],
+        items: {},
+        weapons: {},
+        armors: {},
+        gameTitle: ''
+    };
+    
+    try {
+        // Helper to get prioritized file path
+        async function getFilePath(fileName: string) {
+            if (langDataDir) {
+                const lp = path.join(langDataDir, fileName);
+                if (await exists(lp)) return lp;
+            }
+            return path.join(dataDir, fileName);
+        }
+
+        // Load System.json for variables and switches
+        const systemPath = await getFilePath('System.json');
+        if (await exists(systemPath)) {
+            const system = JSON.parse(await fs.readFile(systemPath, 'utf8'));
+            metadata.variables = system.variables || [];
+            metadata.switches = system.switches || [];
+            metadata.gameTitle = system.gameTitle || '';
+        }
+        
+        // Helper to load item-like files
+        async function loadItemType(fileName: string, target: Record<string, any>) {
+            const p = await getFilePath(fileName);
+            if (await exists(p)) {
+                const list = JSON.parse(await fs.readFile(p, 'utf8'));
+                list.forEach((item: any) => {
+                    if (item?.id) {
+                        target[item.id] = {
+                            name: item.name,
+                            description: item.description,
+                            iconIndex: item.iconIndex
+                        };
+                    }
+                });
+            }
+        }
+
+        await loadItemType('Items.json', metadata.items);
+        await loadItemType('Weapons.json', metadata.weapons);
+        await loadItemType('Armors.json', metadata.armors);
+
+    } catch (err) {
+        console.warn('[SAVE-EDITOR] Failed to load metadata:', err);
+    }
+    
+    return metadata;
+}
+
+export interface SaveEditorServiceConfig {
+    libraryState: any;
+    saveFolderResolver: any;
+}
+
+
 
 async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
     const mappingMgr = new SaveMappingManager(gameKey);
@@ -156,62 +215,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         }
     }
 
-    async function loadMetadata(dataDir: string, langDataDir: string | null) {
-        const metadata: any = {
-            variables: [],
-            switches: [],
-            items: {},
-            weapons: {},
-            armors: {},
-            gameTitle: ''
-        };
-        
-        try {
-            // Helper to get prioritized file path
-            async function getFilePath(fileName: string) {
-                if (langDataDir) {
-                    const lp = path.join(langDataDir, fileName);
-                    if (await exists(lp)) return lp;
-                }
-                return path.join(dataDir, fileName);
-            }
 
-            // Load System.json for variables and switches
-            const systemPath = await getFilePath('System.json');
-            if (await exists(systemPath)) {
-                const system = JSON.parse(await fs.readFile(systemPath, 'utf8'));
-                metadata.variables = system.variables || [];
-                metadata.switches = system.switches || [];
-                metadata.gameTitle = system.gameTitle || '';
-            }
-            
-            // Helper to load item-like files
-            async function loadItemType(fileName: string, target: Record<string, any>) {
-                const p = await getFilePath(fileName);
-                if (await exists(p)) {
-                    const list = JSON.parse(await fs.readFile(p, 'utf8'));
-                    list.forEach((item: any) => {
-                        if (item?.id) {
-                            target[item.id] = {
-                                name: item.name,
-                                description: item.description,
-                                iconIndex: item.iconIndex
-                            };
-                        }
-                    });
-                }
-            }
-
-            await loadItemType('Items.json', metadata.items);
-            await loadItemType('Weapons.json', metadata.weapons);
-            await loadItemType('Armors.json', metadata.armors);
-
-        } catch (err) {
-            console.warn('[SAVE-EDITOR] Failed to load metadata:', err);
-        }
-        
-        return metadata;
-    }
 
     async function writeSaveData(gameKey: string, fileName: string, jsonData: any) {
         try {

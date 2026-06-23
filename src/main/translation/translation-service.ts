@@ -268,6 +268,7 @@ export class TranslationService {
                             const trans = await this.googleTranslateGtx(orig, 'ja', 'en');
                             lines.push(trans);
                         } catch (e) {
+                            console.warn('[DEEP-SYNC] Individual GTX translation failed, using original:', e);
                             lines.push(orig);
                         }
                     }

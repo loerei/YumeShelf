@@ -110,6 +110,22 @@ export function normalizeInlineHtmlToMarkdown(value: string | null | undefined):
         .replace(/\n{3,}/g, '\n\n');
 }
 
+function convertHeading(match: any, level: any, text: any) {
+    const headingLevel = Math.min(3, Math.max(1, Number(level) || 1));
+    return `\n\n${'#'.repeat(headingLevel)} ${normalizeInlineHtmlToMarkdown(text).trim()}\n\n`;
+}
+
+function convertList(match: any, tag: any, inner: any) {
+    const items = Array.from(inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi))
+        .map((entry: any) => `- ${normalizeInlineHtmlToMarkdown(entry[1]).trim()}`)
+        .filter(Boolean);
+    return items.length > 0 ? `\n${items.join('\n')}\n` : '\n';
+}
+
+function convertParagraph(match: any, text: any) {
+    return `\n\n${normalizeInlineHtmlToMarkdown(text).trim()}\n\n`;
+}
+
 export function normalizeReleaseNotesForReview(value: string | null | undefined): string {
     const raw = String(value || '').replace(/\r\n?/g, '\n').trim();
     if (!raw) return '';
@@ -118,17 +134,9 @@ export function normalizeReleaseNotesForReview(value: string | null | undefined)
     }
 
     let normalized = raw;
-    normalized = normalized.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_match, level, text) => {
-        const headingLevel = Math.min(3, Math.max(1, Number(level) || 1));
-        return `\n\n${'#'.repeat(headingLevel)} ${normalizeInlineHtmlToMarkdown(text).trim()}\n\n`;
-    });
-    normalized = normalized.replace(/<(ul|ol)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, inner) => {
-        const items = Array.from(inner.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi))
-            .map((entry: any) => `- ${normalizeInlineHtmlToMarkdown(entry[1]).trim()}`)
-            .filter(Boolean);
-        return items.length > 0 ? `\n${items.join('\n')}\n` : '\n';
-    });
-    normalized = normalized.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (_match, text) => `\n\n${normalizeInlineHtmlToMarkdown(text).trim()}\n\n`);
+    normalized = normalized.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, convertHeading);
+    normalized = normalized.replace(/<(ul|ol)[^>]*>([\s\S]*?)<\/\1>/gi, convertList);
+    normalized = normalized.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, convertParagraph);
     normalized = normalized.replace(/<hr\s*\/?>/gi, '\n\n---\n\n');
     normalized = normalized.replace(/<br\s*\/?>/gi, '\n');
     normalized = normalizeInlineHtmlToMarkdown(normalized);

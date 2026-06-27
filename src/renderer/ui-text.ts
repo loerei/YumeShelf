@@ -109,11 +109,11 @@ export function applySortAndSearchStrings(context: UITextContext, d: any): void 
     }
 
     if (refs.searchInput && refs.searchPlaceholder) {
-        if (!refs.searchInput.value.trim()) {
+        if (refs.searchInput.value.trim()) {
+            updateSearch(refs.searchInput.value);
+        } else {
             const placeholders = getPlaceholders();
             refs.searchPlaceholder.innerText = placeholders[getPlaceholderIndex() % placeholders.length];
-        } else {
-            updateSearch(refs.searchInput.value);
         }
     }
 }

@@ -132,61 +132,70 @@ export function createLanguagePackResultsController({
         matches.forEach((pack) => {
             const installed = localeController.isLanguageAvailable(pack.code);
             const updateInfo = availableUpdates.get(pack.code);
-            const updateAvailable = !!updateInfo;
-            if (reviewOpen && !updateAvailable) return;
-
-            const card = document.createElement('div');
-            card.className = 'language-pack-card';
-
-            const title = localeController.formatLanguageLabel(pack);
-            let sourceText = '';
-            if (updateAvailable) {
-                sourceText = getText('lang_modal_update_available', 'Update available');
-            } else if (installed) {
-                const meta = localeController.getLanguageMeta(pack.code);
-                sourceText = meta?.source === 'built-in' ? getText('lang_builtin_source') : getText('lang_downloaded_source');
-            } else {
-                sourceText = getText('lang_modal_available_title');
+            const card = createLanguagePackCard(pack, installed, updateInfo, reviewOpen);
+            if (card) {
+                refs.languagePackResults.appendChild(card);
             }
+        });
+    }
 
-            const actionDisabled = (!updateAvailable && installed) || getDownloadingLanguageCode() !== null;
-            let actionLabel = '';
-            if (updateAvailable) {
-                actionLabel = getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_update', 'Update');
-            } else if (installed) {
-                actionLabel = getText('lang_modal_installed');
-            } else {
-                actionLabel = getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_download');
-            }
+    function createLanguagePackCard(pack: any, installed: boolean, updateInfo: any, reviewOpen: boolean): HTMLDivElement | null {
+        const updateAvailable = !!updateInfo;
+        if (reviewOpen && !updateAvailable) return null;
 
-            card.innerHTML = `
-                <div class="language-pack-card-copy">
-                    <h3>${title}</h3>
-                    <p>${pack.code.toUpperCase()} • ${sourceText}</p>
-                    <div class="language-pack-card-meta">
-                        <span class="language-pack-chip">${getText('pack_chip_version_prefix')} v${updateInfo ? updateInfo.currentPackVersion : pack.packVersion}</span>
-                        ${updateInfo ? `<span class="language-pack-chip">${getText('lang_modal_update', 'Update')} v${pack.packVersion}</span>` : ''}
-                        ${pack.reviewedForAppVersion ? `<span class="language-pack-chip">${getText('pack_chip_reviewed_for_prefix')} ${pack.reviewedForAppVersion}</span>` : ''}
-                        ${(pack.aliases || []).slice(0, 3).map(alias => `<span class="language-pack-chip">${alias}</span>`).join('')}
-                    </div>
+        const card = document.createElement('div');
+        card.className = 'language-pack-card';
+
+        const title = localeController.formatLanguageLabel(pack);
+        let sourceText = '';
+        if (updateAvailable) {
+            sourceText = getText('lang_modal_update_available', 'Update available');
+        } else if (installed) {
+            const meta = localeController.getLanguageMeta(pack.code);
+            sourceText = meta?.source === 'built-in' ? getText('lang_builtin_source') : getText('lang_downloaded_source');
+        } else {
+            sourceText = getText('lang_modal_available_title');
+        }
+
+        const actionDisabled = (!updateAvailable && installed) || getDownloadingLanguageCode() !== null;
+        let actionLabel = '';
+        if (updateAvailable) {
+            actionLabel = getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_update', 'Update');
+        } else if (installed) {
+            actionLabel = getText('lang_modal_installed');
+        } else {
+            actionLabel = getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_download');
+        }
+
+        card.innerHTML = `
+            <div class="language-pack-card-copy">
+                <h3>${title}</h3>
+                <p>${pack.code.toUpperCase()} • ${sourceText}</p>
+                <div class="language-pack-card-meta">
+                    <span class="language-pack-chip">${getText('pack_chip_version_prefix')} v${updateInfo ? updateInfo.currentPackVersion : pack.packVersion}</span>
+                    ${updateInfo ? `<span class="language-pack-chip">${getText('lang_modal_update', 'Update')} v${pack.packVersion}</span>` : ''}
+                    ${pack.reviewedForAppVersion ? `<span class="language-pack-chip">${getText('pack_chip_reviewed_for_prefix')} ${pack.reviewedForAppVersion}</span>` : ''}
+                    ${(pack.aliases || []).slice(0, 3).map(alias => `<span class="language-pack-chip">${alias}</span>`).join('')}
                 </div>
-                <button class="small-btn ${installed ? '' : 'secondary-btn'}" ${actionDisabled ? 'disabled' : ''}>${actionLabel}</button>
-            `;
+            </div>
+            <button class="small-btn ${installed ? '' : 'secondary-btn'}" ${actionDisabled ? 'disabled' : ''}>${actionLabel}</button>
+        `;
 
-            const button = card.querySelector('button');
+        const button = card.querySelector('button');
+        if (button) {
             button.onclick = async (event) => {
                 event.stopPropagation();
                 if (installed && !updateAvailable) return;
                 await onDownloadLanguagePack(pack.code, { activateAfterInstall: !installed });
             };
+        }
 
-            if (!reviewOpen && installed) {
-                card.style.cursor = 'pointer';
-                card.onclick = () => onSelectInstalledPack(pack.code);
-            }
+        if (!reviewOpen && installed) {
+            card.style.cursor = 'pointer';
+            card.onclick = () => onSelectInstalledPack(pack.code);
+        }
 
-            refs.languagePackResults.appendChild(card);
-        });
+        return card;
     }
 
     return {

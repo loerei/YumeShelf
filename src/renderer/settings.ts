@@ -172,28 +172,32 @@ export function createSettingsController({
         }
     }
 
+    function parseLibraryPaths(libraryConfig: any): string[] {
+        if (Array.isArray(libraryConfig?.libraryPaths)) {
+            return libraryConfig.libraryPaths;
+        } else if (libraryConfig?.libraryPath) {
+            return [libraryConfig.libraryPath];
+        }
+        return [];
+    }
+
+    function parseAutoLaunch(autoLaunch: any): string {
+        if (autoLaunch === 'minimized') return 'minimized';
+        if (autoLaunch === true || autoLaunch === 'on') return 'on';
+        return 'off';
+    }
+
     function applyLibraryConfig(libraryConfig: any = null): void {
         currentMaxDepth = clampMaxDepth(libraryConfig?.maxDepth);
         if (maxDepthInput) maxDepthInput.value = String(currentMaxDepth);
         if (maxDepthDecreaseBtn) maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
         if (maxDepthIncreaseBtn) maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
 
-        let paths: string[] = [];
-        if (Array.isArray(libraryConfig?.libraryPaths)) {
-            paths = libraryConfig.libraryPaths;
-        } else if (libraryConfig?.libraryPath) {
-            paths = [libraryConfig.libraryPath];
-        }
+        const paths = parseLibraryPaths(libraryConfig);
         renderLibraryPaths(paths);
 
         if (libraryConfig) {
-            if (libraryConfig.autoLaunch === 'minimized') {
-                currentAutoLaunch = 'minimized';
-            } else if (libraryConfig.autoLaunch === true || libraryConfig.autoLaunch === 'on') {
-                currentAutoLaunch = 'on';
-            } else {
-                currentAutoLaunch = 'off';
-            }
+            currentAutoLaunch = parseAutoLaunch(libraryConfig.autoLaunch);
             currentMinimizeToTray = !!libraryConfig.minimizeToTray;
             if (autoLaunchSelect) autoLaunchSelect.value = currentAutoLaunch;
             if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';

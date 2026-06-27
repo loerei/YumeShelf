@@ -239,14 +239,14 @@ export function renderTabContent(context) {
             }
         });
         
-        if (!hasAnyData) {
+        if (hasAnyData) {
+            translator.applyTranslations(content);
+            translator.applyCachedLabels(content);
+        } else {
             // Remove controls if there is no data at all
             controls.remove();
             const msg = engine.searchOptions.query ? 'No results found' : 'No data found';
             content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
-        } else {
-            translator.applyTranslations(content);
-            translator.applyCachedLabels(content);
         }
     } else {
         const grid = document.createElement('div');
@@ -275,7 +275,7 @@ export function renderTabContent(context) {
  */
 export function renderInventory(context, target, key, metaSource, grid, originalTarget, onlyPinned = false) {
     const { state, engine, translator } = context;
-    const actualKey = target['_' + key] !== undefined ? '_' + key : key;
+    const actualKey = target['_' + key] === undefined ? key : '_' + key;
     const items = engine.extractData(target[actualKey]);
     const originalItems = originalTarget ? engine.extractData(originalTarget[actualKey]) : null;
     

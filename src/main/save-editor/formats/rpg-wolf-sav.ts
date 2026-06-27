@@ -291,6 +291,50 @@ class RpgWolfSavFormat {
         return finalFile;
     }
 
+
+    async resolveDbFile(dataDir: string): Promise<string | null> {
+        const files = [
+            'SysDatabase.project',
+            'SysDataBase.project',
+            'SysDatabase.dat',
+            'SysDataBase.dat'
+        ];
+        for (const file of files) {
+            const p = path.join(dataDir, file);
+            try {
+                await fs.access(p);
+                return p;
+            } catch {
+                // Try next
+            }
+        }
+        return null;
+    }
+
+    extractStringsFromBuffer(buffer: Buffer): string[] {
+        const strings: string[] = [];
+        let currentStr: number[] = [];
+        for (let i = 0; i < buffer.length; i++) {
+            const b = buffer[i];
+            if ((b >= 0x20 && b <= 0x7E) || b >= 0x80) {
+                currentStr.push(b);
+            } else {
+                if (currentStr.length >= 2) {
+                    try {
+                        const s = Buffer.from(currentStr).toString('utf8');
+                        if (/[^\x00-\x7F]/.test(s) || /[a-zA-Z0-9]/.test(s)) {
+                            strings.push(s);
+                        }
+                    } catch (e) {
+                        console.warn('[WOLF-SAV] Failed to decode string candidate:', e);
+                    }
+                }
+                currentStr = [];
+            }
+        }
+        return strings;
+    }
+
     async metadata(jsonData: any, paths: any, fileName: string): Promise<any> {
         const metadata: any = {
             variables: [],
@@ -305,39 +349,11 @@ class RpgWolfSavFormat {
         
         try {
             const dataDir = path.join(paths.exeDir, 'Data', 'BasicData');
-            let dbFile: string | null = path.join(dataDir, 'SysDatabase.project');
-            
-            async function exists(p: string) { try { await fs.access(p); return true; } catch { return false; } }
-
-            if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDataBase.project');
-            if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDatabase.dat');
-            if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDataBase.dat');
-            if (!(await exists(dbFile))) dbFile = null;
+            const dbFile = await this.resolveDbFile(dataDir);
 
             if (dbFile) {
                 const buffer = await fs.readFile(dbFile);
-                
-                // Robust heuristic string extraction
-                const strings: string[] = [];
-                let currentStr: number[] = [];
-                for (let i = 0; i < buffer.length; i++) {
-                    const b = buffer[i];
-                    if ((b >= 0x20 && b <= 0x7E) || b >= 0x80) {
-                        currentStr.push(b);
-                    } else {
-                        if (currentStr.length >= 2) {
-                            try {
-                                const s = Buffer.from(currentStr).toString('utf8');
-                                if (/[^\x00-\x7F]/.test(s) || /[a-zA-Z0-9]/.test(s)) {
-                                    strings.push(s);
-                                }
-                            } catch (e) {
-                                console.warn('[WOLF-SAV] Failed to decode string candidate:', e);
-                            }
-                        }
-                        currentStr = [];
-                    }
-                }
+                const strings = this.extractStringsFromBuffer(buffer);
 
                 // Look for '通常変数名' (Normal Variable Names)
                 const markerIndex = strings.findIndex(s => s.includes('通常変数名'));

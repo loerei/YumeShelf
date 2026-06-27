@@ -109,6 +109,13 @@ function normalizeLocalePack(raw: any, options: { installed?: boolean; builtIn?:
         throw new Error(`${sourceLabel} is missing required keys: ${missingKeys.join(', ')}`);
     }
 
+    let sourceVal: 'built-in' | 'downloaded' | 'remote' = 'remote';
+    if (builtIn) {
+        sourceVal = 'built-in';
+    } else if (installed) {
+        sourceVal = 'downloaded';
+    }
+
     return {
         code,
         bcp47: raw.bcp47 ? String(raw.bcp47) : null,
@@ -119,7 +126,7 @@ function normalizeLocalePack(raw: any, options: { installed?: boolean; builtIn?:
         reviewedForAppVersion: raw.reviewedForAppVersion ? String(raw.reviewedForAppVersion) : null,
         aliases: Array.isArray(raw.aliases) ? raw.aliases.map(String).filter(Boolean) : [],
         keywords: Array.isArray(raw.keywords) ? raw.keywords.map(String).filter(Boolean) : [],
-        source: builtIn ? 'built-in' : (installed ? 'downloaded' : 'remote'),
+        source: sourceVal,
         strings: raw.strings
     };
 }

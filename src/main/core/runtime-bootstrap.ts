@@ -15,7 +15,8 @@ export function applyVersionOverride(app: App): void {
             configurable: true,
             writable: true
         });
-    } catch (_error) {
+    } catch (error) {
+        console.warn('[RUNTIME-BOOTSTRAP] Failed to defineProperty getVersion on app, falling back to direct assignment:', error);
         app.getVersion = function getVersionWithOverride() {
             return readOverrideVersion() || originalGetVersion();
         };

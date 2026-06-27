@@ -28,6 +28,7 @@ class SimpleKeyedJsonFormat {
         try {
             decoded = Buffer.from(reversed, 'base64').toString('utf8');
         } catch (e) {
+            console.warn('[KEYED-JSON] Base64 decoding failed:', e);
             return JSON.parse(str);
         }
 
@@ -115,7 +116,7 @@ class SimpleKeyedJsonFormat {
                     return match[0].replaceAll('\0', '');
                 }
             } catch (e) {
-                // ignore
+                console.warn('[KEYED-JSON] Failed to access Assembly-CSharp.dll:', e);
             }
         } catch (err) {
             console.warn('[KEYED-JSON] Key discovery failed:', err);

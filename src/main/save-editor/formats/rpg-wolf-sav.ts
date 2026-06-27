@@ -331,7 +331,9 @@ class RpgWolfSavFormat {
                                 if (/[^\x00-\x7F]/.test(s) || /[a-zA-Z0-9]/.test(s)) {
                                     strings.push(s);
                                 }
-                            } catch (e) {}
+                            } catch (e) {
+                                console.warn('[WOLF-SAV] Failed to decode string candidate:', e);
+                            }
                         }
                         currentStr = [];
                     }

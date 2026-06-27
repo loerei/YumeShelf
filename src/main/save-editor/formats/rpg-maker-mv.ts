@@ -24,6 +24,7 @@ class RpgMakerMvFormat {
             }
             throw new Error('Decompression returned null');
         } catch (err) {
+            console.warn('[RPG-MAKER-MV] LZ decompression failed, trying raw JSON parse:', err);
             return JSON.parse(str);
         }
     }

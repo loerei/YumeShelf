@@ -25,7 +25,7 @@ class UnityMonoBinFormat {
                 }
             }
         } catch (err) {
-            // Ignore directory read errors
+            console.warn(`[SAVE-EDITOR-UNITY] Directory read failed in ${dir}:`, err);
         }
         return null;
     }

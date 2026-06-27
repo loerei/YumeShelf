@@ -90,6 +90,7 @@ export function createIconPipeline({
                 try {
                     await storeHighResIconInCache(app, targetPath, result.base64, result.meta || null);
                 } catch (cacheErr) {
+                    console.warn('[ICON-SERVICE] Failed to store high res icon in cache:', cacheErr);
                 }
                 const highResDataUrl = `data:image/png;base64,${result.base64}`;
                 const normalizedHighRes = cropTransparentPaddingFromDataUrl(highResDataUrl, { source: 'extracted-high-res' });
@@ -135,7 +136,9 @@ export function createIconPipeline({
             const { cacheDir } = resolveCachePaths(app);
             const normalizedPath = path.win32.normalize(targetPath);
             let stats: fsSync.Stats | null = null;
-            try { stats = await fs.stat(normalizedPath); } catch (_error) {}
+            try { stats = await fs.stat(normalizedPath); } catch (error) {
+                console.warn(`[ICON-SERVICE] Failed to get stats for protocol request path ${normalizedPath}:`, error);
+            }
             if (stats) {
                 const state = await loadIconCacheState(app);
                 const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
@@ -145,7 +148,9 @@ export function createIconPipeline({
                     try {
                         const buffer = await fs.readFile(cacheFilePath);
                         return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });
-                    } catch (_error) {}
+                    } catch (error) {
+                        console.warn(`[ICON-SERVICE] Failed to read cache file from ${cacheFilePath}:`, error);
+                    }
                 }
             }
 

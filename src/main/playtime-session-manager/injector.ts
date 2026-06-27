@@ -9,7 +9,8 @@ export function isPidAlive(pid: number): boolean {
     try {
         process.kill(pid, 0);
         return true;
-    } catch (_) {
+    } catch (err) {
+        // pid is not running or doesn't belong to this user, process.kill(pid, 0) throws
         return false;
     }
 }
@@ -77,7 +78,10 @@ export async function injectRunInBackgroundDll({ app, log, readSessionJournal, d
                 return;
             }
         } catch (e) {
-            // Keep polling
+            // Keep polling and log intermittent read failure
+            if (typeof log === 'function') {
+                log(`Intermittent error reading journal file during dll injection poll: ${e}`);
+            }
         }
     }
     if (typeof log === 'function') {

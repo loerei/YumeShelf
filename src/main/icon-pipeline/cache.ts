@@ -51,6 +51,7 @@ export async function loadIconCacheState(app: CacheAppInterface): Promise<IconCa
                 entriesByPath: parsed.entriesByPath || {}
             };
         } catch (err) {
+            console.warn('[ICON-CACHE] Failed to read index file, initializing empty:', err);
             iconCacheState = { version: ICON_CACHE_VERSION, entriesByPath: {} };
         }
         return iconCacheState;
@@ -95,6 +96,7 @@ export async function tryGetCachedIconDataUrl(app: CacheAppInterface, targetPath
     try {
         stats = await fs.stat(normalizedPath);
     } catch (err) {
+        console.warn(`[ICON-CACHE] Failed to get stats for ${normalizedPath}:`, err);
         return null;
     }
 
@@ -117,6 +119,7 @@ export async function tryGetCachedIconDataUrl(app: CacheAppInterface, targetPath
         const normalizedIcon = cropTransparentPaddingFromDataUrl(cachedDataUrl, { source: 'cache' });
         return normalizedIcon.dataUrl;
     } catch (err) {
+        console.warn(`[ICON-CACHE] Failed to read cached file from ${cacheFilePath}:`, err);
         return null;
     }
 }
@@ -128,6 +131,7 @@ export async function storeHighResIconInCache(app: CacheAppInterface, targetPath
     try {
         stats = await fs.stat(normalizedPath);
     } catch (err) {
+        console.warn(`[ICON-CACHE] Failed to get stats for store path ${normalizedPath}:`, err);
         return;
     }
 

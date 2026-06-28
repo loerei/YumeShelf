@@ -175,11 +175,15 @@ export function createMainWindow({
             ? "connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev"
             : "connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev http://127.0.0.1:* ws://127.0.0.1:*";
 
+        const scriptSrc = app.isPackaged
+            ? "script-src 'self'"
+            : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
-                    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; ${connectSrc}`
+                    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; ${connectSrc}`
                 ]
             }
         });

@@ -5,6 +5,34 @@
  * Reusable UI elements for the save editor.
  */
 
+function buildDeltaIndicator(value, originalValue) {
+    if (originalValue === undefined || originalValue === value) {
+        return null;
+    }
+    const deltaSpan = document.createElement('span');
+    deltaSpan.className = 'data-delta';
+    deltaSpan.style.fontSize = '0.85em';
+    deltaSpan.style.fontWeight = 'bold';
+    
+    if (typeof value === 'number' && typeof originalValue === 'number') {
+        const diff = value - originalValue;
+        if (diff > 0) {
+            deltaSpan.textContent = `+${diff}`;
+            deltaSpan.style.color = '#4ade80'; // green
+        } else if (diff < 0) {
+            deltaSpan.textContent = `${diff}`;
+            deltaSpan.style.color = '#f87171'; // red
+        }
+    } else if (typeof value === 'boolean') {
+        deltaSpan.textContent = `(was: ${originalValue})`;
+        deltaSpan.style.color = '#fbbf24'; // yellow
+    } else {
+        deltaSpan.textContent = '(changed)';
+        deltaSpan.style.color = '#fbbf24'; // yellow
+    }
+    return deltaSpan;
+}
+
 export const UIComponents = {
     /**
      * Creates a data row for variables/switches/items
@@ -57,28 +85,8 @@ export const UIComponents = {
         valueWrapper.appendChild(valueInput);
 
         // Delta indicator
-        if (originalValue !== undefined && originalValue !== value) {
-            const deltaSpan = document.createElement('span');
-            deltaSpan.className = 'data-delta';
-            deltaSpan.style.fontSize = '0.85em';
-            deltaSpan.style.fontWeight = 'bold';
-            
-            if (typeof value === 'number' && typeof originalValue === 'number') {
-                const diff = value - originalValue;
-                if (diff > 0) {
-                    deltaSpan.textContent = `+${diff}`;
-                    deltaSpan.style.color = '#4ade80'; // green
-                } else if (diff < 0) {
-                    deltaSpan.textContent = `${diff}`;
-                    deltaSpan.style.color = '#f87171'; // red
-                }
-            } else if (typeof value === 'boolean') {
-                deltaSpan.textContent = `(was: ${originalValue})`;
-                deltaSpan.style.color = '#fbbf24'; // yellow
-            } else {
-                deltaSpan.textContent = '(changed)';
-                deltaSpan.style.color = '#fbbf24'; // yellow
-            }
+        const deltaSpan = buildDeltaIndicator(value, originalValue);
+        if (deltaSpan) {
             valueWrapper.appendChild(deltaSpan);
         }
         
@@ -126,4 +134,3 @@ export const UIComponents = {
         return wrapper;
     }
 };
-

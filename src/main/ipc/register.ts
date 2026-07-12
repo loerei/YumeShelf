@@ -267,6 +267,14 @@ export function registerMainIpc({
 
     router.handle('is-dev', () => !app.isPackaged);
 
+    registerAutoLaunchHandlers(router, app, paths);
+}
+
+function registerAutoLaunchHandlers(
+    router: TypedIpcRouter,
+    app: App,
+    paths: any
+): void {
     let devAutoLaunchState = 'off';
 
     try {
@@ -274,11 +282,16 @@ export function registerMainIpc({
             const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
             if (db?.config) {
                 const configVal = db.config.autoLaunch;
-                const value = (configVal === 'minimized') ? 'minimized' : (configVal === 'on' || configVal === 'true' || configVal === true ? 'on' : 'off');
-                
+                let value = 'off';
+                if (configVal === 'minimized') {
+                    value = 'minimized';
+                } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
+                    value = 'on';
+                }
+
                 const openAtLogin = (value === 'on' || value === 'minimized');
                 const args = (value === 'minimized') ? ['--minimized'] : [];
-                
+
                 if (app.isPackaged) {
                     app.setLoginItemSettings({
                         openAtLogin: openAtLogin,
@@ -307,7 +320,13 @@ export function registerMainIpc({
                     args: args
                 });
             } else {
-                devAutoLaunchState = (value === 'minimized') ? 'minimized' : (openAtLogin ? 'on' : 'off');
+                if (value === 'minimized') {
+                    devAutoLaunchState = 'minimized';
+                } else if (openAtLogin) {
+                    devAutoLaunchState = 'on';
+                } else {
+                    devAutoLaunchState = 'off';
+                }
                 console.log(`[AUTO-LAUNCH][DEV] Skipped OS startup registration (openAtLogin: ${openAtLogin}, args: ${JSON.stringify(args)})`);
             }
             return { success: true };
@@ -324,7 +343,7 @@ export function registerMainIpc({
             }
             const settings = app.getLoginItemSettings() as any;
             if (!settings.openAtLogin) return 'off';
-            if (settings.args && settings.args.includes('--minimized')) {
+            if (settings.args?.includes('--minimized')) {
                 return 'minimized';
             }
             return 'on';

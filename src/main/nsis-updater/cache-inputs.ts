@@ -78,6 +78,37 @@ export interface InstallerCacheState {
     cachedInstallerSha512?: string;
 }
 
+async function refreshCachedInstaller(
+    activeUpdater: any,
+    releaseInputs: any,
+    cachedInstallerPath: string,
+    fs: any,
+    ensureDir: any,
+    path: any,
+    sha512FileBase64: any,
+    appendUpdateLog: any,
+    currentVersion: string,
+    VERBOSE_UPDATE_LOG: boolean | undefined
+): Promise<string> {
+    const tempInstallerPath = `${cachedInstallerPath}.download`;
+    await ensureDir(path.dirname(cachedInstallerPath));
+    try {
+        await fs.unlink(tempInstallerPath);
+    } catch {}
+    await activeUpdater.httpExecutor.download(new URL(releaseInputs.installerUrl), tempInstallerPath, {
+        cancellationToken: new CancellationToken(),
+        headers: activeUpdater.requestHeaders || undefined,
+        sha512: releaseInputs.installerSha512
+    });
+    await fs.rm(cachedInstallerPath, { force: true });
+    await fs.rename(tempInstallerPath, cachedInstallerPath);
+    const newSha512 = await sha512FileBase64(cachedInstallerPath);
+    if (VERBOSE_UPDATE_LOG) {
+        await appendUpdateLog(`nsis-updater current-cache refreshed-installer current=${currentVersion} installer=${cachedInstallerPath} sha512=${newSha512}`);
+    }
+    return newSha512;
+}
+
 export async function ensureCurrentInstallerCacheState(
     activeUpdater: any,
     currentVersion: string,
@@ -142,22 +173,18 @@ export async function ensureCurrentInstallerCacheState(
     }
 
     if (!installerMatches) {
-        const tempInstallerPath = `${cachedInstallerPath}.download`;
-        await ensureDir(path.dirname(cachedInstallerPath));
-        try {
-            await fs.unlink(tempInstallerPath);
-        } catch {}
-        await activeUpdater.httpExecutor.download(new URL(releaseInputs.installerUrl), tempInstallerPath, {
-            cancellationToken: new CancellationToken(),
-            headers: activeUpdater.requestHeaders || undefined,
-            sha512: releaseInputs.installerSha512
-        });
-        await fs.rm(cachedInstallerPath, { force: true });
-        await fs.rename(tempInstallerPath, cachedInstallerPath);
-        cachedInstallerSha512 = await sha512FileBase64(cachedInstallerPath);
-        if (VERBOSE_UPDATE_LOG) {
-            await appendUpdateLog(`nsis-updater current-cache refreshed-installer current=${currentVersion} installer=${cachedInstallerPath} sha512=${cachedInstallerSha512}`);
-        }
+        cachedInstallerSha512 = await refreshCachedInstaller(
+            activeUpdater,
+            releaseInputs,
+            cachedInstallerPath,
+            fs,
+            ensureDir,
+            path,
+            sha512FileBase64,
+            appendUpdateLog,
+            currentVersion,
+            VERBOSE_UPDATE_LOG
+        );
     }
 
     const blockmapBuffer = await downloadBuffer(releaseInputs.blockmapUrl, 0, 15000, null, appVersion);

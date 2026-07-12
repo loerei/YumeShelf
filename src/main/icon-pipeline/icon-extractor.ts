@@ -40,7 +40,64 @@ function summarizePathFlavor(targetPath: string) {
     };
 }
 
-process.on('message', (msg: IconWorkerMessageRequest) => {
+function extractNormalizedLength(ext: any, id: string | number, rawPath: string, normalizedPath: string): number | null {
+    if (normalizedPath === rawPath) return null;
+    try {
+        console.log(`[ICON-WORKER][pid=${process.pid}] Diagnostic ext(normalizedPath, 256) for #${id}`);
+        const normalizedBuffer = ext(normalizedPath, 256);
+        return normalizedBuffer ? normalizedBuffer.length : 0;
+    } catch (normalizedErr) {
+        console.error(`[ICON-WORKER][pid=${process.pid}] Diagnostic normalized-path extraction failed for #${id}:`, normalizedErr);
+        return -1;
+    }
+}
+
+function sendExtractionResult(id: string | number, rawBuffer: any, rawLength: number, normalizedLength: number | null, meta: any): void {
+    if (rawBuffer && rawBuffer.length > 0) {
+        const suspicion = rawLength <= 4096 ? 'possible-generic-or-low-res' : 'likely-real-icon';
+        console.log(`[ICON-WORKER][pid=${process.pid}] Extraction success for #${id}, raw length=${rawLength}, normalized length=${normalizedLength}, suspicion=${suspicion}, durationMs=${meta.durationMs}`);
+        if (process.send) {
+            process.send({ id, base64: rawBuffer.toString('base64'), meta });
+        }
+    } else {
+        console.warn(`[ICON-WORKER][pid=${process.pid}] Extraction yielded empty buffer for #${id}, normalized length=${normalizedLength}, durationMs=${meta.durationMs}`);
+        if (process.send) {
+            process.send({ id, base64: '', meta });
+        }
+    }
+}
+
+function sendExtractionError(
+    id: string | number,
+    rawPath: string,
+    normalizedPath: string,
+    rawExists: boolean,
+    normalizedExists: boolean,
+    rawFlavor: any,
+    normalizedFlavor: any,
+    startedAt: number,
+    err: any
+): void {
+    if (process.send) {
+        process.send({
+            id,
+            base64: '',
+            meta: {
+                pid: process.pid,
+                rawExists,
+                normalizedExists,
+                rawPath,
+                normalizedPath,
+                rawFlavor,
+                normalizedFlavor,
+                durationMs: Date.now() - startedAt,
+                error: String((err as any && (err as any).stack) || err)
+            }
+        });
+    }
+}
+
+function handleExtractionMessage(msg: IconWorkerMessageRequest): void {
     if (msg?.type === 'extract' && msg.id && msg.path && msg.extPath) {
         const startedAt = Date.now();
         const normalizedPath = path.win32.normalize(msg.path);
@@ -64,18 +121,7 @@ process.on('message', (msg: IconWorkerMessageRequest) => {
             console.log(`[ICON-WORKER][pid=${process.pid}] Calling ext(rawPath, 256) for #${msg.id}`);
             const rawBuffer = ext(msg.path, 256);
             const rawLength = rawBuffer ? rawBuffer.length : 0;
-            let normalizedLength: number | null = null;
-
-            if (normalizedPath !== msg.path) {
-                try {
-                    console.log(`[ICON-WORKER][pid=${process.pid}] Diagnostic ext(normalizedPath, 256) for #${msg.id}`);
-                    const normalizedBuffer = ext(normalizedPath, 256);
-                    normalizedLength = normalizedBuffer ? normalizedBuffer.length : 0;
-                } catch (normalizedErr) {
-                    normalizedLength = -1;
-                    console.error(`[ICON-WORKER][pid=${process.pid}] Diagnostic normalized-path extraction failed for #${msg.id}:`, normalizedErr);
-                }
-            }
+            const normalizedLength = extractNormalizedLength(ext, msg.id, msg.path, normalizedPath);
 
             const meta = {
                 pid: process.pid,
@@ -90,42 +136,17 @@ process.on('message', (msg: IconWorkerMessageRequest) => {
                 durationMs: Date.now() - startedAt
             };
 
-            if (rawBuffer && rawBuffer.length > 0) {
-                const suspicion = rawLength <= 4096 ? 'possible-generic-or-low-res' : 'likely-real-icon';
-                console.log(`[ICON-WORKER][pid=${process.pid}] Extraction success for #${msg.id}, raw length=${rawLength}, normalized length=${normalizedLength}, suspicion=${suspicion}, durationMs=${meta.durationMs}`);
-                if (process.send) {
-                    process.send({ id: msg.id, base64: rawBuffer.toString('base64'), meta });
-                }
-            } else {
-                console.warn(`[ICON-WORKER][pid=${process.pid}] Extraction yielded empty buffer for #${msg.id}, normalized length=${normalizedLength}, durationMs=${meta.durationMs}`);
-                if (process.send) {
-                    process.send({ id: msg.id, base64: '', meta });
-                }
-            }
+            sendExtractionResult(msg.id, rawBuffer, rawLength, normalizedLength, meta);
         } catch (err) {
             console.error(`[ICON-WORKER][pid=${process.pid}] ERROR during extraction for #${msg.id}:`, err);
-            if (process.send) {
-                process.send({
-                    id: msg.id,
-                    base64: '',
-                    meta: {
-                        pid: process.pid,
-                        rawExists,
-                        normalizedExists,
-                        rawPath: msg.path,
-                        normalizedPath,
-                        rawFlavor,
-                        normalizedFlavor,
-                        durationMs: Date.now() - startedAt,
-                        error: String((err as any && (err as any).stack) || err)
-                    }
-                });
-            }
+            sendExtractionError(msg.id, msg.path, normalizedPath, rawExists, normalizedExists, rawFlavor, normalizedFlavor, startedAt, err);
         }
     } else {
         console.warn(`[ICON-WORKER] Received invalid message format:`, msg);
     }
-});
+}
+
+process.on('message', handleExtractionMessage);
 
 process.on('uncaughtException', (err) => {
     console.error(`[ICON-WORKER] UNCAUGHT EXCEPTION:`, err);

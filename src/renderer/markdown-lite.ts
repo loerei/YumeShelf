@@ -14,7 +14,7 @@ function renderInlineMarkdown(value) {
     result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
     result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    result = result.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+    result = result.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
 
     return result;
 }
@@ -43,7 +43,7 @@ export function renderMarkdownLite(markdown) {
 
     function flushList() {
         if (listItems.length === 0) return;
-        html.push(`<ul>${listItems.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ul>`);
+        html.push('<ul>' + listItems.map(item => '<li>' + renderInlineMarkdown(item) + '</li>').join('') + '</ul>');
         listItems = [];
     }
 
@@ -56,7 +56,17 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+        let headingMatch = null;
+        if (line.startsWith('#')) {
+            let hashes = 0;
+            while (hashes < line.length && line[hashes] === '#') {
+                hashes++;
+            }
+            if (hashes >= 1 && hashes <= 3 && line[hashes] === ' ') {
+                headingMatch = [line, line.slice(0, hashes), line.slice(hashes + 1)];
+            }
+        }
+
         if (headingMatch) {
             flushParagraph();
             flushList();
@@ -72,7 +82,11 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const listMatch = line.match(/^[-*]\s+(.+)$/);
+        let listMatch = null;
+        if ((line.startsWith('-') || line.startsWith('*')) && line[1] === ' ') {
+            listMatch = [line, line.slice(2)];
+        }
+
         if (listMatch) {
             flushParagraph();
             listItems.push(listMatch[1].trim());

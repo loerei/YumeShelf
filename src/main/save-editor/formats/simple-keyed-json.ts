@@ -67,7 +67,7 @@ class SimpleKeyedJsonFormat {
             }
             return json;
         } catch (e) {
-            console.warn(`[KEYED-JSON] JSON parse failed after extraction. Content: ${jsonPart.substring(0, 50)}...`);
+            console.warn(`[KEYED-JSON] JSON parse failed after extraction. Content: ${jsonPart.substring(0, 50)}...`, e);
             return JSON.parse(str);
         }
     }

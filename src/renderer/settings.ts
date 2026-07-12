@@ -9,6 +9,21 @@ function clampMaxDepth(value: number | string | null | undefined): number {
     return Math.min(MAX_MAX_DEPTH, Math.max(MIN_MAX_DEPTH, parsed));
 }
 
+function parseLibraryPaths(libraryConfig: any): string[] {
+    if (Array.isArray(libraryConfig?.libraryPaths)) {
+        return libraryConfig.libraryPaths;
+    } else if (libraryConfig?.libraryPath) {
+        return [libraryConfig.libraryPath];
+    }
+    return [];
+}
+
+function parseAutoLaunch(autoLaunch: any): string {
+    if (autoLaunch === 'minimized') return 'minimized';
+    if (autoLaunch === true || autoLaunch === 'on') return 'on';
+    return 'off';
+}
+
 export interface SettingsControllerOptions {
     onOpen?: () => void;
     container: HTMLElement;
@@ -172,20 +187,7 @@ export function createSettingsController({
         }
     }
 
-    function parseLibraryPaths(libraryConfig: any): string[] {
-        if (Array.isArray(libraryConfig?.libraryPaths)) {
-            return libraryConfig.libraryPaths;
-        } else if (libraryConfig?.libraryPath) {
-            return [libraryConfig.libraryPath];
-        }
-        return [];
-    }
 
-    function parseAutoLaunch(autoLaunch: any): string {
-        if (autoLaunch === 'minimized') return 'minimized';
-        if (autoLaunch === true || autoLaunch === 'on') return 'on';
-        return 'off';
-    }
 
     function applyLibraryConfig(libraryConfig: any = null): void {
         currentMaxDepth = clampMaxDepth(libraryConfig?.maxDepth);

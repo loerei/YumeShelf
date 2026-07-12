@@ -13,7 +13,7 @@ export class TelemetryShipper {
     private userDataDir: string = '';
     private dbFile: string = '';
     private queueFile: string = '';
-    private memoryBuffer: Map<string, TelemetryPayload> = new Map();
+    private readonly memoryBuffer: Map<string, TelemetryPayload> = new Map();
     private flushInterval: NodeJS.Timeout | null = null;
     private isShipping: boolean = false;
     private saveQueueDebounce: NodeJS.Timeout | null = null;
@@ -26,9 +26,7 @@ export class TelemetryShipper {
     private constructor() {}
 
     public static getInstance(): TelemetryShipper {
-        if (!TelemetryShipper.instance) {
-            TelemetryShipper.instance = new TelemetryShipper();
-        }
+        TelemetryShipper.instance ??= new TelemetryShipper();
         return TelemetryShipper.instance;
     }
 
@@ -193,6 +191,19 @@ export class TelemetryShipper {
         }
     }
 
+    private aggregateQueueItem(item: TelemetryPayload): void {
+        const aggKey = `${item.filePath}::${item.functionName}::${item.source}::${item.lineNo || 'null'}`;
+        const existing = this.memoryBuffer.get(aggKey);
+        if (existing) {
+            existing.count += item.count;
+            if (item.lastSeen && (!existing.lastSeen || item.lastSeen > existing.lastSeen)) {
+                existing.lastSeen = item.lastSeen;
+            }
+        } else {
+            this.memoryBuffer.set(aggKey, item);
+        }
+    }
+
     /**
      * Load queue items from telemetry-queue.json back into memory map
      */
@@ -204,16 +215,7 @@ export class TelemetryShipper {
                 
                 if (Array.isArray(list)) {
                     for (const item of list) {
-                        const aggKey = `${item.filePath}::${item.functionName}::${item.source}::${item.lineNo || 'null'}`;
-                        const existing = this.memoryBuffer.get(aggKey);
-                        if (existing) {
-                            existing.count += item.count;
-                            if (item.lastSeen && (!existing.lastSeen || item.lastSeen > existing.lastSeen)) {
-                                existing.lastSeen = item.lastSeen;
-                            }
-                        } else {
-                            this.memoryBuffer.set(aggKey, item);
-                        }
+                        this.aggregateQueueItem(item);
                     }
                 }
             }

@@ -107,8 +107,8 @@ export class UnityMonoEngine {
                             const idx = target.indexOf(key);
                             if (value) {
                                 if (idx === -1) target.push(key);
-                            } else {
-                                if (idx !== -1) target.splice(idx, 1);
+                            } else if (idx !== -1) {
+                                target.splice(idx, 1);
                             }
                             return true;
                         }

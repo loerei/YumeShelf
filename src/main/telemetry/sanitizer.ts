@@ -1,5 +1,4 @@
 import * as os from 'node:os';
-import * as path from 'node:path';
 
 export interface TelemetryPayload {
     filePath: string;
@@ -152,5 +151,5 @@ export function sanitizeLogPayload(
 }
 
 function escapeRegExp(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return string.replace(/[.*+?^${}()|[\\]\\\\]/g, String.raw`\\$&`);
 }

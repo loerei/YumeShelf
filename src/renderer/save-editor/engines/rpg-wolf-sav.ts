@@ -47,7 +47,7 @@ export class RpgWolfSavEngine {
                 /** @type {Array<{ offset: string; name: string }>} */
                 const mappings = obj._userMappings;
                 mappings.forEach(mapping => {
-                    vars[mapping.offset] = obj[mapping.name] !== undefined ? obj[mapping.name] : 0;
+                    vars[mapping.offset] = obj[mapping.name] ?? 0;
                 });
             }
             return vars;
@@ -74,4 +74,4 @@ export class RpgWolfSavEngine {
     extractData(obj) {
         return obj || null;
     }
-}
+}

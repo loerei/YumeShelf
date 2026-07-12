@@ -90,6 +90,7 @@ export class Translator {
             this.translationCache = JSON.parse(localStorage.getItem('yumeshelf_translation_cache') || '{}') || {};
             console.log(`[SAVE-EDITOR] Loaded ${Object.keys(this.translationCache).length} translations from LocalStorage.`);
         } catch (e) {
+            console.error('[SAVE-EDITOR] Failed to load translations from LocalStorage:', e);
             this.translationCache = {};
         }
     }
@@ -137,7 +138,7 @@ export class Translator {
         const strings = /** @type {any} */ (globalThis).currentUIStrings || this.uiStrings || {};
         const elements = container.querySelectorAll('[data-i18n]');
         for (const el of elements) {
-            const key = el.getAttribute('data-i18n');
+            const key = el.dataset.i18n;
             if (key) {
                 const translation = strings[key];
                 if (translation && translation !== key) {
@@ -149,7 +150,7 @@ export class Translator {
         // Handle placeholders
         const placeholders = container.querySelectorAll('[data-i18n-placeholder]');
         for (const el of placeholders) {
-            const key = el.getAttribute('data-i18n-placeholder');
+            const key = el.dataset.i18nPlaceholder;
             if (key) {
                 const translation = strings[key];
                 if (translation && translation !== key) {
@@ -174,6 +175,136 @@ export class Translator {
         });
     }
 
+    _extractTextsToTranslate(labels, textsToTranslate) {
+        labels.forEach(label => {
+            const originalName = label.getAttribute('title') || label.textContent || '';
+            if (!originalName || /^\d+$/.test(originalName)) return;
+
+            const isASCII = /^[\x00-\x7F]+$/.test(originalName);
+            // Skip single-character ASCII terms to avoid rate-limiting on empty placeholder keys
+            if (isASCII && originalName.length < 2) return;
+
+            // Skip pure punctuation/symbol rows
+            const isPunctuation = /^[ \t\r\n\-_+=!@#$%^&*(){}[\]:;\"'<>,.?/\\|~`]*$/.test(originalName);
+            if (isPunctuation) return;
+
+            if (this.translationCache[originalName]) {
+                label.textContent = this.translationCache[originalName];
+                label.classList.add('is-translated');
+            } else {
+                textsToTranslate.push(originalName);
+            }
+        });
+    }
+
+    async _translateChunk(chunk, resolvedTarget) {
+        const combined = chunk.join('\n');
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${resolvedTarget}&dt=t&q=${encodeURIComponent(combined)}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.error(`[SAVE-EDITOR] Translation API error: ${response.status} ${response.statusText}`);
+            return null;
+        }
+        return response.json();
+    }
+
+    async _processChunkTranslation(chunk, result, resolvedTarget) {
+        if (!result?.[0]) return;
+        let translatedFull = "";
+        result[0].forEach((part) => {
+            if (part[0]) translatedFull += part[0];
+        });
+
+        const translatedLines = translatedFull.split('\n');
+
+        if (translatedLines.length !== chunk.length) {
+            console.warn(`[SAVE-EDITOR] Translation batch mismatch! Expected ${chunk.length} lines, got ${translatedLines.length}. Falling back to line-by-line validation.`);
+            await this._handleMismatchFallback(chunk, translatedLines, resolvedTarget);
+        } else {
+            let changed = false;
+            chunk.forEach((original, idx) => {
+                if (translatedLines[idx]) {
+                    const translatedText = translatedLines[idx].trim();
+                    if (original === translatedText) {
+                        if (this.translationCache[original] !== original) {
+                            this.translationCache[original] = original;
+                            changed = true;
+                        }
+                    } else if (this.translationCache[original] !== translatedText) {
+                        this.translationCache[original] = translatedText;
+                        changed = true;
+                        console.log(`[SAVE-EDITOR] Translated: "${original}" -> "${translatedText}"`);
+                    }
+                }
+            });
+            if (changed) {
+                await this.saveTranslations();
+            }
+        }
+    }
+
+    async _handleMismatchFallback(chunk, translatedLines, resolvedTarget) {
+        const validLines = translatedLines.filter(line => line.trim().length > 0);
+        if (validLines.length === chunk.length) {
+            let changed = false;
+            chunk.forEach((original, idx) => {
+                const translatedText = validLines[idx].trim();
+                if (original === translatedText) {
+                    if (this.translationCache[original] !== original) {
+                        this.translationCache[original] = original;
+                        changed = true;
+                    }
+                } else if (this.translationCache[original] !== translatedText) {
+                    this.translationCache[original] = translatedText;
+                    changed = true;
+                }
+            });
+            if (changed) await this.saveTranslations();
+        } else {
+            console.warn(`[SAVE-EDITOR] Mismatch cannot be resolved safely. Falling back to translating individual labels in this batch.`);
+            let changed = false;
+            for (const original of chunk) {
+                try {
+                    const singleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${resolvedTarget}&dt=t&q=${encodeURIComponent(original)}`;
+                    const res = await fetch(singleUrl);
+                    if (res.ok) {
+                        const singleResult = await res.json();
+                        if (singleResult?.[0]?.[0]?.[0]) {
+                            const translatedText = singleResult[0][0][0].trim();
+                            if (original === translatedText) {
+                                if (this.translationCache[original] !== original) {
+                                    this.translationCache[original] = original;
+                                    changed = true;
+                                }
+                            } else if (this.translationCache[original] !== translatedText) {
+                                this.translationCache[original] = translatedText;
+                                changed = true;
+                                console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
+                            }
+                        }
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                } catch (singleErr) {
+                    console.error(`[SAVE-EDITOR] Individual fallback failed for "${original}":`, singleErr);
+                }
+            }
+            if (changed) {
+                await this.saveTranslations();
+            }
+        }
+    }
+
+    _updateVisibleLabels() {
+        const activeLabels = document.querySelectorAll('.data-label');
+        activeLabels.forEach(label => {
+            const originalName = label.getAttribute('title') || label.textContent || '';
+            if (this.translationCache[originalName]) {
+                label.textContent = this.translationCache[originalName];
+                label.classList.add('is-translated');
+            }
+        });
+    }
+
     /**
      * Google Translate batch translation for dynamic labels
      * @param {NodeListOf<Element> | Element[]} labels
@@ -193,29 +324,7 @@ export class Translator {
         }
         /** @type {string[]} */
         const textsToTranslate = [];
-        /** @type {{ el: Element, original: string }[]} */
-        const labelMap = [];
-
-        labels.forEach(label => {
-            const originalName = label.getAttribute('title') || label.textContent || '';
-            if (!originalName || /^\d+$/.test(originalName)) return;
-
-            const isASCII = /^[\x00-\x7F]+$/.test(originalName);
-            // Skip single-character ASCII terms to avoid rate-limiting on empty placeholder keys
-            if (isASCII && originalName.length < 2) return;
-
-            // Skip pure punctuation/symbol rows
-            const isPunctuation = /^[ \t\r\n\-_+=!@#$%^&*(){}[\]:;"'<>,.?/\\|~`]*$/.test(originalName);
-            if (isPunctuation) return;
-
-            if (this.translationCache[originalName]) {
-                label.textContent = this.translationCache[originalName];
-                label.classList.add('is-translated');
-            } else {
-                textsToTranslate.push(originalName);
-                labelMap.push({ el: label, original: originalName });
-            }
-        });
+        this._extractTextsToTranslate(labels, textsToTranslate);
 
         const uniqueTexts = [...new Set(textsToTranslate)];
         console.log(`[SAVE-EDITOR] ${uniqueTexts.length} unique labels require external translation.`);
@@ -235,123 +344,12 @@ export class Translator {
                 }
 
                 const chunk = uniqueTexts.slice(i, i + batchSize);
-                const combined = chunk.join('\n');
                 console.log(`[SAVE-EDITOR] Translating batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(uniqueTexts.length / batchSize)}...`);
 
-                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${resolvedTarget}&dt=t&q=${encodeURIComponent(combined)}`;
-
-                const response = await fetch(url);
-                if (!response.ok) {
-                    console.error(`[SAVE-EDITOR] Translation API error: ${response.status} ${response.statusText}`);
-                    continue;
-                }
-                const result = await response.json();
-
-                if (result && result[0]) {
-                    let translatedFull = "";
-                    result[0].forEach((/** @type {any[]} */ part) => {
-                        if (part[0]) translatedFull += part[0];
-                    });
-
-                    const translatedLines = translatedFull.split('\n');
-
-                    // EDGE CASE 3: Index/Line mismatch protection.
-                    // If Google Translate merged or split lines, the counts won't match, which would cause index drift.
-                    if (translatedLines.length !== chunk.length) {
-                        console.warn(`[SAVE-EDITOR] Translation batch mismatch! Expected ${chunk.length} lines, got ${translatedLines.length}. Falling back to line-by-line validation.`);
-                        
-                        // Clean lines: remove empty lines or trim to match sizes
-                        const validLines = translatedLines.filter(line => line.trim().length > 0);
-                        if (validLines.length === chunk.length) {
-                            // Perfect fit after cleanup
-                            let changed = false;
-                            chunk.forEach((original, idx) => {
-                                const translatedText = validLines[idx].trim();
-                                if (original !== translatedText) {
-                                    if (this.translationCache[original] !== translatedText) {
-                                        this.translationCache[original] = translatedText;
-                                        changed = true;
-                                    }
-                                } else {
-                                    // Memory-only identical caching to prevent future re-translation in this session
-                                    if (this.translationCache[original] !== original) {
-                                        this.translationCache[original] = original;
-                                        changed = true;
-                                    }
-                                }
-                            });
-                            if (changed) await this.saveTranslations();
-                        } else {
-                            console.warn(`[SAVE-EDITOR] Mismatch cannot be resolved safely. Falling back to translating individual labels in this batch.`);
-                            let changed = false;
-                            for (const original of chunk) {
-                                try {
-                                    const singleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${resolvedTarget}&dt=t&q=${encodeURIComponent(original)}`;
-                                    const res = await fetch(singleUrl);
-                                    if (res.ok) {
-                                        const singleResult = await res.json();
-                                        if (singleResult?.[0]?.[0]?.[0]) {
-                                            const translatedText = singleResult[0][0][0].trim();
-                                            if (original !== translatedText) {
-                                                if (this.translationCache[original] !== translatedText) {
-                                                    this.translationCache[original] = translatedText;
-                                                    changed = true;
-                                                    console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
-                                                }
-                                            } else {
-                                                if (this.translationCache[original] !== original) {
-                                                    this.translationCache[original] = original;
-                                                    changed = true;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    // Small delay to prevent rate limit
-                                    await new Promise(resolve => setTimeout(resolve, 200));
-                                } catch (singleErr) {
-                                    console.error(`[SAVE-EDITOR] Individual fallback failed for "${original}":`, singleErr);
-                                }
-                            }
-                            if (changed) {
-                                await this.saveTranslations();
-                            }
-                        }
-                    } else {
-                        // Standard matching mapping
-                        let changed = false;
-                        chunk.forEach((original, idx) => {
-                            if (translatedLines[idx]) {
-                                const translatedText = translatedLines[idx].trim();
-                                if (original !== translatedText) {
-                                    if (this.translationCache[original] !== translatedText) {
-                                        this.translationCache[original] = translatedText;
-                                        changed = true;
-                                        console.log(`[SAVE-EDITOR] Translated: "${original}" -> "${translatedText}"`);
-                                    }
-                                } else {
-                                    // Memory-only identical caching to prevent future re-translation in this session
-                                    if (this.translationCache[original] !== original) {
-                                        this.translationCache[original] = original;
-                                        changed = true;
-                                    }
-                                }
-                            }
-                        });
-
-                        if (changed) {
-                            await this.saveTranslations();
-                        }
-                    }
-
-                    // Immediately update any matching labels currently visible in the DOM
-                    const activeLabels = document.querySelectorAll('.data-label');
-                    activeLabels.forEach(label => {
-                        const originalName = label.getAttribute('title') || label.textContent || '';
-                        if (this.translationCache[originalName]) {
-                            label.textContent = this.translationCache[originalName];
-                            label.classList.add('is-translated');
-                        }
-                    });
+                const result = await this._translateChunk(chunk, resolvedTarget);
+                if (result) {
+                    await this._processChunkTranslation(chunk, result, resolvedTarget);
+                    this._updateVisibleLabels();
                 }
 
                 if (typeof onProgressChange === 'function') {
@@ -365,4 +363,3 @@ export class Translator {
         }
     }
 }
-

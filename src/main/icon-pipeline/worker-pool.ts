@@ -4,7 +4,7 @@ import { fork, ChildProcess } from 'node:child_process';
 import { IconWorkerMessageResponse } from './icon-extractor';
 
 const ICON_WORKER_BOOT_MAX_ATTEMPTS = 5;
-const ICON_WORKER_PROBE_PATH = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'notepad.exe');
+const ICON_WORKER_PROBE_PATH = path.join(process.env.WINDIR || String.raw`C:\Windows`, 'System32', 'notepad.exe');
 
 export interface WorkerPoolAppInterface {
     getAppPath(): string;

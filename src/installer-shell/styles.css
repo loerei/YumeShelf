@@ -57,7 +57,7 @@ body {
     font-size: 15px;
     text-align: left;
     line-height: 1.45;
-    word-break: break-word;
+    overflow-wrap: break-word;
     cursor: pointer;
     transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
 }

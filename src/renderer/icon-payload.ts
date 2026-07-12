@@ -61,8 +61,5 @@ export function renderIconMarkup(dataUrl, fit = 'contain', source = 'unknown') {
 }
 
 export function logIconRender(context, key, payload, imgElement) {
-    void context;
-    void key;
-    void payload;
-    void imgElement;
+    // Unused variables log placeholder
 }

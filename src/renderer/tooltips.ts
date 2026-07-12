@@ -75,7 +75,7 @@ export function createTooltipController() {
                 hide();
                 return;
             }
-            if (event.target?.closest && event.target.closest('.dropdown-menu')) {
+            if (event.target?.closest?.('.dropdown-menu')) {
                 hide();
                 return;
             }
@@ -87,7 +87,7 @@ export function createTooltipController() {
                 hide();
                 return;
             }
-            if (event.target?.closest && event.target.closest('.dropdown-menu')) {
+            if (event.target?.closest?.('.dropdown-menu')) {
                 hide();
                 return;
             }

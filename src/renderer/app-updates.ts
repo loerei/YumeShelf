@@ -6,6 +6,10 @@ import { createUpdateInstallFlow } from './updates/update-install-flow';
 import { setupInstallActions } from './updates/install-actions';
 import { setupStatusHandler } from './updates/status-handler';
 
+function logDebug(message) {
+    console.debug?.(message);
+}
+
 export function createAppUpdateController({
     bootController,
     electronAPI,
@@ -18,10 +22,6 @@ export function createAppUpdateController({
     const state = createUpdateState();
     const installFlow = createUpdateInstallFlow({ bootController });
 
-    function logDebug(message) {
-        void message;
-    }
-
     // Initialize execution actions
     const actions = setupInstallActions({
         state,
@@ -32,7 +32,7 @@ export function createAppUpdateController({
     });
 
     // Initialize status handler helper
-    const { handleRuntimeStatus } = setupStatusHandler({
+    const statusHandler = setupStatusHandler({
         state,
         installFlow,
         actions,
@@ -95,7 +95,7 @@ export function createAppUpdateController({
     }
 
     async function initialize(bootstrapData) {
-        electronAPI.on('app-update-status', handleRuntimeStatus);
+        electronAPI.on('app-update-status', statusHandler.handleRuntimeStatus);
         let presentedPostUpdate = false;
 
         const deferredAppUpdateInstall = bootstrapData?.deferredAppUpdateInstall || null;
@@ -126,9 +126,15 @@ export function createAppUpdateController({
 
         const appUpdateCheck = bootstrapData?.bootChecks?.appUpdateCheck || null;
         if (appUpdateCheck) {
-            state.setCurrentUpdate(appUpdateCheck, {
-                actionState: appUpdateCheck.deferredUntilNextLaunch ? 'scheduled' : (appUpdateCheck.downloadReady ? 'ready' : (appUpdateCheck.available ? 'available' : 'idle'))
-            });
+            let actionState = 'idle';
+            if (appUpdateCheck.deferredUntilNextLaunch) {
+                actionState = 'scheduled';
+            } else if (appUpdateCheck.downloadReady) {
+                actionState = 'ready';
+            } else if (appUpdateCheck.available) {
+                actionState = 'available';
+            }
+            state.setCurrentUpdate(appUpdateCheck, { actionState });
         }
 
         logDebug(`initialize appUpdateCheck=${JSON.stringify({

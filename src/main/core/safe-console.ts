@@ -41,7 +41,9 @@ function wrapConsoleMethod(methodName: ConsoleMethodName): void {
             }
             try {
                 return original.apply(console, args);
-            } catch (e) {}
+            } catch (e) {
+                // Fail-safe: ignore fallback console error to prevent recursive logging crashes
+            }
         }
     };
 
@@ -54,7 +56,9 @@ export function installSafeConsole(): void {
     if (process.platform === 'win32') {
         try {
             execSync('chcp 65001', { stdio: 'ignore' });
-        } catch (e) {}
+        } catch (e) {
+            // Ignore error if chcp command is not supported or fails
+        }
     }
     const methods: ConsoleMethodName[] = ['log', 'info', 'warn', 'error', 'debug'];
     methods.forEach(wrapConsoleMethod);

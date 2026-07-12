@@ -67,27 +67,26 @@ export class PureJsonEngine {
      */
     getProp(obj, prop) {
         if (!obj) return null;
-        const self = this;
 
         if (prop === 'variables') {
             return new Proxy(obj, {
-                get(target, key) {
+                get: (target, key) => {
                     if (key === 'toJSON' || typeof key === 'symbol') return target[key];
-                    return self._getDeep(target, /** @type {string} */(key));
+                    return this._getDeep(target, /** @type {string} */(key));
                 },
-                set(target, key, value) {
-                    const currentVal = self._getDeep(target, /** @type {string} */(key));
+                set: (target, key, value) => {
+                    const currentVal = this._getDeep(target, /** @type {string} */(key));
                     if (typeof currentVal === 'number') {
                         const num = Number(value);
-                        self._setDeep(target, /** @type {string} */(key), Number.isNaN(num) ? value : num);
+                        this._setDeep(target, /** @type {string} */(key), Number.isNaN(num) ? value : num);
                     } else {
-                        self._setDeep(target, /** @type {string} */(key), value);
+                        this._setDeep(target, /** @type {string} */(key), value);
                     }
                     return true;
                 },
-                ownKeys(target) {
-                    return self._getDeepPaths(target).filter(key => {
-                        const val = self._getDeep(target, key);
+                ownKeys: (target) => {
+                    return this._getDeepPaths(target).filter(key => {
+                        const val = this._getDeep(target, key);
                         return typeof val === 'number' || typeof val === 'string';
                     });
                 },
@@ -99,17 +98,17 @@ export class PureJsonEngine {
 
         if (prop === 'switches') {
             return new Proxy(obj, {
-                get(target, key) {
+                get: (target, key) => {
                     if (key === 'toJSON' || typeof key === 'symbol') return target[key];
-                    return self._getDeep(target, /** @type {string} */(key));
+                    return this._getDeep(target, /** @type {string} */(key));
                 },
-                set(target, key, value) {
-                    self._setDeep(target, /** @type {string} */(key), Boolean(value));
+                set: (target, key, value) => {
+                    this._setDeep(target, /** @type {string} */(key), Boolean(value));
                     return true;
                 },
-                ownKeys(target) {
-                    return self._getDeepPaths(target).filter(key => {
-                        const val = self._getDeep(target, key);
+                ownKeys: (target) => {
+                    return this._getDeepPaths(target).filter(key => {
+                        const val = this._getDeep(target, key);
                         return typeof val === 'boolean';
                     });
                 },
@@ -178,6 +177,14 @@ export class PureJsonEngine {
         return true;
     }
 
+    _addPathOrRecurse(paths, val, path) {
+        if (typeof val === 'object' && val !== null) {
+            paths.push(...this._getDeepPaths(val, path));
+        } else {
+            paths.push(path);
+        }
+    }
+
     /**
      * Recursively enumerates all leaf paths in a nested object, returning an
      * array of dot-separated path strings.
@@ -187,30 +194,21 @@ export class PureJsonEngine {
      */
     _getDeepPaths(obj, prefix = '') {
         /** @type {string[]} */
-        let paths = [];
+        const paths = [];
         if (obj === null || obj === undefined) return paths;
 
         if (Array.isArray(obj)) {
             obj.forEach((val, idx) => {
                 const path = prefix ? `${prefix}.${idx}` : `${idx}`;
-                if (typeof val === 'object' && val !== null) {
-                    paths = paths.concat(this._getDeepPaths(val, path));
-                } else {
-                    paths.push(path);
-                }
+                this._addPathOrRecurse(paths, val, path);
             });
         } else if (typeof obj === 'object') {
             for (const [key, val] of Object.entries(obj)) {
                 if (key === '$type' || key === '_userMappings') continue;
                 const path = prefix ? `${prefix}.${key}` : key;
-                if (typeof val === 'object' && val !== null) {
-                    paths = paths.concat(this._getDeepPaths(val, path));
-                } else {
-                    paths.push(path);
-                }
+                this._addPathOrRecurse(paths, val, path);
             }
         }
         return paths;
     }
 }
-

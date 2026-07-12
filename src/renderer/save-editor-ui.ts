@@ -5,8 +5,39 @@ import { setupSidebar } from './save-editor/sidebar';
 import { setupGridRenderer } from './save-editor/grid-renderer';
 import { setupSearchBar } from './save-editor/search-bar';
 
+function handleTranslate(translateBtn, translator, state, content) {
+    console.log('[SAVE-EDITOR] Starting translation of visible labels in background...');
+    if (translator.isTranslating || !state.currentSaveData) {
+        console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + translator.isTranslating + ', hasData=' + !!state.currentSaveData);
+        return;
+    }
+    
+    const targetLang = translator.resolvedBcp47 || localStorage.getItem('yumeshelf_lang') || 'en';
+    const labels = Array.from(content.querySelectorAll('.data-label'));
+    console.log(`[SAVE-EDITOR] Found ${labels.length} labels to check for translation.`);
+
+    translateBtn.classList.add('loading');
+    const originalBtnText = translateBtn.querySelector('span').textContent;
+    translateBtn.querySelector('span').textContent = 'Translating (0%)';
+    const progressBar = translateBtn.querySelector('.translate-progress');
+    progressBar.style.width = '0%';
+
+    translator.translateLabels(labels, targetLang, (progress) => {
+        progressBar.style.width = `${progress}%`;
+        translateBtn.querySelector('span').textContent = `Translating (${progress}%)`;
+    }).then(() => {
+        console.log('[SAVE-EDITOR] Background translation complete successfully.');
+    }).catch(err => {
+        console.error('[SAVE-EDITOR] Background translation failed:', err);
+    }).finally(() => {
+        translateBtn.classList.remove('loading');
+        translateBtn.querySelector('span').textContent = originalBtnText;
+        setTimeout(() => { progressBar.style.width = '0%'; }, 500);
+    });
+}
+
 export function initSaveEditorUI() {
-    window.showSaveEditor = async (gameKey, options = {}) => {
+    globalThis.showSaveEditor = async (gameKey, options = {}) => {
         const engine = new DataEngine();
         const translator = new Translator(globalThis.electronAPI);
         await translator.initialize();
@@ -154,37 +185,44 @@ export function initSaveEditorUI() {
 
             if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
 
-            if (key === 'e') {
-                e.preventDefault();
-                const chk = overlay.querySelector('.show-empty-check');
-                if (chk) {
-                    chk.checked = !chk.checked;
-                    state.showEmpty = chk.checked;
-                    renderTabContent();
+            const keyActions = {
+                e: () => {
+                    const chk = overlay.querySelector('.show-empty-check');
+                    if (chk) {
+                        chk.checked = !chk.checked;
+                        state.showEmpty = chk.checked;
+                        renderTabContent();
+                    }
+                },
+                i: () => {
+                    const chk = overlay.querySelector('.show-important-check');
+                    if (chk) {
+                        chk.checked = !chk.checked;
+                        state.showImportant = chk.checked;
+                        renderTabContent();
+                    }
+                },
+                x: () => {
+                    const chk = overlay.querySelector('.exact-match-check');
+                    if (chk) {
+                        chk.checked = !chk.checked;
+                        engine.setSearchOptions({ exact: chk.checked });
+                        renderTabContent();
+                    }
                 }
-            } else if (key === 'i') {
+            };
+
+            const action = keyActions[key];
+            if (action) {
                 e.preventDefault();
-                const chk = overlay.querySelector('.show-important-check');
-                if (chk) {
-                    chk.checked = !chk.checked;
-                    state.showImportant = chk.checked;
-                    renderTabContent();
-                }
-            } else if (key === 'x') {
-                e.preventDefault();
-                const chk = overlay.querySelector('.exact-match-check');
-                if (chk) {
-                    chk.checked = !chk.checked;
-                    engine.setSearchOptions({ exact: chk.checked });
-                    renderTabContent();
-                }
+                action();
             }
         };
 
         document.addEventListener('keydown', handleGlobalKeydown);
 
         const close = (force = false) => {
-            if (!force && state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+            if (!force && state.hasUnsavedChanges?.()) {
                 if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to close and discard changes?')) {
                     return;
                 }
@@ -193,7 +231,7 @@ export function initSaveEditorUI() {
             if (isStandalone) {
                 globalThis.close();
             } else {
-                document.body.removeChild(overlay);
+                overlay.remove();
             }
         };
         overlay.querySelector('.save-editor-close').onclick = () => close(false);
@@ -203,7 +241,7 @@ export function initSaveEditorUI() {
             const popoutBtn = overlay.querySelector('.save-editor-popout');
             if (popoutBtn) {
                 popoutBtn.onclick = () => {
-                    if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+                    if (state.hasUnsavedChanges?.()) {
                         if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to open in a separate window and discard them?')) {
                             return;
                         }
@@ -269,7 +307,7 @@ export function initSaveEditorUI() {
         try {
             parsedPins = storedPins ? JSON.parse(storedPins) : [];
         } catch (e) {
-            console.error('[SAVE-EDITOR] Failed to parse pinned variables:', e);
+            console.error('[SAVE-EDITOR] Failed to save pinned variables:', e);
         }
 
         let popoutState = null;
@@ -359,36 +397,7 @@ export function initSaveEditorUI() {
 
         // Translation Button Trigger
         const translateBtn = overlay.querySelector('.translate-btn');
-        translateBtn.onclick = () => {
-            console.log('[SAVE-EDITOR] Starting translation of visible labels in background...');
-            if (translator.isTranslating || !state.currentSaveData) {
-                console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + translator.isTranslating + ', hasData=' + !!state.currentSaveData);
-                return;
-            }
-            
-            const targetLang = translator.resolvedBcp47 || localStorage.getItem('yumeshelf_lang') || 'en';
-            const labels = Array.from(content.querySelectorAll('.data-label'));
-            console.log(`[SAVE-EDITOR] Found ${labels.length} labels to check for translation.`);
-
-            translateBtn.classList.add('loading');
-            const originalBtnText = translateBtn.querySelector('span').textContent;
-            translateBtn.querySelector('span').textContent = 'Translating (0%)';
-            const progressBar = translateBtn.querySelector('.translate-progress');
-            progressBar.style.width = '0%';
-
-            translator.translateLabels(labels, targetLang, (progress) => {
-                progressBar.style.width = `${progress}%`;
-                translateBtn.querySelector('span').textContent = `Translating (${progress}%)`;
-            }).then(() => {
-                console.log('[SAVE-EDITOR] Background translation complete successfully.');
-            }).catch(err => {
-                console.error('[SAVE-EDITOR] Background translation failed:', err);
-            }).finally(() => {
-                translateBtn.classList.remove('loading');
-                translateBtn.querySelector('span').textContent = originalBtnText;
-                setTimeout(() => { progressBar.style.width = '0%'; }, 500);
-            });
-        };
+        translateBtn.onclick = () => handleTranslate(translateBtn, translator, state, content);
 
         // Save Button Trigger
         saveBtn.onclick = async () => {
@@ -402,7 +411,7 @@ export function initSaveEditorUI() {
                     data: state.currentSaveData
                 });
                 
-                state.originalSnapshot = JSON.parse(JSON.stringify(state.currentSaveData));
+                state.originalSnapshot = structuredClone(state.currentSaveData);
                 renderTabContent(); // Re-render to clear deltas
                 
                 saveBtn.textContent = 'Saved!';

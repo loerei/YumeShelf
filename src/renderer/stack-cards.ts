@@ -35,7 +35,7 @@ export function createStackCardFactory({
         const locationSummary = uniqueLocations.length > 1
             ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
             : (uniqueLocations[0] || primaryGame.locationLabel || '');
-        const cachedIcon = !primaryGame.iconData ? readCachedIconPayload(primaryGame.exePath) : null;
+        const cachedIcon = primaryGame.iconData ? null : readCachedIconPayload(primaryGame.exePath);
         if (cachedIcon) {
             applyIconPayload(primaryGame, cachedIcon);
         }

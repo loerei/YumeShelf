@@ -73,7 +73,7 @@
 .app-tooltip-title,
 .app-tooltip-subtitle {
     white-space: normal;
-    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .app-tooltip-title {

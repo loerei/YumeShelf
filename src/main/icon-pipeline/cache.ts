@@ -84,8 +84,8 @@ export async function deleteIconCacheFileIfUnused(app: CacheAppInterface, state:
     if (stillUsed) return;
     try {
         await fs.unlink(path.join(cacheDir, fileName));
-    } catch (err) {
-        void err;
+    } catch {
+        // Ignore file unlink failure
     }
 }
 

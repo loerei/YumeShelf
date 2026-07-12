@@ -49,11 +49,14 @@ export function normalizePathForComparison(targetPath: string): string {
 }
 
 export function normalizeRelativeGameKey(relativePath: string): string {
-    return String(relativePath || '')
+    let val = String(relativePath || '')
         .replace(/[\\/]+/g, '/')
         .replace(/^\.\/+/, '')
-        .replace(/^\/+/, '')
-        .replace(/\/+$/, '');
+        .replace(/^\/+/, '');
+    while (val.endsWith('/')) {
+        val = val.slice(0, -1);
+    }
+    return val;
 }
 
 export function buildGameKey(libraryPath: string, folderPath: string): string {
@@ -62,7 +65,10 @@ export function buildGameKey(libraryPath: string, folderPath: string): string {
 }
 
 export function getLeafFolderName(folderPath: string): string {
-    const normalized = String(folderPath || '').replace(/[\\/]+$/, '');
+    let normalized = String(folderPath || '');
+    while (normalized.endsWith('/') || normalized.endsWith('\\')) {
+        normalized = normalized.slice(0, -1);
+    }
     return path.basename(normalized);
 }
 
@@ -88,9 +94,9 @@ function pickPreferredExecutable(currentPath: string, executableEntries: Executa
 }
 
 export function getSmartName(exePath: string, topName: string): string {
-    const id = exePath.match(/(RJ\d{6,8}|\b\d{6,8}\b)/i);
+    const id = /(RJ\d{6,8}|\b\d{6,8}\b)/i.exec(exePath);
     const clean = (value: string) => value
-        .replace(/\[.*?\]|RY-|(RJ\d+|\b\d{6,8}\b)|(_pc|_win|_dlsite|_eng|subscriber|v\d+\.\d+.*)|[_-]/gi, ' ')
+        .replace(/\[.*?\]|RY-|(RJ\d+|\b\d{6,8}\b)|(_pc|_win|_dlsite|_eng|subscriber|v\d+\.\d+(?:\.\d+)*)|[_-]/gi, ' ')
         .trim()
         .replace(/\s+/g, ' ');
     return (id ? `[${id[0].toUpperCase()}] ` : '') + (clean(path.basename(path.dirname(exePath))) || clean(topName));

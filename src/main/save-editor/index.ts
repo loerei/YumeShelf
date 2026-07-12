@@ -108,7 +108,10 @@ export interface SaveEditorServiceConfig {
     saveFolderResolver: any;
 }
 
-
+function getTranslationFilePath(userDataPath: string, lang = 'en') {
+    const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_-]/g, '');
+    return path.join(userDataPath, `save_editor_translations_${cleanLang}.json`);
+}
 
 async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
     const mappingMgr = new SaveMappingManager(gameKey);
@@ -246,13 +249,8 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         }
     }
 
-    function getTranslationFilePath(lang = 'en') {
-        const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_-]/g, '');
-        return path.join(app.getPath('userData'), `save_editor_translations_${cleanLang}.json`);
-    }
-
     async function loadTranslations(lang = 'en') {
-        const filePath = getTranslationFilePath(lang);
+        const filePath = getTranslationFilePath(app.getPath('userData'), lang);
         const legacyPath = path.join(app.getPath('userData'), 'save_editor_translations.json');
         try {
             // Backward compatibility fallback for English users

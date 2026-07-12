@@ -113,46 +113,59 @@ export function createIconPipeline({
         return createIconPayload(icon.toDataURL(), 'cover', 'app-file-icon-fallback', fallbackDebug);
     }
 
+    async function tryGetLocalImage(dir: string): Promise<Response | null> {
+        const exts = ['png', 'jpg', 'jpeg', 'webp'];
+        const names = ['icon', 'cover', 'folder'];
+        for (const name of names) {
+            for (const ext of exts) {
+                const imgPath = path.join(dir, `${name}.${ext}`);
+                if (fsSync.existsSync(imgPath)) {
+                    const buffer = await fs.readFile(imgPath);
+                    const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+                    return new Response(buffer, { headers: { 'Content-Type': contentType } });
+                }
+            }
+        }
+        return null;
+    }
+
+    async function tryGetCachedIconResponse(targetPath: string): Promise<Response | null> {
+        const { cacheDir } = resolveCachePaths(app);
+        const normalizedPath = path.win32.normalize(targetPath);
+        let stats: fsSync.Stats | null = null;
+        try {
+            stats = await fs.stat(normalizedPath);
+        } catch (error) {
+            console.warn(`[ICON-SERVICE] Failed to get stats for protocol request path ${normalizedPath}:`, error);
+        }
+        if (stats) {
+            const state = await loadIconCacheState(app);
+            const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
+            const entry = state.entriesByPath[normalizedPath];
+            if (entry?.fingerprint === fingerprint) {
+                const cacheFilePath = path.join(cacheDir, entry.fileName);
+                try {
+                    const buffer = await fs.readFile(cacheFilePath);
+                    return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });
+                } catch (error) {
+                    console.warn(`[ICON-SERVICE] Failed to read cache file from ${cacheFilePath}:`, error);
+                }
+            }
+        }
+        return null;
+    }
+
     async function handleProtocolRequest(request: Request): Promise<Response> {
         try {
             const urlObj = new URL(request.url);
             const targetPath = urlObj.searchParams.get('path');
             if (!targetPath) return new Response('Missing path', { status: 400 });
 
-            const dir = path.dirname(targetPath);
-            const exts = ['png', 'jpg', 'jpeg', 'webp'];
-            const names = ['icon', 'cover', 'folder'];
-            for (const name of names) {
-                for (const ext of exts) {
-                    const imgPath = path.join(dir, `${name}.${ext}`);
-                    if (fsSync.existsSync(imgPath)) {
-                        const buffer = await fs.readFile(imgPath);
-                        const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-                        return new Response(buffer, { headers: { 'Content-Type': contentType } });
-                    }
-                }
-            }
+            const localImageResponse = await tryGetLocalImage(path.dirname(targetPath));
+            if (localImageResponse) return localImageResponse;
 
-            const { cacheDir } = resolveCachePaths(app);
-            const normalizedPath = path.win32.normalize(targetPath);
-            let stats: fsSync.Stats | null = null;
-            try { stats = await fs.stat(normalizedPath); } catch (error) {
-                console.warn(`[ICON-SERVICE] Failed to get stats for protocol request path ${normalizedPath}:`, error);
-            }
-            if (stats) {
-                const state = await loadIconCacheState(app);
-                const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
-                const entry = state.entriesByPath[normalizedPath];
-                if (entry?.fingerprint === fingerprint) {
-                    const cacheFilePath = path.join(cacheDir, entry.fileName);
-                    try {
-                        const buffer = await fs.readFile(cacheFilePath);
-                        return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });
-                    } catch (error) {
-                        console.warn(`[ICON-SERVICE] Failed to read cache file from ${cacheFilePath}:`, error);
-                    }
-                }
-            }
+            const cachedIconResponse = await tryGetCachedIconResponse(targetPath);
+            if (cachedIconResponse) return cachedIconResponse;
 
             try {
                 const result = await pool.enqueueExtraction(targetPath);

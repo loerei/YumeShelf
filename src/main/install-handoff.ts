@@ -11,7 +11,7 @@ function toBoolean(value: any, fallback = false): boolean {
 }
 
 function normalizePath(value: any): string {
-    return path.normalize(String(value || '').trim()).replace(/[\\/]+$/, '').toLowerCase();
+    return path.normalize(String(value || '').trim()).replace(/[\/\\]+$/, '').toLowerCase();
 }
 
 export interface InstallHandoffServiceOptions {

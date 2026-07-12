@@ -1,4 +1,10 @@
 // @ts-nocheck
+export function formatLanguageLabel(meta) {
+    if (!meta) return '';
+    if (!meta.englishName || meta.englishName === meta.nativeName) return meta.nativeName || meta.code;
+    return `${meta.nativeName} (${meta.englishName})`;
+}
+
 export function createLocaleController({
     applyUIStrings,
     bootController,
@@ -45,10 +51,14 @@ export function createLocaleController({
 
     function getLocaleStrings(code = currentLang) {
         const normalizedCode = String(code || '').toLowerCase();
-        return {
-            ...getEnglishStrings(),
-            ...(localeState.locales[normalizedCode] || {})
-        };
+        const customLocales = localeState.locales[normalizedCode];
+        if (customLocales) {
+            return {
+                ...getEnglishStrings(),
+                ...customLocales
+            };
+        }
+        return getEnglishStrings();
     }
 
     function getStrings() {
@@ -66,13 +76,7 @@ export function createLocaleController({
 
     function getLanguageMeta(code) {
         const normalizedCode = String(code || '').toLowerCase();
-        return getAvailableLanguages().find(language => language.code === normalizedCode) || null;
-    }
-
-    function formatLanguageLabel(meta) {
-        if (!meta) return '';
-        if (!meta.englishName || meta.englishName === meta.nativeName) return meta.nativeName || meta.code;
-        return `${meta.nativeName} (${meta.englishName})`;
+        return getAvailableLanguages().find(language => language.code === normalizedCode) ?? null;
     }
 
     function sortLanguageOptions(languages) {
@@ -127,7 +131,7 @@ export function createLocaleController({
         const appVersion = await electronAPI.invoke('get-app-version');
         console.log(`[I18N][RENDERER] loadLanguageState: fetched appVersion from Electron = ${appVersion}`);
         const incomingState = nextState ?? await electronAPI.invoke('get-language-state');
-        if (incomingState?.locales && incomingState.locales.en) {
+        if (incomingState?.locales?.en) {
             console.log(`[I18N][RENDERER] loadLanguageState: overwriting localeState with incomingState.`);
             localeState = incomingState;
         }

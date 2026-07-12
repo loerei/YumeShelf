@@ -1,5 +1,20 @@
 // @ts-nocheck
 
+function hasInventoryData(target, tabId, engine) {
+    if (!target) return false;
+    const actualKey = target['_' + tabId] !== undefined ? '_' + tabId : tabId;
+    const items = engine.extractData(target[actualKey]);
+    if (!items || typeof items !== 'object') return false;
+    return Object.keys(items).some(id => id !== '@c' && !id.startsWith('@'));
+}
+
+function hasBitsetData(bitset, engine) {
+    if (!bitset) return false;
+    const raw = engine.extractData(bitset);
+    if (!raw || typeof raw !== 'object') return false;
+    return Object.keys(raw).some(id => id !== '@c' && !id.startsWith('@'));
+}
+
 export function setupTabs(context) {
     const { refs, state, engine } = context;
     const { overlay, content, tabsContainer } = refs;
@@ -27,24 +42,13 @@ export function setupTabs(context) {
             return !!engine.findGold(root, party);
         }
         if (['items', 'weapons', 'armors'].includes(tabId)) {
-            const target = party || root;
-            if (!target) return false;
-            const actualKey = target['_' + tabId] === undefined ? tabId : '_' + tabId;
-            const items = engine.extractData(target[actualKey]);
-            if (!items || typeof items !== 'object') return false;
-            return Object.keys(items).some(id => id !== '@c' && !id.startsWith('@'));
+            return hasInventoryData(party || root, tabId, engine);
         }
         if (tabId === 'variables') {
-            if (!variables) return false;
-            const raw = engine.extractData(variables);
-            if (!raw || typeof raw !== 'object') return false;
-            return Object.keys(raw).some(id => id !== '@c' && !id.startsWith('@'));
+            return hasBitsetData(variables, engine);
         }
         if (tabId === 'switches') {
-            if (!switches) return false;
-            const raw = engine.extractData(switches);
-            if (!raw || typeof raw !== 'object') return false;
-            return Object.keys(raw).some(id => id !== '@c' && !id.startsWith('@'));
+            return hasBitsetData(switches, engine);
         }
         return false;
     };
@@ -53,9 +57,7 @@ export function setupTabs(context) {
     const rawTabs = engine.getTabs ? engine.getTabs(root, d) : null;
     /** @type {Array<{ id: string; label: string; i18n?: string }>} */
     let tabs;
-    if (rawTabs) {
-        tabs = rawTabs;
-    } else {
+    if (!rawTabs) {
         tabs = [
             { id: 'gold', label: d.save_editor_gold || 'Gold', i18n: 'save_editor_gold' },
             { id: 'items', label: d.save_editor_items || 'Items', i18n: 'save_editor_items' },
@@ -64,6 +66,8 @@ export function setupTabs(context) {
             { id: 'variables', label: d.save_editor_variables || 'Variables', i18n: 'save_editor_variables' },
             { id: 'switches', label: d.save_editor_switches || 'Switches', i18n: 'save_editor_switches' }
         ];
+    } else {
+        tabs = rawTabs;
     }
 
     // Insert pinned tab if there are pinned variables, standing between 'all' and other tabs
@@ -98,7 +102,7 @@ export function setupTabs(context) {
         const el = document.createElement('div');
         el.className = `save-tab ${state.activeTab === tab.id ? 'active' : ''}`;
         el.textContent = tab.label;
-        el.setAttribute('data-i18n', tab.i18n ?? '');
+        el.dataset.i18n = tab.i18n ?? '';
         el.onclick = () => {
             state.activeTab = tab.id;
             overlay.querySelectorAll('.save-tab').forEach(t => t.classList.remove('active'));

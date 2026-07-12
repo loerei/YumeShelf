@@ -230,88 +230,91 @@ export class WolfRpgExtractor implements TranslationExtractor {
         }
     }
 
+    private processPatchLine(line: string, state: { inBlock: boolean; originalText: string; step: number }, strings: Set<string>): boolean {
+        if (line.startsWith('> BEGIN STRING')) {
+            state.inBlock = true;
+            state.originalText = '';
+            state.step = 0;
+            return true;
+        }
+        if (line.startsWith('> END STRING')) {
+            state.inBlock = false;
+            if (state.originalText.trim()) {
+                strings.add(this.unescapeString(state.originalText.trim()));
+            }
+            return true;
+        }
+        if (state.inBlock) {
+            if (line.startsWith('> CONTEXT')) {
+                state.step = 2;
+                return true;
+            }
+            if (state.step === 0) {
+                state.originalText += (state.originalText ? '\n' : '') + line;
+            }
+        }
+        return false;
+    }
+
     private parsePatchBlocks(content: string, strings: Set<string>): void {
         const lines = content.split(/\r?\n/);
-        let inBlock = false;
-        let originalText = '';
-        let step = 0; // 0: looking for original, 1: looking for context, 2: looking for translation
-
+        const state = { inBlock: false, originalText: '', step: 0 };
         for (const line of lines) {
-            if (line.startsWith('> BEGIN STRING')) {
-                inBlock = true;
-                originalText = '';
-                step = 0;
-                continue;
-            }
-            if (line.startsWith('> END STRING')) {
-                inBlock = false;
-                if (originalText.trim()) {
-                    strings.add(this.unescapeString(originalText.trim()));
-                }
-                continue;
-            }
+            this.processPatchLine(line, state, strings);
+        }
+    }
 
-            if (inBlock) {
-                if (line.startsWith('> CONTEXT')) {
-                    step = 2;
-                    continue;
-                }
-                if (step === 0) {
-                    originalText += (originalText ? '\n' : '') + line;
-                }
+    private processUpdatePatchLine(
+        line: string,
+        state: { inBlock: boolean; originalText: string; contextLines: string[]; translationText: string; step: number },
+        translations: Map<string, string>,
+        newLines: string[]
+    ): void {
+        if (line.startsWith('> BEGIN STRING')) {
+            state.inBlock = true;
+            state.originalText = '';
+            state.contextLines = [];
+            state.translationText = '';
+            state.step = 0;
+            newLines.push(line);
+            return;
+        }
+        if (line.startsWith('> END STRING')) {
+            state.inBlock = false;
+            const unescapedOrig = this.unescapeString(state.originalText.trim());
+            const translated = translations.get(unescapedOrig);
+            newLines.push(
+                state.originalText,
+                ...state.contextLines,
+                translated ? this.escapeString(translated) : (state.translationText || state.originalText),
+                line
+            );
+            return;
+        }
+
+        if (state.inBlock) {
+            if (line.startsWith('> CONTEXT')) {
+                state.contextLines.push(line);
+                state.step = 2;
+                return;
             }
+            if (state.step === 0) {
+                state.originalText += (state.originalText ? '\n' : '') + line;
+            } else if (state.step === 2) {
+                state.translationText += (state.translationText ? '\n' : '') + line;
+            }
+        } else {
+            newLines.push(line);
         }
     }
 
     private updatePatchBlocks(content: string, translations: Map<string, string>): string {
         const lines = content.split(/\r?\n/);
         const newLines: string[] = [];
-        let inBlock = false;
-        let originalText = '';
-        let contextLines: string[] = [];
-        let translationText = '';
-        let step = 0; // 0: original, 1: context, 2: translation
-
+        const state = { inBlock: false, originalText: '', contextLines: [] as string[], translationText: '', step: 0 };
         for (const line of lines) {
-            if (line.startsWith('> BEGIN STRING')) {
-                inBlock = true;
-                originalText = '';
-                contextLines = [];
-                translationText = '';
-                step = 0;
-                newLines.push(line);
-                continue;
-            }
-            if (line.startsWith('> END STRING')) {
-                inBlock = false;
-                const unescapedOrig = this.unescapeString(originalText.trim());
-                const translated = translations.get(unescapedOrig);
-                
-                newLines.push(
-                    originalText,
-                    ...contextLines,
-                    translated ? this.escapeString(translated) : (translationText || originalText),
-                    line
-                );
-                continue;
-            }
-
-            if (inBlock) {
-                if (line.startsWith('> CONTEXT')) {
-                    contextLines.push(line);
-                    step = 2;
-                    continue;
-                }
-                if (step === 0) {
-                    originalText += (originalText ? '\n' : '') + line;
-                } else if (step === 2) {
-                    translationText += (translationText ? '\n' : '') + line;
-                }
-            } else {
-                newLines.push(line);
-            }
+            this.processUpdatePatchLine(line, state, translations, newLines);
         }
-
         return newLines.join('\n');
     }
 
@@ -780,6 +783,45 @@ export class WolfRpgExtractor implements TranslationExtractor {
     }
 
 
+    private async decompressSingleDatFile(filePath: string, buf: Buffer, decompressedFiles: string[]): Promise<void> {
+        const isCompressed = buf.length >= 19 &&
+                             buf[0] === 0 && buf[1] === 87 && buf[2] === 0 && buf[3] === 0 &&
+                             buf[4] === 79 && buf[5] === 76 && buf[6] === 85; // 'U'
+        
+        if (!isCompressed) return;
+
+        const fileBasename = path.basename(filePath);
+        console.log(`[WOLF-EXTRACTOR] Auto-decompressing Wolf RPG 3.50+ compressed file: "${fileBasename}"...`);
+        const uncompressedSize = buf.readUInt32LE(11);
+        const compressedData = buf.slice(19);
+
+        try {
+            const outputBuf = Buffer.alloc(uncompressedSize);
+            lz4.decodeBlock(compressedData, outputBuf);
+            
+            let header: Buffer;
+            if (buf[8] === 67) { // 'C' -> CE
+                header = Buffer.from([0x00, 0x57, 0x00, 0x00, 0x4f, 0x4c, 0x00, 0x46, 0x43, 0x00, 0x8f]); // WOLF_CE.HEADER
+            } else { // WOLF DAT
+                header = Buffer.from([0x00, 0x57, 0x00, 0x00, 0x4f, 0x4c, 0x00, 0x46, 0x4d, 0x00, 0xc1]); // WOLF_DAT.HEADER
+            }
+
+            const finalUncompressed = Buffer.concat([header, outputBuf]);
+            
+            // Backup original compressed file
+            const backupPath = filePath + '.compressed.bak';
+            await fs.writeFile(backupPath, buf);
+            
+            // Save decompressed file in-place
+            await fs.writeFile(filePath, finalUncompressed);
+            console.log(`[WOLF-EXTRACTOR] Successfully decompressed "${fileBasename}" (size: ${buf.length} -> ${finalUncompressed.length} bytes)`);
+            decompressedFiles.push(filePath);
+            this.isV3Game = true;
+        } catch (e: any) {
+            console.error(`[WOLF-EXTRACTOR] Failed to decompress compressed file "${fileBasename}":`, e.message);
+        }
+    }
+
     private async decompressDatFiles(gameDir: string): Promise<string[]> {
         const dataDir = path.join(gameDir, 'Data');
         const searchDirs = [path.join(dataDir, 'BasicData'), path.join(dataDir, 'MapData')];
@@ -791,48 +833,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             for (const filePath of files) {
                 if (filePath.toLowerCase().endsWith('.dat')) {
                     const buf = await fs.readFile(filePath);
-                    
-                    // Check if it is a compressed v3 file:
-                    // Signature is [0, 87, 0, 0, 79, 76, 85, 70, ...] (starts with [0, 87, 0, 0, 79, 76] and 7th byte is 'U' (85))
-                    const isCompressed = buf.length >= 19 &&
-                                         buf[0] === 0 && buf[1] === 87 && buf[2] === 0 && buf[3] === 0 &&
-                                         buf[4] === 79 && buf[5] === 76 && buf[6] === 85; // 'U'
-                    
-                    if (isCompressed) {
-                        const fileBasename = path.basename(filePath);
-                        console.log(`[WOLF-EXTRACTOR] Auto-decompressing Wolf RPG 3.50+ compressed file: "${fileBasename}"...`);
-                        const uncompressedSize = buf.readUInt32LE(11);
-                        const compressedData = buf.slice(19);
-
-                        try {
-                            const outputBuf = Buffer.alloc(uncompressedSize);
-                            lz4.decodeBlock(compressedData, outputBuf);
-                            
-                            // We must prepend the original standard v2 header so rewolf-trans can parse it!
-                            // Let's check which type of file it is:
-                            // UFC -> WOLF CE, UFD -> WOLF DAT, UFM -> WOLF MAP, etc.
-                            let header: Buffer;
-                            if (buf[8] === 67) { // 'C' -> CE
-                                header = Buffer.from([0x00, 0x57, 0x00, 0x00, 0x4f, 0x4c, 0x00, 0x46, 0x43, 0x00, 0x8f]); // WOLF_CE.HEADER
-                            } else { // WOLF DAT
-                                header = Buffer.from([0x00, 0x57, 0x00, 0x00, 0x4f, 0x4c, 0x00, 0x46, 0x4d, 0x00, 0xc1]); // WOLF_DAT.HEADER
-                            }
-
-                            const finalUncompressed = Buffer.concat([header, outputBuf]);
-                            
-                            // Backup original compressed file
-                            const backupPath = filePath + '.compressed.bak';
-                            await fs.writeFile(backupPath, buf);
-                            
-                            // Save decompressed file in-place
-                            await fs.writeFile(filePath, finalUncompressed);
-                            console.log(`[WOLF-EXTRACTOR] Successfully decompressed "${fileBasename}" (size: ${buf.length} -> ${finalUncompressed.length} bytes)`);
-                            decompressedFiles.push(filePath);
-                            this.isV3Game = true;
-                        } catch (e: any) {
-                            console.error(`[WOLF-EXTRACTOR] Failed to decompress compressed file "${fileBasename}":`, e.message);
-                        }
-                    }
+                    await this.decompressSingleDatFile(filePath, buf, decompressedFiles);
                 }
             }
         }

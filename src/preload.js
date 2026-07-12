@@ -1,8 +1,8 @@
 "use strict";
 
 // src/preload.ts
-var import_electron = require("electron");
-var api = {
+const import_electron = require("electron");
+const api = {
   bootstrapApp: (options) => import_electron.ipcRenderer.invoke("bootstrap-app", options),
   checkConfig: () => import_electron.ipcRenderer.invoke("check-config"),
   setupLibrary: (type) => import_electron.ipcRenderer.invoke("setup-library", type),

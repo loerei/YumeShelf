@@ -2,6 +2,112 @@
 import { getGameKey } from './library-order';
 import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 
+function highlightMatch(text, query) {
+    if (!query) return text;
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    return parts.map(part => part.toLowerCase() === query.toLowerCase() ? `<span class="search-match">${part}</span>` : part).join('');
+}
+
+function renderGameSearchItem(game, query, context) {
+    const {
+        attachTooltip,
+        electronAPI,
+        getActiveCategoryId,
+        getDraggedGameFolder,
+        setDraggedGameFolder,
+        hideSearchDropdown,
+        searchInput
+    } = context;
+
+    const cachedIcon = game.iconData ? null : readCachedIconPayload(game.exePath);
+    if (cachedIcon) {
+        applyIconPayload(game, cachedIcon);
+    }
+    const gameKey = getGameKey(game);
+    const item = document.createElement('div');
+    item.className = 'search-item';
+    item.draggable = !getActiveCategoryId();
+    item.innerHTML = `
+        <div class="search-item-info">
+            <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
+            <div class="search-item-title-container">
+                <div class="search-item-title">${highlightMatch(game.name, query)}</div>
+            </div>
+        </div>
+        <div class="search-launch-icon-wrapper">
+            <svg class="search-launch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 10l5 5-5 5"></path>
+                <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
+            </svg>
+        </div>
+    `;
+    if (game.iconData) {
+        logIconRender('search-item-initial', gameKey, {
+            dataUrl: game.iconData,
+            fit: game.iconFit,
+            source: game.iconSource,
+            debug: game.iconDebug
+        }, item.querySelector('.search-item-icon img'));
+    }
+
+    if (!game.iconData) {
+        electronAPI.invoke('get-icon', game.exePath).then((iconPayload) => {
+            const normalizedIcon = applyIconPayload(game, iconPayload);
+            if (!normalizedIcon) return;
+            cacheIconPayload(game.exePath, normalizedIcon);
+            const iconSpan = item.querySelector('.search-item-icon');
+            if (iconSpan) {
+                iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
+                logIconRender('search-item-async', gameKey, normalizedIcon, iconSpan.querySelector('img'));
+            }
+        });
+    }
+
+    if (item.draggable) {
+        item.ondragstart = (event) => {
+            setDraggedGameFolder(gameKey);
+            event.dataTransfer.setData('gameKey', gameKey);
+        };
+        item.ondragend = () => {
+            if (getDraggedGameFolder() === getGameKey(game)) {
+                setDraggedGameFolder(null);
+            }
+        };
+    }
+
+    const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
+    launchIconWrapper.onclick = (event) => {
+        event.stopPropagation();
+        const exactCard = document.querySelector(`.game-card[data-game-key="${getGameKey(game)}"]`);
+        const card = exactCard;
+        if (card) {
+            hideSearchDropdown();
+            searchInput.value = '';
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('glow');
+            setTimeout(() => card.classList.remove('glow'), 2000);
+        }
+    };
+
+    attachTooltip(item, () => ({
+        title: game.name,
+        subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || ''
+    }));
+    item.ondblclick = (event) => {
+        if (event.target.closest('.search-launch-icon-wrapper')) return;
+        event.stopPropagation();
+        electronAPI.send('launch-yume', {
+            gameKey: game.primaryInstance?.gameKey || game.gameKey || getGameKey(game),
+            exePath: game.primaryInstance?.exePath || game.exePath,
+            runInBackground: game.primaryInstance?.runInBackground || game.runInBackground || false
+        });
+        hideSearchDropdown();
+        searchInput.value = '';
+    };
+
+    return item;
+}
+
 export function createSearchController({
     attachTooltip,
     advancePlaceholderIndex,
@@ -19,12 +125,6 @@ export function createSearchController({
     const searchInput       = container.querySelector('#search-input');
     const searchDropdown    = container.querySelector('#search-dropdown');
     const searchPlaceholder = container.querySelector('#search-placeholder');
-
-    function highlightMatch(text, query) {
-        if (!query) return text;
-        const parts = text.split(new RegExp(`(${query})`, 'gi'));
-        return parts.map(part => part.toLowerCase() === query.toLowerCase() ? `<span class="search-match">${part}</span>` : part).join('');
-    }
 
     function hideSearchDropdown() {
         searchDropdown.classList.remove('show');
@@ -57,92 +157,15 @@ export function createSearchController({
         }
 
         filtered.forEach((game) => {
-            const cachedIcon = !game.iconData ? readCachedIconPayload(game.exePath) : null;
-            if (cachedIcon) {
-                applyIconPayload(game, cachedIcon);
-            }
-            const gameKey = getGameKey(game);
-            const item = document.createElement('div');
-            item.className = 'search-item';
-            item.draggable = !getActiveCategoryId();
-            item.innerHTML = `
-                <div class="search-item-info">
-                    <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
-                    <div class="search-item-title-container">
-                        <div class="search-item-title">${highlightMatch(game.name, query)}</div>
-                    </div>
-                </div>
-                <div class="search-launch-icon-wrapper">
-                    <svg class="search-launch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M15 10l5 5-5 5"></path>
-                        <path d="M4 4v7a4 4 0 0 0 4 4h12"></path>
-                    </svg>
-                </div>
-            `;
-            if (game.iconData) {
-                logIconRender('search-item-initial', gameKey, {
-                    dataUrl: game.iconData,
-                    fit: game.iconFit,
-                    source: game.iconSource,
-                    debug: game.iconDebug
-                }, item.querySelector('.search-item-icon img'));
-            }
-
-            if (!game.iconData) {
-                electronAPI.invoke('get-icon', game.exePath).then((iconPayload) => {
-                    const normalizedIcon = applyIconPayload(game, iconPayload);
-                    if (!normalizedIcon) return;
-                    cacheIconPayload(game.exePath, normalizedIcon);
-                    const iconSpan = item.querySelector('.search-item-icon');
-                    if (iconSpan) {
-                        iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
-                        logIconRender('search-item-async', gameKey, normalizedIcon, iconSpan.querySelector('img'));
-                    }
-                });
-            }
-
-            if (item.draggable) {
-                item.ondragstart = (event) => {
-                    setDraggedGameFolder(gameKey);
-                    event.dataTransfer.setData('gameKey', gameKey);
-                };
-                item.ondragend = () => {
-                    if (getDraggedGameFolder() === getGameKey(game)) {
-                        setDraggedGameFolder(null);
-                    }
-                };
-            }
-
-            const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');
-            launchIconWrapper.onclick = (event) => {
-                event.stopPropagation();
-                const exactCard = document.querySelector(`.game-card[data-game-key="${getGameKey(game)}"]`);
-                const card = exactCard;
-                if (card) {
-                    hideSearchDropdown();
-                    searchInput.value = '';
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    card.classList.add('glow');
-                    setTimeout(() => card.classList.remove('glow'), 2000);
-                }
-            };
-
-            attachTooltip(item, () => ({
-                title: game.name,
-                subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || ''
-            }));
-            item.ondblclick = (event) => {
-                if (event.target.closest('.search-launch-icon-wrapper')) return;
-                event.stopPropagation();
-                electronAPI.send('launch-yume', {
-                    gameKey: game.primaryInstance?.gameKey || game.gameKey || getGameKey(game),
-                    exePath: game.primaryInstance?.exePath || game.exePath,
-                    runInBackground: game.primaryInstance?.runInBackground || game.runInBackground || false
-                });
-                hideSearchDropdown();
-                searchInput.value = '';
-            };
-
+            const item = renderGameSearchItem(game, query, {
+                attachTooltip,
+                electronAPI,
+                getActiveCategoryId,
+                getDraggedGameFolder,
+                setDraggedGameFolder,
+                hideSearchDropdown,
+                searchInput
+            });
             searchDropdown.appendChild(item);
         });
 

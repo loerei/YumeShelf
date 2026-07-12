@@ -24,6 +24,36 @@ export interface NativeImageSummary {
     cropError?: string;
 }
 
+interface OpaqueBounds {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    opaquePixels: number;
+}
+
+function scanBitmapOpaqueBounds(bitmap: Buffer, width: number, height: number): OpaqueBounds {
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+    let opaquePixels = 0;
+
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const alpha = bitmap[(y * width + x) * 4 + 3];
+            if (alpha > 0) {
+                opaquePixels += 1;
+                if (x < minX) minX = x;
+                if (y < minY) minY = y;
+                if (x > maxX) maxX = x;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+    return { minX, minY, maxX, maxY, opaquePixels };
+}
+
 export function summarizeNativeImageForDebug(image: any): NativeImageSummary {
     if (!image || image.isEmpty()) {
         return {
@@ -44,34 +74,16 @@ export function summarizeNativeImageForDebug(image: any): NativeImageSummary {
             return summary;
         }
 
-        let minX = size.width;
-        let minY = size.height;
-        let maxX = -1;
-        let maxY = -1;
-        let opaquePixels = 0;
-
-        for (let y = 0; y < size.height; y += 1) {
-            for (let x = 0; x < size.width; x += 1) {
-                const alpha = bitmap[(y * size.width + x) * 4 + 3];
-                if (alpha > 0) {
-                    opaquePixels += 1;
-                    if (x < minX) minX = x;
-                    if (y < minY) minY = y;
-                    if (x > maxX) maxX = x;
-                    if (y > maxY) maxY = y;
-                }
-            }
-        }
-
-        summary.opaquePixels = opaquePixels;
-        if (opaquePixels > 0) {
+        const bounds = scanBitmapOpaqueBounds(bitmap, size.width, size.height);
+        summary.opaquePixels = bounds.opaquePixels;
+        if (bounds.opaquePixels > 0) {
             summary.opaqueBounds = {
-                left: minX,
-                top: minY,
-                right: maxX,
-                bottom: maxY,
-                width: maxX - minX + 1,
-                height: maxY - minY + 1
+                left: bounds.minX,
+                top: bounds.minY,
+                right: bounds.maxX,
+                bottom: bounds.maxY,
+                width: bounds.maxX - bounds.minX + 1,
+                height: bounds.maxY - bounds.minY + 1
             };
         } else {
             summary.opaqueBounds = null;

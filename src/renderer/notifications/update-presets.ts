@@ -23,37 +23,53 @@ export function createAggregatedUpdateNotification({
 }) {
     const totalCount = groups.reduce((sum, group) => sum + group.count, 0);
     const installedMode = mode === 'automatic-installed';
-    const appReadyGroup = groups.find(group => group.kind === 'app-ready');
-    const title = titleOverride || (installedMode
-        ? (
-            totalCount === 1
-                ? formatTemplate(
+    const appReadyGroup = groups.some(group => group.kind === 'app-ready');
+    let title = titleOverride;
+    if (!title) {
+        if (installedMode) {
+            if (totalCount === 1) {
+                title = formatTemplate(
                     getText('update_notification_title_installed_one', '{count} update finished automatically'),
                     { count: formatCount(totalCount) }
-                )
-                : formatTemplate(
+                );
+            } else {
+                title = formatTemplate(
                     getText('update_notification_title_installed_many', '{count} updates finished automatically'),
                     { count: formatCount(totalCount) }
-                )
-        )
-        : (
-            totalCount === 1
-                ? formatTemplate(
+                );
+            }
+        } else {
+            if (totalCount === 1) {
+                title = formatTemplate(
                     getText('update_notification_title_available_one', '{count} update is ready'),
                     { count: formatCount(totalCount) }
-                )
-                : formatTemplate(
+                );
+            } else {
+                title = formatTemplate(
                     getText('update_notification_title_available_many', '{count} updates are ready'),
                     { count: formatCount(totalCount) }
-                )
-        ));
+                );
+            }
+        }
+    }
+
+    let eyebrow = '';
+    if (appReadyGroup) {
+        eyebrow = getText('update_notification_label_ready', 'Ready to install');
+    } else if (installedMode) {
+        eyebrow = getText('update_notification_label_installed', 'Updated automatically');
+    } else {
+        eyebrow = getText('update_notification_label_available', 'Update available');
+    }
+
+    let signature = null;
+    if (installedMode) {
+        const parts = groups.map(group => group.kind + ':' + (group.signaturePart || group.summaryText)).sort().join('|');
+        signature = 'updates:auto:' + parts;
+    }
 
     return {
-        eyebrow: appReadyGroup
-            ? getText('update_notification_label_ready', 'Ready to install')
-            : installedMode
-            ? getText('update_notification_label_installed', 'Updated automatically')
-            : getText('update_notification_label_available', 'Update available'),
+        eyebrow,
         handleLabel: getText('update_notification_handle', 'Updates'),
         message: '',
         onPrimaryAction: async () => {
@@ -62,9 +78,7 @@ export function createAggregatedUpdateNotification({
         persistOnce: installedMode,
         primaryLabel: getText('update_notification_review', 'Review updates'),
         secondaryLabel: getText('update_notification_later', 'Remind later'),
-        signature: installedMode
-            ? `updates:auto:${groups.map(group => `${group.kind}:${group.signaturePart || group.summaryText}`).sort().join('|')}`
-            : null,
+        signature,
         summaryItems: groups.map(group => group.summaryText),
         title
     };
@@ -127,9 +141,8 @@ export function presentBootUpdateNotifications({
         bootChecks.appUpdatesMode === 'notify'
         || (
             bootChecks.appUpdatesMode === 'automatic'
-            && appUpdateCheck
-            && appUpdateCheck.available
-            && !appUpdateCheck.downloadable
+            && appUpdateCheck?.available
+            && !appUpdateCheck?.downloadable
         )
     ) {
         const appGroup = buildAppAvailableGroup(appUpdateCheck, getText);
@@ -168,7 +181,6 @@ export function createAppUpdateReadyNotification({
         onSecondaryAction: async () => {
             if (typeof scheduleAppUpdateNextLaunch === 'function') {
                 await scheduleAppUpdateNextLaunch();
-                return;
             }
         },
         persistOnce: false,

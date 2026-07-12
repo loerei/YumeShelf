@@ -59,14 +59,14 @@ export class RenpyEngine {
         const counts = {};
         for (const key of Object.keys(root)) {
             if (!key.startsWith('store.') || key.startsWith('store._') || key === '$type') continue;
-            const match = key.match(/^store\.([a-zA-Z0-9]+)_/);
+            const match = /^store\.([a-zA-Z0-9]+)_/.exec(key);
             if (match) {
                 const prefix = match[1];
                 counts[prefix] = (counts[prefix] || 0) + 1;
             }
         }
         // Return prefixes with at least 3 occurrences
-        return Object.keys(counts).filter(p => counts[p] >= 3).sort();
+        return Object.keys(counts).filter(p => counts[p] >= 3).sort((a, b) => a.localeCompare(b));
     }
 
     /**
@@ -98,7 +98,7 @@ export class RenpyEngine {
                         if (!k.startsWith('store.') || k.startsWith('store._') || k === '$type') return false;
 
                         // Exclude keys belonging to dynamic prefix tabs
-                        const match = k.match(/^store\.([a-zA-Z0-9]+)_/);
+                        const match = /^store\.([a-zA-Z0-9]+)_/.exec(k);
                         if (match && prefixes.includes(match[1])) {
                             return false;
                         }

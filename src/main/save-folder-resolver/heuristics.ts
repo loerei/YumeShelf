@@ -63,6 +63,20 @@ export async function heuristicSaveScan(exeDir: string, depth = 0): Promise<Reso
     return null;
 }
 
+async function searchCompanyProducts(companyPath: string, normalizedStem: string): Promise<string | null> {
+    try {
+        const stat = await fs.stat(companyPath);
+        if (!stat.isDirectory()) return null;
+        const products = await fs.readdir(companyPath);
+        return products.find((product) => {
+            const normProduct = normalizeForSearch(product);
+            return normProduct.includes(normalizedStem) || normalizedStem.includes(normProduct);
+        }) || null;
+    } catch {
+        return null;
+    }
+}
+
 export async function appDataFuzzyMatch(exeDir: string, exeStem: string): Promise<ResolvedSaveInfo | null> {
     console.log(`[SAVE-RESOLVER][APPDATA] Fuzzy matching stem: ${exeStem}`);
     if (exeStem.length < 3) return null;
@@ -75,19 +89,9 @@ export async function appDataFuzzyMatch(exeDir: string, exeStem: string): Promis
         const companies = await fs.readdir(localLow);
         for (const company of companies) {
             const companyPath = path.join(localLow, company);
-            try {
-                const stat = await fs.stat(companyPath);
-                if (!stat.isDirectory()) continue;
-                const products = await fs.readdir(companyPath);
-                const match = products.find((product) => {
-                    const normProduct = normalizeForSearch(product);
-                    return normProduct.includes(normalizedStem) || normalizedStem.includes(normProduct);
-                });
-                if (match) {
-                    return { path: path.join(companyPath, match), engine: 'unity', confidence: 'low' };
-                }
-            } catch {
-                continue;
+            const match = await searchCompanyProducts(companyPath, normalizedStem);
+            if (match) {
+                return { path: path.join(companyPath, match), engine: 'unity', confidence: 'low' };
             }
         }
     } catch {

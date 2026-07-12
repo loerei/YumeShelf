@@ -5,6 +5,177 @@ import { formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
 
+function bindCardActions(card, game, context) {
+    const {
+        electronAPI,
+        gameKey,
+        d,
+        attachTooltip,
+        onFavoriteToggled,
+        onRefreshRequested,
+        onGameLaunched,
+        onCardDeleted,
+        onDragStart,
+        onDragStateReset,
+        interactiveSelector,
+        launchMode,
+        draggable
+    } = context;
+
+    attachTooltip(card, () => ({
+        title: game.name,
+        subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || game.folderPath || ''
+    }));
+
+    const favoriteButton = card.querySelector('.fav-btn');
+    favoriteButton.draggable = false;
+    favoriteButton.onmousedown = (event) => {
+        event.preventDefault();
+    };
+    favoriteButton.onclick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') {
+            event.stopImmediatePropagation();
+        }
+        const nextFavorite = await electronAPI.invoke('toggle-favorite', gameKey);
+        game.favorite = nextFavorite;
+        if (typeof onFavoriteToggled === 'function') {
+            onFavoriteToggled(gameKey, nextFavorite);
+        }
+        onRefreshRequested();
+    };
+
+    bindDropdownToggle(card);
+
+    bindRenameAction({
+        card,
+        currentName: () => game.name,
+        electronAPI,
+        gameKey,
+        onSaveData: (nextName) => { game.name = nextName; }
+    });
+
+    card.querySelector('.action-reveal').onclick = (event) => {
+        event.stopPropagation();
+        electronAPI.send('reveal-game', game.exePath);
+    };
+
+    card.querySelector('.action-save-folder').onclick = async (event) => {
+        event.stopPropagation();
+        console.log(`[FRONTEND][ACTION] Open Save Folder clicked for ${gameKey}`);
+        card.querySelector('.dropdown-menu').classList.remove('show');
+        const result = await electronAPI.invoke('get-save-folder', gameKey);
+        if (result?.path) {
+            electronAPI.send('open-path', result.path);
+        } else {
+            const item = card.querySelector('.action-save-folder');
+            const originalText = item.querySelector('span').textContent;
+            item.querySelector('span').textContent = 'No save folder found';
+            item.style.opacity = '0.5';
+            setTimeout(() => {
+                item.querySelector('span').textContent = originalText;
+                item.style.opacity = '';
+            }, 2000);
+        }
+    };
+
+    card.querySelector('.action-save-editor').onclick = async (event) => {
+        event.stopPropagation();
+        console.log(`[FRONTEND][ACTION] Open Save Editor clicked for ${gameKey}`);
+        card.querySelector('.dropdown-menu').classList.remove('show');
+        
+        if (globalThis.showSaveEditor) {
+            globalThis.showSaveEditor(gameKey);
+        }
+    };
+
+    card.querySelector('.action-background-run').onclick = async (event) => {
+        event.stopPropagation();
+        const nextRunInBackground = await electronAPI.invoke('toggle-run-in-background', gameKey);
+        game.runInBackground = nextRunInBackground;
+        const item = card.querySelector('.action-background-run');
+        item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
+    };
+
+    card.querySelector('.action-live-translate').onclick = async (event) => {
+        event.stopPropagation();
+        const nextAutoTranslate = await electronAPI.invoke('toggle-auto-translate', gameKey);
+        game.autoTranslate = nextAutoTranslate;
+        const item = card.querySelector('.action-live-translate');
+        if (item) {
+            item.innerHTML = `${getDropdownActionIcon(nextAutoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span>`;
+        }
+    };
+
+    card.querySelector('.action-pre-translate').onclick = async (event) => {
+        event.stopPropagation();
+        card.querySelector('.dropdown-menu').classList.remove('show');
+        let targetLang = 'en';
+        try {
+            const langState = await electronAPI.invoke('get-language-state');
+            targetLang = (langState?.current) ? langState.current : 'en';
+        } catch {
+            // fall back to 'en'
+        }
+        await electronAPI.invoke('translation:start-sync', { gameKey, targetLang });
+    };
+
+    card.querySelector('.action-delete').onclick = async (event) => {
+        event.stopPropagation();
+        if (confirm(d.confirm)) {
+            await electronAPI.invoke('delete-game', game.folderPath);
+            onCardDeleted(gameKey);
+            onRefreshRequested();
+        }
+    };
+
+    const launchGame = () => {
+        card.style.opacity = '0.5';
+        electronAPI.send('launch-yume', { gameKey, exePath: game.exePath, runInBackground: game.runInBackground });
+        if (typeof onGameLaunched === 'function') {
+            onGameLaunched(gameKey);
+        } else {
+            onRefreshRequested();
+        }
+    };
+
+    if (launchMode === 'single') {
+        card.onclick = (event) => {
+            if (event.target.closest(interactiveSelector)) return;
+            launchGame();
+        };
+    } else {
+        card.ondblclick = (event) => {
+            if (event.target.closest(interactiveSelector)) return;
+            launchGame();
+        };
+    }
+
+    if (draggable) {
+        card.ondragstart = (event) => {
+            if (event.target.closest(interactiveSelector)) {
+                event.preventDefault();
+                return false;
+            }
+            event.dataTransfer.setData('gameKey', gameKey);
+            event.dataTransfer.effectAllowed = 'move';
+            requestAnimationFrame(() => {
+                card.style.opacity = '0.01';
+            });
+            onDragStart(gameKey);
+        };
+        card.ondragend = () => {
+            card.style.opacity = '1';
+            onDragStateReset();
+        };
+        card.ondragenter = (event) => { event.preventDefault(); };
+        card.ondragleave = (event) => { event.preventDefault(); };
+        card.ondragover = (event) => { event.preventDefault(); };
+        card.ondrop = (event) => { event.preventDefault(); };
+    }
+}
+
 export function createGameCardFactory({
     attachTooltip,
     electronAPI,
@@ -26,7 +197,7 @@ export function createGameCardFactory({
         const showDuplicateChip = options.showDuplicateChip !== false;
         const showPath = options.showPath !== false;
         const contextLabel = options.contextLabel || '';
-        const cachedIcon = !game.iconData ? readCachedIconPayload(game.exePath) : null;
+        const cachedIcon = game.iconData ? null : readCachedIconPayload(game.exePath);
         if (cachedIcon) {
             applyIconPayload(game, cachedIcon);
         }
@@ -48,7 +219,7 @@ export function createGameCardFactory({
                 <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span></div>
                 <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('translate')}<span>Pre-Translate Game</span></div>
                 <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
-                <div class=\"dropdown-item danger action-delete\">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
+                <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
                 </div>
             <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
@@ -107,148 +278,22 @@ export function createGameCardFactory({
             }
         });
 
-        attachTooltip(card, () => ({
-            title: game.name,
-            subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || game.folderPath || ''
-        }));
-
-        const favoriteButton = card.querySelector('.fav-btn');
-        favoriteButton.draggable = false;
-        favoriteButton.onmousedown = (event) => {
-            event.preventDefault();
-        };
-        favoriteButton.onclick = async (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (typeof event.stopImmediatePropagation === 'function') {
-                event.stopImmediatePropagation();
-            }
-            const nextFavorite = await electronAPI.invoke('toggle-favorite', gameKey);
-            game.favorite = nextFavorite;
-            if (typeof onFavoriteToggled === 'function') {
-                onFavoriteToggled(gameKey, nextFavorite);
-            }
-            onRefreshRequested();
-        };
-        bindDropdownToggle(card);
-        bindRenameAction({
-            card,
-            currentName: () => game.name,
+        const context = {
             electronAPI,
             gameKey,
-            onSaveData: (nextName) => { game.name = nextName; }
-        });
-        card.querySelector('.action-reveal').onclick = (event) => {
-            event.stopPropagation();
-            electronAPI.send('reveal-game', game.exePath);
+            d,
+            attachTooltip,
+            onFavoriteToggled,
+            onRefreshRequested,
+            onGameLaunched,
+            onCardDeleted,
+            onDragStart,
+            onDragStateReset,
+            interactiveSelector,
+            launchMode,
+            draggable
         };
-        card.querySelector('.action-save-folder').onclick = async (event) => {
-            event.stopPropagation();
-            console.log(`[FRONTEND][ACTION] Open Save Folder clicked for ${gameKey}`);
-            card.querySelector('.dropdown-menu').classList.remove('show');
-            const result = await electronAPI.invoke('get-save-folder', gameKey);
-            if (result?.path) {
-                electronAPI.send('open-path', result.path);
-            } else {
-                const item = card.querySelector('.action-save-folder');
-                const originalText = item.querySelector('span').textContent;
-                item.querySelector('span').textContent = 'No save folder found';
-                item.style.opacity = '0.5';
-                setTimeout(() => {
-                    item.querySelector('span').textContent = originalText;
-                    item.style.opacity = '';
-                }, 2000);
-            }
-        };
-        card.querySelector('.action-save-editor').onclick = async (event) => {
-            event.stopPropagation();
-            console.log(`[FRONTEND][ACTION] Open Save Editor clicked for ${gameKey}`);
-            card.querySelector('.dropdown-menu').classList.remove('show');
-            
-            // We'll call a global editor UI handler that we'll define later
-            if (globalThis.showSaveEditor) {
-                globalThis.showSaveEditor(gameKey);
-            }
-        };
-        card.querySelector('.action-background-run').onclick = async (event) => {
-            event.stopPropagation();
-            const nextRunInBackground = await electronAPI.invoke('toggle-run-in-background', gameKey);
-            game.runInBackground = nextRunInBackground;
-            const item = card.querySelector('.action-background-run');
-            item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
-        };
-        card.querySelector('.action-live-translate').onclick = async (event) => {
-            event.stopPropagation();
-            const nextAutoTranslate = await electronAPI.invoke('toggle-auto-translate', gameKey);
-            game.autoTranslate = nextAutoTranslate;
-            const item = card.querySelector('.action-live-translate');
-            if (item) {
-                item.innerHTML = `${getDropdownActionIcon(nextAutoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span>`;
-            }
-        };
-        card.querySelector('.action-pre-translate').onclick = async (event) => {
-            event.stopPropagation();
-            card.querySelector('.dropdown-menu').classList.remove('show');
-            let targetLang = 'en';
-            try {
-                const langState = await electronAPI.invoke('get-language-state');
-                targetLang = (langState?.current) ? langState.current : 'en';
-            } catch (e) {
-                // fall back to 'en'
-            }
-            await electronAPI.invoke('translation:start-sync', { gameKey, targetLang });
-        };
-        card.querySelector('.action-delete').onclick = async (event) => {
-            event.stopPropagation();
-            if (confirm(d.confirm)) {
-                await electronAPI.invoke('delete-game', game.folderPath);
-                onCardDeleted(gameKey);
-                onRefreshRequested();
-            }
-        };
-        const launchGame = () => {
-            card.style.opacity = '0.5';
-            electronAPI.send('launch-yume', { gameKey, exePath: game.exePath, runInBackground: game.runInBackground });
-            if (typeof onGameLaunched === 'function') {
-                onGameLaunched(gameKey);
-            } else {
-                onRefreshRequested();
-            }
-        };
-        if (launchMode === 'single') {
-            card.onclick = (event) => {
-                if (event.target.closest(interactiveSelector)) return;
-                launchGame();
-            };
-        } else {
-            card.ondblclick = (event) => {
-                if (event.target.closest(interactiveSelector)) return;
-                launchGame();
-            };
-        }
-
-        if (draggable) {
-            card.ondragstart = (event) => {
-                if (event.target.closest(interactiveSelector)) {
-                    event.preventDefault();
-                    return false;
-                }
-                event.dataTransfer.setData('gameKey', gameKey);
-                event.dataTransfer.effectAllowed = 'move';
-                requestAnimationFrame(() => {
-                    card.style.opacity = '0.01';
-                });
-                onDragStart(gameKey);
-            };
-            card.ondragend = () => {
-                card.style.opacity = '1';
-                onDragStateReset();
-            };
-            card.ondragenter = (event) => { event.preventDefault(); };
-            card.ondragleave = (event) => { event.preventDefault(); };
-            card.ondragover = (event) => { event.preventDefault(); };
-            card.ondrop = (event) => { event.preventDefault(); };
-        }
+        bindCardActions(card, game, context);
 
         return card;
     }

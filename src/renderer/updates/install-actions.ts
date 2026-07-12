@@ -12,7 +12,12 @@ export function setupInstallActions({
             return { ok: false, reason: 'no-update' };
         }
 
-        const fallbackActionState = currentUpdate.deferredUntilNextLaunch ? 'scheduled' : (currentUpdate.downloadReady ? 'ready' : 'idle');
+        let fallbackActionState = 'idle';
+        if (currentUpdate.deferredUntilNextLaunch) {
+            fallbackActionState = 'scheduled';
+        } else if (currentUpdate.downloadReady) {
+            fallbackActionState = 'ready';
+        }
         state.patchCurrentUpdate({
             actionState: 'installing',
             installPhase: 'install-preparing'

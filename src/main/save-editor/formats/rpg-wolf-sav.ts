@@ -36,7 +36,7 @@ function printableRatio(buffer: Buffer): number {
 function extractAsciiStrings(buffer: Buffer, minLength = 5, limit = 80): string[] {
     const matches = buffer
         .toString('latin1')
-        .match(new RegExp(`[\\x20-\\x7e]{${minLength},}`, 'g'));
+        .match(new RegExp(String.raw`[\x20-\x7e]{${minLength},}`, 'g'));
 
     return (matches || [])
         .map((s) => s.trim())
@@ -126,9 +126,12 @@ export function buildVariables(buffer: Buffer): Record<number, any> {
 
     const decoderAttempts = tryDecoders(buffer);
     decoderAttempts.forEach((attempt, index) => {
-        variables[200 + index] = attempt.ok
-            ? `${attempt.label}: OK${attempt.decodedSize ? ` (${attempt.decodedSize} bytes)` : ''}`
-            : `${attempt.label}: ${attempt.error}`;
+        if (attempt.ok) {
+            const sizeStr = attempt.decodedSize ? ` (${attempt.decodedSize} bytes)` : '';
+            variables[200 + index] = `${attempt.label}: OK${sizeStr}`;
+        } else {
+            variables[200 + index] = `${attempt.label}: ${attempt.error}`;
+        }
     });
 
     return variables;
@@ -159,6 +162,18 @@ export function buildMetadata(): string[] {
     });
 
     return variables;
+}
+
+function writeVariablesToPayload(decrypted: Buffer, variables: Record<number, any>, varArrayOffset: number): void {
+    for (const [key, value] of Object.entries(variables)) {
+        const index = Number.parseInt(key);
+        if (!Number.isNaN(index) && index < 800) {
+            const offset = varArrayOffset + index * 4;
+            if (offset + 4 <= decrypted.length) {
+                decrypted.writeInt32LE(Number.parseInt(value as string), offset);
+            }
+        }
+    }
 }
 
 class RpgWolfSavFormat {
@@ -260,15 +275,7 @@ class RpgWolfSavFormat {
         if (varArrayOffset !== -1 && jsonData.variables) {
             console.log(`[WOLF-SAV] encode writing variables...`);
             console.log(`[WOLF-SAV] variables[7] value to write: ${jsonData.variables[7]}`);
-            for (const [key, value] of Object.entries(jsonData.variables)) {
-                const index = Number.parseInt(key);
-                if (!Number.isNaN(index) && index < 800) {
-                    const offset = varArrayOffset + index * 4;
-                    if (offset + 4 <= decrypted.length) {
-                        decrypted.writeInt32LE(Number.parseInt(value as string), offset);
-                    }
-                }
-            }
+            writeVariablesToPayload(decrypted, jsonData.variables, varArrayOffset);
         }
 
         // Re-encrypt the payload

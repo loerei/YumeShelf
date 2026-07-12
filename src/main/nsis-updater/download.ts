@@ -5,6 +5,92 @@ import { buildDownloadedState, sha512FileBase64, pickReleaseName, pickReleaseNot
 import { classifyErrorReason } from './runtime';
 import { UpdaterState, UpdaterStateFiles } from './types';
 
+async function downloadSingleStream(
+    downloadUrl: string,
+    installerPath: string,
+    reportProgress: (bytesRead: number) => void,
+    fsSync: any,
+    appendUpdateLog: any,
+    VERBOSE_UPDATE_LOG: boolean | undefined
+): Promise<void> {
+    if (VERBOSE_UPDATE_LOG) {
+        await appendUpdateLog(`nsis-updater parallel-download range-requests unsupported, falling back to single stream`);
+    }
+    const res = await fetch(downloadUrl, { redirect: 'follow' });
+    if (!res.ok) {
+        throw new Error(`Failed to download installer stream: ${res.status} ${res.statusText}`);
+    }
+    if (!res.body) {
+        throw new Error('Response returned empty body');
+    }
+
+    const fileStream = fsSync.createWriteStream(installerPath);
+    try {
+        for await (const chunk of res.body as any) {
+            const chunkBuf = Buffer.from(chunk);
+            fileStream.write(chunkBuf);
+            reportProgress(chunkBuf.length);
+        }
+    } finally {
+        fileStream.end();
+    }
+}
+
+async function downloadParallelStreams(
+    downloadUrl: string,
+    installerPath: string,
+    contentLength: number,
+    reportProgress: (bytesRead: number) => void,
+    fs: any,
+    appendUpdateLog: any,
+    VERBOSE_UPDATE_LOG: boolean | undefined
+): Promise<void> {
+    const fileHandle = await fs.open(installerPath, 'w');
+    try {
+        await fileHandle.truncate(contentLength);
+
+        const connections = 8;
+        const chunkSize = Math.ceil(contentLength / connections);
+        const chunkPromises = [];
+
+        if (VERBOSE_UPDATE_LOG) {
+            await appendUpdateLog(`nsis-updater parallel-download downloading via ${connections} parallel connections...`);
+        }
+
+        for (let i = 0; i < connections; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize - 1, contentLength - 1);
+
+            chunkPromises.push((async () => {
+                const res = await fetch(downloadUrl, {
+                    headers: {
+                        'Range': `bytes=${start}-${end}`
+                    },
+                    redirect: 'follow'
+                });
+                if (!res.ok) {
+                    throw new Error(`Connection ${i} failed with status ${res.status}`);
+                }
+                if (!res.body) {
+                    throw new Error(`Connection ${i} returned empty body`);
+                }
+
+                let offset = start;
+                for await (const chunk of res.body as any) {
+                    const chunkBuf = Buffer.from(chunk);
+                    await fileHandle.write(chunkBuf, 0, chunkBuf.length, offset);
+                    offset += chunkBuf.length;
+                    reportProgress(chunkBuf.length);
+                }
+            })());
+        }
+
+        await Promise.all(chunkPromises);
+    } finally {
+        await fileHandle.close();
+    }
+}
+
 export interface DownloadUpdateContext {
     releasePageUrl: string;
     updateCacheDir: string;
@@ -144,73 +230,9 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
 
             // Fallback to single-stream sequential if accepts-ranges is not supported or content length is missing
             if (acceptRanges !== 'bytes' || Number.isNaN(contentLength) || contentLength <= 0) {
-                if (VERBOSE_UPDATE_LOG) {
-                    await appendUpdateLog(`nsis-updater parallel-download range-requests unsupported, falling back to single stream`);
-                }
-                const res = await fetch(downloadUrl, { redirect: 'follow' });
-                if (!res.ok) {
-                    throw new Error(`Failed to download installer stream: ${res.status} ${res.statusText}`);
-                }
-                if (!res.body) {
-                    throw new Error('Response returned empty body');
-                }
-
-                const fileStream = fsSync.createWriteStream(installerPath);
-                try {
-                    for await (const chunk of res.body as any) {
-                        const chunkBuf = Buffer.from(chunk);
-                        fileStream.write(chunkBuf);
-                        reportProgress(chunkBuf.length);
-                    }
-                } finally {
-                    fileStream.end();
-                }
+                await downloadSingleStream(downloadUrl, installerPath, reportProgress, fsSync, appendUpdateLog, VERBOSE_UPDATE_LOG);
             } else {
-                // Pre-allocate the target installer file
-                const fileHandle = await fs.open(installerPath, 'w');
-                try {
-                    await fileHandle.truncate(contentLength);
-
-                    const connections = 8;
-                    const chunkSize = Math.ceil(contentLength / connections);
-                    const chunkPromises = [];
-
-                    if (VERBOSE_UPDATE_LOG) {
-                        await appendUpdateLog(`nsis-updater parallel-download downloading via ${connections} parallel connections...`);
-                    }
-
-                    for (let i = 0; i < connections; i++) {
-                        const start = i * chunkSize;
-                        const end = Math.min(start + chunkSize - 1, contentLength - 1);
-
-                        chunkPromises.push((async () => {
-                            const res = await fetch(downloadUrl, {
-                                headers: {
-                                    'Range': `bytes=${start}-${end}`
-                                },
-                                redirect: 'follow'
-                            });
-                            if (!res.ok) {
-                                throw new Error(`Connection ${i} failed with status ${res.status}`);
-                            }
-                            if (!res.body) {
-                                throw new Error(`Connection ${i} returned empty body`);
-                            }
-
-                            let offset = start;
-                            for await (const chunk of res.body as any) {
-                                const chunkBuf = Buffer.from(chunk);
-                                await fileHandle.write(chunkBuf, 0, chunkBuf.length, offset);
-                                offset += chunkBuf.length;
-                                reportProgress(chunkBuf.length);
-                            }
-                        })());
-                    }
-
-                    await Promise.all(chunkPromises);
-                } finally {
-                    await fileHandle.close();
-                }
+                await downloadParallelStreams(downloadUrl, installerPath, contentLength, reportProgress, fs, appendUpdateLog, VERBOSE_UPDATE_LOG);
             }
 
             // Final integrity verification check

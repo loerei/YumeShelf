@@ -4,6 +4,23 @@ import * as path from 'node:path';
 import { TelemetryShipper } from '../telemetry/shipper';
 import { IpcInvokes, IpcSends } from '../../shared/types/ipc';
 
+async function getSafePathWithinLibrary(targetPath: string, libraryState: any): Promise<string | null> {
+    const resolvedPath = path.resolve(targetPath);
+    if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return null;
+    const config = await libraryState.resolveLibraryConfig();
+    if (config?.libraryPaths) {
+        const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
+        for (const libPath of libraryPaths) {
+            const resolvedLib = path.resolve(libPath);
+            const relative = path.relative(resolvedLib, resolvedPath);
+            if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                return path.join(resolvedLib, relative);
+            }
+        }
+    }
+    return null;
+}
+
 export class TypedIpcRouter {
     constructor(private readonly ipcMain: IpcMain) {}
 
@@ -162,69 +179,25 @@ export function registerMainIpc({
         return { success: true };
     });
     router.on('reveal-game', async (_event, targetPath) => {
-        const resolvedPath = path.resolve(targetPath);
-        if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
-        const config = await libraryState.resolveLibraryConfig();
-        if (config?.libraryPaths) {
-            const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
-            let safePath: string | null = null;
-            for (const libPath of libraryPaths) {
-                const resolvedLib = path.resolve(libPath);
-                const relative = path.relative(resolvedLib, resolvedPath);
-                if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-                    safePath = path.join(resolvedLib, relative);
-                    break;
-                }
-            }
-            if (safePath) {
-                shell.showItemInFolder(safePath);
-                return;
-            }
+        const safePath = await getSafePathWithinLibrary(targetPath, libraryState);
+        if (safePath) {
+            shell.showItemInFolder(safePath);
+        } else {
+            console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
         }
-        console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${resolvedPath}`);
     });
     router.on('open-path', async (_event, targetPath) => {
-        const resolvedPath = path.resolve(targetPath);
-        if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
-        const config = await libraryState.resolveLibraryConfig();
-        if (config?.libraryPaths) {
-            const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
-            let safePath: string | null = null;
-            for (const libPath of libraryPaths) {
-                const resolvedLib = path.resolve(libPath);
-                const relative = path.relative(resolvedLib, resolvedPath);
-                if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-                    safePath = path.join(resolvedLib, relative);
-                    break;
-                }
-            }
-            if (safePath) {
-                shell.openPath(safePath);
-                return;
-            }
+        const safePath = await getSafePathWithinLibrary(targetPath, libraryState);
+        if (safePath) {
+            shell.openPath(safePath);
+        } else {
+            console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
         }
-        console.warn(`[SECURITY] Blocked unauthorized open-path: ${resolvedPath}`);
     });
     router.handle('delete-game', async (_event, targetPath) => {
-        const resolvedPath = path.resolve(targetPath);
-        if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) {
-            return { ok: false, error: 'unauthorized-path' };
-        }
-        const config = await libraryState.resolveLibraryConfig();
-        if (config?.libraryPaths) {
-            const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
-            let safePath: string | null = null;
-            for (const libPath of libraryPaths) {
-                const resolvedLib = path.resolve(libPath);
-                const relative = path.relative(resolvedLib, resolvedPath);
-                if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-                    safePath = path.join(resolvedLib, relative);
-                    break;
-                }
-            }
-            if (safePath) {
-                return shell.trashItem(safePath);
-            }
+        const safePath = await getSafePathWithinLibrary(targetPath, libraryState);
+        if (safePath) {
+            return shell.trashItem(safePath);
         }
         return { ok: false, error: 'unauthorized-path' };
     });

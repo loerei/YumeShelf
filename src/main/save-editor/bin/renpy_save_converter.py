@@ -30,22 +30,29 @@ def _init_dynamic_mock(base, instance, args, kwargs):
         object.__init__(instance)
 
 
+def _apply_dict_state(base, instance, state):
+    instance.__dict__.update(state)
+    if base is dict:
+        instance.update(state)
+
+def _apply_list_state(base, instance, state):
+    if base is list:
+        instance.extend(state)
+
+def _apply_tuple_state(base, instance, state):
+    for item in state:
+        if isinstance(item, dict):
+            _apply_dict_state(base, instance, item)
+        elif isinstance(item, list):
+            _apply_list_state(base, instance, item)
+
 def _apply_setstate(base, instance, state):
     if isinstance(state, dict):
-        instance.__dict__.update(state)
-        if base is dict:
-            instance.update(state)
+        _apply_dict_state(base, instance, state)
     elif isinstance(state, list):
-        if base is list:
-            instance.extend(state)
+        _apply_list_state(base, instance, state)
     elif isinstance(state, tuple):
-        for item in state:
-            if isinstance(item, dict):
-                instance.__dict__.update(item)
-                if base is dict:
-                    instance.update(item)
-            elif isinstance(item, list) and base is list:
-                instance.extend(item)
+        _apply_tuple_state(base, instance, state)
     else:
         try:
             instance.__dict__.update(state)

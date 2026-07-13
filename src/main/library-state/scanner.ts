@@ -97,7 +97,7 @@ export function getSmartName(exePath: string, topName: string): string {
     const id = /(RJ\d{6,8}|\b\d{6,8}\b)/i.exec(exePath);
     const clean = (value: string) =>
         value
-            .replace(/\[.*?\]/g, ' ')
+            .replace(/\[[^\]]*\]/g, ' ')
             .replace(/\bRJ\d+\b/gi, ' ')
             .replace(/\b\d{6,8}\b/g, ' ')
             .replace(/\b(?:_pc|_win|_dlsite|_eng|subscriber)\b/gi, ' ')

@@ -243,26 +243,36 @@ export class Translator {
         }
     }
 
+    async _translateSingleGoogle(original, target) {
+        const singleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURIComponent(original)}`;
+        const res = await fetch(singleUrl);
+        if (!res.ok) return null;
+        const singleResult = await res.json();
+        return singleResult?.[0]?.[0]?.[0]?.trim() || null;
+    }
+
+    _updateCacheIfChanged(original, translatedText) {
+        if (original === translatedText) {
+            if (this.translationCache[original] !== original) {
+                this.translationCache[original] = original;
+                return true;
+            }
+        } else if (this.translationCache[original] !== translatedText) {
+            this.translationCache[original] = translatedText;
+            console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
+            return true;
+        }
+        return false;
+    }
+
     async _translateIndividualLabels(chunk, resolvedTarget) {
         let changed = false;
         for (const original of chunk) {
             try {
-                const singleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${resolvedTarget}&dt=t&q=${encodeURIComponent(original)}`;
-                const res = await fetch(singleUrl);
-                if (res.ok) {
-                    const singleResult = await res.json();
-                    if (singleResult?.[0]?.[0]?.[0]) {
-                        const translatedText = singleResult[0][0][0].trim();
-                        if (original === translatedText) {
-                            if (this.translationCache[original] !== original) {
-                                this.translationCache[original] = original;
-                                changed = true;
-                            }
-                        } else if (this.translationCache[original] !== translatedText) {
-                            this.translationCache[original] = translatedText;
-                            changed = true;
-                            console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
-                        }
+                const translatedText = await this._translateSingleGoogle(original, resolvedTarget);
+                if (translatedText) {
+                    if (this._updateCacheIfChanged(original, translatedText)) {
+                        changed = true;
                     }
                 }
                 await new Promise(resolve => setTimeout(resolve, 200));

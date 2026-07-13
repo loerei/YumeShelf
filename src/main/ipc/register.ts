@@ -166,21 +166,35 @@ export function registerMainIpc({
         const resolvedPath = path.resolve(targetPath);
         if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
         const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(resolvedPath, config.libraryPaths)) {
-            shell.showItemInFolder(resolvedPath);
-        } else {
-            console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${resolvedPath}`);
+        if (config && config.libraryPaths) {
+            const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
+            const isSafe = libraryPaths.some((libPath: string) => {
+                const relative = path.relative(path.resolve(libPath), resolvedPath);
+                return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+            });
+            if (isSafe) {
+                shell.showItemInFolder(resolvedPath);
+                return;
+            }
         }
+        console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${resolvedPath}`);
     });
     router.on('open-path', async (_event, targetPath) => {
         const resolvedPath = path.resolve(targetPath);
         if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
         const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(resolvedPath, config.libraryPaths)) {
-            shell.openPath(resolvedPath);
-        } else {
-            console.warn(`[SECURITY] Blocked unauthorized open-path: ${resolvedPath}`);
+        if (config && config.libraryPaths) {
+            const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
+            const isSafe = libraryPaths.some((libPath: string) => {
+                const relative = path.relative(path.resolve(libPath), resolvedPath);
+                return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+            });
+            if (isSafe) {
+                shell.openPath(resolvedPath);
+                return;
+            }
         }
+        console.warn(`[SECURITY] Blocked unauthorized open-path: ${resolvedPath}`);
     });
     router.handle('delete-game', async (_event, targetPath) => {
         const resolvedPath = path.resolve(targetPath);
@@ -188,8 +202,15 @@ export function registerMainIpc({
             return { ok: false, error: 'unauthorized-path' };
         }
         const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(resolvedPath, config.libraryPaths)) {
-            return shell.trashItem(resolvedPath);
+        if (config && config.libraryPaths) {
+            const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
+            const isSafe = libraryPaths.some((libPath: string) => {
+                const relative = path.relative(path.resolve(libPath), resolvedPath);
+                return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+            });
+            if (isSafe) {
+                return shell.trashItem(resolvedPath);
+            }
         }
         return { ok: false, error: 'unauthorized-path' };
     });

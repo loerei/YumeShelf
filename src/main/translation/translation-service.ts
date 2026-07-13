@@ -473,6 +473,27 @@ export class TranslationService {
         if (resolvedExePath.includes('..') || !path.isAbsolute(resolvedExePath)) {
             throw new Error('[SECURITY] Blocked unauthorized path access in detectUnityType');
         }
+
+        let isSafe = false;
+        try {
+            const appData = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + '/.config');
+            const dbFile = path.join(appData, 'YumeShelf', 'library_db.json');
+            if (fsSync.existsSync(dbFile)) {
+                const db = JSON.parse(fsSync.readFileSync(dbFile, 'utf8'));
+                const libraryPaths = db?.config?.libraryPaths || [];
+                const pathsToCheck = Array.isArray(libraryPaths) ? libraryPaths : [libraryPaths];
+                isSafe = pathsToCheck.some((libPath) => {
+                    const relative = path.relative(path.resolve(libPath), resolvedExePath);
+                    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+                });
+            }
+        } catch (e) {
+            console.error('[SECURITY] Failed to load library paths for validation:', e);
+        }
+        if (!isSafe) {
+            throw new Error('[SECURITY] Blocked unauthorized path access outside library');
+        }
+
         const exeDir = path.dirname(resolvedExePath);
         const entries = await fs.readdir(exeDir).catch(() => []);
         const dataDir = entries.find(e => e.toLowerCase().endsWith('_data'));
@@ -579,6 +600,27 @@ export class TranslationService {
         if (resolvedExeDir.includes('..') || !path.isAbsolute(resolvedExeDir)) {
             throw new Error('[SECURITY] Blocked unauthorized path access in deployShims');
         }
+
+        let isSafe = false;
+        try {
+            const appData = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + '/.config');
+            const dbFile = path.join(appData, 'YumeShelf', 'library_db.json');
+            if (fsSync.existsSync(dbFile)) {
+                const db = JSON.parse(fsSync.readFileSync(dbFile, 'utf8'));
+                const libraryPaths = db?.config?.libraryPaths || [];
+                const pathsToCheck = Array.isArray(libraryPaths) ? libraryPaths : [libraryPaths];
+                isSafe = pathsToCheck.some((libPath) => {
+                    const relative = path.relative(path.resolve(libPath), resolvedExeDir);
+                    return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+                });
+            }
+        } catch (e) {
+            console.error('[SECURITY] Failed to load library paths for validation:', e);
+        }
+        if (!isSafe) {
+            throw new Error('[SECURITY] Blocked unauthorized path access outside library');
+        }
+
         const sourceShim = path.join(corePath, 'winhttp.dll');
         if (fsSync.existsSync(sourceShim)) await fs.copyFile(sourceShim, path.join(resolvedExeDir, 'winhttp.dll'));
 

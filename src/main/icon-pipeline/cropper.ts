@@ -44,10 +44,10 @@ function scanBitmapOpaqueBounds(bitmap: Buffer, width: number, height: number): 
             const alpha = bitmap[(y * width + x) * 4 + 3];
             if (alpha > 0) {
                 opaquePixels += 1;
-                if (x < minX) minX = x;
-                if (y < minY) minY = y;
-                if (x > maxX) maxX = x;
-                if (y > maxY) maxY = y;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
             }
         }
     }

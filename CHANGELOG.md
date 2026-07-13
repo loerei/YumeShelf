@@ -4,6 +4,12 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
+## [1.6.1] - working
+
+### 🔧 What Changed
+
+- [ipc] Fixed `delete-game` IPC failure where double clicks on the delete button triggered two parallel calls, causing the second call to throw a "Failed to parse path" exception when trying to move an already-moved directory. Added frontend lockout (`isDeleting` flag), exception-safe logging, and clean UI error recovery.
+
 ## [1.6.0] - 2026-07-13 — released
 
 ### ✨ What's New

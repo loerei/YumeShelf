@@ -124,12 +124,24 @@ function bindCardActions(card, game, context) {
         await electronAPI.invoke('translation:start-sync', { gameKey, targetLang });
     };
 
+    let isDeleting = false;
     card.querySelector('.action-delete').onclick = async (event) => {
         event.stopPropagation();
+        if (isDeleting) return;
         if (confirm(d.confirm)) {
-            await electronAPI.invoke('delete-game', game.folderPath);
-            onCardDeleted(gameKey);
-            onRefreshRequested();
+            isDeleting = true;
+            try {
+                console.log('[FRONTEND][DELETE-GAME] Invoking delete-game for path:', game.folderPath);
+                await electronAPI.invoke('delete-game', game.folderPath);
+                console.log('[FRONTEND][DELETE-GAME] delete-game resolved successfully');
+                onCardDeleted(gameKey);
+                onRefreshRequested();
+            } catch (err) {
+                console.error('[FRONTEND][DELETE-GAME] Failed to delete game:', err);
+                alert('Failed to delete game: ' + (err.message || err));
+            } finally {
+                isDeleting = false;
+            }
         }
     };
 

@@ -195,10 +195,19 @@ export function registerMainIpc({
         }
     });
     router.handle('delete-game', async (_event, targetPath) => {
+        console.log('[MAIN][DELETE-GAME] targetPath received:', targetPath);
         const safePath = await getSafePathWithinLibrary(targetPath, libraryState);
+        console.log('[MAIN][DELETE-GAME] resolved safePath:', safePath);
         if (safePath) {
-            return shell.trashItem(safePath);
+            try {
+                await shell.trashItem(safePath);
+                return { ok: true };
+            } catch (err) {
+                console.error('[MAIN][DELETE-GAME] shell.trashItem error:', err);
+                throw err;
+            }
         }
+        console.log('[MAIN][DELETE-GAME] safePath check failed');
         return { ok: false, error: 'unauthorized-path' };
     });
     router.handle('library:add-path', async () => libraryState.addLibraryPath());

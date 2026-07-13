@@ -53,6 +53,35 @@ export async function resolveRenPySave(exeDir: string, exeStem: string): Promise
     return null;
 }
 
+async function tryResolveUnitySaveFromAppInfo(localLow: string, appInfoPath: string): Promise<string | null> {
+    try {
+        const content = await fs.readFile(appInfoPath, 'utf-8');
+        const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (lines.length >= 2) {
+            const company = lines[0];
+            const product = lines[1];
+            const savePath = path.join(localLow, company, product);
+            if (await exists(savePath)) {
+                return savePath;
+            }
+        }
+    } catch {}
+    return null;
+}
+
+async function tryResolveUnitySaveFuzzy(localLow: string, productName: string): Promise<string | null> {
+    try {
+        const lowEntries = await fs.readdir(localLow);
+        for (const companyDir of lowEntries) {
+            const productPath = path.join(localLow, companyDir, productName);
+            if (await exists(productPath)) {
+                return productPath;
+            }
+        }
+    } catch {}
+    return null;
+}
+
 export async function resolveUnitySave(exeDir: string): Promise<ResolvedSaveInfo | null> {
     const localCandidates = ['saves', 'save', 'SaveData', 'save_data'];
     for (const dirName of localCandidates) {
@@ -69,29 +98,16 @@ export async function resolveUnitySave(exeDir: string): Promise<ResolvedSaveInfo
         if (dataFolder) {
             const appInfoPath = path.join(exeDir, dataFolder, 'app.info');
             if (await exists(appInfoPath)) {
-                const content = await fs.readFile(appInfoPath, 'utf-8');
-                const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-                if (lines.length >= 2) {
-                    const company = lines[0];
-                    const product = lines[1];
-                    const savePath = path.join(localLow, company, product);
-                    if (await exists(savePath)) {
-                        return { path: savePath, engine: 'unity', confidence: 'high' };
-                    }
+                const savePath = await tryResolveUnitySaveFromAppInfo(localLow, appInfoPath);
+                if (savePath) {
+                    return { path: savePath, engine: 'unity', confidence: 'high' };
                 }
             }
 
             const productName = dataFolder.replace(/_Data$/, '');
-            try {
-                const lowEntries = await fs.readdir(localLow);
-                for (const companyDir of lowEntries) {
-                    const productPath = path.join(localLow, companyDir, productName);
-                    if (await exists(productPath)) {
-                        return { path: productPath, engine: 'unity', confidence: 'medium' };
-                    }
-                }
-            } catch {
-                // ignore
+            const fuzzyPath = await tryResolveUnitySaveFuzzy(localLow, productName);
+            if (fuzzyPath) {
+                return { path: fuzzyPath, engine: 'unity', confidence: 'medium' };
             }
         }
     } catch {

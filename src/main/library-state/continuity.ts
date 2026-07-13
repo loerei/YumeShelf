@@ -9,7 +9,7 @@ import {
 export function normalizeComparableText(value: any): string {
     return String(value || '')
         .toLowerCase()
-        .replace(/\[[^\]]*]/g, ' ')
+        .replace(/\[[^\]]*\]/g, ' ')
         .replace(/\b(rj\d{6,8}|\d{6,8})\b/gi, ' ')
         .replace(/\bv?\d+(?:\.\d+)+(?:\s*[a-z]+)?\b/gi, ' ')
         .replace(/[_-]+/g, ' ')
@@ -27,7 +27,7 @@ export function getExecutableStem(exePath: string): string {
 export function buildContinuitySignature(record: any): string | null {
     if (!record) return null;
     const signatureSource = `${record.folderName || getLeafFolderName(record.folderPath)} ${record.exePath || ''}`;
-    const idMatch = signatureSource.match(/(RJ\d{6,8}|\b\d{6,8}\b)/i);
+    const idMatch = /(RJ\d{6,8}|\b\d{6,8}\b)/i.exec(signatureSource);
     if (idMatch) {
         return `id:${idMatch[0].toUpperCase()}`;
     }

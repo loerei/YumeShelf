@@ -38,7 +38,7 @@ export function bindGlobalUiEvents({
             if (saveEditorOverlay) {
                 const closeBtn = saveEditorOverlay.querySelector('.save-editor-close') as HTMLElement | null;
                 if (closeBtn) closeBtn.click();
-            } else if (refs.languagePackOverlay && refs.languagePackOverlay.style.display === 'flex') {
+            } else if (refs.languagePackOverlay?.style.display === 'flex') {
                 closeLanguagePackModal();
             } else if (duplicateStackOverlayController.isOpen()) {
                 duplicateStackOverlayController.close();
@@ -74,18 +74,7 @@ export function bindWindowStatusEvents(uiTextController: BindWindowStatusEventsC
     });
 }
 
-export function bindControlEvents({
-    refs,
-    settingsController,
-    localeController,
-    languagePackController,
-    startupController,
-    searchController,
-    sortGames,
-    reannotateGames,
-    currentSort,
-    setCurrentLanguage
-}: BindControlEventsOptions): void {
+function bindSetupAndNavigation(refs: RendererRefs, startupController: any, settingsController: any, languagePackController: any) {
     if (refs.buttons.setupDefault) {
         refs.buttons.setupDefault.onclick = async () => { await startupController.handleSetupDefault(); };
     }
@@ -119,7 +108,9 @@ export function bindControlEvents({
     if (refs.languagePackSearch) {
         refs.languagePackSearch.oninput = () => languagePackController.handleSearchInput();
     }
+}
 
+function bindLibraryControls(refs: RendererRefs, sortGames: (sort: string) => void, currentSort: () => string, searchController: any) {
     if (refs.sortBtn && refs.sortMenu) {
         refs.sortBtn.onclick = (event) => {
             event.stopPropagation();
@@ -139,6 +130,21 @@ export function bindControlEvents({
         };
     });
 
+    if (refs.searchInput) {
+        refs.searchInput.oninput = (event) => searchController.updateSearch((event.target as HTMLInputElement).value);
+        refs.searchInput.onfocus = (event) => searchController.updateSearch((event.target as HTMLInputElement).value);
+    }
+}
+
+function bindSettingsConfiguration(
+    refs: RendererRefs,
+    settingsController: any,
+    startupController: any,
+    reannotateGames: () => void,
+    sortGames: (sort: string) => void,
+    currentSort: () => string,
+    setCurrentLanguage: (lang: string) => void
+) {
     if (refs.themeSelect) {
         refs.themeSelect.onchange = (event) => {
             settingsController.handleThemeChange((event.target as HTMLSelectElement).value);
@@ -200,11 +206,14 @@ export function bindControlEvents({
             if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) return;
             event.preventDefault();
             const inputEl = event.target as HTMLInputElement;
-            const maxDepth = event.key === 'ArrowUp'
-                ? settingsController.handleMaxDepthStep(1)
-                : event.key === 'ArrowDown'
-                    ? settingsController.handleMaxDepthStep(-1)
-                    : settingsController.handleMaxDepthChange(inputEl.value);
+            let maxDepth;
+            if (event.key === 'ArrowUp') {
+                maxDepth = settingsController.handleMaxDepthStep(1);
+            } else if (event.key === 'ArrowDown') {
+                maxDepth = settingsController.handleMaxDepthStep(-1);
+            } else {
+                maxDepth = settingsController.handleMaxDepthChange(inputEl.value);
+            }
             await startupController.handleLibraryConfigChange({ maxDepth });
         };
     }
@@ -213,12 +222,9 @@ export function bindControlEvents({
             setCurrentLanguage((event.target as HTMLSelectElement).value);
         };
     }
-    if (refs.searchInput) {
-        refs.searchInput.oninput = (event) => searchController.updateSearch((event.target as HTMLInputElement).value);
-        refs.searchInput.onfocus = (event) => searchController.updateSearch((event.target as HTMLInputElement).value);
-    }
+}
 
-    // Telemetry Events binding
+function bindTelemetryEvents(refs: RendererRefs) {
     if (refs.telemetrySelect) {
         refs.telemetrySelect.onchange = async (event) => {
             const selectEl = event.target as HTMLSelectElement;
@@ -250,4 +256,22 @@ export function bindControlEvents({
             }
         };
     }
+}
+
+export function bindControlEvents({
+    refs,
+    settingsController,
+    localeController,
+    languagePackController,
+    startupController,
+    searchController,
+    sortGames,
+    reannotateGames,
+    currentSort,
+    setCurrentLanguage
+}: BindControlEventsOptions): void {
+    bindSetupAndNavigation(refs, startupController, settingsController, languagePackController);
+    bindLibraryControls(refs, sortGames, currentSort, searchController);
+    bindSettingsConfiguration(refs, settingsController, startupController, reannotateGames, sortGames, currentSort, setCurrentLanguage);
+    bindTelemetryEvents(refs);
 }

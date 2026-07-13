@@ -86,20 +86,20 @@ export function createStartupServices({
                 key: 'boot_app_update_timeout',
                 fallbackText: 'App update check timed out, continuing startup'
             });
-        } else if (!appUpdateProbe.ok) {
-            const offline = isNetworkLikeError(appUpdateProbe.error);
-            appUpdateCheck.source = offline ? 'offline' : 'error';
-            appUpdateCheck.offline = offline;
-            appUpdateCheck.error = String((appUpdateProbe.error && appUpdateProbe.error.message) || appUpdateProbe.error || '');
-            emitBootStatus(webContents, {
-                key: offline ? 'boot_app_update_offline' : 'boot_app_update_failed',
-                fallbackText: offline ? 'No internet, skipping app update check' : 'App update check failed, continuing startup'
-            });
-        } else {
+        } else if (appUpdateProbe.ok) {
             Object.assign(appUpdateCheck, appUpdateProbe.value || {});
             emitBootStatus(webContents, {
                 key: appUpdateCheck.available ? 'boot_app_update_available' : 'boot_app_update_latest',
                 fallbackText: appUpdateCheck.available ? 'New app update available' : 'App update check finished'
+            });
+        } else {
+            const offline = isNetworkLikeError(appUpdateProbe.error);
+            appUpdateCheck.source = offline ? 'offline' : 'error';
+            appUpdateCheck.offline = offline;
+            appUpdateCheck.error = String(appUpdateProbe.error?.message || appUpdateProbe.error || '');
+            emitBootStatus(webContents, {
+                key: offline ? 'boot_app_update_offline' : 'boot_app_update_failed',
+                fallbackText: offline ? 'No internet, skipping app update check' : 'App update check failed, continuing startup'
             });
         }
     }
@@ -170,7 +170,7 @@ export function createStartupServices({
             const offline = isNetworkLikeError(manifestProbe.error);
             languagePackCheck.source = offline ? 'offline' : 'error';
             languagePackCheck.offline = offline;
-            languagePackCheck.error = String((manifestProbe.error && manifestProbe.error.message) || manifestProbe.error || '');
+            languagePackCheck.error = String(manifestProbe.error?.message || manifestProbe.error || '');
             emitBootStatus(webContents, {
                 key: offline ? 'boot_language_pack_source_offline' : 'boot_language_pack_source_failed',
                 fallbackText: offline ? 'No internet, skipping language pack check' : 'Language pack check failed, continuing startup'

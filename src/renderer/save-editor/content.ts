@@ -33,10 +33,258 @@ function getPinHandler(context, pinId) {
     return { isPinned, onPinToggle };
 }
 
-export function renderTabContent(context) {
-    const { refs, state, engine, translator, activeVisibleTabs } = context;
+interface PinnedCategoryOptions {
+    context: any;
+    root: any;
+    party: any;
+    variables: any;
+    switches: any;
+    originalRoot: any;
+    originalParty: any;
+    originalVariables: any;
+    originalSwitches: any;
+    grid: HTMLElement;
+}
+
+function renderPinnedCategory(opts: PinnedCategoryOptions) {
+    const { context, root, party, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, grid } = opts;
+    const d = context.state.d || {};
+
+    // 1. Pinned Gold
+    const goldInfo = context.engine.findGold(root, party);
+    const origGoldInfo = originalRoot ? context.engine.findGold(originalRoot, originalParty) : null;
+    const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
+    const goldPinId = "gold:GOLD";
+    
+    if (goldInfo && context.state.pinnedVariables?.has(goldPinId)) {
+        const label = d.save_editor_gold || 'Gold';
+        const isPinned = true;
+        const onPinToggle = () => {
+            if (context.state.pinnedVariables) {
+                context.state.pinnedVariables.delete(goldPinId);
+                if (context.state.savePinnedVariables) context.state.savePinnedVariables();
+            }
+            if (typeof context.setupTabs === 'function') context.setupTabs();
+            renderTabContent(context);
+        };
+        const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
+            goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
+        }, originalGoldVal, isPinned, onPinToggle);
+        row.style.gridColumn = '1 / -1';
+        row.style.maxWidth = '300px';
+        grid.appendChild(row);
+    }
+
+    // 2. Pinned Items, Weapons, Armors
+    ['items', 'weapons', 'armors'].forEach(key => {
+        const meta = context.state.currentMetadata ? context.state.currentMetadata[key] : {};
+        renderInventory(context, party || root, key, meta || {}, grid, originalParty || originalRoot, true);
+    });
+
+    // 3. Pinned Variables
+    if (variables) {
+        const meta = context.state.currentMetadata ? context.state.currentMetadata.variables : {};
+        renderBitset(context, variables, meta || {}, grid, {
+            onUpdate: (id, val, newVal, container) => {
+                const num = Number(newVal);
+                container[id] = Number.isNaN(num) ? newVal : num;
+            },
+            isNumeric: true,
+            originalData: originalVariables,
+            type: 'variables',
+            onlyPinned: true
+        });
+    }
+
+    // 4. Pinned Switches
+    if (switches) {
+        const meta = context.state.currentMetadata ? context.state.currentMetadata.switches : {};
+        renderBitset(context, switches, meta || {}, grid, {
+            onUpdate: (id, val, newVal, container) => {
+                container[id] = newVal;
+            },
+            isNumeric: false,
+            originalData: originalSwitches,
+            type: 'switches',
+            onlyPinned: true
+        });
+    }
+}
+
+function renderGoldCategory(context, root, party, originalRoot, originalParty, grid) {
+    const d = context.state.d || {};
+    const goldInfo = context.engine.findGold(root, party);
+    const origGoldInfo = originalRoot ? context.engine.findGold(originalRoot, originalParty) : null;
+    const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
+    
+    if (goldInfo) {
+        const label = d.save_editor_gold || 'Gold';
+        if (!context.engine.matchesQuery('GOLD', goldInfo.val, label)) return;
+
+        const goldPinId = "gold:GOLD";
+        const isPinned = context.state.pinnedVariables ? context.state.pinnedVariables.has(goldPinId) : false;
+        const onPinToggle = () => {
+            if (!context.state.pinnedVariables) return;
+            if (context.state.pinnedVariables.has(goldPinId)) {
+                context.state.pinnedVariables.delete(goldPinId);
+            } else {
+                context.state.pinnedVariables.add(goldPinId);
+            }
+            if (context.state.savePinnedVariables) context.state.savePinnedVariables();
+            if (typeof context.setupTabs === 'function') context.setupTabs();
+            renderTabContent(context);
+        };
+
+        const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
+            goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
+        }, originalGoldVal, isPinned, onPinToggle);
+        row.style.gridColumn = '1 / -1';
+        row.style.maxWidth = '300px';
+        grid.appendChild(row);
+    }
+}
+
+function renderSingleCategory(tabId, grid, context, data) {
+    const { root, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, party } = data;
+    if (tabId === 'pinned' && root) {
+        renderPinnedCategory({ context, root, party, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, grid });
+    } else if (tabId === 'gold' && root) {
+        renderGoldCategory(context, root, party, originalRoot, originalParty, grid);
+    } else if (['items', 'weapons', 'armors'].includes(tabId) && root) {
+        renderInventory(context, party || root, tabId, context.state.currentMetadata[tabId], grid, originalParty || originalRoot);
+    } else if (tabId.startsWith('prefix_') && variables) {
+        const activePrefix = tabId.replace('prefix_', '');
+        const filteredVars = new Proxy(root, {
+            ownKeys(target) {
+                return Object.keys(target).filter(k => k.startsWith(`store.${activePrefix}_`));
+            },
+            get(target, key) { return target[key]; },
+            set(target, key, val) { target[key] = val; return true; },
+            getOwnPropertyDescriptor(target, key) {
+                return { enumerable: true, configurable: true, writable: true };
+            }
+        });
+        renderBitset(context, filteredVars, context.state.currentMetadata.variables, grid, {
+            onUpdate: (id, val, newVal, container) => {
+                const num = Number(newVal);
+                container[id] = Number.isNaN(num) ? newVal : num;
+            },
+            isNumeric: true,
+            originalData: originalVariables,
+            type: 'variables'
+        });
+    } else if (tabId === 'variables' && variables) {
+        renderBitset(context, variables, context.state.currentMetadata.variables, grid, {
+            onUpdate: (id, val, newVal, container) => {
+                const num = Number(newVal);
+                container[id] = Number.isNaN(num) ? newVal : num;
+            },
+            isNumeric: true,
+            originalData: originalVariables,
+            type: 'variables'
+        });
+    } else if (tabId === 'switches' && switches) {
+        renderBitset(context, switches, context.state.currentMetadata.switches, grid, {
+            onUpdate: (id, val, newVal, container) => {
+                container[id] = newVal;
+            },
+            isNumeric: false,
+            originalData: originalSwitches,
+            type: 'switches'
+        });
+    }
+}
+
+function renderAllCategoryTab(context, data) {
+    const { refs, engine, translator, activeVisibleTabs } = context;
     const { content } = refs;
-    const d = state.d || {};
+    let hasAnyData = false;
+    const categories = activeVisibleTabs.filter(t => t.id !== 'all' && t.id !== 'pinned');
+    
+    // Create and append Expand All / Collapse All controls at the top
+    const controls = document.createElement('div');
+    controls.className = 'all-tab-controls';
+    
+    const expandAllBtn = document.createElement('button');
+    expandAllBtn.className = 'all-tab-btn';
+    expandAllBtn.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
+        <span>Expand All</span>
+    `;
+    expandAllBtn.onclick = () => {
+        content.querySelectorAll('.save-section').forEach(sec => {
+            sec.classList.remove('collapsed');
+        });
+    };
+    
+    const collapseAllBtn = document.createElement('button');
+    collapseAllBtn.className = 'all-tab-btn';
+    collapseAllBtn.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 14 10 14 10 20"></polyline>
+            <polyline points="20 10 14 10 14 4"></polyline>
+            <line x1="14" y1="10" x2="21" y2="3"></line>
+            <line x1="10" y1="14" x2="3" y2="21"></line>
+        </svg>
+        <span>Collapse All</span>
+    `;
+    collapseAllBtn.onclick = () => {
+        content.querySelectorAll('.save-section').forEach(sec => {
+            sec.classList.add('collapsed');
+        });
+    };
+    
+    controls.appendChild(expandAllBtn);
+    controls.appendChild(collapseAllBtn);
+    content.appendChild(controls);
+    
+    categories.forEach(cat => {
+        const section = document.createElement('div');
+        section.className = 'save-section';
+        
+        const header = document.createElement('div');
+        header.className = 'save-section-header';
+        header.textContent = cat.label;
+        if (cat.i18n) {
+            header.dataset.i18n = cat.i18n;
+        }
+        
+        header.onclick = () => {
+            section.classList.toggle('collapsed');
+        };
+        
+        section.appendChild(header);
+        
+        const grid = document.createElement('div');
+        grid.className = 'save-grid';
+        
+        renderSingleCategory(cat.id, grid, context, data);
+        
+        if (grid.children.length > 0) {
+            section.appendChild(grid);
+            content.appendChild(section);
+            hasAnyData = true;
+        }
+    });
+    
+    if (!hasAnyData) {
+        controls.remove();
+        const msg = engine.searchOptions.query ? 'No results found' : 'No data found';
+        content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+    } else {
+        translator.applyTranslations(content);
+        translator.applyCachedLabels(content);
+    }
+}
+
+export function renderTabContent(context) {
+    const { refs, state, engine, translator } = context;
+    const { content } = refs;
     content.innerHTML = '';
     
     const root = engine.extractRoot(state.currentSaveData);
@@ -49,210 +297,24 @@ export function renderTabContent(context) {
     const originalVariables = originalRoot ? (originalRoot.variables || originalRoot._variables || engine.getProp(originalRoot, 'variables')) : null;
     const originalSwitches = originalRoot ? (originalRoot.switches || originalRoot._switches || engine.getProp(originalRoot, 'switches')) : null;
 
-    /**
-     * @param {string} tabId
-     * @param {HTMLElement} grid
-     */
-    const renderSingleCategory = (tabId, grid) => {
-        if (tabId === 'pinned' && root) {
-            // 1. Pinned Gold
-            const goldInfo = engine.findGold(root, party);
-            const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
-            const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
-            const goldPinId = "gold:GOLD";
-            
-            if (goldInfo && state.pinnedVariables && state.pinnedVariables.has(goldPinId)) {
-                const label = d.save_editor_gold || 'Gold';
-                const isPinned = true;
-                const onPinToggle = () => {
-                    if (state.pinnedVariables) {
-                        state.pinnedVariables.delete(goldPinId);
-                        if (state.savePinnedVariables) state.savePinnedVariables();
-                    }
-                    if (typeof context.setupTabs === 'function') context.setupTabs();
-                    renderTabContent(context);
-                };
-                const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
-                    goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
-                }, originalGoldVal, isPinned, onPinToggle);
-                row.style.gridColumn = '1 / -1';
-                row.style.maxWidth = '300px';
-                grid.appendChild(row);
-            }
-
-            // 2. Pinned Items, Weapons, Armors
-            ['items', 'weapons', 'armors'].forEach(key => {
-                const meta = state.currentMetadata ? state.currentMetadata[key] : {};
-                renderInventory(context, party || root, key, meta || {}, grid, originalParty || originalRoot, true);
-            });
-
-            // 3. Pinned Variables
-            if (variables) {
-                const meta = state.currentMetadata ? state.currentMetadata.variables : {};
-                renderBitset(context, variables, meta || {}, grid, (id, val, newVal, container) => {
-                    const num = Number(newVal);
-                    container[id] = Number.isNaN(num) ? newVal : num;
-                }, true, originalVariables, 'variables', true);
-            }
-
-            // 4. Pinned Switches
-            if (switches) {
-                const meta = state.currentMetadata ? state.currentMetadata.switches : {};
-                renderBitset(context, switches, meta || {}, grid, (id, val, newVal, container) => {
-                    container[id] = newVal;
-                }, false, originalSwitches, 'switches', true);
-            }
-        } else if (tabId === 'gold' && root) {
-            const goldInfo = engine.findGold(root, party);
-            const origGoldInfo = originalRoot ? engine.findGold(originalRoot, originalParty) : null;
-            const originalGoldVal = origGoldInfo ? origGoldInfo.val : undefined;
-            
-            if (goldInfo) {
-                const label = d.save_editor_gold || 'Gold';
-                // Apply query filtering to Gold so it obeys search parameters
-                if (!engine.matchesQuery('GOLD', goldInfo.val, label)) return;
-
-                const goldPinId = "gold:GOLD";
-                const isPinned = state.pinnedVariables ? state.pinnedVariables.has(goldPinId) : false;
-                const onPinToggle = () => {
-                    if (!state.pinnedVariables) return;
-                    if (state.pinnedVariables.has(goldPinId)) {
-                        state.pinnedVariables.delete(goldPinId);
-                    } else {
-                        state.pinnedVariables.add(goldPinId);
-                    }
-                    if (state.savePinnedVariables) state.savePinnedVariables();
-                    if (typeof context.setupTabs === 'function') context.setupTabs();
-                    renderTabContent(context);
-                };
-
-                const row = UIComponents.createDataRow('GOLD', goldInfo.val, label, (val) => {
-                    goldInfo.obj[goldInfo.key] = Number.parseInt(val) || 0;
-                }, originalGoldVal, isPinned, onPinToggle);
-                row.style.gridColumn = '1 / -1';
-                row.style.maxWidth = '300px';
-                grid.appendChild(row);
-            }
-        } else if (['items', 'weapons', 'armors'].includes(tabId) && root) {
-            renderInventory(context, party || root, tabId, state.currentMetadata[tabId], grid, originalParty || originalRoot);
-        } else if (tabId.startsWith('prefix_') && variables) {
-            const activePrefix = tabId.replace('prefix_', '');
-            const filteredVars = new Proxy(root, {
-                ownKeys(target) {
-                    return Object.keys(target).filter(k => k.startsWith(`store.${activePrefix}_`));
-                },
-                get(target, key) { return target[key]; },
-                set(target, key, val) { target[key] = val; return true; },
-                getOwnPropertyDescriptor(target, key) {
-                    return { enumerable: true, configurable: true, writable: true };
-                }
-            });
-            renderBitset(context, filteredVars, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
-                const num = Number(newVal);
-                container[id] = Number.isNaN(num) ? newVal : num;
-            }, true, originalVariables, 'variables');
-        } else if (tabId === 'variables' && variables) {
-            renderBitset(context, variables, state.currentMetadata.variables, grid, (id, val, newVal, container) => {
-                const num = Number(newVal);
-                container[id] = Number.isNaN(num) ? newVal : num;
-            }, true, originalVariables, 'variables');
-        } else if (tabId === 'switches' && switches) {
-            renderBitset(context, switches, state.currentMetadata.switches, grid, (id, val, newVal, container) => {
-                container[id] = newVal;
-            }, false, originalSwitches, 'switches');
-        }
+    const data = {
+        root,
+        party,
+        variables,
+        switches,
+        originalRoot,
+        originalParty,
+        originalVariables,
+        originalSwitches
     };
 
     if (state.activeTab === 'all') {
-        let hasAnyData = false;
-        const categories = activeVisibleTabs.filter(t => t.id !== 'all' && t.id !== 'pinned');
-        
-        // Create and append Expand All / Collapse All controls at the top
-        const controls = document.createElement('div');
-        controls.className = 'all-tab-controls';
-        
-        const expandAllBtn = document.createElement('button');
-        expandAllBtn.className = 'all-tab-btn';
-        expandAllBtn.innerHTML = `
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <polyline points="9 21 3 21 3 15"></polyline>
-                <line x1="21" y1="3" x2="14" y2="10"></line>
-                <line x1="3" y1="21" x2="10" y2="14"></line>
-            </svg>
-            <span>Expand All</span>
-        `;
-        expandAllBtn.onclick = () => {
-            content.querySelectorAll('.save-section').forEach(sec => {
-                sec.classList.remove('collapsed');
-            });
-        };
-        
-        const collapseAllBtn = document.createElement('button');
-        collapseAllBtn.className = 'all-tab-btn';
-        collapseAllBtn.innerHTML = `
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="4 14 10 14 10 20"></polyline>
-                <polyline points="20 10 14 10 14 4"></polyline>
-                <line x1="14" y1="10" x2="21" y2="3"></line>
-                <line x1="10" y1="14" x2="3" y2="21"></line>
-            </svg>
-            <span>Collapse All</span>
-        `;
-        collapseAllBtn.onclick = () => {
-            content.querySelectorAll('.save-section').forEach(sec => {
-                sec.classList.add('collapsed');
-            });
-        };
-        
-        controls.appendChild(expandAllBtn);
-        controls.appendChild(collapseAllBtn);
-        content.appendChild(controls);
-        
-        categories.forEach(cat => {
-            const section = document.createElement('div');
-            section.className = 'save-section';
-            
-            const header = document.createElement('div');
-            header.className = 'save-section-header';
-            header.textContent = cat.label;
-            if (cat.i18n) {
-                header.setAttribute('data-i18n', cat.i18n);
-            }
-            
-            // Click to toggle collapsed state on this section
-            header.onclick = () => {
-                section.classList.toggle('collapsed');
-            };
-            
-            section.appendChild(header);
-            
-            const grid = document.createElement('div');
-            grid.className = 'save-grid';
-            
-            renderSingleCategory(cat.id, grid);
-            
-            if (grid.children.length > 0) {
-                section.appendChild(grid);
-                content.appendChild(section);
-                hasAnyData = true;
-            }
-        });
-        
-        if (hasAnyData) {
-            translator.applyTranslations(content);
-            translator.applyCachedLabels(content);
-        } else {
-            // Remove controls if there is no data at all
-            controls.remove();
-            const msg = engine.searchOptions.query ? 'No results found' : 'No data found';
-            content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
-        }
+        renderAllCategoryTab(context, data);
     } else {
         const grid = document.createElement('div');
         grid.className = 'save-grid';
         
-        renderSingleCategory(state.activeTab, grid);
+        renderSingleCategory(state.activeTab, grid, context, data);
         
         if (grid.children.length === 0) {
             const msg = engine.searchOptions.query ? 'No results found' : 'No data found in this category';
@@ -275,7 +337,7 @@ export function renderTabContent(context) {
  */
 export function renderInventory(context, target, key, metaSource, grid, originalTarget, onlyPinned = false) {
     const { state, engine, translator } = context;
-    const actualKey = target['_' + key] === undefined ? key : '_' + key;
+    const actualKey = target['_' + key] !== undefined ? '_' + key : key;
     const items = engine.extractData(target[actualKey]);
     const originalItems = originalTarget ? engine.extractData(originalTarget[actualKey]) : null;
     
@@ -306,11 +368,12 @@ export function renderInventory(context, target, key, metaSource, grid, original
 
     sortedIds.forEach(id => {
         const val = items[id] !== undefined ? items[id] : 0;
-        const originalVal = originalItems && originalItems[id] !== undefined ? originalItems[id] : undefined;
+        const originalVal = originalItems?.[id];
         
         // Check if we are filtering for onlyPinned
         const pinId = key + ":" + id;
-        if (onlyPinned && (!state.pinnedVariables || !state.pinnedVariables.has(pinId))) return;
+        const isVarPinned = state.pinnedVariables?.has(pinId) ?? false;
+        if (onlyPinned && !isVarPinned) return;
 
         // If showEmpty is unchecked, hide items with quantity <= 0
         if (!state.showEmpty && !onlyPinned && val <= 0) return;
@@ -335,17 +398,71 @@ export function renderInventory(context, target, key, metaSource, grid, original
     });
 }
 
+interface CheckboxRowOptions {
+    grid: HTMLElement;
+    id: any;
+    val: any;
+    name: string;
+    context: any;
+    pinId: string;
+    originalVal: any;
+    onUpdate: Function;
+    raw: any;
+}
+
+function renderCheckboxRow(opts: CheckboxRowOptions) {
+    const { grid, id, val, name, context, pinId, originalVal, onUpdate, raw } = opts;
+    const { onPinToggle, isPinned } = getPinHandler(context, pinId);
+    const row = document.createElement('div');
+    row.className = 'data-row checkbox-row';
+    
+    let deltaHTML = '';
+    if (originalVal !== undefined && originalVal !== val) {
+        deltaHTML = `<span class="data-delta" style="font-size:0.85em; font-weight:bold; color:#fbbf24; margin-left:auto;">(was: ${originalVal})</span>`;
+    }
+    
+    let pinBtnHTML = '';
+    if (typeof onPinToggle === 'function') {
+        pinBtnHTML = `<div class="data-pin-btn ${isPinned ? 'active' : ''}">★</div>`;
+    }
+    
+    row.innerHTML = `
+        ${pinBtnHTML}
+        <span class="data-id">#${id}</span>
+        <label class="data-label" title="${name}">${name}</label>
+        ${deltaHTML}
+        <input type="checkbox" ${val ? 'checked' : ''}>
+    `;
+    
+    if (onPinToggle) {
+        const pinBtnEl = row.querySelector('.data-pin-btn');
+        if (pinBtnEl) {
+            pinBtnEl.onclick = (e) => {
+                e.stopPropagation();
+                onPinToggle();
+            };
+        }
+    }
+    
+    const checkboxInput = row.querySelector('input');
+    if (checkboxInput) {
+        checkboxInput.onchange = (e) => {
+            onUpdate(id, val, e.target.checked, raw);
+        };
+    }
+    attachSaveEditorTooltip(row, () => ({ title: name }));
+    grid.appendChild(row);
+}
+
 /**
+ * @param {any} context
  * @param {any} data
  * @param {any} metaSource
  * @param {HTMLElement} grid
- * @param {(id: string | number, val: any, newVal: any, container: any) => void} onUpdate
- * @param {boolean} isNumeric
- * @param {any} originalData
- * @param {string} type
- * @param {boolean} [onlyPinned]
+ * @param {any} options
  */
-export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeric, originalData, type, onlyPinned = false) {
+export function renderBitset(context, data, metaSource, grid, options) {
+    const { onUpdate, isNumeric, originalData, type, onlyPinned = false } = options;
     const { state, engine, translator } = context;
     const raw = engine.extractData(data);
     const originalRaw = originalData ? engine.extractData(originalData) : null;
@@ -355,7 +472,8 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
         
         // Check if we are filtering for onlyPinned
         const pinId = type + ":" + id;
-        if (onlyPinned && (!state.pinnedVariables || !state.pinnedVariables.has(pinId))) return;
+        const isVarPinned = state.pinnedVariables?.has(pinId) ?? false;
+        if (onlyPinned && !isVarPinned) return;
 
         const name = metaSource[id] || `ID #${id}`;
         const translated = translator.translationCache[name];
@@ -381,55 +499,15 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
 
         if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;
 
-        const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
-
-        const { isPinned, onPinToggle } = getPinHandler(context, pinId);
+        const originalVal = originalRaw?.[id];
 
         if (isNumeric) {
+            const { isPinned, onPinToggle } = getPinHandler(context, pinId);
             const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv, raw), originalVal, isPinned, onPinToggle);
             attachSaveEditorTooltip(row, () => ({ title: name }));
             grid.appendChild(row);
         } else {
-            const row = document.createElement('div');
-            row.className = 'data-row checkbox-row';
-            
-            let deltaHTML = '';
-            if (originalVal !== undefined && originalVal !== val) {
-                deltaHTML = `<span class="data-delta" style="font-size:0.85em; font-weight:bold; color:#fbbf24; margin-left:auto;">(was: ${originalVal})</span>`;
-            }
-            
-            let pinBtnHTML = '';
-            if (typeof onPinToggle === 'function') {
-                pinBtnHTML = `<div class="data-pin-btn ${isPinned ? 'active' : ''}">★</div>`;
-            }
-            
-            row.innerHTML = `
-                ${pinBtnHTML}
-                <span class="data-id">#${id}</span>
-                <label class="data-label" title="${name}">${name}</label>
-                ${deltaHTML}
-                <input type="checkbox" ${val ? 'checked' : ''}>
-            `;
-            
-            if (onPinToggle) {
-                const pinBtnEl = row.querySelector('.data-pin-btn');
-                if (pinBtnEl) {
-                    pinBtnEl.onclick = (e) => {
-                        e.stopPropagation();
-                        onPinToggle();
-                    };
-                }
-            }
-            
-            const checkboxInput = row.querySelector('input');
-            if (checkboxInput) {
-                checkboxInput.onchange = (e) => {
-                    const target = e.target;
-                    onUpdate(id, val, target.checked, raw);
-                };
-            }
-            attachSaveEditorTooltip(row, () => ({ title: name }));
-            grid.appendChild(row);
+            renderCheckboxRow({ grid, id, val, name, context, pinId, originalVal, onUpdate, raw });
         }
     };
 

@@ -42,6 +42,19 @@ export class RpgMakerExtractor implements TranslationExtractor {
         return Array.from(strings);
     }
 
+    private extractFromCommand(cmd: any, strings: Set<string>) {
+        if (!cmd) return;
+        if (cmd.code === 401 && cmd.parameters && typeof cmd.parameters[0] === 'string') {
+            this.addCleanString(cmd.parameters[0], strings);
+        } else if (cmd.code === 402 && cmd.parameters && typeof cmd.parameters[1] === 'string') {
+            this.addCleanString(cmd.parameters[1], strings);
+        } else if (cmd.code === 102 && cmd.parameters && Array.isArray(cmd.parameters[0])) {
+            for (const choice of cmd.parameters[0]) {
+                if (typeof choice === 'string') this.addCleanString(choice, strings);
+            }
+        }
+    }
+
     private extractFromMap(mapJson: any, strings: Set<string>) {
         if (!mapJson || !Array.isArray(mapJson.events)) return;
 
@@ -55,20 +68,18 @@ export class RpgMakerExtractor implements TranslationExtractor {
             for (const page of event.pages) {
                 if (!page || !Array.isArray(page.list)) continue;
                 for (const cmd of page.list) {
-                    // Code 401 = Show Text dialogue line
-                    // Code 402 = Show Choices selection option
-                    // Code 102 = Choice headers / parameters
-                    if (cmd.code === 401 && cmd.parameters && typeof cmd.parameters[0] === 'string') {
-                        this.addCleanString(cmd.parameters[0], strings);
-                    } else if (cmd.code === 402 && cmd.parameters && typeof cmd.parameters[1] === 'string') {
-                        this.addCleanString(cmd.parameters[1], strings);
-                    } else if (cmd.code === 102 && cmd.parameters && Array.isArray(cmd.parameters[0])) {
-                        for (const choice of cmd.parameters[0]) {
-                            if (typeof choice === 'string') this.addCleanString(choice, strings);
-                        }
-                    }
+                    this.extractFromCommand(cmd, strings);
                 }
             }
+        }
+    }
+
+    private extractFromDbCommand(cmd: any, strings: Set<string>) {
+        if (!cmd) return;
+        if (cmd.code === 401 && cmd.parameters && typeof cmd.parameters[0] === 'string') {
+            this.addCleanString(cmd.parameters[0], strings);
+        } else if (cmd.code === 402 && cmd.parameters && typeof cmd.parameters[1] === 'string') {
+            this.addCleanString(cmd.parameters[1], strings);
         }
     }
 
@@ -84,11 +95,7 @@ export class RpgMakerExtractor implements TranslationExtractor {
             // Parse nested common events
             if (Array.isArray(item.list)) {
                 for (const cmd of item.list) {
-                    if (cmd.code === 401 && cmd.parameters && typeof cmd.parameters[0] === 'string') {
-                        this.addCleanString(cmd.parameters[0], strings);
-                    } else if (cmd.code === 402 && cmd.parameters && typeof cmd.parameters[1] === 'string') {
-                        this.addCleanString(cmd.parameters[1], strings);
-                    }
+                    this.extractFromDbCommand(cmd, strings);
                 }
             }
         }
@@ -126,7 +133,7 @@ export class RpgMakerExtractor implements TranslationExtractor {
         if (!trimmed || /^\d+$/.test(trimmed) || trimmed.startsWith('//') || trimmed.length <= 1) return;
         
         // Escape newlines to match XUnity.AutoTranslator dictionary format (single line per entry)
-        const escaped = trimmed.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
+        const escaped = trimmed.replaceAll('\r\n', String.raw`\n`).replaceAll('\n', String.raw`\n`).replaceAll('\r', String.raw`\n`);
         strings.add(escaped);
     }
 }

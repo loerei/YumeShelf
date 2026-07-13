@@ -1,8 +1,25 @@
 import { App, IpcMain, Shell, BrowserWindow } from 'electron';
 import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 import { TelemetryShipper } from '../telemetry/shipper';
-import { isPathWithinLibrary } from './path-validator';
 import { IpcInvokes, IpcSends } from '../../shared/types/ipc';
+
+async function getSafePathWithinLibrary(targetPath: string, libraryState: any): Promise<string | null> {
+    const resolvedPath = path.resolve(targetPath);
+    if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return null;
+    const config = await libraryState.resolveLibraryConfig();
+    if (config?.libraryPaths) {
+        const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
+        for (const libPath of libraryPaths) {
+            const resolvedLib = path.resolve(libPath);
+            const relative = path.relative(resolvedLib, resolvedPath);
+            if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                return path.join(resolvedLib, relative);
+            }
+        }
+    }
+    return null;
+}
 
 export class TypedIpcRouter {
     constructor(private readonly ipcMain: IpcMain) {}
@@ -162,25 +179,25 @@ export function registerMainIpc({
         return { success: true };
     });
     router.on('reveal-game', async (_event, targetPath) => {
-        const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-            shell.showItemInFolder(targetPath);
+        const safePath = await getSafePathWithinLibrary(targetPath, libraryState);
+        if (safePath) {
+            shell.showItemInFolder(safePath);
         } else {
             console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
         }
     });
     router.on('open-path', async (_event, targetPath) => {
-        const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-            shell.openPath(targetPath);
+        const safePath = await getSafePathWithinLibrary(targetPath, libraryState);
+        if (safePath) {
+            shell.openPath(safePath);
         } else {
             console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
         }
     });
     router.handle('delete-game', async (_event, targetPath) => {
-        const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-            return shell.trashItem(targetPath);
+        const safePath = await getSafePathWithinLibrary(targetPath, libraryState);
+        if (safePath) {
+            return shell.trashItem(safePath);
         }
         return { ok: false, error: 'unauthorized-path' };
     });
@@ -267,34 +284,56 @@ export function registerMainIpc({
 
     router.handle('is-dev', () => !app.isPackaged);
 
-    let devAutoLaunchState = 'off';
+    registerAutoLaunchHandlers(router, app, paths);
+}
 
+function getAutoLaunchConfigValue(paths: any): any {
     try {
         if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
             const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
-            if (db?.config) {
-                const configVal = db.config.autoLaunch;
-                const value = (configVal === 'minimized') ? 'minimized' : (configVal === 'on' || configVal === 'true' || configVal === true ? 'on' : 'off');
-                
-                const openAtLogin = (value === 'on' || value === 'minimized');
-                const args = (value === 'minimized') ? ['--minimized'] : [];
-                
-                if (app.isPackaged) {
-                    app.setLoginItemSettings({
-                        openAtLogin: openAtLogin,
-                        path: app.getPath('exe'),
-                        args: args
-                    });
-                    console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
-                } else {
-                    devAutoLaunchState = value;
-                    console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${devAutoLaunchState}`);
-                }
-            }
+            return db?.config?.autoLaunch;
         }
     } catch (e) {
-        console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch on startup:', e);
+        console.error('[AUTO-LAUNCH][STARTUP] Failed to read db config:', e);
     }
+    return undefined;
+}
+
+function syncAutoLaunchOnStartup(app: App, paths: any): string {
+    let devAutoLaunchState = 'off';
+    const configVal = getAutoLaunchConfigValue(paths);
+    if (configVal === undefined) return devAutoLaunchState;
+
+    let value = 'off';
+    if (configVal === 'minimized') {
+        value = 'minimized';
+    } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
+        value = 'on';
+    }
+
+    const openAtLogin = (value === 'on' || value === 'minimized');
+    const args = (value === 'minimized') ? ['--minimized'] : [];
+
+    if (app.isPackaged) {
+        try {
+            app.setLoginItemSettings({ openAtLogin, path: app.getPath('exe'), args });
+            console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
+        } catch (e) {
+            console.error('[AUTO-LAUNCH][STARTUP] Failed to sync OS settings:', e);
+        }
+    } else {
+        devAutoLaunchState = value;
+        console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${devAutoLaunchState}`);
+    }
+    return devAutoLaunchState;
+}
+
+function registerAutoLaunchHandlers(
+    router: TypedIpcRouter,
+    app: App,
+    paths: any
+): void {
+    let devAutoLaunchState = syncAutoLaunchOnStartup(app, paths);
 
     router.handle('set-auto-launch', async (_event, value) => {
         try {
@@ -307,7 +346,13 @@ export function registerMainIpc({
                     args: args
                 });
             } else {
-                devAutoLaunchState = (value === 'minimized') ? 'minimized' : (openAtLogin ? 'on' : 'off');
+                if (value === 'minimized') {
+                    devAutoLaunchState = 'minimized';
+                } else if (openAtLogin) {
+                    devAutoLaunchState = 'on';
+                } else {
+                    devAutoLaunchState = 'off';
+                }
                 console.log(`[AUTO-LAUNCH][DEV] Skipped OS startup registration (openAtLogin: ${openAtLogin}, args: ${JSON.stringify(args)})`);
             }
             return { success: true };
@@ -324,7 +369,7 @@ export function registerMainIpc({
             }
             const settings = app.getLoginItemSettings() as any;
             if (!settings.openAtLogin) return 'off';
-            if (settings.args && settings.args.includes('--minimized')) {
+            if (settings.args?.includes('--minimized')) {
                 return 'minimized';
             }
             return 'on';

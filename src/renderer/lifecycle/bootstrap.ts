@@ -34,10 +34,10 @@ export async function runRendererBootstrap({
     localeController.setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
     setInterval(() => searchController.rotatePlaceholder(), 60000);
     const deferredInstallPending = !!bootstrapData?.deferredAppUpdateInstall?.pending;
-    if (!deferredInstallPending) {
-        await initApp(bootstrapData);
-    } else {
+    if (deferredInstallPending) {
         refs.welcome.style.display = 'none';
+    } else {
+        await initApp(bootstrapData);
     }
 
     const appUpdateInit = await appUpdateController.initialize(bootstrapData) || { presentedPostUpdate: false };

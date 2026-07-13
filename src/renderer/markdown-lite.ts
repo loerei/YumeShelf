@@ -14,7 +14,7 @@ function renderInlineMarkdown(value) {
     result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
     result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    result = result.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+    result = result.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
 
     return result;
 }
@@ -22,6 +22,16 @@ function renderInlineMarkdown(value) {
 function renderParagraph(lines) {
     const text = lines.map(line => line.trim()).join(' ');
     return text ? `<p>${renderInlineMarkdown(text)}</p>` : '';
+}
+
+function parseHeading(line: string): [string, string] | null {
+    if (!line.startsWith('#')) return null;
+    let hashes = 0;
+    while (hashes < line.length && line[hashes] === '#') hashes++;
+    if (hashes >= 1 && hashes <= 3 && line[hashes] === ' ') {
+        return [line.slice(0, hashes), line.slice(hashes + 1)];
+    }
+    return null;
 }
 
 export function renderMarkdownLite(markdown) {
@@ -43,7 +53,7 @@ export function renderMarkdownLite(markdown) {
 
     function flushList() {
         if (listItems.length === 0) return;
-        html.push(`<ul>${listItems.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ul>`);
+        html.push('<ul>' + listItems.map(item => '<li>' + renderInlineMarkdown(item) + '</li>').join('') + '</ul>');
         listItems = [];
     }
 
@@ -56,12 +66,13 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+        const headingMatch = parseHeading(line);
+
         if (headingMatch) {
             flushParagraph();
             flushList();
-            const level = Math.min(headingMatch[1].length, 3);
-            html.push(`<h${level}>${renderInlineMarkdown(headingMatch[2].trim())}</h${level}>`);
+            const level = Math.min(headingMatch[0].length, 3);
+            html.push(`<h${level}>${renderInlineMarkdown(headingMatch[1].trim())}</h${level}>`);
             continue;
         }
 
@@ -72,7 +83,11 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const listMatch = line.match(/^[-*]\s+(.+)$/);
+        let listMatch = null;
+        if ((line.startsWith('-') || line.startsWith('*')) && line[1] === ' ') {
+            listMatch = [line, line.slice(2)];
+        }
+
         if (listMatch) {
             flushParagraph();
             listItems.push(listMatch[1].trim());

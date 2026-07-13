@@ -37,7 +37,7 @@ export function createCategoryFilterController({
     function getActiveCategory() {
         const activeCategoryId = getActiveCategoryId();
         if (!activeCategoryId) return null;
-        return getFlattenedCategories().find((entry) => entry.id === activeCategoryId) || null;
+        return getFlattenedCategories().find((entry) => entry.id === activeCategoryId) ?? null;
     }
 
     function syncActiveCategory() {

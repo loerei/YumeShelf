@@ -103,7 +103,7 @@
     display: none; z-index: 1000; min-width: 150px; box-shadow: var(--menu-shadow);
 }
 .sort-menu.show { display: block; }
-.sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); }
+.sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); position: relative; }
 .sort-item:hover { background: var(--menu-hover-bg); color: var(--text-main); }
 
 .category-filter-menu {
@@ -123,9 +123,6 @@
 }
 
 /* ACTIVE EFFECT FOR SORT ITEM */
-.sort-item {
-    position: relative; /* Essential to anchor the white indicator line */
-}
 .sort-item.active {
     background-color: var(--menu-active-bg); /* Light background highlight */
     color: var(--text-main);

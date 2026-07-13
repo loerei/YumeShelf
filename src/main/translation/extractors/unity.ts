@@ -94,7 +94,7 @@ export class UnityExtractor implements TranslationExtractor {
         if (str.startsWith('UnityEngine') || str.startsWith('System.') || str.startsWith('Assembly-')) return false;
         
         // Reject strings that are only symbols or punctuation
-        if (/^[!@#$%^&*()_+={}\[\]|\\:;"'<>,.?/-]+$/.test(str)) return false;
+        if (/^[!@#$%^&*()_+={}[\]|\\:;"'<>,.?/-]+$/.test(str)) return false;
         
         return true;
     }

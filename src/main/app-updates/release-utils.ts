@@ -28,6 +28,20 @@ export function parseAppReleaseVersion(value: string | null | undefined): { core
     };
 }
 
+function compareSinglePrereleasePart(leftPart: string | number | undefined, rightPart: string | number | undefined): number {
+    if (leftPart === undefined) return -1;
+    if (rightPart === undefined) return 1;
+    if (leftPart === rightPart) return 0;
+
+    const leftIsNumber = typeof leftPart === 'number';
+    const rightIsNumber = typeof rightPart === 'number';
+    if (leftIsNumber && rightIsNumber) return (leftPart as number) - (rightPart as number);
+    if (leftIsNumber) return -1;
+    if (rightIsNumber) return 1;
+
+    return String(leftPart).localeCompare(String(rightPart));
+}
+
 function comparePrereleaseParts(aPrerelease: (string | number)[], bPrerelease: (string | number)[]): number {
     const aHasPrerelease = aPrerelease.length > 0;
     const bHasPrerelease = bPrerelease.length > 0;
@@ -39,17 +53,7 @@ function comparePrereleaseParts(aPrerelease: (string | number)[], bPrerelease: (
     for (let index = 0; index < prereleaseLength; index += 1) {
         const leftPart = aPrerelease[index];
         const rightPart = bPrerelease[index];
-        if (leftPart === undefined) return -1;
-        if (rightPart === undefined) return 1;
-        if (leftPart === rightPart) continue;
-
-        const leftIsNumber = typeof leftPart === 'number';
-        const rightIsNumber = typeof rightPart === 'number';
-        if (leftIsNumber && rightIsNumber) return leftPart - rightPart;
-        if (leftIsNumber) return -1;
-        if (rightIsNumber) return 1;
-
-        const delta = String(leftPart).localeCompare(String(rightPart));
+        const delta = compareSinglePrereleasePart(leftPart, rightPart);
         if (delta !== 0) return delta;
     }
 
@@ -129,7 +133,7 @@ function convertParagraph(match: any, text: any) {
 export function normalizeReleaseNotesForReview(value: string | null | undefined): string {
     const raw = String(value || '').replace(/\r\n?/g, '\n').trim();
     if (!raw) return '';
-    if (!/<[a-z][\s\S]*>/i.test(raw)) {
+    if (!/<[a-z][^>]*>/i.test(raw)) {
         return decodeHtmlEntities(raw);
     }
 

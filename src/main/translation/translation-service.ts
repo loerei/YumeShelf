@@ -166,6 +166,14 @@ export class TranslationService {
         }
     }
 
+    private async detectEngineType(exePath: string, exeDir: string): Promise<string | null> {
+        const detection = await this.detectUnityType(exePath);
+        if (detection) return 'unity';
+        if (await this.isWolfRpg(exeDir)) return 'wolf-rpg';
+        if (await this.isRpgMaker(exeDir)) return 'rpg-maker';
+        return null;
+    }
+
     /**
      * Queues a background "Deep-Sync" job for a game.
      */
@@ -173,15 +181,7 @@ export class TranslationService {
         if (this.jobs.has(gameKey)) return;
 
         const exeDir = path.dirname(exePath);
-        const detection = await this.detectUnityType(exePath);
-        let engineType: string | null = null;
-        if (detection) {
-            engineType = 'unity';
-        } else if (await this.isWolfRpg(exeDir)) {
-            engineType = 'wolf-rpg';
-        } else if (await this.isRpgMaker(exeDir)) {
-            engineType = 'rpg-maker';
-        }
+        const engineType = await this.detectEngineType(exePath, exeDir);
 
         let extractor = engineType ? this.extractors[engineType] : null;
         if (engineType === 'wolf-rpg') {
@@ -246,6 +246,70 @@ export class TranslationService {
         }
     }
 
+    private async translateChunkSingle(chunk: string[]): Promise<string[]> {
+        const lines: string[] = [];
+        for (const orig of chunk) {
+            try {
+                const trans = await this.googleTranslateGtx(orig, 'ja', 'en');
+                lines.push(trans);
+            } catch (e) {
+                console.warn('[DEEP-SYNC] Individual GTX translation failed, using original:', e);
+                lines.push(orig);
+            }
+        }
+        return lines;
+    }
+
+    private async processTranslationChunk(chunk: string[], dictPath: string, job: TranslationJob, gameKey: string): Promise<void> {
+        const combined = chunk.join('\n');
+        const translated = await this.googleTranslateGtx(combined, 'ja', 'en');
+        let lines = translated.split('\n');
+
+        if (lines.length !== chunk.length) {
+            console.warn(`[DEEP-SYNC] Line count mismatch during batch translation. Falling back to individual translation.`);
+            lines = await this.translateChunkSingle(chunk);
+        }
+
+        const pairs: string[] = [];
+        chunk.forEach((orig, idx) => {
+            const trans = (lines[idx] || '').trim();
+            if (trans && trans !== orig) {
+                pairs.push(`${orig}=${trans}`);
+            }
+        });
+
+        if (pairs.length > 0) {
+            await this.appendToFileWithBom(dictPath, '\n' + pairs.join('\n'));
+        }
+
+        job.translated += chunk.length;
+        this.broadcastStatus({
+            gameKey,
+            status: 'syncing',
+            progress: job.total > 0 ? job.translated / job.total : 0
+        });
+    }
+
+    private async applyWolfTranslationsPostProcess(gameKey: string, exeDir: string, dictPath: string): Promise<void> {
+        this.broadcastStatus({ gameKey, status: 'sync-extracting' });
+        try {
+            const translations = new Map<string, string>();
+            // Load from our dictionary TXT file
+            const lines = await fs.readFile(dictPath, 'utf8').catch(() => '');
+            lines.split('\n').forEach(line => {
+                const idx = line.indexOf('=');
+                if (idx !== -1) {
+                    translations.set(line.substring(0, idx).trim(), line.substring(idx + 1).trim());
+                }
+            });
+            const extractor = new WolfRpgExtractor(this.translatorsDir, gameKey);
+            await extractor.applyTranslations(exeDir, translations);
+            console.log(`[DEEP-SYNC] Successfully compiled Wolf RPG translations for ${gameKey}`);
+        } catch (err) {
+            console.error('[DEEP-SYNC] Failed to apply Wolf RPG patches:', err);
+        }
+    }
+
     async runTranslationLoop(gameKey: string, dictPath: string, exePath?: string): Promise<void> {
         const job = this.jobs.get(gameKey);
         if (job?.status !== 'translating') return;
@@ -256,43 +320,7 @@ export class TranslationService {
 
             const chunk = job.queue.splice(0, batchSize);
             try {
-                const combined = chunk.join('\n');
-                const translated = await this.googleTranslateGtx(combined, 'ja', 'en');
-                let lines = translated.split('\n');
-
-                if (lines.length !== chunk.length) {
-                    console.warn(`[DEEP-SYNC] Line count mismatch during batch translation. Falling back to individual translation.`);
-                    lines = [];
-                    for (const orig of chunk) {
-                        try {
-                            const trans = await this.googleTranslateGtx(orig, 'ja', 'en');
-                            lines.push(trans);
-                        } catch (e) {
-                            console.warn('[DEEP-SYNC] Individual GTX translation failed, using original:', e);
-                            lines.push(orig);
-                        }
-                    }
-                }
-
-                const pairs: string[] = [];
-                chunk.forEach((orig, idx) => {
-                    const trans = (lines[idx] || '').trim();
-                    if (trans && trans !== orig) {
-                        pairs.push(`${orig}=${trans}`);
-                    }
-                });
-
-                if (pairs.length > 0) {
-                    await this.appendToFileWithBom(dictPath, '\n' + pairs.join('\n'));
-                }
-
-                job.translated += chunk.length;
-                this.broadcastStatus({
-                    gameKey,
-                    status: 'syncing',
-                    progress: job.total > 0 ? job.translated / job.total : 0
-                });
-
+                await this.processTranslationChunk(chunk, dictPath, job, gameKey);
                 await new Promise(r => setTimeout(r, job.rush ? 200 : 1500));
             } catch (err: any) {
                 console.error(`[DEEP-SYNC] Batch failed for ${gameKey}:`, err.message);
@@ -305,23 +333,7 @@ export class TranslationService {
             if (exePath) {
                 const exeDir = path.dirname(exePath);
                 if (await this.isWolfRpg(exeDir)) {
-                    this.broadcastStatus({ gameKey, status: 'sync-extracting' });
-                    try {
-                        const translations = new Map<string, string>();
-                        // Load from our dictionary TXT file
-                        const lines = await fs.readFile(dictPath, 'utf8').catch(() => '');
-                        lines.split('\n').forEach(line => {
-                            const idx = line.indexOf('=');
-                            if (idx !== -1) {
-                                translations.set(line.substring(0, idx).trim(), line.substring(idx + 1).trim());
-                            }
-                        });
-                        const extractor = new WolfRpgExtractor(this.translatorsDir, gameKey);
-                        await extractor.applyTranslations(exeDir, translations);
-                        console.log(`[DEEP-SYNC] Successfully compiled Wolf RPG translations for ${gameKey}`);
-                    } catch (err) {
-                        console.error('[DEEP-SYNC] Failed to apply Wolf RPG patches:', err);
-                    }
+                    await this.applyWolfTranslationsPostProcess(gameKey, exeDir, dictPath);
                 }
             }
             job.status = 'complete';
@@ -334,10 +346,10 @@ export class TranslationService {
         const BOM = Buffer.from([0xEF, 0xBB, 0xBF]);
         try {
             const exists = fsSync.existsSync(filePath);
-            if (!exists) {
-                await fs.writeFile(filePath, Buffer.concat([BOM, Buffer.from(text, 'utf8')]));
-            } else {
+            if (exists) {
                 await fs.appendFile(filePath, text, 'utf8');
+            } else {
+                await fs.writeFile(filePath, Buffer.concat([BOM, Buffer.from(text, 'utf8')]));
             }
         } catch (e) {
             console.error(`[TRANSLATION] Failed to write to ${filePath}:`, e);
@@ -456,25 +468,64 @@ export class TranslationService {
         return fsSync.existsSync(path.join(exeDir, 'www', 'data')) || fsSync.existsSync(path.join(exeDir, 'data'));
     }
 
+    private _validateAndGetSafePath(targetPath: string): string {
+        const resolved = path.resolve(targetPath);
+        if (resolved.includes('..') || !path.isAbsolute(resolved)) {
+            throw new Error('[SECURITY] Blocked unauthorized path access: invalid format');
+        }
+
+        let validatedPath: string | null = null;
+        try {
+            const appData = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + '/.config');
+            const dbFile = path.join(appData, 'YumeShelf', 'library_db.json');
+            if (fsSync.existsSync(dbFile)) {
+                const db = JSON.parse(fsSync.readFileSync(dbFile, 'utf8'));
+                const libraryPaths = db?.config?.libraryPaths || [];
+                const pathsToCheck = Array.isArray(libraryPaths) ? libraryPaths : [libraryPaths];
+                for (const libPath of pathsToCheck) {
+                    const resolvedLib = path.resolve(libPath);
+                    const relative = path.relative(resolvedLib, resolved);
+                    if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                        validatedPath = path.join(resolvedLib, relative);
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[SECURITY] Failed to load library paths for validation:', e);
+        }
+
+        if (!validatedPath) {
+            throw new Error('[SECURITY] Blocked unauthorized path access outside library');
+        }
+        return validatedPath;
+    }
+
     async detectUnityType(exePath: string): Promise<UnityDetection | null> {
-        const exeDir = path.dirname(exePath);
+        const validatedExePath = this._validateAndGetSafePath(exePath);
+
+        const exeDir = path.dirname(validatedExePath);
         const entries = await fs.readdir(exeDir).catch(() => []);
         const dataDir = entries.find(e => e.toLowerCase().endsWith('_data'));
         if (!dataDir) return null;
 
         let arch: 'x64' | 'x86' = 'x64';
         try {
-            const handle = await fs.open(exePath, 'r');
+            const handle = await fs.open(validatedExePath, 'r');
             const { buffer: peOffsetBuf } = await handle.read(Buffer.alloc(4), 0, 4, 0x3c);
             const peOffset = peOffsetBuf.readUInt32LE(0);
             const { buffer: machineBuf } = await handle.read(Buffer.alloc(2), 0, 2, peOffset + 4);
             const machine = machineBuf.readUInt16LE(0);
             const isX64 = machine === 0x8664;
             const isX86 = machine === 0x14c;
-            arch = isX64 ? 'x64' : (isX86 ? 'x86' : 'x64');
+            if (isX86) {
+                arch = 'x86';
+            } else if (!isX64) {
+                console.warn(`[TRANSLATION-SERVICE] Unknown PE architecture machine: 0x${machine.toString(16)}. Defaulting to x64.`);
+            }
             await handle.close();
         } catch (e) {
-            console.error(`[TRANSLATION-SERVICE] Failed to read PE architecture from ${exePath}:`, e);
+            console.error(`[TRANSLATION-SERVICE] Failed to read PE architecture from ${validatedExePath}:`, e);
         }
 
         const managedDir = path.join(exeDir, dataDir, 'Managed');
@@ -544,25 +595,27 @@ export class TranslationService {
         try {
             const buffer = await downloadBuffer(apiUrl, 0, 10000, null, this.appVersion);
             return JSON.parse(buffer.toString('utf8'));
-        } catch (err) { return null; }
+        } catch { return null; }
     }
 
     extractZip(zipPath: string, outDir: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${outDir.replace(/'/g, "''")}' -Force"`;
+            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replaceAll("'", "''")}' -DestinationPath '${outDir.replaceAll("'", "''")}' -Force"`;
             exec(cmd, (err) => err ? reject(err) : resolve());
         });
     }
 
     async deployShims(exeDir: string, corePath: string, unityType: 'mono' | 'il2cpp', proxyPort: number): Promise<void> {
+        const validatedExeDir = this._validateAndGetSafePath(exeDir);
+
         const sourceShim = path.join(corePath, 'winhttp.dll');
-        if (fsSync.existsSync(sourceShim)) await fs.copyFile(sourceShim, path.join(exeDir, 'winhttp.dll'));
+        if (fsSync.existsSync(sourceShim)) await fs.copyFile(sourceShim, path.join(validatedExeDir, 'winhttp.dll'));
 
         const preloader = unityType === 'mono' ? 'BepInEx.Preloader.dll' : 'BepInEx.Preloader.Core.dll';
         const preloaderPath = path.join(corePath, 'BepInEx', 'core', preloader);
         
         const config = `[General]\nenabled=true\ntarget_assembly="${preloaderPath}"\nredirect_output_log=true\n`;
-        await fs.writeFile(path.join(exeDir, 'doorstop_config.ini'), config);
+        await fs.writeFile(path.join(validatedExeDir, 'doorstop_config.ini'), config);
 
         const configDir = path.join(corePath, 'BepInEx', 'config');
         await ensureDir(configDir);
@@ -577,7 +630,7 @@ export class TranslationService {
         const folders = ['BepInEx', 'AutoTranslator', 'Translation'];
         for (const folder of folders) {
             const source = path.join(corePath, folder);
-            const target = path.join(exeDir, folder);
+            const target = path.join(validatedExeDir, folder);
             if (!fsSync.existsSync(source)) await ensureDir(source);
             try {
                 const stats = await fs.lstat(target).catch(() => null);

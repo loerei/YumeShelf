@@ -106,12 +106,7 @@ export function createNsisUpdaterService({
 
     const {
         clearDeferredInstallState,
-        clearDownloadedState,
-        getValidatedDeferredInstallState,
-        getValidatedDownloadedStateForVersion,
-        readDeferredInstallState,
-        writeDeferredInstallState,
-        writeDownloadedState
+        readDeferredInstallState
     } = stateFiles;
 
     function summarizeReadyUpdateFromState(stateObj: any, patch: any = {}) {
@@ -158,7 +153,7 @@ export function createNsisUpdaterService({
         state.updater.__yumeshelfRuntime = runtime;
 
         if (VERBOSE_UPDATE_LOG) {
-            void appendUpdateLog(`nsis-updater created current=${app.getVersion()} allowPrerelease=${state.updater.allowPrerelease}`);
+            appendUpdateLog(`nsis-updater created current=${app.getVersion()} allowPrerelease=${state.updater.allowPrerelease}`);
         }
         attachUpdaterEventLogging({
             appendUpdateLog,
@@ -225,9 +220,7 @@ export function createNsisUpdaterService({
             };
         }
 
-        if (state.updaterFeedKey == null) {
-            state.updaterFeedKey = runtime.usesDevConfig ? 'dev-config' : `publish:${runtime.provider}`;
-        }
+        state.updaterFeedKey ??= runtime.usesDevConfig ? 'dev-config' : `publish:${runtime.provider}`;
         await configureDifferentialDownload(nsisUpdater, {
             currentVersion: app.getVersion(),
             feedOverride: null,

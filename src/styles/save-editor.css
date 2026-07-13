@@ -267,6 +267,7 @@
 
 .save-editor-search-wrapper {
     flex: 1;
+    padding: 10px 0;
 }
 
 .save-editor-filters {
@@ -374,9 +375,7 @@
     border-radius: 50%;
 }
 
-.save-editor-search-wrapper {
-    padding: 10px 0;
-}
+
 
 .save-editor-search {
     background: rgba(255, 255, 255, 0.03);

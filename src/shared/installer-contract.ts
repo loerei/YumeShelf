@@ -13,7 +13,7 @@ export function parseInstallerContract(text: string | null | undefined): Record<
         if (!line || line.startsWith(';') || line.startsWith('#')) {
             continue;
         }
-        const sectionMatch = line.match(/^\[(.+?)\]$/);
+        const sectionMatch = /^\[(.+?)\]$/.exec(line);
         if (sectionMatch) {
             currentSection = sectionMatch[1];
             if (!sections[currentSection]) {

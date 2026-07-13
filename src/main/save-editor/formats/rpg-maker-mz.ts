@@ -16,7 +16,7 @@ class RpgMakerMzFormat {
             const str = rawData.toString('utf8');
             const rawBytes = Buffer.alloc(str.length);
             for (let i = 0; i < str.length; i++) {
-                rawBytes[i] = str.charCodeAt(i);
+                rawBytes[i] = str.codePointAt(i) || 0;
             }
             const decompressedBuffer = zlib.inflateSync(rawBytes);
             return JSON.parse(decompressedBuffer.toString('utf8'));

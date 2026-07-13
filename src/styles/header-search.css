@@ -97,10 +97,24 @@
     animation: header-icon-spin 0.85s linear infinite;
 }
 
+.sort-container {
+    position: relative;
+}
+
 .sort-menu {
     position: absolute; top: 45px; right: 0;
     background: var(--menu-bg); border: 1px solid var(--menu-border); border-radius: 6px;
     display: none; z-index: 1000; min-width: 150px; box-shadow: var(--menu-shadow);
+}
+
+.sort-menu::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: 0;
+    right: 0;
+    height: 15px;
+    background: transparent;
 }
 .sort-menu.show { display: block; }
 .sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); position: relative; }

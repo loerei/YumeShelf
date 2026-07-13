@@ -214,12 +214,13 @@ async function handleDrop(zone, event, context) {
         const isFavZone = zone === refs.favGrid || zone === refs.separator;
         console.log('[DRAG-DROP] Drop zone is favorite zone:', isFavZone);
         
+        // Capture drag target info immediately before any async await
+        const dragTargetInfo = getDragTargetInfo();
+        console.log('[DRAG-DROP] Captured dragTargetInfo immediately:', dragTargetInfo);
+
         console.log('[DRAG-DROP] calling handleFavoriteDrop...');
         let needsSave = await handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI);
         console.log('[DRAG-DROP] handleFavoriteDrop completed. needsSave:', needsSave);
-        
-        const dragTargetInfo = getDragTargetInfo();
-        console.log('[DRAG-DROP] dragTargetInfo:', dragTargetInfo);
 
         console.log('[DRAG-DROP] draggedGame.favorite:', draggedGame.favorite, 'isFavZone:', isFavZone);
         if (draggedGame.favorite === isFavZone && zone !== refs.separator) {

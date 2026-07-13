@@ -155,7 +155,7 @@ export function registerMainIpc({
         }
     });
     router.handle('rename-game', async (_event, { gameKey, newName }) => libraryState.renameGame(gameKey, newName));
-    router.handle('toggle-favorite', async (_event, gameKey) => libraryState.toggleFavorite(gameKey));
+    router.handle('toggle-favorite', async (_event, gameKey, favorite) => libraryState.toggleFavorite(gameKey, favorite));
     router.handle('toggle-run-in-background', async (_event, gameKey) => libraryState.toggleRunInBackground(gameKey));
     router.handle('toggle-auto-translate', async (_event, gameKey) => libraryState.toggleAutoTranslate(gameKey));
     router.handle('translation:check-support', async (_event, gameKey) => {

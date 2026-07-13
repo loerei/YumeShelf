@@ -104,7 +104,7 @@ function handleDragLeave(zone, event) {
     }
 }
 
-function handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI) {
+async function handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI) {
     const favoriteGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey);
     let needsSave = false;
 
@@ -112,12 +112,12 @@ function handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI) {
         const game = allGames.find((entry) => getGameKey(entry) === key);
         return game && game.favorite !== isFavZone;
     })) {
-        favoriteGroupKeys.forEach((key) => {
+        for (const key of favoriteGroupKeys) {
             const game = allGames.find((entry) => getGameKey(entry) === key);
-            if (!game || game.favorite === isFavZone) return;
+            if (!game || game.favorite === isFavZone) continue;
             applyFavoriteToLogicalGame(game, isFavZone);
-            electronAPI.invoke('toggle-favorite', key);
-        });
+            await electronAPI.invoke('toggle-favorite', key, isFavZone);
+        }
         needsSave = true;
     }
     return needsSave;
@@ -158,7 +158,7 @@ function handleCustomOrderDrop(allGames, draggedGameKey, dragTargetInfo) {
     return false;
 }
 
-function handleDrop(zone, event, context) {
+async function handleDrop(zone, event, context) {
     const {
         getActiveCategoryId,
         getAllGames,
@@ -184,7 +184,7 @@ function handleDrop(zone, event, context) {
     if (!draggedGame) return;
 
     const isFavZone = zone === refs.favGrid || zone === refs.separator;
-    let needsSave = handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI);
+    let needsSave = await handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI);
     const dragTargetInfo = getDragTargetInfo();
 
     if (draggedGame.favorite === isFavZone && zone !== refs.separator) {

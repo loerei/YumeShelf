@@ -63,6 +63,109 @@ function setupPopoutButton(overlay, isStandalone, gameKey, state, engine, close)
     popoutBtn.addEventListener('mouseleave', () => { popoutBtn.style.color = '#9ca3af'; });
 }
 
+function getPanelHTML(d, popoutBtnHTML) {
+    return `
+    <div class="save-editor-panel">
+        <div class="save-editor-header">
+            <h2 data-i18n="action_save_editor">${d.action_save_editor || 'Save Editor'}</h2>
+            <div style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
+                ${popoutBtnHTML}
+                <button class="save-editor-close">×</button>
+            </div>
+        </div>
+        <div class="save-editor-body">
+            <div class="save-editor-sidebar">
+                <div class="save-editor-loading-sidebar" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading...'}</div>
+            </div>
+            <div class="save-editor-main">
+                <div class="save-editor-tabs-wrapper" style="display: none;">
+                    <div class="save-editor-tabs-container">
+                        <div class="save-editor-tabs"></div>
+                        <div class="tabs-shadow tabs-shadow-left"></div>
+                        <div class="tabs-shadow tabs-shadow-right"></div>
+                    </div>
+                    <div class="save-editor-actions">
+                        <div class="save-editor-top-bar">
+                            <div class="save-editor-search-wrapper">
+                                <input type="text" class="save-editor-search" data-i18n-placeholder="save_editor_search_placeholder" placeholder="${d.save_editor_search_placeholder || 'Search...'}">
+                            </div>
+                            <button class="refresh-save-btn" title="Reload from disk">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                </svg>
+                            </button>
+                            <button class="translate-btn" title="Translate to app language">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M5 8l6 6"/>
+                                    <path d="M4 14l6-6 2-3"/>
+                                    <path d="M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/>
+                                </svg>
+                                <span data-i18n="save_editor_translate">${d.save_editor_translate || 'Translate'}</span>
+                                <div class="translate-progress"></div>
+                            </button>
+                        </div>
+                        <div class="save-editor-filters">
+                            <label class="save-editor-filter-check" title="Show all variables, including those with zero or no value">
+                                <input type="checkbox" class="show-empty-check">
+                                <span data-i18n="save_editor_show_empty">${d.save_editor_show_empty || 'Show empty'}</span>
+                            </label>
+                            <label class="save-editor-filter-check" title="Always show important variables, even if they have zero or no value">
+                                <input type="checkbox" class="show-important-check" checked>
+                                <span data-i18n="save_editor_show_important">${d.save_editor_show_important || 'Show important'}</span>
+                            </label>
+                            <label class="save-editor-filter-check" title="Only show entries where the value matches your search exactly">
+                                <input type="checkbox" class="exact-match-check">
+                                <span data-i18n="save_editor_exact">${d.save_editor_exact || 'Exact'}</span>
+                            </label>
+                            
+                            <div class="filter-divider"></div>
+                            
+                            <label class="save-editor-filter-check" title="Search in names">
+                                <input type="checkbox" class="search-name-check" checked>
+                                <span data-i18n="save_editor_search_name">${d.save_editor_search_name || 'Name'}</span>
+                            </label>
+                            <label class="save-editor-filter-check" title="Search in values">
+                                <input type="checkbox" class="search-value-check" checked>
+                                <span data-i18n="save_editor_search_value">${d.save_editor_search_value || 'Value'}</span>
+                            </label>
+                            <label class="save-editor-filter-check" title="Search in index (ID)">
+                                <input type="checkbox" class="search-index-check">
+                                <span data-i18n="save_editor_search_index">${d.save_editor_search_index || 'Index'}</span>
+                            </label>
+                            <div class="filter-divider switch-filters-only" style="display: none;"></div>
+                            <label class="save-editor-filter-check switch-filters-only" style="display: none;" title="Only show switches that are ON">
+                                <input type="checkbox" class="switch-true-check">
+                                <span data-i18n="save_editor_true_only">${d.save_editor_true_only || 'True only'}</span>
+                            </label>
+                            <label class="save-editor-filter-check switch-filters-only" style="display: none;" title="Only show switches that are OFF">
+                                <input type="checkbox" class="switch-false-check">
+                                <span data-i18n="save_editor_false_only">${d.save_editor_false_only || 'False only'}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="save-editor-content">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/>
+                            <polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="save-editor-footer">
+            <button class="secondary-btn map-variable-btn" style="display: none;" data-i18n="save_editor_map">Map Variable</button>
+            <button class="secondary-btn cancel-btn" data-i18n="save_editor_cancel">${d.save_editor_cancel || 'Cancel'}</button>
+            <button class="primary-btn save-btn" style="display: none;" data-i18n="save_editor_save">${d.save_editor_save || 'Save Changes'}</button>
+        </div>
+    </div>
+    `;
+}
+
 function restorePopoutSearchOptions(overlay, popoutState, engine, refs) {
     if (!popoutState?.searchOptions) return;
     engine.setSearchOptions(popoutState.searchOptions);
@@ -80,6 +183,82 @@ function restorePopoutSearchOptions(overlay, popoutState, engine, refs) {
     
     const searchIndexCheck = overlay.querySelector('.search-index-check');
     if (searchIndexCheck) searchIndexCheck.checked = !!popoutState.searchOptions.searchIndex;
+}
+
+function updateTabShadows(tabsContainer, leftShadow, rightShadow) {
+    if (!tabsContainer || !leftShadow || !rightShadow) return;
+    const scrollLeft = tabsContainer.scrollLeft;
+    const scrollWidth = tabsContainer.scrollWidth;
+    const clientWidth = tabsContainer.clientWidth;
+    
+    if (scrollLeft > 2) {
+        leftShadow.classList.add('visible');
+    } else {
+        leftShadow.classList.remove('visible');
+    }
+    
+    if (scrollWidth - clientWidth - scrollLeft > 2) {
+        rightShadow.classList.add('visible');
+    } else {
+        rightShadow.classList.remove('visible');
+    }
+}
+
+function handleGlobalKeydown(e, overlay, state, engine, renderTabContent) {
+    const activeElement = document.activeElement;
+    const isTyping = activeElement && (
+        (activeElement.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'email', 'tel', 'url'].includes(activeElement.type)) ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+    );
+    if (isTyping) return;
+
+    const key = e.key.toLowerCase();
+    
+    // Shift + Enter: save changes
+    if (e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        const saveBtn = overlay.querySelector('.save-btn');
+        if (saveBtn && saveBtn.style.display !== 'none' && !saveBtn.disabled) {
+            saveBtn.click();
+        }
+        return;
+    }
+
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+
+    const keyActions = {
+        e: () => {
+            const chk = overlay.querySelector('.show-empty-check');
+            if (chk) {
+                chk.checked = !chk.checked;
+                state.showEmpty = chk.checked;
+                renderTabContent();
+            }
+        },
+        i: () => {
+            const chk = overlay.querySelector('.show-important-check');
+            if (chk) {
+                chk.checked = !chk.checked;
+                state.showImportant = chk.checked;
+                renderTabContent();
+            }
+        },
+        x: () => {
+            const chk = overlay.querySelector('.exact-match-check');
+            if (chk) {
+                chk.checked = !chk.checked;
+                engine.setSearchOptions({ exact: chk.checked });
+                renderTabContent();
+            }
+        }
+    };
+
+    const action = keyActions[key];
+    if (action) {
+        e.preventDefault();
+        action();
+    }
 }
 
 export function initSaveEditorUI() {

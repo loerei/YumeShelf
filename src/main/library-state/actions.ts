@@ -34,12 +34,12 @@ export async function renameGame(context: any, gameKey: string, newName: string)
     return true;
 }
 
-export async function toggleFavorite(context: any, gameKey: string): Promise<boolean> {
+export async function toggleFavorite(context: any, gameKey: string, favorite?: boolean): Promise<boolean> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
     if (games[gameKey]) {
-        games[gameKey].favorite = !games[gameKey].favorite;
+        games[gameKey].favorite = favorite !== undefined ? favorite : !games[gameKey].favorite;
         db.games = games;
         await saveDB(db);
         return games[gameKey].favorite;
@@ -48,7 +48,7 @@ export async function toggleFavorite(context: any, gameKey: string): Promise<boo
     const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
     const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
     if (!targetGroup) return false;
-    const nextFavorite = !targetGroup.favorite;
+    const nextFavorite = favorite !== undefined ? favorite : !targetGroup.favorite;
     targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {
             games[instance.gameKey].favorite = nextFavorite;

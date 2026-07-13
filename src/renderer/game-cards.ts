@@ -13,6 +13,7 @@ function bindCardActions(card, game, context) {
         attachTooltip,
         onFavoriteToggled,
         onRefreshRequested,
+        onRenamed,
         onGameLaunched,
         onCardDeleted,
         onDragStart,
@@ -48,13 +49,15 @@ function bindCardActions(card, game, context) {
 
     bindDropdownToggle(card);
 
-    bindRenameAction({
-        card,
-        currentName: () => game.name,
-        electronAPI,
-        gameKey,
-        onSaveData: (nextName) => { game.name = nextName; }
-    });
+        bindRenameAction({
+            card,
+            currentName: () => game.name,
+            electronAPI,
+            gameKey,
+            onRefreshRequested,
+            onRenamed,
+            onSaveData: (nextName) => { game.name = nextName; }
+        });
 
     card.querySelector('.action-reveal').onclick = (event) => {
         event.stopPropagation();
@@ -185,6 +188,7 @@ export function createGameCardFactory({
     onDragStart,
     onGameLaunched,
     onFavoriteToggled,
+    onRenamed,
     onRefreshRequested
 }) {
 
@@ -285,6 +289,7 @@ export function createGameCardFactory({
             attachTooltip,
             onFavoriteToggled,
             onRefreshRequested,
+            onRenamed,
             onGameLaunched,
             onCardDeleted,
             onDragStart,

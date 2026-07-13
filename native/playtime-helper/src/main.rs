@@ -123,7 +123,7 @@ fn write_journal(journal_path: &Path, journal: &SessionJournal) -> Result<()> {
     Ok(())
 }
 
-fn update_db_finalize(db_path: &Path, game_key: &str, accrued_ms: u64, ended_at: u64) -> Result<()> {
+fn update_db_finalize(db_path: &Path, game_key: &str, exe_path: &str, accrued_ms: u64, ended_at: u64) -> Result<()> {
     let content = fs::read_to_string(db_path)
         .with_context(|| format!("failed to read db {}", db_path.display()))?;
     let mut db_value: Value = serde_json::from_str(&content)
@@ -138,19 +138,45 @@ fn update_db_finalize(db_path: &Path, game_key: &str, accrued_ms: u64, ended_at:
     let games_object = games_value
         .as_object_mut()
         .ok_or_else(|| anyhow!("library db games field is not an object"))?;
-    let game_value = games_object
-        .get_mut(game_key)
-        .ok_or_else(|| anyhow!("gameKey {} missing in library db", game_key))?;
-    let game_object = game_value
-        .as_object_mut()
-        .ok_or_else(|| anyhow!("game record is not an object"))?;
 
-    let existing_playtime = game_object
-        .get("playtime")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    game_object.insert("playtime".to_string(), Value::from(existing_playtime.saturating_add(accrued_ms)));
-    game_object.insert("lastPlayed".to_string(), Value::from(ended_at));
+    // Try to get by game_key first
+    let mut game_found = false;
+    if let Some(game_value) = games_object.get_mut(game_key) {
+        if let Some(game_object) = game_value.as_object_mut() {
+            let existing_playtime = game_object
+                .get("playtime")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            game_object.insert("playtime".to_string(), Value::from(existing_playtime.saturating_add(accrued_ms)));
+            game_object.insert("lastPlayed".to_string(), Value::from(ended_at));
+            game_found = true;
+        }
+    }
+
+    // If not found by key, try matching by exe_path (case-insensitive)
+    if !game_found {
+        let norm_exe = exe_path.replace('\\', "/").to_lowercase();
+        for (_key, game_value) in games_object.iter_mut() {
+            if let Some(game_object) = game_value.as_object_mut() {
+                if let Some(existing_exe) = game_object.get("exePath").and_then(Value::as_str) {
+                    if existing_exe.replace('\\', "/").to_lowercase() == norm_exe {
+                        let existing_playtime = game_object
+                            .get("playtime")
+                            .and_then(Value::as_u64)
+                            .unwrap_or(0);
+                        game_object.insert("playtime".to_string(), Value::from(existing_playtime.saturating_add(accrued_ms)));
+                        game_object.insert("lastPlayed".to_string(), Value::from(ended_at));
+                        game_found = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if !game_found {
+        return Err(anyhow!("gameKey {} or exePath {} missing in library db", game_key, exe_path));
+    }
 
     let payload = serde_json::to_string_pretty(&db_value)?;
     fs::write(db_path, format!("{payload}\n"))
@@ -407,7 +433,7 @@ fn finalize_session(mut journal: SessionJournal, journal_path: &Path, db_path: &
         ),
     );
 
-    update_db_finalize(db_path, &journal.game_key, journal.accrued_ms, ended_at)?;
+    update_db_finalize(db_path, &journal.game_key, &journal.exe_path, journal.accrued_ms, ended_at)?;
 
     journal.status = "completed".to_string();
     write_journal(journal_path, &journal)?;

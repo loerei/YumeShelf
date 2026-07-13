@@ -9,6 +9,35 @@ function filterLanguagePacks(packs, query) {
     return packs.filter((pack) => buildLanguagePackSearchHaystack(pack).includes(normalized));
 }
 
+function resolveSourceText(installed, updateAvailable, pack, context) {
+    const { getText, localeController } = context;
+    if (updateAvailable) {
+        return getText('lang_modal_update_available', 'Update available');
+    }
+    if (installed) {
+        return localeController.getLanguageMeta(pack.code)?.source === 'built-in'
+            ? getText('lang_builtin_source')
+            : getText('lang_downloaded_source');
+    }
+    return getText('lang_modal_available_title');
+}
+
+function resolveActionLabel(installed, updateAvailable, pack, context) {
+    const { getText, getDownloadingLanguageCode } = context;
+    const isDownloading = getDownloadingLanguageCode() === pack.code;
+    if (updateAvailable) {
+        return isDownloading
+            ? getText('lang_modal_downloading')
+            : getText('lang_modal_update', 'Update');
+    }
+    if (installed) {
+        return getText('lang_modal_installed');
+    }
+    return isDownloading
+        ? getText('lang_modal_downloading')
+        : getText('lang_modal_download');
+}
+
 function buildLanguagePackCard(pack, context) {
     const {
         localeController,
@@ -29,30 +58,9 @@ function buildLanguagePackCard(pack, context) {
     card.className = 'language-pack-card';
 
     const title = localeController.formatLanguageLabel(pack);
-    let sourceText;
-    if (updateAvailable) {
-        sourceText = getText('lang_modal_update_available', 'Update available');
-    } else if (installed) {
-        sourceText = localeController.getLanguageMeta(pack.code)?.source === 'built-in'
-            ? getText('lang_builtin_source')
-            : getText('lang_downloaded_source');
-    } else {
-        sourceText = getText('lang_modal_available_title');
-    }
-
+    const sourceText = resolveSourceText(installed, updateAvailable, pack, context);
     const actionDisabled = (!updateAvailable && installed) || getDownloadingLanguageCode() !== null;
-    let actionLabel;
-    if (updateAvailable) {
-        actionLabel = getDownloadingLanguageCode() === pack.code
-            ? getText('lang_modal_downloading')
-            : getText('lang_modal_update', 'Update');
-    } else if (installed) {
-        actionLabel = getText('lang_modal_installed');
-    } else {
-        actionLabel = getDownloadingLanguageCode() === pack.code
-            ? getText('lang_modal_downloading')
-            : getText('lang_modal_download');
-    }
+    const actionLabel = resolveActionLabel(installed, updateAvailable, pack, context);
 
     card.innerHTML = `
         <div class="language-pack-card-copy">

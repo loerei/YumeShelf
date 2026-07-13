@@ -469,29 +469,32 @@ export class TranslationService {
     }
 
     async detectUnityType(exePath: string): Promise<UnityDetection | null> {
-        const exeDir = path.dirname(exePath);
+        const resolvedExePath = path.resolve(exePath);
+        if (resolvedExePath.includes('..') || !path.isAbsolute(resolvedExePath)) {
+            throw new Error('[SECURITY] Blocked unauthorized path access in detectUnityType');
+        }
+        const exeDir = path.dirname(resolvedExePath);
         const entries = await fs.readdir(exeDir).catch(() => []);
         const dataDir = entries.find(e => e.toLowerCase().endsWith('_data'));
         if (!dataDir) return null;
 
         let arch: 'x64' | 'x86' = 'x64';
         try {
-            const handle = await fs.open(exePath, 'r');
+            const handle = await fs.open(resolvedExePath, 'r');
             const { buffer: peOffsetBuf } = await handle.read(Buffer.alloc(4), 0, 4, 0x3c);
             const peOffset = peOffsetBuf.readUInt32LE(0);
             const { buffer: machineBuf } = await handle.read(Buffer.alloc(2), 0, 2, peOffset + 4);
             const machine = machineBuf.readUInt16LE(0);
             const isX64 = machine === 0x8664;
             const isX86 = machine === 0x14c;
-            if (isX64) {
-                arch = 'x64';
-            } else if (isX86) {
+            if (isX86) {
                 arch = 'x86';
+            } else if (!isX64) {
+                console.warn(`[TRANSLATION-SERVICE] Unknown PE architecture machine: 0x${machine.toString(16)}. Defaulting to x64.`);
             }
-            // else: keep arch as 'x64' (default)
             await handle.close();
         } catch (e) {
-            console.error(`[TRANSLATION-SERVICE] Failed to read PE architecture from ${exePath}:`, e);
+            console.error(`[TRANSLATION-SERVICE] Failed to read PE architecture from ${resolvedExePath}:`, e);
         }
 
         const managedDir = path.join(exeDir, dataDir, 'Managed');
@@ -572,14 +575,18 @@ export class TranslationService {
     }
 
     async deployShims(exeDir: string, corePath: string, unityType: 'mono' | 'il2cpp', proxyPort: number): Promise<void> {
+        const resolvedExeDir = path.resolve(exeDir);
+        if (resolvedExeDir.includes('..') || !path.isAbsolute(resolvedExeDir)) {
+            throw new Error('[SECURITY] Blocked unauthorized path access in deployShims');
+        }
         const sourceShim = path.join(corePath, 'winhttp.dll');
-        if (fsSync.existsSync(sourceShim)) await fs.copyFile(sourceShim, path.join(exeDir, 'winhttp.dll'));
+        if (fsSync.existsSync(sourceShim)) await fs.copyFile(sourceShim, path.join(resolvedExeDir, 'winhttp.dll'));
 
         const preloader = unityType === 'mono' ? 'BepInEx.Preloader.dll' : 'BepInEx.Preloader.Core.dll';
         const preloaderPath = path.join(corePath, 'BepInEx', 'core', preloader);
         
         const config = `[General]\nenabled=true\ntarget_assembly="${preloaderPath}"\nredirect_output_log=true\n`;
-        await fs.writeFile(path.join(exeDir, 'doorstop_config.ini'), config);
+        await fs.writeFile(path.join(resolvedExeDir, 'doorstop_config.ini'), config);
 
         const configDir = path.join(corePath, 'BepInEx', 'config');
         await ensureDir(configDir);
@@ -594,7 +601,7 @@ export class TranslationService {
         const folders = ['BepInEx', 'AutoTranslator', 'Translation'];
         for (const folder of folders) {
             const source = path.join(corePath, folder);
-            const target = path.join(exeDir, folder);
+            const target = path.join(resolvedExeDir, folder);
             if (!fsSync.existsSync(source)) await ensureDir(source);
             try {
                 const stats = await fs.lstat(target).catch(() => null);

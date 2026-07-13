@@ -1,5 +1,6 @@
 import { App, IpcMain, Shell, BrowserWindow } from 'electron';
 import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 import { TelemetryShipper } from '../telemetry/shipper';
 import { isPathWithinLibrary } from './path-validator';
 import { IpcInvokes, IpcSends } from '../../shared/types/ipc';
@@ -162,25 +163,33 @@ export function registerMainIpc({
         return { success: true };
     });
     router.on('reveal-game', async (_event, targetPath) => {
+        const resolvedPath = path.resolve(targetPath);
+        if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
         const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-            shell.showItemInFolder(targetPath);
+        if (config && isPathWithinLibrary(resolvedPath, config.libraryPaths)) {
+            shell.showItemInFolder(resolvedPath);
         } else {
-            console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
+            console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${resolvedPath}`);
         }
     });
     router.on('open-path', async (_event, targetPath) => {
+        const resolvedPath = path.resolve(targetPath);
+        if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
         const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-            shell.openPath(targetPath);
+        if (config && isPathWithinLibrary(resolvedPath, config.libraryPaths)) {
+            shell.openPath(resolvedPath);
         } else {
-            console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
+            console.warn(`[SECURITY] Blocked unauthorized open-path: ${resolvedPath}`);
         }
     });
     router.handle('delete-game', async (_event, targetPath) => {
+        const resolvedPath = path.resolve(targetPath);
+        if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) {
+            return { ok: false, error: 'unauthorized-path' };
+        }
         const config = await libraryState.resolveLibraryConfig();
-        if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-            return shell.trashItem(targetPath);
+        if (config && isPathWithinLibrary(resolvedPath, config.libraryPaths)) {
+            return shell.trashItem(resolvedPath);
         }
         return { ok: false, error: 'unauthorized-path' };
     });

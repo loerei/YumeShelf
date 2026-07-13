@@ -15,12 +15,25 @@ function buildUpdatedTitle(version, getText) {
 }
 
 function buildNotificationTitle(getText, installedMode, totalCount) {
-    const key = installedMode
-        ? (totalCount === 1 ? 'update_notification_title_installed_one' : 'update_notification_title_installed_many')
-        : (totalCount === 1 ? 'update_notification_title_available_one' : 'update_notification_title_available_many');
-    const fallback = installedMode
-        ? (totalCount === 1 ? '{count} update finished automatically' : '{count} updates finished automatically')
-        : (totalCount === 1 ? '{count} update is ready' : '{count} updates are ready');
+    let key = '';
+    let fallback = '';
+    if (installedMode) {
+        if (totalCount === 1) {
+            key = 'update_notification_title_installed_one';
+            fallback = '{count} update finished automatically';
+        } else {
+            key = 'update_notification_title_installed_many';
+            fallback = '{count} updates finished automatically';
+        }
+    } else {
+        if (totalCount === 1) {
+            key = 'update_notification_title_available_one';
+            fallback = '{count} update is ready';
+        } else {
+            key = 'update_notification_title_available_many';
+            fallback = '{count} updates are ready';
+        }
+    }
     return formatTemplate(getText(key, fallback), { count: formatCount(totalCount) });
 }
 

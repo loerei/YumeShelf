@@ -83,8 +83,18 @@ export function buildLibraryViewItems(games, type) {
     };
 }
 
+export function isGameOrInstanceMatch(logicalGame, key) {
+    if (getGameKey(logicalGame) === key) {
+        return true;
+    }
+    if (Array.isArray(logicalGame.instances)) {
+        return logicalGame.instances.some((instance) => getGameKey(instance) === key);
+    }
+    return false;
+}
+
 export function getGroupedKeysForGame(allGames, gameKey, order = normalizeCustomOrder(allGames)) {
-    const targetGame = allGames.find((game) => getGameKey(game) === gameKey);
+    const targetGame = allGames.find((game) => isGameOrInstanceMatch(game, gameKey));
     if (!targetGame) return [];
     return [targetGame]
         .sort((a, b) => order.indexOf(getGameKey(a)) - order.indexOf(getGameKey(b)))

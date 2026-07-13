@@ -21,7 +21,7 @@ export interface IpcInvokes {
     // Settings & Utils
     'get-save-folder': { args: [gameKey: string]; return: { path: string | null; engine: string | null; confidence: string } };
     'set-save-folder-override': { args: [payload: { gameKey: string; folderPath: string }]; return: any };
-    'toggle-favorite': { args: [gameKey: string]; return: any };
+    'toggle-favorite': { args: [gameKey: string, favorite?: boolean]; return: any };
     'toggle-run-in-background': { args: [gameKey: string]; return: any };
     'toggle-auto-translate': { args: [gameKey: string]; return: any };
     

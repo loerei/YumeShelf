@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey, normalizeCustomOrder, writeCustomOrder } from './library-order';
-import { getGroupedKeysForGame } from './library-stacks';
+import { getGroupedKeysForGame, isGameOrInstanceMatch } from './library-stacks';
 import { getPointerDistanceToRect, isSameDragRow } from './utils/drag-math';
 import { flipAnimateDOMUpdate } from './utils/flip-animation';
 
@@ -104,21 +104,35 @@ function handleDragLeave(zone, event) {
     }
 }
 
-function handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI) {
+async function handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI) {
+    console.log('[DRAG-DROP][FAVORITE] handleFavoriteDrop. draggedGameKey:', draggedGameKey, 'isFavZone:', isFavZone);
     const favoriteGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey);
+    console.log('[DRAG-DROP][FAVORITE] favoriteGroupKeys:', favoriteGroupKeys);
     let needsSave = false;
 
-    if (favoriteGroupKeys.some((key) => {
+    const shouldToggle = favoriteGroupKeys.some((key) => {
         const game = allGames.find((entry) => getGameKey(entry) === key);
-        return game && game.favorite !== isFavZone;
-    })) {
-        favoriteGroupKeys.forEach((key) => {
+        const diff = game && game.favorite !== isFavZone;
+        console.log('[DRAG-DROP][FAVORITE] key:', key, 'game found:', !!game, 'current favorite:', game?.favorite, 'differs from isFavZone:', diff);
+        return diff;
+    });
+
+    if (shouldToggle) {
+        for (const key of favoriteGroupKeys) {
             const game = allGames.find((entry) => getGameKey(entry) === key);
-            if (!game || game.favorite === isFavZone) return;
+            if (!game || game.favorite === isFavZone) {
+                console.log('[DRAG-DROP][FAVORITE] skipping key:', key, 'already matches target favorite status:', isFavZone);
+                continue;
+            }
+            console.log('[DRAG-DROP][FAVORITE] applying favorite status:', isFavZone, 'to game in-memory:', game.name);
             applyFavoriteToLogicalGame(game, isFavZone);
-            electronAPI.invoke('toggle-favorite', key);
-        });
+            console.log('[DRAG-DROP][FAVORITE] invoking toggle-favorite on backend for:', key);
+            const result = await electronAPI.invoke('toggle-favorite', key, isFavZone);
+            console.log('[DRAG-DROP][FAVORITE] backend toggle-favorite result:', result);
+        }
         needsSave = true;
+    } else {
+        console.log('[DRAG-DROP][FAVORITE] no toggle needed for keys');
     }
     return needsSave;
 }
@@ -158,50 +172,81 @@ function handleCustomOrderDrop(allGames, draggedGameKey, dragTargetInfo) {
     return false;
 }
 
-function handleDrop(zone, event, context) {
-    const {
-        getActiveCategoryId,
-        getAllGames,
-        getDragTargetInfo,
-        getCurrentSort,
-        setCurrentSort,
-        sortGames,
-        refs,
-        electronAPI
-    } = context;
+async function handleDrop(zone, event, context) {
+    console.log('[DRAG-DROP] handleDrop triggered. Zone ID:', zone.id);
+    try {
+        const {
+            getActiveCategoryId,
+            getAllGames,
+            getDragTargetInfo,
+            getCurrentSort,
+            setCurrentSort,
+            sortGames,
+            refs,
+            electronAPI
+        } = context;
 
-    if (getActiveCategoryId()) {
+        if (getActiveCategoryId()) {
+            console.log('[DRAG-DROP] Category filter active. Aborting drop.');
+            event.preventDefault();
+            zone.classList.remove('drag-over');
+            return;
+        }
         event.preventDefault();
         zone.classList.remove('drag-over');
-        return;
-    }
-    event.preventDefault();
-    zone.classList.remove('drag-over');
-    const draggedGameKey = event.dataTransfer.getData('gameKey');
-    if (!draggedGameKey) return;
-    const allGames = getAllGames();
-    const draggedGame = allGames.find(game => getGameKey(game) === draggedGameKey);
-    if (!draggedGame) return;
-
-    const isFavZone = zone === refs.favGrid || zone === refs.separator;
-    let needsSave = handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI);
-    const dragTargetInfo = getDragTargetInfo();
-
-    if (draggedGame.favorite === isFavZone && zone !== refs.separator) {
-        if (getCurrentSort() !== 'custom') {
-            setCurrentSort('custom');
+        
+        const draggedGameKey = event.dataTransfer.getData('gameKey');
+        console.log('[DRAG-DROP] draggedGameKey from dataTransfer:', draggedGameKey);
+        if (!draggedGameKey) {
+            console.log('[DRAG-DROP] No draggedGameKey found in dataTransfer. Aborting.');
+            return;
         }
-        if (handleCustomOrderDrop(allGames, draggedGameKey, dragTargetInfo)) {
-            needsSave = true;
+        
+        const allGames = getAllGames();
+        console.log('[DRAG-DROP] Total games in state:', allGames.length);
+        const draggedGame = allGames.find(game => isGameOrInstanceMatch(game, draggedGameKey));
+        console.log('[DRAG-DROP] Found draggedGame:', draggedGame ? draggedGame.name : 'null');
+        if (!draggedGame) {
+            console.log('[DRAG-DROP] draggedGame not found in state list. Aborting.');
+            return;
         }
-    }
 
-    flipAnimateDOMUpdate(() => {
-        document.querySelectorAll('.game-card').forEach(card => { card.style.transform = 'none'; });
-        sortGames(getCurrentSort());
-    }, true);
-    if (!needsSave) {
-        sortGames(getCurrentSort());
+        const isFavZone = zone === refs.favGrid || zone === refs.separator;
+        console.log('[DRAG-DROP] Drop zone is favorite zone:', isFavZone);
+        
+        // Capture drag target info immediately before any async await
+        const dragTargetInfo = getDragTargetInfo();
+        console.log('[DRAG-DROP] Captured dragTargetInfo immediately:', dragTargetInfo);
+
+        console.log('[DRAG-DROP] calling handleFavoriteDrop...');
+        let needsSave = await handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI);
+        console.log('[DRAG-DROP] handleFavoriteDrop completed. needsSave:', needsSave);
+
+        console.log('[DRAG-DROP] draggedGame.favorite:', draggedGame.favorite, 'isFavZone:', isFavZone);
+        if (draggedGame.favorite === isFavZone && zone !== refs.separator) {
+            console.log('[DRAG-DROP] game favorite status matches drop zone. Handling custom order drop.');
+            if (getCurrentSort() !== 'custom') {
+                console.log('[DRAG-DROP] Sort mode is not custom. Switching to custom.');
+                setCurrentSort('custom');
+            }
+            if (handleCustomOrderDrop(allGames, draggedGameKey, dragTargetInfo)) {
+                console.log('[DRAG-DROP] custom order drop handled. Setting needsSave = true');
+                needsSave = true;
+            }
+        }
+
+        console.log('[DRAG-DROP] Finalizing drop UI updates. needsSave:', needsSave);
+        flipAnimateDOMUpdate(() => {
+            document.querySelectorAll('.game-card').forEach(card => { card.style.transform = 'none'; });
+            sortGames(getCurrentSort());
+        }, true);
+        if (!needsSave) {
+            console.log('[DRAG-DROP] needsSave is false. Re-rendering grid directly.');
+            sortGames(getCurrentSort());
+        }
+        console.log('[DRAG-DROP] handleDrop completed successfully.');
+    } catch (err) {
+        console.error('[DRAG-DROP] CRITICAL ERROR IN handleDrop:', err);
     }
 }
 

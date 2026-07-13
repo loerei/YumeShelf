@@ -66,7 +66,13 @@ function renderGameSearchItem(game, query, context) {
     if (item.draggable) {
         item.ondragstart = (event) => {
             setDraggedGameFolder(gameKey);
-            event.dataTransfer.setData('gameKey', gameKey);
+            const rect = item.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            if (event.dataTransfer) {
+                event.dataTransfer.setDragImage(item, x, y);
+                event.dataTransfer.setData('gameKey', gameKey);
+            }
         };
         item.ondragend = () => {
             if (getDraggedGameFolder() === getGameKey(game)) {

@@ -112,6 +112,15 @@ function bindSetupAndNavigation(refs: RendererRefs, startupController: any, sett
 
 function bindLibraryControls(refs: RendererRefs, sortGames: (sort: string) => void, currentSort: () => string, searchController: any) {
     if (refs.sortBtn && refs.sortMenu) {
+        const sortContainer = refs.sortBtn.closest('.sort-container') as HTMLElement | null;
+        if (sortContainer) {
+            sortContainer.onmouseenter = () => {
+                refs.sortMenu!.classList.add('show');
+            };
+            sortContainer.onmouseleave = () => {
+                refs.sortMenu!.classList.remove('show');
+            };
+        }
         refs.sortBtn.onclick = (event) => {
             event.stopPropagation();
             refs.sortMenu!.classList.toggle('show');

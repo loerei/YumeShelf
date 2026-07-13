@@ -61,7 +61,12 @@ export function createRendererComposition({
     function withLogicalGameMutation(gameKey: string, mutator: (entry: GameEntry) => void) {
         state.setAllGames(
             state.getAllGames().map((entry) => {
-                if (getGameKey(entry) !== gameKey) {
+                const isMatch = entry.gameId === gameKey
+                    || entry.gameKey === gameKey
+                    || (Array.isArray(entry.instances) && entry.instances.some((instance) => (
+                        instance.gameKey === gameKey || instance.instanceId === gameKey
+                    )));
+                if (!isMatch) {
                     return entry;
                 }
                 const nextEntry = {
@@ -74,6 +79,62 @@ export function createRendererComposition({
             })
         );
     }
+
+    const handleFavoriteToggled = (gameKey: string, favorite: boolean) => {
+        withLogicalGameMutation(gameKey, (entry) => {
+            if (entry.gameId === gameKey || entry.gameKey === gameKey) {
+                entry.favorite = favorite;
+                if (Array.isArray(entry.instances)) {
+                    entry.instances.forEach((instance) => {
+                        instance.favorite = favorite;
+                    });
+                }
+                if (entry.primaryInstance) {
+                    entry.primaryInstance.favorite = favorite;
+                }
+            } else {
+                if (Array.isArray(entry.instances)) {
+                    entry.instances.forEach((instance) => {
+                        if (instance.gameKey === gameKey || instance.instanceId === gameKey) {
+                            instance.favorite = favorite;
+                        }
+                    });
+                    entry.favorite = entry.instances.some((instance) => !!instance.favorite);
+                }
+                if (entry.primaryInstance && (entry.primaryInstance.gameKey === gameKey || entry.primaryInstance.instanceId === gameKey)) {
+                    entry.primaryInstance.favorite = favorite;
+                }
+            }
+        });
+    };
+
+    const handleRenamed = (gameKey: string, newName: string) => {
+        withLogicalGameMutation(gameKey, (entry) => {
+            if (entry.gameId === gameKey || entry.gameKey === gameKey) {
+                entry.name = newName;
+                if (Array.isArray(entry.instances)) {
+                    entry.instances.forEach((instance) => {
+                        instance.name = newName;
+                    });
+                }
+                if (entry.primaryInstance) {
+                    entry.primaryInstance.name = newName;
+                }
+            } else {
+                if (Array.isArray(entry.instances)) {
+                    entry.instances.forEach((instance) => {
+                        if (instance.gameKey === gameKey || instance.instanceId === gameKey) {
+                            instance.name = newName;
+                        }
+                    });
+                }
+                if (entry.primaryInstance && (entry.primaryInstance.gameKey === gameKey || entry.primaryInstance.instanceId === gameKey)) {
+                    entry.primaryInstance.name = newName;
+                    entry.name = newName;
+                }
+            }
+        });
+    };
 
     function getVisibleGames() {
         const activeCategoryId = state.getActiveCategoryId();
@@ -207,19 +268,8 @@ export function createRendererComposition({
         onDragStateReset: () => {
             dragDropGridController.resetDragState();
         },
-        onFavoriteToggled: (gameKey: string, favorite: boolean) => {
-            withLogicalGameMutation(gameKey, (entry) => {
-                entry.favorite = favorite;
-                if (Array.isArray(entry.instances)) {
-                    entry.instances.forEach((instance) => {
-                        instance.favorite = favorite;
-                    });
-                }
-                if (entry.primaryInstance) {
-                    entry.primaryInstance.favorite = favorite;
-                }
-            });
-        },
+        onFavoriteToggled: handleFavoriteToggled,
+        onRenamed: handleRenamed,
         onGameLaunched: () => {
             libraryRuntime.sortGames(state.getCurrentSort());
         },
@@ -246,35 +296,11 @@ export function createRendererComposition({
         onDragStateReset: () => {
             dragDropGridController.resetDragState();
         },
-        onFavoriteToggled: (gameKey: string, favorite: boolean) => {
-            withLogicalGameMutation(gameKey, (entry) => {
-                entry.favorite = favorite;
-                if (Array.isArray(entry.instances)) {
-                    entry.instances.forEach((instance) => {
-                        instance.favorite = favorite;
-                    });
-                }
-                if (entry.primaryInstance) {
-                    entry.primaryInstance.favorite = favorite;
-                }
-            });
-        },
+        onFavoriteToggled: handleFavoriteToggled,
         onOpenStack: (stack: any) => {
             duplicateStackOverlayController.open(stack);
         },
-        onRenamed: (gameKey: string, newName: string) => {
-            withLogicalGameMutation(gameKey, (entry) => {
-                entry.name = newName;
-                if (Array.isArray(entry.instances)) {
-                    entry.instances.forEach((instance) => {
-                        instance.name = newName;
-                    });
-                }
-                if (entry.primaryInstance) {
-                    entry.primaryInstance.name = newName;
-                }
-            });
-        },
+        onRenamed: handleRenamed,
         onRefreshRequested: () => {
             libraryRuntime.sortGames(state.getCurrentSort());
         }
@@ -355,10 +381,6 @@ export function createRendererComposition({
 
     state.subscribe('currentSort', (sortType) => {
         libraryRuntime.sortGames(sortType);
-    });
-
-    state.subscribe('allGames', () => {
-        libraryRuntime.reannotateGames();
     });
 
     dragDropGridController.attachZoneHandlers();

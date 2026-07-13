@@ -53,6 +53,16 @@ export interface LibraryContext {
     saveDB: (db: any) => Promise<void>;
 }
 
+class Mutex {
+    private queue: Promise<any> = Promise.resolve();
+
+    async run<T>(fn: () => Promise<T>): Promise<T> {
+        const next = this.queue.then(fn);
+        this.queue = next.catch(() => {});
+        return next;
+    }
+}
+
 export function createLibraryState(options: LibraryContext) {
     const context: LibraryContext = {
         categoryState: options.categoryState,
@@ -64,22 +74,37 @@ export function createLibraryState(options: LibraryContext) {
         saveDB: options.saveDB
     };
 
+    const mutex = new Mutex();
+
     return {
-        addPlaytime: (gameKey: string, durationMs: number) => addPlaytime(context, gameKey, durationMs),
-        finalizeTrackedSession: (gameKey: string, durationMs: number, endedAt: number, exePath?: string) => finalizeTrackedSession(context, gameKey, durationMs, endedAt, exePath),
+        addPlaytime: (gameKey: string, durationMs: number) => 
+            mutex.run(() => addPlaytime(context, gameKey, durationMs)),
+        finalizeTrackedSession: (gameKey: string, durationMs: number, endedAt: number, exePath?: string) => 
+            mutex.run(() => finalizeTrackedSession(context, gameKey, durationMs, endedAt, exePath)),
         getGameRecord: (gameKey: string) => getGameRecord(context, gameKey),
-        loadGamesForConfig: (config: any) => loadGamesForConfig(context, config),
-        renameGame: (gameKey: string, newName: string) => renameGame(context, gameKey, newName),
+        loadGamesForConfig: (config: any) => 
+            mutex.run(() => loadGamesForConfig(context, config)),
+        renameGame: (gameKey: string, newName: string) => 
+            mutex.run(() => renameGame(context, gameKey, newName)),
         resolveLibraryConfig: () => resolveLibraryConfig(context),
         resolveLibraryFolderToOpen: () => resolveLibraryFolderToOpen(context),
-        setSaveFolderOverride: (gameKey: string, folderPath: string) => setSaveFolderOverride(context, gameKey, folderPath),
-        setupLibrary: (type: 'default' | 'custom') => setupLibrary(context, type),
-        addLibraryPath: () => addLibraryPath(context),
-        removeLibraryPath: (path: string) => removeLibraryPath(context, path),
-        changeLibraryPath: (oldPath: string) => changeLibraryPath(context, oldPath),
-        toggleFavorite: (gameKey: string) => toggleFavorite(context, gameKey),
-        toggleRunInBackground: (gameKey: string) => toggleRunInBackground(context, gameKey),
-        toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),
-        updateLibraryConfig: (updates: any) => updateLibraryConfig(context, updates)
+        setSaveFolderOverride: (gameKey: string, folderPath: string) => 
+            mutex.run(() => setSaveFolderOverride(context, gameKey, folderPath)),
+        setupLibrary: (type: 'default' | 'custom') => 
+            mutex.run(() => setupLibrary(context, type)),
+        addLibraryPath: () => 
+            mutex.run(() => addLibraryPath(context)),
+        removeLibraryPath: (path: string) => 
+            mutex.run(() => removeLibraryPath(context, path)),
+        changeLibraryPath: (oldPath: string) => 
+            mutex.run(() => changeLibraryPath(context, oldPath)),
+        toggleFavorite: (gameKey: string) => 
+            mutex.run(() => toggleFavorite(context, gameKey)),
+        toggleRunInBackground: (gameKey: string) => 
+            mutex.run(() => toggleRunInBackground(context, gameKey)),
+        toggleAutoTranslate: (gameKey: string) => 
+            mutex.run(() => toggleAutoTranslate(context, gameKey)),
+        updateLibraryConfig: (updates: any) => 
+            mutex.run(() => updateLibraryConfig(context, updates))
     };
 }

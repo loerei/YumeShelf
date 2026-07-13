@@ -49,7 +49,7 @@ export function bindRenameAction({
                 if (onSaveData) {
                     onSaveData(nextName);
                 }
-                await electronAPI.renameGame({ gameKey, newName: nextName });
+                await electronAPI.invoke('rename-game', { gameKey, newName: nextName });
                 if (typeof onRenamed === 'function') {
                     onRenamed(gameKey, nextName);
                 }

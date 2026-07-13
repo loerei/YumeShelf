@@ -13,6 +13,7 @@ function bindCardActions(card, game, context) {
         attachTooltip,
         onFavoriteToggled,
         onRefreshRequested,
+        onRenamed,
         onGameLaunched,
         onCardDeleted,
         onDragStart,
@@ -48,13 +49,15 @@ function bindCardActions(card, game, context) {
 
     bindDropdownToggle(card);
 
-    bindRenameAction({
-        card,
-        currentName: () => game.name,
-        electronAPI,
-        gameKey,
-        onSaveData: (nextName) => { game.name = nextName; }
-    });
+        bindRenameAction({
+            card,
+            currentName: () => game.name,
+            electronAPI,
+            gameKey,
+            onRefreshRequested,
+            onRenamed,
+            onSaveData: (nextName) => { game.name = nextName; }
+        });
 
     card.querySelector('.action-reveal').onclick = (event) => {
         event.stopPropagation();
@@ -158,8 +161,14 @@ function bindCardActions(card, game, context) {
                 event.preventDefault();
                 return false;
             }
-            event.dataTransfer.setData('gameKey', gameKey);
-            event.dataTransfer.effectAllowed = 'move';
+            const rect = card.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            if (event.dataTransfer) {
+                event.dataTransfer.setDragImage(card, x, y);
+                event.dataTransfer.setData('gameKey', gameKey);
+                event.dataTransfer.effectAllowed = 'move';
+            }
             requestAnimationFrame(() => {
                 card.style.opacity = '0.01';
             });
@@ -185,6 +194,7 @@ export function createGameCardFactory({
     onDragStart,
     onGameLaunched,
     onFavoriteToggled,
+    onRenamed,
     onRefreshRequested
 }) {
 
@@ -285,6 +295,7 @@ export function createGameCardFactory({
             attachTooltip,
             onFavoriteToggled,
             onRefreshRequested,
+            onRenamed,
             onGameLaunched,
             onCardDeleted,
             onDragStart,

@@ -34,12 +34,15 @@ export async function renameGame(context: any, gameKey: string, newName: string)
     return true;
 }
 
-export async function toggleFavorite(context: any, gameKey: string): Promise<boolean> {
+export async function toggleFavorite(context: any, gameKey: string, favorite?: boolean): Promise<boolean> {
+    console.log('[MAIN][FAVORITE] toggleFavorite invoked. gameKey:', gameKey, 'favorite option:', favorite);
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
     if (games[gameKey]) {
-        games[gameKey].favorite = !games[gameKey].favorite;
+        const prev = games[gameKey].favorite;
+        games[gameKey].favorite = favorite ?? !games[gameKey].favorite;
+        console.log('[MAIN][FAVORITE] found direct game record. Toggled favorite:', prev, '->', games[gameKey].favorite);
         db.games = games;
         await saveDB(db);
         return games[gameKey].favorite;
@@ -47,15 +50,24 @@ export async function toggleFavorite(context: any, gameKey: string): Promise<boo
 
     const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
     const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
-    if (!targetGroup) return false;
-    const nextFavorite = !targetGroup.favorite;
+    console.log('[MAIN][FAVORITE] logical target group search result:', targetGroup ? targetGroup.name : 'null');
+    if (!targetGroup) {
+        console.log('[MAIN][FAVORITE] target logical group not found. Returning false.');
+        return false;
+    }
+    const nextFavorite = favorite ?? !targetGroup.favorite;
+    console.log('[MAIN][FAVORITE] logical target group current favorite:', targetGroup.favorite, 'next favorite status:', nextFavorite);
     targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {
+            console.log('[MAIN][FAVORITE] updating instance:', instance.gameKey, 'to favorite:', nextFavorite);
             games[instance.gameKey].favorite = nextFavorite;
+        } else {
+            console.log('[MAIN][FAVORITE] warning: instance key not found in games list:', instance.gameKey);
         }
     });
     db.games = games;
     await saveDB(db);
+    console.log('[MAIN][FAVORITE] successfully saved library DB. Returning:', nextFavorite);
     return nextFavorite;
 }
 

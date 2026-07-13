@@ -102,6 +102,16 @@
     background: var(--menu-bg); border: 1px solid var(--menu-border); border-radius: 6px;
     display: none; z-index: 1000; min-width: 150px; box-shadow: var(--menu-shadow);
 }
+
+.sort-menu::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: 0;
+    right: 0;
+    height: 15px;
+    background: transparent;
+}
 .sort-menu.show { display: block; }
 .sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); position: relative; }
 .sort-item:hover { background: var(--menu-hover-bg); color: var(--text-main); }

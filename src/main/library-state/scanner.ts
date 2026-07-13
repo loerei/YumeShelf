@@ -98,8 +98,7 @@ export function getSmartName(exePath: string, topName: string): string {
     const clean = (value: string) => {
         let result = '';
         let depth = 0;
-        for (let i = 0; i < value.length; i++) {
-            const char = value[i];
+        for (const char of value) {
             if (char === '[') {
                 depth++;
             } else if (char === ']') {

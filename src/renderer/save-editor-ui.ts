@@ -57,7 +57,8 @@ export function initSaveEditorUI() {
             </button>
         `;
 
-        overlay.innerHTML = `
+        function getPanelHTML() {
+            return `
             <div class="save-editor-panel">
                 <div class="save-editor-header">
                     <h2 data-i18n="action_save_editor">${d.action_save_editor || 'Save Editor'}</h2>
@@ -126,9 +127,7 @@ export function initSaveEditorUI() {
                                         <input type="checkbox" class="search-index-check">
                                         <span data-i18n="save_editor_search_index">${d.save_editor_search_index || 'Index'}</span>
                                     </label>
-
                                     <div class="filter-divider switch-filters-only" style="display: none;"></div>
-
                                     <label class="save-editor-filter-check switch-filters-only" style="display: none;" title="Only show switches that are ON">
                                         <input type="checkbox" class="switch-true-check">
                                         <span data-i18n="save_editor_true_only">${d.save_editor_true_only || 'True only'}</span>
@@ -158,7 +157,10 @@ export function initSaveEditorUI() {
                     <button class="primary-btn save-btn" style="display: none;" data-i18n="save_editor_save">${d.save_editor_save || 'Save Changes'}</button>
                 </div>
             </div>
-        `;
+            `;
+        }
+
+        overlay.innerHTML = getPanelHTML();
 
         document.body.appendChild(overlay);
         

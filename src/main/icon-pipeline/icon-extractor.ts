@@ -67,15 +67,19 @@ function sendExtractionResult(id: string | number, rawBuffer: any, rawLength: nu
     }
 }
 
+interface ExtractionErrorContext {
+    rawPath: string;
+    normalizedPath: string;
+    rawExists: boolean;
+    normalizedExists: boolean;
+    rawFlavor: any;
+    normalizedFlavor: any;
+    startedAt: number;
+}
+
 function sendExtractionError(
     id: string | number,
-    rawPath: string,
-    normalizedPath: string,
-    rawExists: boolean,
-    normalizedExists: boolean,
-    rawFlavor: any,
-    normalizedFlavor: any,
-    startedAt: number,
+    ctx: ExtractionErrorContext,
     err: any
 ): void {
     if (process.send) {
@@ -84,13 +88,13 @@ function sendExtractionError(
             base64: '',
             meta: {
                 pid: process.pid,
-                rawExists,
-                normalizedExists,
-                rawPath,
-                normalizedPath,
-                rawFlavor,
-                normalizedFlavor,
-                durationMs: Date.now() - startedAt,
+                rawExists: ctx.rawExists,
+                normalizedExists: ctx.normalizedExists,
+                rawPath: ctx.rawPath,
+                normalizedPath: ctx.normalizedPath,
+                rawFlavor: ctx.rawFlavor,
+                normalizedFlavor: ctx.normalizedFlavor,
+                durationMs: Date.now() - ctx.startedAt,
                 error: String((err as any && (err as any).stack) || err)
             }
         });
@@ -139,7 +143,7 @@ function handleExtractionMessage(msg: IconWorkerMessageRequest): void {
             sendExtractionResult(msg.id, rawBuffer, rawLength, normalizedLength, meta);
         } catch (err) {
             console.error(`[ICON-WORKER][pid=${process.pid}] ERROR during extraction for #${msg.id}:`, err);
-            sendExtractionError(msg.id, msg.path, normalizedPath, rawExists, normalizedExists, rawFlavor, normalizedFlavor, startedAt, err);
+            sendExtractionError(msg.id, { rawPath: msg.path, normalizedPath, rawExists, normalizedExists, rawFlavor, normalizedFlavor, startedAt }, err);
         }
     } else {
         console.warn(`[ICON-WORKER] Received invalid message format:`, msg);

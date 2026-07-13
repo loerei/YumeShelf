@@ -264,6 +264,23 @@ export class WolfRpgExtractor implements TranslationExtractor {
         }
     }
 
+    private applyEndStringBlock(
+        state: { inBlock: boolean; originalText: string; contextLines: string[]; translationText: string; step: number },
+        translations: Map<string, string>,
+        newLines: string[],
+        endLine: string
+    ): void {
+        state.inBlock = false;
+        const unescapedOrig = this.unescapeString(state.originalText.trim());
+        const translated = translations.get(unescapedOrig);
+        newLines.push(
+            state.originalText,
+            ...state.contextLines,
+            translated ? this.escapeString(translated) : (state.translationText || state.originalText),
+            endLine
+        );
+    }
+
     private processUpdatePatchLine(
         line: string,
         state: { inBlock: boolean; originalText: string; contextLines: string[]; translationText: string; step: number },
@@ -280,15 +297,7 @@ export class WolfRpgExtractor implements TranslationExtractor {
             return;
         }
         if (line.startsWith('> END STRING')) {
-            state.inBlock = false;
-            const unescapedOrig = this.unescapeString(state.originalText.trim());
-            const translated = translations.get(unescapedOrig);
-            newLines.push(
-                state.originalText,
-                ...state.contextLines,
-                translated ? this.escapeString(translated) : (state.translationText || state.originalText),
-                line
-            );
+            this.applyEndStringBlock(state, translations, newLines, line);
             return;
         }
 

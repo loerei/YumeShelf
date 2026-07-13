@@ -95,10 +95,17 @@ function pickPreferredExecutable(currentPath: string, executableEntries: Executa
 
 export function getSmartName(exePath: string, topName: string): string {
     const id = /(RJ\d{6,8}|\b\d{6,8}\b)/i.exec(exePath);
-    const clean = (value: string) => value
-        .replace(/\[.*?\]|RY-|(RJ\d+|\b\d{6,8}\b)|(_pc|_win|_dlsite|_eng|subscriber|v\d+\.\d+(?:\.\d+)*)|[_-]/gi, ' ')
-        .trim()
-        .replace(/\s+/g, ' ');
+    const clean = (value: string) =>
+        value
+            .replace(/\[.*?\]/g, ' ')
+            .replace(/\bRJ\d+\b/gi, ' ')
+            .replace(/\b\d{6,8}\b/g, ' ')
+            .replace(/\b(?:_pc|_win|_dlsite|_eng|subscriber)\b/gi, ' ')
+            .replace(/v\d+\.\d+(?:\.\d+)*/gi, ' ')
+            .replace(/RY-/gi, ' ')
+            .replace(/[_-]/g, ' ')
+            .trim()
+            .replace(/\s+/g, ' ');
     return (id ? `[${id[0].toUpperCase()}] ` : '') + (clean(path.basename(path.dirname(exePath))) || clean(topName));
 }
 

@@ -270,13 +270,8 @@ export function registerMainIpc({
     registerAutoLaunchHandlers(router, app, paths);
 }
 
-function registerAutoLaunchHandlers(
-    router: TypedIpcRouter,
-    app: App,
-    paths: any
-): void {
+function syncAutoLaunchOnStartup(app: App, paths: any): string {
     let devAutoLaunchState = 'off';
-
     try {
         if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
             const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
@@ -293,11 +288,7 @@ function registerAutoLaunchHandlers(
                 const args = (value === 'minimized') ? ['--minimized'] : [];
 
                 if (app.isPackaged) {
-                    app.setLoginItemSettings({
-                        openAtLogin: openAtLogin,
-                        path: app.getPath('exe'),
-                        args: args
-                    });
+                    app.setLoginItemSettings({ openAtLogin, path: app.getPath('exe'), args });
                     console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
                 } else {
                     devAutoLaunchState = value;
@@ -308,6 +299,15 @@ function registerAutoLaunchHandlers(
     } catch (e) {
         console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch on startup:', e);
     }
+    return devAutoLaunchState;
+}
+
+function registerAutoLaunchHandlers(
+    router: TypedIpcRouter,
+    app: App,
+    paths: any
+): void {
+    let devAutoLaunchState = syncAutoLaunchOnStartup(app, paths);
 
     router.handle('set-auto-launch', async (_event, value) => {
         try {

@@ -33,7 +33,21 @@ function getPinHandler(context, pinId) {
     return { isPinned, onPinToggle };
 }
 
-function renderPinnedCategory(context, root, party, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, grid) {
+interface PinnedCategoryOptions {
+    context: any;
+    root: any;
+    party: any;
+    variables: any;
+    switches: any;
+    originalRoot: any;
+    originalParty: any;
+    originalVariables: any;
+    originalSwitches: any;
+    grid: HTMLElement;
+}
+
+function renderPinnedCategory(opts: PinnedCategoryOptions) {
+    const { context, root, party, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, grid } = opts;
     const d = context.state.d || {};
 
     // 1. Pinned Gold
@@ -133,7 +147,7 @@ function renderGoldCategory(context, root, party, originalRoot, originalParty, g
 function renderSingleCategory(tabId, grid, context, data) {
     const { root, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, party } = data;
     if (tabId === 'pinned' && root) {
-        renderPinnedCategory(context, root, party, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, grid);
+        renderPinnedCategory({ context, root, party, variables, switches, originalRoot, originalParty, originalVariables, originalSwitches, grid });
     } else if (tabId === 'gold' && root) {
         renderGoldCategory(context, root, party, originalRoot, originalParty, grid);
     } else if (['items', 'weapons', 'armors'].includes(tabId) && root) {
@@ -182,7 +196,7 @@ function renderSingleCategory(tabId, grid, context, data) {
 }
 
 function renderAllCategoryTab(context, data) {
-    const { refs, state, engine, translator, activeVisibleTabs } = context;
+    const { refs, engine, translator, activeVisibleTabs } = context;
     const { content } = refs;
     let hasAnyData = false;
     const categories = activeVisibleTabs.filter(t => t.id !== 'all' && t.id !== 'pinned');
@@ -384,7 +398,20 @@ export function renderInventory(context, target, key, metaSource, grid, original
     });
 }
 
-function renderCheckboxRow(grid, id, val, name, context, pinId, originalVal, onUpdate, raw) {
+interface CheckboxRowOptions {
+    grid: HTMLElement;
+    id: any;
+    val: any;
+    name: string;
+    context: any;
+    pinId: string;
+    originalVal: any;
+    onUpdate: Function;
+    raw: any;
+}
+
+function renderCheckboxRow(opts: CheckboxRowOptions) {
+    const { grid, id, val, name, context, pinId, originalVal, onUpdate, raw } = opts;
     const { onPinToggle, isPinned } = getPinHandler(context, pinId);
     const row = document.createElement('div');
     row.className = 'data-row checkbox-row';
@@ -480,7 +507,7 @@ export function renderBitset(context, data, metaSource, grid, options) {
             attachSaveEditorTooltip(row, () => ({ title: name }));
             grid.appendChild(row);
         } else {
-            renderCheckboxRow(grid, id, val, name, context, pinId, originalVal, onUpdate, raw);
+            renderCheckboxRow({ grid, id, val, name, context, pinId, originalVal, onUpdate, raw });
         }
     };
 

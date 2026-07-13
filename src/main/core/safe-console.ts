@@ -57,7 +57,7 @@ export function installSafeConsole(): void {
         try {
             execSync('chcp 65001', { stdio: 'ignore' });
         } catch (e) {
-            // Ignore error if chcp command is not supported or fails
+            console.warn('[SAFE-CONSOLE] chcp 65001 failed:', e);
         }
     }
     const methods: ConsoleMethodName[] = ['log', 'info', 'warn', 'error', 'debug'];

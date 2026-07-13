@@ -19,6 +19,40 @@ KEY_CLASS = "$class"
 KEY_FIELDS = "fields"
 KEY_VALUES = "values"
 
+def _init_dynamic_mock(base, instance, args, kwargs):
+    if base is list:
+        list.__init__(instance, *args, **kwargs)
+    elif base is dict:
+        dict.__init__(instance, *args, **kwargs)
+    elif base is set:
+        set.__init__(instance, *args, **kwargs)
+    else:
+        object.__init__(instance)
+
+
+def _apply_setstate(base, instance, state):
+    if isinstance(state, dict):
+        instance.__dict__.update(state)
+        if base is dict:
+            instance.update(state)
+    elif isinstance(state, list):
+        if base is list:
+            instance.extend(state)
+    elif isinstance(state, tuple):
+        for item in state:
+            if isinstance(item, dict):
+                instance.__dict__.update(item)
+                if base is dict:
+                    instance.update(item)
+            elif isinstance(item, list) and base is list:
+                instance.extend(item)
+    else:
+        try:
+            instance.__dict__.update(state)
+        except Exception:
+            pass
+
+
 def create_dynamic_mock(class_name, module_path):
     name_lower = class_name.lower()
     if 'list' in name_lower:
@@ -32,44 +66,18 @@ def create_dynamic_mock(class_name, module_path):
 
     class DynamicMock(base):
         def __init__(self, *args, **kwargs):
-            if base is list:
-                list.__init__(self, *args, **kwargs)
-            elif base is dict:
-                dict.__init__(self, *args, **kwargs)
-            elif base is set:
-                set.__init__(self, *args, **kwargs)
-            else:
-                object.__init__(self)
-                
+            _init_dynamic_mock(base, self, args, kwargs)
+
         def __setstate__(self, state):
-            if isinstance(state, dict):
-                self.__dict__.update(state)
-                if base is dict:
-                    self.update(state)
-            elif isinstance(state, list):
-                if base is list:
-                    self.extend(state)
-            elif isinstance(state, tuple):
-                for item in state:
-                    if isinstance(item, dict):
-                        self.__dict__.update(item)
-                        if base is dict:
-                            self.update(item)
-                    elif isinstance(item, list) and base is list:
-                        self.extend(item)
-            else:
-                try:
-                    self.__dict__.update(state)
-                except Exception:
-                    pass
-                
+            _apply_setstate(base, self, state)
+
         def __getstate__(self):
             if base is list:
                 return (self.__dict__, list(self))
             elif base is dict:
                 return self.__dict__
             return self.__dict__
-            
+
         def __repr__(self):
             dict_part = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
             if base is list:

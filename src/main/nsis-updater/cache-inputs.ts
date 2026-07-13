@@ -78,18 +78,23 @@ export interface InstallerCacheState {
     cachedInstallerSha512?: string;
 }
 
+interface RefreshInstallerOptions {
+    fs: any;
+    ensureDir: any;
+    path: any;
+    sha512FileBase64: any;
+    appendUpdateLog: any;
+    currentVersion: string;
+    VERBOSE_UPDATE_LOG: boolean | undefined;
+}
+
 async function refreshCachedInstaller(
     activeUpdater: any,
     releaseInputs: any,
     cachedInstallerPath: string,
-    fs: any,
-    ensureDir: any,
-    path: any,
-    sha512FileBase64: any,
-    appendUpdateLog: any,
-    currentVersion: string,
-    VERBOSE_UPDATE_LOG: boolean | undefined
+    opts: RefreshInstallerOptions
 ): Promise<string> {
+    const { fs, ensureDir, path, sha512FileBase64, appendUpdateLog, currentVersion, VERBOSE_UPDATE_LOG } = opts;
     const tempInstallerPath = `${cachedInstallerPath}.download`;
     await ensureDir(path.dirname(cachedInstallerPath));
     try {
@@ -177,13 +182,7 @@ export async function ensureCurrentInstallerCacheState(
             activeUpdater,
             releaseInputs,
             cachedInstallerPath,
-            fs,
-            ensureDir,
-            path,
-            sha512FileBase64,
-            appendUpdateLog,
-            currentVersion,
-            VERBOSE_UPDATE_LOG
+            { fs, ensureDir, path, sha512FileBase64, appendUpdateLog, currentVersion, VERBOSE_UPDATE_LOG }
         );
     }
 

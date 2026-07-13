@@ -487,9 +487,8 @@ export class TranslationService {
                 arch = 'x64';
             } else if (isX86) {
                 arch = 'x86';
-            } else {
-                arch = 'x64';
             }
+            // else: keep arch as 'x64' (default)
             await handle.close();
         } catch (e) {
             console.error(`[TRANSLATION-SERVICE] Failed to read PE architecture from ${exePath}:`, e);
@@ -567,7 +566,7 @@ export class TranslationService {
 
     extractZip(zipPath: string, outDir: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replaceAll(/'/g, "''")}' -DestinationPath '${outDir.replaceAll(/'/g, "''")}' -Force"`;
+            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replaceAll("'", "''")}' -DestinationPath '${outDir.replaceAll("'", "''")}' -Force"`;
             exec(cmd, (err) => err ? reject(err) : resolve());
         });
     }

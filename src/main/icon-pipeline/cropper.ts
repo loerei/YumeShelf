@@ -101,6 +101,20 @@ export interface CropResult {
     summary: NativeImageSummary | null;
 }
 
+interface CropRect { left: number; top: number; width: number; height: number; }
+
+function computeCropRect(bounds: { left: number; top: number; right: number; bottom: number; width: number; height: number }, fullWidth: number, fullHeight: number): CropRect | null {
+    const widthRatio = (bounds.width || 0) / fullWidth;
+    const heightRatio = (bounds.height || 0) / fullHeight;
+    if (widthRatio >= 0.82 && heightRatio >= 0.82) return null;
+    const padding = Math.max(2, Math.round(Math.min(fullWidth, fullHeight) * 0.02));
+    const left = Math.max(0, bounds.left - padding);
+    const top = Math.max(0, bounds.top - padding);
+    const right = Math.min(fullWidth, bounds.right + padding + 1);
+    const bottom = Math.min(fullHeight, bounds.bottom + padding + 1);
+    return { left, top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
+}
+
 export function cropTransparentPaddingFromDataUrl(dataUrl: string, options: any = {}): CropResult {
     if (!dataUrl || typeof dataUrl !== 'string') {
         return { dataUrl, cropped: false, summary: null };
@@ -128,33 +142,20 @@ export function cropTransparentPaddingFromDataUrl(dataUrl: string, options: any 
 
     const fullWidth = summary.width || 0;
     const fullHeight = summary.height || 0;
-    const contentWidth = bounds.width || 0;
-    const contentHeight = bounds.height || 0;
-    if (!fullWidth || !fullHeight || !contentWidth || !contentHeight) {
+    if (!fullWidth || !fullHeight) {
         return { dataUrl, cropped: false, summary };
     }
-
-    const widthRatio = contentWidth / fullWidth;
-    const heightRatio = contentHeight / fullHeight;
-    const shouldCrop = widthRatio < 0.82 || heightRatio < 0.82;
-    if (!shouldCrop) {
+    const cropRect = computeCropRect(bounds, fullWidth, fullHeight);
+    if (!cropRect) {
         return { dataUrl, cropped: false, summary };
     }
-
-    const padding = Math.max(2, Math.round(Math.min(fullWidth, fullHeight) * 0.02));
-    const cropLeft = Math.max(0, bounds.left - padding);
-    const cropTop = Math.max(0, bounds.top - padding);
-    const cropRight = Math.min(fullWidth, bounds.right + padding + 1);
-    const cropBottom = Math.min(fullHeight, bounds.bottom + padding + 1);
-    const cropWidth = Math.max(1, cropRight - cropLeft);
-    const cropHeight = Math.max(1, cropBottom - cropTop);
 
     try {
         const croppedImage = image.crop({
-            x: cropLeft,
-            y: cropTop,
-            width: cropWidth,
-            height: cropHeight
+            x: cropRect.left,
+            y: cropRect.top,
+            width: cropRect.width,
+            height: cropRect.height
         });
         const croppedDataUrl = croppedImage.toDataURL();
         return {
@@ -162,12 +163,7 @@ export function cropTransparentPaddingFromDataUrl(dataUrl: string, options: any 
             cropped: true,
             summary: {
                 ...summary,
-                cropRect: {
-                    left: cropLeft,
-                    top: cropTop,
-                    width: cropWidth,
-                    height: cropHeight
-                }
+                cropRect
             }
         };
     } catch (error: any) {

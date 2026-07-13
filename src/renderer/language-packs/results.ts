@@ -29,18 +29,30 @@ function buildLanguagePackCard(pack, context) {
     card.className = 'language-pack-card';
 
     const title = localeController.formatLanguageLabel(pack);
-    const sourceText = updateAvailable
-        ? getText('lang_modal_update_available', 'Update available')
-        : installed
-            ? (localeController.getLanguageMeta(pack.code)?.source === 'built-in' ? getText('lang_builtin_source') : getText('lang_downloaded_source'))
-            : getText('lang_modal_available_title');
+    let sourceText;
+    if (updateAvailable) {
+        sourceText = getText('lang_modal_update_available', 'Update available');
+    } else if (installed) {
+        sourceText = localeController.getLanguageMeta(pack.code)?.source === 'built-in'
+            ? getText('lang_builtin_source')
+            : getText('lang_downloaded_source');
+    } else {
+        sourceText = getText('lang_modal_available_title');
+    }
 
     const actionDisabled = (!updateAvailable && installed) || getDownloadingLanguageCode() !== null;
-    const actionLabel = updateAvailable
-        ? (getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_update', 'Update'))
-        : installed
-            ? getText('lang_modal_installed')
-            : (getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_download'));
+    let actionLabel;
+    if (updateAvailable) {
+        actionLabel = getDownloadingLanguageCode() === pack.code
+            ? getText('lang_modal_downloading')
+            : getText('lang_modal_update', 'Update');
+    } else if (installed) {
+        actionLabel = getText('lang_modal_installed');
+    } else {
+        actionLabel = getDownloadingLanguageCode() === pack.code
+            ? getText('lang_modal_downloading')
+            : getText('lang_modal_download');
+    }
 
     card.innerHTML = `
         <div class="language-pack-card-copy">
@@ -69,6 +81,11 @@ function buildLanguagePackCard(pack, context) {
     }
 
     return card;
+}
+
+function getReviewLanguageMatches(query, availableUpdates) {
+    const pendingPacks = Array.from(availableUpdates.values()).map(updateInfo => updateInfo.manifestEntry);
+    return filterLanguagePacks(pendingPacks, query);
 }
 
 export function createLanguagePackResultsController({
@@ -116,12 +133,6 @@ export function createLanguagePackResultsController({
 
         return updates;
     }
-
-    function getReviewLanguageMatches(query, availableUpdates) {
-        const pendingPacks = Array.from(availableUpdates.values()).map(updateInfo => updateInfo.manifestEntry);
-        return filterLanguagePacks(pendingPacks, query);
-    }
-
     function renderLanguagePackResults() {
         const manifestState = getManifestState();
         const reviewMode = getReviewMode();

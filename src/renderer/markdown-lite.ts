@@ -24,6 +24,16 @@ function renderParagraph(lines) {
     return text ? `<p>${renderInlineMarkdown(text)}</p>` : '';
 }
 
+function parseHeading(line: string): [string, string] | null {
+    if (!line.startsWith('#')) return null;
+    let hashes = 0;
+    while (hashes < line.length && line[hashes] === '#') hashes++;
+    if (hashes >= 1 && hashes <= 3 && line[hashes] === ' ') {
+        return [line.slice(0, hashes), line.slice(hashes + 1)];
+    }
+    return null;
+}
+
 export function renderMarkdownLite(markdown) {
     const normalized = String(markdown || '').replace(/\r\n?/g, '\n').trim();
     if (!normalized) {
@@ -56,22 +66,13 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        let headingMatch = null;
-        if (line.startsWith('#')) {
-            let hashes = 0;
-            while (hashes < line.length && line[hashes] === '#') {
-                hashes++;
-            }
-            if (hashes >= 1 && hashes <= 3 && line[hashes] === ' ') {
-                headingMatch = [line, line.slice(0, hashes), line.slice(hashes + 1)];
-            }
-        }
+        const headingMatch = parseHeading(line);
 
         if (headingMatch) {
             flushParagraph();
             flushList();
-            const level = Math.min(headingMatch[1].length, 3);
-            html.push(`<h${level}>${renderInlineMarkdown(headingMatch[2].trim())}</h${level}>`);
+            const level = Math.min(headingMatch[0].length, 3);
+            html.push(`<h${level}>${renderInlineMarkdown(headingMatch[1].trim())}</h${level}>`);
             continue;
         }
 

@@ -14,6 +14,16 @@ function buildUpdatedTitle(version, getText) {
     );
 }
 
+function buildNotificationTitle(getText, installedMode, totalCount) {
+    const key = installedMode
+        ? (totalCount === 1 ? 'update_notification_title_installed_one' : 'update_notification_title_installed_many')
+        : (totalCount === 1 ? 'update_notification_title_available_one' : 'update_notification_title_available_many');
+    const fallback = installedMode
+        ? (totalCount === 1 ? '{count} update finished automatically' : '{count} updates finished automatically')
+        : (totalCount === 1 ? '{count} update is ready' : '{count} updates are ready');
+    return formatTemplate(getText(key, fallback), { count: formatCount(totalCount) });
+}
+
 export function createAggregatedUpdateNotification({
     groups,
     mode = 'notify',
@@ -24,34 +34,7 @@ export function createAggregatedUpdateNotification({
     const totalCount = groups.reduce((sum, group) => sum + group.count, 0);
     const installedMode = mode === 'automatic-installed';
     const appReadyGroup = groups.some(group => group.kind === 'app-ready');
-    let title = titleOverride;
-    if (!title) {
-        if (installedMode) {
-            if (totalCount === 1) {
-                title = formatTemplate(
-                    getText('update_notification_title_installed_one', '{count} update finished automatically'),
-                    { count: formatCount(totalCount) }
-                );
-            } else {
-                title = formatTemplate(
-                    getText('update_notification_title_installed_many', '{count} updates finished automatically'),
-                    { count: formatCount(totalCount) }
-                );
-            }
-        } else {
-            if (totalCount === 1) {
-                title = formatTemplate(
-                    getText('update_notification_title_available_one', '{count} update is ready'),
-                    { count: formatCount(totalCount) }
-                );
-            } else {
-                title = formatTemplate(
-                    getText('update_notification_title_available_many', '{count} updates are ready'),
-                    { count: formatCount(totalCount) }
-                );
-            }
-        }
-    }
+    let title = titleOverride || buildNotificationTitle(getText, installedMode, totalCount);
 
     let eyebrow = '';
     if (appReadyGroup) {

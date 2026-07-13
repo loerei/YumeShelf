@@ -185,7 +185,7 @@ export class Translator {
             if (isASCII && originalName.length < 2) return;
 
             // Skip pure punctuation/symbol rows
-            const isPunctuation = /^[ \t\r\n\-_+=!@#$%^&*(){}[\]:;\"'<>,.?/\\|~`]*$/.test(originalName);
+            const isPunctuation = /^[ \t\r\n\-_+=!@#$%^&*(){}[\]:;"'<>,.?/\\|~`]*$/.test(originalName);
             if (isPunctuation) return;
 
             if (this.translationCache[originalName]) {
@@ -243,6 +243,38 @@ export class Translator {
         }
     }
 
+    async _translateIndividualLabels(chunk, resolvedTarget) {
+        let changed = false;
+        for (const original of chunk) {
+            try {
+                const singleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${resolvedTarget}&dt=t&q=${encodeURIComponent(original)}`;
+                const res = await fetch(singleUrl);
+                if (res.ok) {
+                    const singleResult = await res.json();
+                    if (singleResult?.[0]?.[0]?.[0]) {
+                        const translatedText = singleResult[0][0][0].trim();
+                        if (original === translatedText) {
+                            if (this.translationCache[original] !== original) {
+                                this.translationCache[original] = original;
+                                changed = true;
+                            }
+                        } else if (this.translationCache[original] !== translatedText) {
+                            this.translationCache[original] = translatedText;
+                            changed = true;
+                            console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
+                        }
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (singleErr) {
+                console.error(`[SAVE-EDITOR] Individual fallback failed for "${original}":`, singleErr);
+            }
+        }
+        if (changed) {
+            await this.saveTranslations();
+        }
+    }
+
     async _handleMismatchFallback(chunk, translatedLines, resolvedTarget) {
         const validLines = translatedLines.filter(line => line.trim().length > 0);
         if (validLines.length === chunk.length) {
@@ -262,35 +294,7 @@ export class Translator {
             if (changed) await this.saveTranslations();
         } else {
             console.warn(`[SAVE-EDITOR] Mismatch cannot be resolved safely. Falling back to translating individual labels in this batch.`);
-            let changed = false;
-            for (const original of chunk) {
-                try {
-                    const singleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${resolvedTarget}&dt=t&q=${encodeURIComponent(original)}`;
-                    const res = await fetch(singleUrl);
-                    if (res.ok) {
-                        const singleResult = await res.json();
-                        if (singleResult?.[0]?.[0]?.[0]) {
-                            const translatedText = singleResult[0][0][0].trim();
-                            if (original === translatedText) {
-                                if (this.translationCache[original] !== original) {
-                                    this.translationCache[original] = original;
-                                    changed = true;
-                                }
-                            } else if (this.translationCache[original] !== translatedText) {
-                                this.translationCache[original] = translatedText;
-                                changed = true;
-                                console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
-                            }
-                        }
-                    }
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                } catch (singleErr) {
-                    console.error(`[SAVE-EDITOR] Individual fallback failed for "${original}":`, singleErr);
-                }
-            }
-            if (changed) {
-                await this.saveTranslations();
-            }
+            await this._translateIndividualLabels(chunk, resolvedTarget);
         }
     }
 

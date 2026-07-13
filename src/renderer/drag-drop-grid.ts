@@ -104,6 +104,60 @@ function handleDragLeave(zone, event) {
     }
 }
 
+function handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI) {
+    const favoriteGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey);
+    let needsSave = false;
+
+    if (favoriteGroupKeys.some((key) => {
+        const game = allGames.find((entry) => getGameKey(entry) === key);
+        return game && game.favorite !== isFavZone;
+    })) {
+        favoriteGroupKeys.forEach((key) => {
+            const game = allGames.find((entry) => getGameKey(entry) === key);
+            if (!game || game.favorite === isFavZone) return;
+            applyFavoriteToLogicalGame(game, isFavZone);
+            electronAPI.invoke('toggle-favorite', key);
+        });
+        needsSave = true;
+    }
+    return needsSave;
+}
+
+function handleCustomOrderDrop(allGames, draggedGameKey, dragTargetInfo) {
+    const customOrder = normalizeCustomOrder(allGames);
+    const draggedGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey, customOrder);
+    const dragIndexEntries = draggedGroupKeys
+        .map((key) => customOrder.indexOf(key))
+        .filter((index) => index > -1)
+        .sort((a, b) => b - a);
+
+    if (dragIndexEntries.length > 0) {
+        dragIndexEntries.forEach((index) => {
+            customOrder.splice(index, 1);
+        });
+
+        let insertIdx = customOrder.length;
+        if (dragTargetInfo?.gameKey) {
+            const targetGroupKeys = getGroupedKeysForGame(allGames, dragTargetInfo.gameKey, customOrder);
+            const draggingIntoOwnGroup = targetGroupKeys.every((key) => draggedGroupKeys.includes(key));
+            const targetIndexes = targetGroupKeys
+                .map((key) => customOrder.indexOf(key))
+                .filter((index) => index > -1)
+                .sort((a, b) => a - b);
+            if (!draggingIntoOwnGroup && targetIndexes.length > 0) {
+                insertIdx = dragTargetInfo.insertAfter
+                    ? targetIndexes.at(-1) + 1
+                    : targetIndexes[0];
+            }
+        }
+
+        customOrder.splice(insertIdx, 0, ...draggedGroupKeys);
+        writeCustomOrder(customOrder);
+        return true;
+    }
+    return false;
+}
+
 function handleDrop(zone, event, context) {
     const {
         getActiveCategoryId,
@@ -130,57 +184,14 @@ function handleDrop(zone, event, context) {
     if (!draggedGame) return;
 
     const isFavZone = zone === refs.favGrid || zone === refs.separator;
-    let needsSave = false;
+    let needsSave = handleFavoriteDrop(allGames, draggedGameKey, isFavZone, electronAPI);
     const dragTargetInfo = getDragTargetInfo();
-    const favoriteGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey);
-
-    if (favoriteGroupKeys.some((key) => {
-        const game = allGames.find((entry) => getGameKey(entry) === key);
-        return game && game.favorite !== isFavZone;
-    })) {
-        favoriteGroupKeys.forEach((key) => {
-            const game = allGames.find((entry) => getGameKey(entry) === key);
-            if (!game || game.favorite === isFavZone) return;
-            applyFavoriteToLogicalGame(game, isFavZone);
-            electronAPI.invoke('toggle-favorite', key);
-        });
-        needsSave = true;
-    }
 
     if (draggedGame.favorite === isFavZone && zone !== refs.separator) {
         if (getCurrentSort() !== 'custom') {
             setCurrentSort('custom');
         }
-
-        const customOrder = normalizeCustomOrder(allGames);
-        const draggedGroupKeys = getGroupedKeysForGame(allGames, draggedGameKey, customOrder);
-        const dragIndexEntries = draggedGroupKeys
-            .map((key) => customOrder.indexOf(key))
-            .filter((index) => index > -1)
-            .sort((a, b) => b - a);
-
-        if (dragIndexEntries.length > 0) {
-            dragIndexEntries.forEach((index) => {
-                customOrder.splice(index, 1);
-            });
-
-            let insertIdx = customOrder.length;
-            if (dragTargetInfo?.gameKey) {
-                const targetGroupKeys = getGroupedKeysForGame(allGames, dragTargetInfo.gameKey, customOrder);
-                const draggingIntoOwnGroup = targetGroupKeys.every((key) => draggedGroupKeys.includes(key));
-                const targetIndexes = targetGroupKeys
-                    .map((key) => customOrder.indexOf(key))
-                    .filter((index) => index > -1)
-                    .sort((a, b) => a - b);
-                if (!draggingIntoOwnGroup && targetIndexes.length > 0) {
-                    insertIdx = dragTargetInfo.insertAfter
-                        ? targetIndexes.at(-1) + 1
-                        : targetIndexes[0];
-                }
-            }
-
-            customOrder.splice(insertIdx, 0, ...draggedGroupKeys);
-            writeCustomOrder(customOrder);
+        if (handleCustomOrderDrop(allGames, draggedGameKey, dragTargetInfo)) {
             needsSave = true;
         }
     }

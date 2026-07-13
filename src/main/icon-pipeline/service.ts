@@ -53,6 +53,22 @@ function createIconPayload(dataUrl: string, fit = 'contain', source = 'unknown',
     };
 }
 
+async function tryGetLocalImage(dir: string): Promise<Response | null> {
+    const exts = ['png', 'jpg', 'jpeg', 'webp'];
+    const names = ['icon', 'cover', 'folder'];
+    for (const name of names) {
+        for (const ext of exts) {
+            const imgPath = path.join(dir, `${name}.${ext}`);
+            if (fsSync.existsSync(imgPath)) {
+                const buffer = await fs.readFile(imgPath);
+                const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+                return new Response(buffer, { headers: { 'Content-Type': contentType } });
+            }
+        }
+    }
+    return null;
+}
+
 export function createIconPipeline({
     app,
     protocol,
@@ -111,22 +127,6 @@ export function createIconPipeline({
         const icon = await app.getFileIcon(targetPath, { size: 'large' });
         const fallbackDebug = summarizeNativeImageForDebug(icon);
         return createIconPayload(icon.toDataURL(), 'cover', 'app-file-icon-fallback', fallbackDebug);
-    }
-
-    async function tryGetLocalImage(dir: string): Promise<Response | null> {
-        const exts = ['png', 'jpg', 'jpeg', 'webp'];
-        const names = ['icon', 'cover', 'folder'];
-        for (const name of names) {
-            for (const ext of exts) {
-                const imgPath = path.join(dir, `${name}.${ext}`);
-                if (fsSync.existsSync(imgPath)) {
-                    const buffer = await fs.readFile(imgPath);
-                    const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-                    return new Response(buffer, { headers: { 'Content-Type': contentType } });
-                }
-            }
-        }
-        return null;
     }
 
     async function tryGetCachedIconResponse(targetPath: string): Promise<Response | null> {

@@ -133,7 +133,7 @@ export class RpgMakerExtractor implements TranslationExtractor {
         if (!trimmed || /^\d+$/.test(trimmed) || trimmed.startsWith('//') || trimmed.length <= 1) return;
         
         // Escape newlines to match XUnity.AutoTranslator dictionary format (single line per entry)
-        const escaped = trimmed.replaceAll(/\r\n/g, String.raw`\n`).replaceAll(/\n/g, String.raw`\n`).replaceAll(/\r/g, String.raw`\n`);
+        const escaped = trimmed.replaceAll('\r\n', String.raw`\n`).replaceAll('\n', String.raw`\n`).replaceAll('\r', String.raw`\n`);
         strings.add(escaped);
     }
 }

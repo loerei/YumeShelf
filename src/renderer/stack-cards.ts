@@ -150,7 +150,12 @@ export function createStackCardFactory({
                     return false;
                 }
                 suppressNextClick = true;
+                
+                const rect = card.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
                 if (event.dataTransfer) {
+                    event.dataTransfer.setDragImage(card, x, y);
                     event.dataTransfer.setData('gameKey', representativeKey);
                     event.dataTransfer.effectAllowed = 'move';
                 }

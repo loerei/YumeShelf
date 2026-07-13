@@ -161,8 +161,14 @@ function bindCardActions(card, game, context) {
                 event.preventDefault();
                 return false;
             }
-            event.dataTransfer.setData('gameKey', gameKey);
-            event.dataTransfer.effectAllowed = 'move';
+            const rect = card.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            if (event.dataTransfer) {
+                event.dataTransfer.setDragImage(card, x, y);
+                event.dataTransfer.setData('gameKey', gameKey);
+                event.dataTransfer.effectAllowed = 'move';
+            }
             requestAnimationFrame(() => {
                 card.style.opacity = '0.01';
             });

@@ -259,8 +259,18 @@ export function createRendererComposition({
         },
         electronAPI,
         getStrings: () => getStrings(),
-        onCardDeleted: (gameKey: string) => {
-            state.setAllGames(state.getAllGames().filter(g => getGameKey(g) !== gameKey));
+        onCardDeleted: async (gameKey: string) => {
+            try {
+                console.log('[FRONTEND] Game deleted. Reloading games list from backend.');
+                const nextGames = await electronAPI.invoke('get-games');
+                const config = await electronAPI.invoke('check-config');
+                libraryRuntime.setAllGames(nextGames, config);
+                libraryRuntime.sortGames(state.getCurrentSort());
+            } catch (err) {
+                console.error('[FRONTEND] Failed to reload games from backend after deletion:', err);
+                state.setAllGames(state.getAllGames().filter(g => getGameKey(g) !== gameKey));
+                libraryRuntime.sortGames(state.getCurrentSort());
+            }
         },
         onDragStart: (gameKey: string) => {
             dragDropGridController.startDrag(gameKey);

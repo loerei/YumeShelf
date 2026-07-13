@@ -221,3 +221,25 @@ export async function setSaveFolderOverride(context: any, gameKey: string, folde
     await saveDB(db);
     return { ok: true, saveFolderOverride: games[targetKey].saveFolderOverride || null };
 }
+
+export async function deleteGameRecord(context: any, safePath: string): Promise<boolean> {
+    const { loadDB, saveDB } = context;
+    const db = await loadDB();
+    const games = readStoredGames(db);
+    
+    let changed = false;
+    for (const key of Object.keys(games)) {
+        const record = games[key];
+        if (record && record.folderPath && path.resolve(record.folderPath) === path.resolve(safePath)) {
+            delete games[key];
+            changed = true;
+        }
+    }
+    
+    if (changed) {
+        db.games = games;
+        await saveDB(db);
+        return true;
+    }
+    return false;
+}

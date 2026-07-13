@@ -37,7 +37,8 @@ export const {
     addPlaytime,
     finalizeTrackedSession,
     getGameRecord,
-    setSaveFolderOverride
+    setSaveFolderOverride,
+    deleteGameRecord
 } = actions;
 
 /**
@@ -90,6 +91,8 @@ export function createLibraryState(options: LibraryContext) {
         resolveLibraryFolderToOpen: () => resolveLibraryFolderToOpen(context),
         setSaveFolderOverride: (gameKey: string, folderPath: string) => 
             mutex.run(() => setSaveFolderOverride(context, gameKey, folderPath)),
+        deleteGameRecord: (safePath: string) =>
+            mutex.run(() => deleteGameRecord(context, safePath)),
         setupLibrary: (type: 'default' | 'custom') => 
             mutex.run(() => setupLibrary(context, type)),
         addLibraryPath: () => 

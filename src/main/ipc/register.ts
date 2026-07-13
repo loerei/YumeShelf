@@ -201,6 +201,9 @@ export function registerMainIpc({
         if (safePath) {
             try {
                 await shell.trashItem(safePath);
+                console.log('[MAIN][DELETE-GAME] shell.trashItem succeeded. Removing db record.');
+                const deleted = await libraryState.deleteGameRecord(safePath);
+                console.log('[MAIN][DELETE-GAME] deleteGameRecord database status (changed?):', deleted);
                 return { ok: true };
             } catch (err) {
                 console.error('[MAIN][DELETE-GAME] shell.trashItem error:', err);

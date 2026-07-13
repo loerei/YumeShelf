@@ -46,7 +46,7 @@ export function createStartupController({
 
     async function initApp(bootstrapData: any = null, options: any = {}): Promise<void> {
         const loadingMode = options.loadingMode || 'boot';
-        const config = bootstrapData ? bootstrapData.config : await electronAPI.checkConfig();
+        const config = bootstrapData ? bootstrapData.config : await electronAPI.invoke('check-config');
         if (!config?.libraryPath) {
             bootController.hide();
             if (refs.welcome) refs.welcome.style.display = 'flex';

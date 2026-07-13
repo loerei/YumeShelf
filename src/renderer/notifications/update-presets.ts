@@ -192,14 +192,10 @@ export function createAppUpdateReadyNotification({
     };
 }
 
-export function createAppUpdateScheduledNotification({
-    getText,
-    openUpdatesReviewModal,
-    update
-}) {
+function buildBaseAppNotification(getText, openUpdatesReviewModal, update, config) {
     const version = formatVersion(update?.version);
     return {
-        eyebrow: getText('update_notification_label_scheduled', 'Scheduled'),
+        eyebrow: config.eyebrow,
         handleLabel: getText('update_notification_handle', 'Updates'),
         message: '',
         onPrimaryAction: async () => {
@@ -207,19 +203,26 @@ export function createAppUpdateScheduledNotification({
         },
         persistOnce: false,
         primaryLabel: getText('update_notification_review', 'Review updates'),
-        secondaryLabel: getText('post_update_notification_dismiss', 'Dismiss'),
+        secondaryLabel: config.secondaryLabel,
         signature: null,
         summaryItems: [
-            formatTemplate(
-                getText('update_notification_summary_app_scheduled_one', 'App update {version} will install on the next launch'),
-                { version }
-            )
+            formatTemplate(config.summaryText, { version })
         ],
-        title: formatTemplate(
-            getText('update_notification_app_scheduled_title', 'Update {version} will install on the next launch'),
-            { version }
-        )
+        title: formatTemplate(config.titleText, { version })
     };
+}
+
+export function createAppUpdateScheduledNotification({
+    getText,
+    openUpdatesReviewModal,
+    update
+}) {
+    return buildBaseAppNotification(getText, openUpdatesReviewModal, update, {
+        eyebrow: getText('update_notification_label_scheduled', 'Scheduled'),
+        secondaryLabel: getText('post_update_notification_dismiss', 'Dismiss'),
+        summaryText: getText('update_notification_summary_app_scheduled_one', 'App update {version} will install on the next launch'),
+        titleText: getText('update_notification_app_scheduled_title', 'Update {version} will install on the next launch')
+    });
 }
 
 export function createAppUpdateDownloadFailedNotification({
@@ -227,29 +230,12 @@ export function createAppUpdateDownloadFailedNotification({
     openUpdatesReviewModal,
     update
 }) {
-    const version = formatVersion(update?.version);
-    return {
+    return buildBaseAppNotification(getText, openUpdatesReviewModal, update, {
         eyebrow: getText('update_notification_label_available', 'Update available'),
-        handleLabel: getText('update_notification_handle', 'Updates'),
-        message: '',
-        onPrimaryAction: async () => {
-            await openUpdatesReviewModal();
-        },
-        persistOnce: false,
-        primaryLabel: getText('update_notification_review', 'Review updates'),
         secondaryLabel: getText('update_notification_later', 'Remind later'),
-        signature: null,
-        summaryItems: [
-            formatTemplate(
-                getText('update_notification_summary_app_manual_one', 'App update {version} needs a manual download'),
-                { version }
-            )
-        ],
-        title: formatTemplate(
-            getText('update_notification_app_manual_title', 'Update {version} needs a manual download'),
-            { version }
-        )
-    };
+        summaryText: getText('update_notification_summary_app_manual_one', 'App update {version} needs a manual download'),
+        titleText: getText('update_notification_app_manual_title', 'Update {version} needs a manual download')
+    });
 }
 
 export function createPostUpdateInstalledNotification({

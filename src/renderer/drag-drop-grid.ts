@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey, normalizeCustomOrder, writeCustomOrder } from './library-order';
-import { getGroupedKeysForGame } from './library-stacks';
+import { getGroupedKeysForGame, isGameOrInstanceMatch } from './library-stacks';
 import { getPointerDistanceToRect, isSameDragRow } from './utils/drag-math';
 import { flipAnimateDOMUpdate } from './utils/flip-animation';
 
@@ -204,7 +204,7 @@ async function handleDrop(zone, event, context) {
         
         const allGames = getAllGames();
         console.log('[DRAG-DROP] Total games in state:', allGames.length);
-        const draggedGame = allGames.find(game => getGameKey(game) === draggedGameKey);
+        const draggedGame = allGames.find(game => isGameOrInstanceMatch(game, draggedGameKey));
         console.log('[DRAG-DROP] Found draggedGame:', draggedGame ? draggedGame.name : 'null');
         if (!draggedGame) {
             console.log('[DRAG-DROP] draggedGame not found in state list. Aborting.');

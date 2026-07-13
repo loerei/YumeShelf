@@ -25,6 +25,7 @@ export interface TranslationServiceOptions {
     translatorsDir: string;
     appVersion: string;
     broadcastStatus: (data: any) => void;
+    resolveLibraryPaths?: () => Promise<string[]> | string[];
 }
 
 export interface UnityDetection {
@@ -36,16 +37,18 @@ export class TranslationService {
     private readonly translatorsDir: string;
     private readonly appVersion: string;
     private readonly broadcastStatus: (data: any) => void;
+    private readonly resolveLibraryPaths?: () => Promise<string[]> | string[];
     private isDownloading: boolean = false;
     private proxyServer: http.Server | null = null;
     private proxyPort: number = 0;
     private readonly extractors: Record<string, TranslationExtractor>;
     private readonly jobs: Map<string, TranslationJob>;
 
-    constructor({ translatorsDir, appVersion, broadcastStatus }: TranslationServiceOptions) {
+    constructor({ translatorsDir, appVersion, broadcastStatus, resolveLibraryPaths }: TranslationServiceOptions) {
         this.translatorsDir = translatorsDir;
         this.appVersion = appVersion;
         this.broadcastStatus = broadcastStatus;
+        this.resolveLibraryPaths = resolveLibraryPaths;
         this.extractors = {
             'rpg-maker': new RpgMakerExtractor(),
             'unity': new UnityExtractor()
@@ -468,7 +471,7 @@ export class TranslationService {
         return fsSync.existsSync(path.join(exeDir, 'www', 'data')) || fsSync.existsSync(path.join(exeDir, 'data'));
     }
 
-    private _validateAndGetSafePath(targetPath: string): string {
+    private async _validateAndGetSafePath(targetPath: string): Promise<string> {
         const resolved = path.resolve(targetPath);
         if (resolved.includes('..') || !path.isAbsolute(resolved)) {
             throw new Error('[SECURITY] Blocked unauthorized path access: invalid format');
@@ -476,19 +479,29 @@ export class TranslationService {
 
         let validatedPath: string | null = null;
         try {
-            const appData = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + '/.config');
-            const dbFile = path.join(appData, 'YumeShelf', 'library_db.json');
-            if (fsSync.existsSync(dbFile)) {
-                const db = JSON.parse(fsSync.readFileSync(dbFile, 'utf8'));
-                const libraryPaths = db?.config?.libraryPaths || [];
-                const pathsToCheck = Array.isArray(libraryPaths) ? libraryPaths : [libraryPaths];
-                for (const libPath of pathsToCheck) {
-                    const resolvedLib = path.resolve(libPath);
-                    const relative = path.relative(resolvedLib, resolved);
-                    if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-                        validatedPath = path.join(resolvedLib, relative);
-                        break;
+            let pathsToCheck: string[] = [];
+            if (this.resolveLibraryPaths) {
+                const libraryPaths = await this.resolveLibraryPaths();
+                pathsToCheck = Array.isArray(libraryPaths) ? libraryPaths : [libraryPaths];
+            } else {
+                const appData = process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + '/.config');
+                const dbFile = path.join(appData, 'YumeShelf', 'library_db.json');
+                if (fsSync.existsSync(dbFile)) {
+                    const content = fsSync.readFileSync(dbFile, 'utf8').trim();
+                    if (content) {
+                        const db = JSON.parse(content);
+                        const libraryPaths = db?.config?.libraryPaths || [];
+                        pathsToCheck = Array.isArray(libraryPaths) ? libraryPaths : [libraryPaths];
                     }
+                }
+            }
+
+            for (const libPath of pathsToCheck) {
+                const resolvedLib = path.resolve(libPath);
+                const relative = path.relative(resolvedLib, resolved);
+                if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                    validatedPath = path.join(resolvedLib, relative);
+                    break;
                 }
             }
         } catch (e) {
@@ -502,7 +515,7 @@ export class TranslationService {
     }
 
     async detectUnityType(exePath: string): Promise<UnityDetection | null> {
-        const validatedExePath = this._validateAndGetSafePath(exePath);
+        const validatedExePath = await this._validateAndGetSafePath(exePath);
 
         const exeDir = path.dirname(validatedExePath);
         const entries = await fs.readdir(exeDir).catch(() => []);
@@ -606,7 +619,7 @@ export class TranslationService {
     }
 
     async deployShims(exeDir: string, corePath: string, unityType: 'mono' | 'il2cpp', proxyPort: number): Promise<void> {
-        const validatedExeDir = this._validateAndGetSafePath(exeDir);
+        const validatedExeDir = await this._validateAndGetSafePath(exeDir);
 
         const sourceShim = path.join(corePath, 'winhttp.dll');
         if (fsSync.existsSync(sourceShim)) await fs.copyFile(sourceShim, path.join(validatedExeDir, 'winhttp.dll'));

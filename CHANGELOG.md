@@ -9,6 +9,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 ### 🔧 What Changed
 
 - [ipc] Fixed `delete-game` IPC failure where double clicks on the delete button triggered two parallel calls, causing the second call to throw a "Failed to parse path" exception when trying to move an already-moved directory. Added frontend lockout (`isDeleting` flag), exception-safe logging, and clean UI error recovery.
+- [translation-system] Fixed asynchronous race conditions where the `TranslationService` path validator read the `library_db.json` database file from disk while it was being written/truncated, causing a JSON parse syntax error and blocking the "translation:check-support" IPC handler. Resolved by passing a whitelisted path resolver closure to `TranslationService` and converting the path validator to be asynchronous.
 
 ## [1.6.0] - 2026-07-13 — released
 

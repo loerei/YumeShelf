@@ -90,7 +90,11 @@ const paths = createAppPaths(app, __dirname);
 const translationService = new TranslationService({
     translatorsDir: paths.translatorsDir,
     appVersion: app.getVersion(),
-    broadcastStatus: createStatusBroadcaster('translation-status')
+    broadcastStatus: createStatusBroadcaster('translation-status'),
+    resolveLibraryPaths: async () => {
+        const config = await libraryState.resolveLibraryConfig();
+        return config?.libraryPaths || [];
+    }
 });
 
 async function loadDB(): Promise<any> {

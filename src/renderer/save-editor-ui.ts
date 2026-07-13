@@ -36,6 +36,52 @@ function handleTranslate(translateBtn, translator, state, content) {
     });
 }
 
+function setupPopoutButton(overlay, isStandalone, gameKey, state, engine, close) {
+    if (isStandalone) return;
+    const popoutBtn = overlay.querySelector('.save-editor-popout');
+    if (!popoutBtn) return;
+    
+    popoutBtn.onclick = () => {
+        if (state.hasUnsavedChanges?.()) {
+            if (!confirm(state.d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to open in a separate window and discard them?')) {
+                return;
+            }
+        }
+        const stateToPass = {
+            currentFileName: state.currentFileName,
+            activeTab: state.activeTab,
+            showEmpty: state.showEmpty,
+            showImportant: state.showImportant,
+            searchOptions: engine.searchOptions
+        };
+        localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
+        
+        globalThis.electronAPI.send('open-save-editor-window', gameKey);
+        close(true); // Force close without confirmation when opening in a popout window
+    };
+    popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
+    popoutBtn.addEventListener('mouseleave', () => { popoutBtn.style.color = '#9ca3af'; });
+}
+
+function restorePopoutSearchOptions(overlay, popoutState, engine, refs) {
+    if (!popoutState?.searchOptions) return;
+    engine.setSearchOptions(popoutState.searchOptions);
+    if (refs.searchInput) {
+        refs.searchInput.value = popoutState.searchOptions.query || '';
+    }
+    const exactCheck = overlay.querySelector('.exact-match-check');
+    if (exactCheck) exactCheck.checked = !!popoutState.searchOptions.exact;
+    
+    const searchNameCheck = overlay.querySelector('.search-name-check');
+    if (searchNameCheck) searchNameCheck.checked = !!popoutState.searchOptions.searchName;
+
+    const searchValueCheck = overlay.querySelector('.search-value-check');
+    if (searchValueCheck) searchValueCheck.checked = !!popoutState.searchOptions.searchValue;
+    
+    const searchIndexCheck = overlay.querySelector('.search-index-check');
+    if (searchIndexCheck) searchIndexCheck.checked = !!popoutState.searchOptions.searchIndex;
+}
+
 export function initSaveEditorUI() {
     globalThis.showSaveEditor = async (gameKey, options = {}) => {
         const engine = new DataEngine();
@@ -60,73 +106,6 @@ export function initSaveEditorUI() {
         overlay.innerHTML = getPanelHTML(d, popoutBtnHTML);
         document.body.appendChild(overlay);
         
-        const localKeydownHandler = (e) => handleGlobalKeydown(e, overlay, state, engine, renderTabContent);
-        document.addEventListener('keydown', localKeydownHandler);
-
-        const close = (force = false) => {
-            if (!force && state.hasUnsavedChanges?.()) {
-                if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to close and discard changes?')) {
-                    return;
-                }
-            }
-            document.removeEventListener('keydown', localKeydownHandler);
-            if (isStandalone) {
-                globalThis.close();
-            } else {
-                overlay.remove();
-            }
-        };
-        overlay.querySelector('.save-editor-close').onclick = () => close(false);
-        overlay.querySelector('.cancel-btn').onclick = () => close(false);
-
-        if (!isStandalone) {
-            const popoutBtn = overlay.querySelector('.save-editor-popout');
-            if (popoutBtn) {
-                popoutBtn.onclick = () => {
-                    if (state.hasUnsavedChanges?.()) {
-                        if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to open in a separate window and discard them?')) {
-                            return;
-                        }
-                    }
-                    const stateToPass = {
-                        currentFileName: state.currentFileName,
-                        activeTab: state.activeTab,
-                        showEmpty: state.showEmpty,
-                        showImportant: state.showImportant,
-                        searchOptions: engine.searchOptions
-                    };
-                    localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
-                    
-                    globalThis.electronAPI.send('open-save-editor-window', gameKey);
-                    close(true); // Force close without confirmation when opening in a popout window
-                };
-                popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
-                popoutBtn.addEventListener('mouseleave', () => { popoutBtn.style.color = '#9ca3af'; });
-            }
-        }
-
-        const sidebar = overlay.querySelector('.save-editor-sidebar');
-        const content = overlay.querySelector('.save-editor-content');
-        const tabsWrapper = overlay.querySelector('.save-editor-tabs-wrapper');
-        const tabsContainer = overlay.querySelector('.save-editor-tabs');
-        const searchInput = overlay.querySelector('.save-editor-search');
-        const saveBtn = overlay.querySelector('.save-btn');
-
-        const leftShadow = overlay.querySelector('.tabs-shadow-left');
-        const rightShadow = overlay.querySelector('.tabs-shadow-right');
-
-        const tabShadowUpdater = () => updateTabShadows(tabsContainer, leftShadow, rightShadow);
-
-        if (tabsContainer) {
-            tabsContainer.addEventListener('scroll', tabShadowUpdater);
-            if (typeof ResizeObserver !== 'undefined') {
-                const resizeObserver = new ResizeObserver(() => {
-                    tabShadowUpdater();
-                });
-                resizeObserver.observe(tabsContainer);
-            }
-        }
-
         const storedPins = localStorage.getItem(`yumeshelf_pinned_${gameKey}`);
         let parsedPins = [];
         try {
@@ -174,6 +153,49 @@ export function initSaveEditorUI() {
             }
         };
 
+        const localKeydownHandler = (e) => handleGlobalKeydown(e, overlay, state, engine, () => renderTabContent());
+        document.addEventListener('keydown', localKeydownHandler);
+
+        const close = (force = false) => {
+            if (!force && state.hasUnsavedChanges?.()) {
+                if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to close and discard changes?')) {
+                    return;
+                }
+            }
+            document.removeEventListener('keydown', localKeydownHandler);
+            if (isStandalone) {
+                globalThis.close();
+            } else {
+                overlay.remove();
+            }
+        };
+        overlay.querySelector('.save-editor-close').onclick = () => close(false);
+        overlay.querySelector('.cancel-btn').onclick = () => close(false);
+
+        setupPopoutButton(overlay, isStandalone, gameKey, state, engine, close);
+
+        const sidebar = overlay.querySelector('.save-editor-sidebar');
+        const content = overlay.querySelector('.save-editor-content');
+        const tabsWrapper = overlay.querySelector('.save-editor-tabs-wrapper');
+        const tabsContainer = overlay.querySelector('.save-editor-tabs');
+        const searchInput = overlay.querySelector('.save-editor-search');
+        const saveBtn = overlay.querySelector('.save-btn');
+
+        const leftShadow = overlay.querySelector('.tabs-shadow-left');
+        const rightShadow = overlay.querySelector('.tabs-shadow-right');
+
+        const tabShadowUpdater = () => updateTabShadows(tabsContainer, leftShadow, rightShadow);
+
+        if (tabsContainer) {
+            tabsContainer.addEventListener('scroll', tabShadowUpdater);
+            if (typeof ResizeObserver !== 'undefined') {
+                const resizeObserver = new ResizeObserver(() => {
+                    tabShadowUpdater();
+                });
+                resizeObserver.observe(tabsContainer);
+            }
+        }
+
         const refs = {
             overlay,
             sidebar,
@@ -199,23 +221,7 @@ export function initSaveEditorUI() {
             }
         });
 
-        if (popoutState?.searchOptions) {
-            engine.setSearchOptions(popoutState.searchOptions);
-            if (refs.searchInput) {
-                refs.searchInput.value = popoutState.searchOptions.query || '';
-            }
-            const exactCheck = overlay.querySelector('.exact-match-check');
-            if (exactCheck) exactCheck.checked = !!popoutState.searchOptions.exact;
-            
-            const searchNameCheck = overlay.querySelector('.search-name-check');
-            if (searchNameCheck) searchNameCheck.checked = !!popoutState.searchOptions.searchName;
-
-            const searchValueCheck = overlay.querySelector('.search-value-check');
-            if (searchValueCheck) searchValueCheck.checked = !!popoutState.searchOptions.searchValue;
-            
-            const searchIndexCheck = overlay.querySelector('.search-index-check');
-            if (searchIndexCheck) searchIndexCheck.checked = !!popoutState.searchOptions.searchIndex;
-        }
+        restorePopoutSearchOptions(overlay, popoutState, engine, refs);
 
         // Load initial file list
         reloadFileList(state.currentFileName);

@@ -2,7 +2,6 @@ import { App, IpcMain, Shell, BrowserWindow } from 'electron';
 import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import { TelemetryShipper } from '../telemetry/shipper';
-import { isPathWithinLibrary } from './path-validator';
 import { IpcInvokes, IpcSends } from '../../shared/types/ipc';
 
 export class TypedIpcRouter {
@@ -166,14 +165,19 @@ export function registerMainIpc({
         const resolvedPath = path.resolve(targetPath);
         if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
         const config = await libraryState.resolveLibraryConfig();
-        if (config && config.libraryPaths) {
+        if (config?.libraryPaths) {
             const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
-            const isSafe = libraryPaths.some((libPath: string) => {
-                const relative = path.relative(path.resolve(libPath), resolvedPath);
-                return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
-            });
-            if (isSafe) {
-                shell.showItemInFolder(resolvedPath);
+            let safePath: string | null = null;
+            for (const libPath of libraryPaths) {
+                const resolvedLib = path.resolve(libPath);
+                const relative = path.relative(resolvedLib, resolvedPath);
+                if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                    safePath = path.join(resolvedLib, relative);
+                    break;
+                }
+            }
+            if (safePath) {
+                shell.showItemInFolder(safePath);
                 return;
             }
         }
@@ -183,14 +187,19 @@ export function registerMainIpc({
         const resolvedPath = path.resolve(targetPath);
         if (resolvedPath.includes('..') || !path.isAbsolute(resolvedPath)) return;
         const config = await libraryState.resolveLibraryConfig();
-        if (config && config.libraryPaths) {
+        if (config?.libraryPaths) {
             const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
-            const isSafe = libraryPaths.some((libPath: string) => {
-                const relative = path.relative(path.resolve(libPath), resolvedPath);
-                return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
-            });
-            if (isSafe) {
-                shell.openPath(resolvedPath);
+            let safePath: string | null = null;
+            for (const libPath of libraryPaths) {
+                const resolvedLib = path.resolve(libPath);
+                const relative = path.relative(resolvedLib, resolvedPath);
+                if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                    safePath = path.join(resolvedLib, relative);
+                    break;
+                }
+            }
+            if (safePath) {
+                shell.openPath(safePath);
                 return;
             }
         }
@@ -202,14 +211,19 @@ export function registerMainIpc({
             return { ok: false, error: 'unauthorized-path' };
         }
         const config = await libraryState.resolveLibraryConfig();
-        if (config && config.libraryPaths) {
+        if (config?.libraryPaths) {
             const libraryPaths = Array.isArray(config.libraryPaths) ? config.libraryPaths : [config.libraryPaths];
-            const isSafe = libraryPaths.some((libPath: string) => {
-                const relative = path.relative(path.resolve(libPath), resolvedPath);
-                return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
-            });
-            if (isSafe) {
-                return shell.trashItem(resolvedPath);
+            let safePath: string | null = null;
+            for (const libPath of libraryPaths) {
+                const resolvedLib = path.resolve(libPath);
+                const relative = path.relative(resolvedLib, resolvedPath);
+                if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                    safePath = path.join(resolvedLib, relative);
+                    break;
+                }
+            }
+            if (safePath) {
+                return shell.trashItem(safePath);
             }
         }
         return { ok: false, error: 'unauthorized-path' };
@@ -300,34 +314,43 @@ export function registerMainIpc({
     registerAutoLaunchHandlers(router, app, paths);
 }
 
-function syncAutoLaunchOnStartup(app: App, paths: any): string {
-    let devAutoLaunchState = 'off';
+function getAutoLaunchConfigValue(paths: any): any {
     try {
         if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
             const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
-            if (db?.config) {
-                const configVal = db.config.autoLaunch;
-                let value = 'off';
-                if (configVal === 'minimized') {
-                    value = 'minimized';
-                } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
-                    value = 'on';
-                }
-
-                const openAtLogin = (value === 'on' || value === 'minimized');
-                const args = (value === 'minimized') ? ['--minimized'] : [];
-
-                if (app.isPackaged) {
-                    app.setLoginItemSettings({ openAtLogin, path: app.getPath('exe'), args });
-                    console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
-                } else {
-                    devAutoLaunchState = value;
-                    console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${devAutoLaunchState}`);
-                }
-            }
+            return db?.config?.autoLaunch;
         }
     } catch (e) {
-        console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch on startup:', e);
+        console.error('[AUTO-LAUNCH][STARTUP] Failed to read db config:', e);
+    }
+    return undefined;
+}
+
+function syncAutoLaunchOnStartup(app: App, paths: any): string {
+    let devAutoLaunchState = 'off';
+    const configVal = getAutoLaunchConfigValue(paths);
+    if (configVal === undefined) return devAutoLaunchState;
+
+    let value = 'off';
+    if (configVal === 'minimized') {
+        value = 'minimized';
+    } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
+        value = 'on';
+    }
+
+    const openAtLogin = (value === 'on' || value === 'minimized');
+    const args = (value === 'minimized') ? ['--minimized'] : [];
+
+    if (app.isPackaged) {
+        try {
+            app.setLoginItemSettings({ openAtLogin, path: app.getPath('exe'), args });
+            console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
+        } catch (e) {
+            console.error('[AUTO-LAUNCH][STARTUP] Failed to sync OS settings:', e);
+        }
+    } else {
+        devAutoLaunchState = value;
+        console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${devAutoLaunchState}`);
     }
     return devAutoLaunchState;
 }

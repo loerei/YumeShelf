@@ -41,7 +41,7 @@ export async function toggleFavorite(context: any, gameKey: string, favorite?: b
     const games = readStoredGames(db);
     if (games[gameKey]) {
         const prev = games[gameKey].favorite;
-        games[gameKey].favorite = favorite !== undefined ? favorite : !games[gameKey].favorite;
+        games[gameKey].favorite = favorite ?? !games[gameKey].favorite;
         console.log('[MAIN][FAVORITE] found direct game record. Toggled favorite:', prev, '->', games[gameKey].favorite);
         db.games = games;
         await saveDB(db);
@@ -55,7 +55,7 @@ export async function toggleFavorite(context: any, gameKey: string, favorite?: b
         console.log('[MAIN][FAVORITE] target logical group not found. Returning false.');
         return false;
     }
-    const nextFavorite = favorite !== undefined ? favorite : !targetGroup.favorite;
+    const nextFavorite = favorite ?? !targetGroup.favorite;
     console.log('[MAIN][FAVORITE] logical target group current favorite:', targetGroup.favorite, 'next favorite status:', nextFavorite);
     targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {

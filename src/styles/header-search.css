@@ -97,10 +97,6 @@
     animation: header-icon-spin 0.85s linear infinite;
 }
 
-.sort-container {
-    position: relative;
-}
-
 .sort-menu {
     position: absolute; top: 45px; right: 0;
     background: var(--menu-bg); border: 1px solid var(--menu-border); border-radius: 6px;

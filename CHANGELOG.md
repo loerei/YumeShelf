@@ -4,13 +4,15 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
-## [Unreleased]
+## [1.6.0] - 2026-07-13 — released
 
 ### ✨ What's New
 
 - [translation-system] Added offline translation support for **WOLF RPG Editor v3.x** games. The pipeline decompresses LZ4 dynamic databases (`.dat`) and event assets (`.common`) on the fly, applies localized language dictionary overrides, and re-compresses them back to the original engine format seamlessly with a single click.
 
 ### 🔧 What Changed
+
+- [ui] Removed the telemetry modal icon entirely to clean up the user privacy settings interface.
 
 - [translation-system] Designed and integrated a distinct `translate` icon (Languages/Translate Lucide schema) for the **Pre-Translate Game** action inside the context menu, successfully resolving the visual overlap with the **Open Save Editor** action icon.
 - [translation-system] Redesigned the game context dropdown UI: instead of showing disabled "Not supported" translation items, any unsupported translation action (e.g. Live Translation for non-Unity, or Pre-Translate for unsupported engines like WOLF RPG) is now hidden entirely (`display: none`) from the dropdown. This significantly declutters the context menu for a cleaner and more premium user experience.

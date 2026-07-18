@@ -62,12 +62,7 @@ export function createStartupController({
             });
         }
 
-        // Onboarding consent check
-        if (config && config.telemetryEnabled === undefined) {
-            if (refs.telemetryModal) {
-                refs.telemetryModal.style.display = 'flex';
-            }
-        }
+
 
         const nextGames = bootstrapData ? (bootstrapData.games || []) : await electronAPI.getGames();
         const nextCategoryTree = bootstrapData ? (bootstrapData.categoryTree || []) : await electronAPI.getCategoryTree();

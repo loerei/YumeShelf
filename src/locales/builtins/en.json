@@ -229,6 +229,7 @@
     "option_off": "Off",
     "option_minimized": "Start Minimized",
     "telemetry_label": "Telemetry & Privacy",
+    "expose_beta_label": "Expose Beta Options",
     "telemetry_desc": "Send anonymous diagnostic logs to help developers optimize format compatibility and refactor safely.",
     "telemetry_opt_in": "Enabled (Send Anonymous Data)",
     "telemetry_opt_out": "Disabled (Keep Private)",

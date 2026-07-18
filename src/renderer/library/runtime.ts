@@ -12,6 +12,7 @@ export function createLibraryRuntime({
     getVisibleGames = () => state.getAllGames()
 }) {
     function setAllGames(games, config) {
+        console.log('[DIAG][setAllGames] input games count:', games?.length, 'config keys:', config ? Object.keys(config) : 'null');
         state.setCurrentLibraryConfig(config || state.getCurrentLibraryConfig());
         state.setAllGames(annotateGamesForDisplay(
             games,

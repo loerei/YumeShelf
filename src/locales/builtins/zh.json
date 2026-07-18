@@ -205,6 +205,7 @@
     "option_off": "关闭",
     "option_minimized": "最小化启动",
     "telemetry_label": "遥测与隐私",
+    "expose_beta_label": "显示测试版选项",
     "telemetry_desc": "发送匿名诊断日志，以帮助开发人员优化格式兼容性并安全地进行重构。",
     "telemetry_opt_in": "已启用（发送匿名数据）",
     "telemetry_opt_out": "已禁用（保持私密）",

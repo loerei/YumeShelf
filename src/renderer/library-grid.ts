@@ -95,6 +95,7 @@ export function createLibraryGridController({
     }
 
     function renderLibraryGrid(type) {
+        console.log('[DIAG][renderLibraryGrid] type:', type);
         setCurrentSort(type);
         localStorage.setItem('yumeshelf_sort_pref', type);
         const previousRects = captureCardRects();
@@ -105,6 +106,7 @@ export function createLibraryGridController({
 
         const d = getStrings();
         const allGames = getAllGames();
+        console.log('[DIAG][renderLibraryGrid] allGames count:', allGames?.length);
         const activeCategoryId = typeof getActiveCategoryId === 'function' ? getActiveCategoryId() : null;
         const visibleGames = activeCategoryId
             ? allGames.filter((game) => Array.isArray(game.categoryIds) && game.categoryIds.includes(activeCategoryId))

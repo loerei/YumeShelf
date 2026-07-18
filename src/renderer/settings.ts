@@ -27,6 +27,7 @@ export interface SettingsController {
     handleThemeChange: (nextTheme: string) => void;
     handleAutoLaunchChange: (nextValue: string) => Promise<string>;
     handleMinimizeToTrayChange: (nextValue: string) => Promise<boolean>;
+    handleExposeBetaChange: (nextValue: string) => Promise<boolean>;
     initializeSettingsUI: (initialLibraryConfig?: any) => void;
     isSettingsOpen: () => boolean;
     openSettings: () => Promise<void>;
@@ -48,6 +49,7 @@ export function createSettingsController({
     const autoLaunchSelect      = container.querySelector('#auto-launch-select') as HTMLSelectElement | null;
     const minimizeToTraySelect  = container.querySelector('#minimize-to-tray-select') as HTMLSelectElement | null;
     const telemetrySelect       = container.querySelector('#telemetry-select') as HTMLSelectElement | null;
+    const exposeBetaSelect      = container.querySelector('#expose-beta-select') as HTMLSelectElement | null;
     const libraryPathsContainer  = container.querySelector('#library-paths-container') as HTMLElement | null;
     const btnAddLibraryPath      = container.querySelector('#btn-add-library-path') as HTMLButtonElement | null;
 
@@ -59,6 +61,7 @@ export function createSettingsController({
     let currentAutoLaunch = 'off';
     let currentMinimizeToTray = false;
     let currentTelemetry = 'off';
+    let currentExposeBeta = false;
 
     async function openSettings(): Promise<void> {
         if (typeof onOpen === 'function') {
@@ -103,6 +106,7 @@ export function createSettingsController({
         if (autoLaunchSelect) autoLaunchSelect.value = currentAutoLaunch;
         if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
         if (telemetrySelect) telemetrySelect.value = currentTelemetry;
+        if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
     }
 
     function handleThemeChange(nextTheme: string): void {
@@ -197,6 +201,9 @@ export function createSettingsController({
             
             currentTelemetry = libraryConfig.telemetryEnabled ? 'on' : 'off';
             if (telemetrySelect) telemetrySelect.value = currentTelemetry;
+
+            currentExposeBeta = !!libraryConfig.exposeBetaOptions;
+            if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
         }
     }
 
@@ -206,7 +213,8 @@ export function createSettingsController({
             maxDepth: currentMaxDepth,
             autoLaunch: currentAutoLaunch,
             minimizeToTray: currentMinimizeToTray,
-            telemetryEnabled: currentTelemetry === 'on'
+            telemetryEnabled: currentTelemetry === 'on',
+            exposeBetaOptions: currentExposeBeta
         });
         return currentMaxDepth;
     }
@@ -227,6 +235,13 @@ export function createSettingsController({
         currentMinimizeToTray = enabled;
         (window as any).electronAPI.setMinimizeToTray(enabled);
         await (window as any).electronAPI.updateLibraryConfig({ minimizeToTray: enabled });
+        return enabled;
+    }
+
+    async function handleExposeBetaChange(nextValue: string): Promise<boolean> {
+        const enabled = nextValue === 'on';
+        currentExposeBeta = enabled;
+        await (window as any).electronAPI.updateLibraryConfig({ exposeBetaOptions: enabled });
         return enabled;
     }
 
@@ -257,6 +272,7 @@ export function createSettingsController({
         handleThemeChange,
         handleAutoLaunchChange,
         handleMinimizeToTrayChange,
+        handleExposeBetaChange,
         initializeSettingsUI,
         isSettingsOpen,
         openSettings

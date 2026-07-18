@@ -14,10 +14,12 @@ export function createGameCardFactory({
     onDragStart,
     onGameLaunched,
     onFavoriteToggled,
-    onRefreshRequested
+    onRefreshRequested,
+    isBetaExposed
 }) {
 
     function createCard(game, options = {}) {
+        console.log('[DIAG][createCard] gameKey:', getGameKey(game), 'name:', game?.name);
         const d = getStrings();
         const gameKey = getGameKey(game);
         const draggable = options.draggable !== false;
@@ -109,6 +111,9 @@ export function createGameCardFactory({
                     preItem.querySelector('span').textContent = d.not_supported || 'Not yet supported';
                     preItem.onclick = (e) => e.stopPropagation();
                 }
+            }
+            if (preItem && typeof isBetaExposed === 'function' && !isBetaExposed()) {
+                preItem.style.display = 'none';
             }
         });
 

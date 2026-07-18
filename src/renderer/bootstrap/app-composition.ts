@@ -211,7 +211,8 @@ export function createRendererComposition({
         onGameLaunched: () => {
             libraryRuntime.sortGames(state.getCurrentSort());
         },
-        onRefreshRequested: () => libraryRuntime.sortGames(state.getCurrentSort())
+        onRefreshRequested: () => libraryRuntime.sortGames(state.getCurrentSort()),
+        isBetaExposed: () => !!state.getCurrentLibraryConfig()?.exposeBetaOptions
     });
 
     const duplicateStackOverlayController = createDuplicateStackOverlayController({

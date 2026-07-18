@@ -60,6 +60,9 @@ export function applyWelcomeAndSettingsStrings(context: UITextContext, d: any, d
     if (refs.uiMinimizeToTrayLabel) refs.uiMinimizeToTrayLabel.innerText = d.minimize_to_tray_label || getEnglishStrings().minimize_to_tray_label;
     if (refs.uiMinimizeToTrayOff) refs.uiMinimizeToTrayOff.innerText = d.option_off || getEnglishStrings().option_off;
     if (refs.uiMinimizeToTrayOn) refs.uiMinimizeToTrayOn.innerText = d.option_on || getEnglishStrings().option_on;
+    if (refs.uiExposeBetaLabel) refs.uiExposeBetaLabel.innerText = d.expose_beta_label || getEnglishStrings().expose_beta_label;
+    if (refs.uiExposeBetaOff) refs.uiExposeBetaOff.innerText = d.option_off || getEnglishStrings().option_off;
+    if (refs.uiExposeBetaOn) refs.uiExposeBetaOn.innerText = d.option_on || getEnglishStrings().option_on;
     if (refs.uiFooterDesc) refs.uiFooterDesc.innerText = d.footer_desc || getEnglishStrings().footer_desc;
 }
 
@@ -105,6 +108,16 @@ export function applySortAndSearchStrings(context: UITextContext, d: any): void 
         refs.sortMenu.querySelectorAll('.sort-item').forEach((el) => el.classList.remove('active'));
         const activeSort = refs.sortMenu.querySelector(`[data-sort="${getCurrentSort()}"]`);
         if (activeSort) activeSort.classList.add('active');
+    }
+
+    if (refs.sortActiveLabel) {
+        const currentSortVal = getCurrentSort();
+        let labelText = d.sort_date;
+        if (currentSortVal === 'played') labelText = d.sort_played;
+        else if (currentSortVal === 'az') labelText = d.sort_az;
+        else if (currentSortVal === 'custom') labelText = d.sort_custom;
+        
+        refs.sortActiveLabel.innerText = labelText;
     }
 
     if (refs.searchInput && refs.searchPlaceholder) {

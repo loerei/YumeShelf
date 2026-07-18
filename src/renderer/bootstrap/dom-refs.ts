@@ -40,6 +40,7 @@ export interface RendererRefs {
     autoLaunchSelect: HTMLSelectElement | null;
     minimizeToTraySelect: HTMLSelectElement | null;
     telemetrySelect: HTMLSelectElement | null;
+    exposeBetaSelect: HTMLSelectElement | null;
     buttons: {
         setupDefault: HTMLElement | null;
         chooseCustom: HTMLElement | null;
@@ -50,11 +51,16 @@ export interface RendererRefs {
         telemetryOptOut: HTMLElement | null;
     };
     moreLanguagesBtn: HTMLElement | null;
+    sortActiveLabel: HTMLElement | null;
     uiTextRefs: {
         moreLanguagesBtn: HTMLElement | null;
         searchInput: HTMLInputElement | null;
         searchPlaceholder: HTMLElement | null;
         sortMenu: HTMLElement | null;
+        sortActiveLabel: HTMLElement | null;
+        uiExposeBetaLabel: HTMLElement | null;
+        uiExposeBetaOff: HTMLElement | null;
+        uiExposeBetaOn: HTMLElement | null;
         uiAppUpdatesLabel: HTMLElement | null;
         uiAppVersion: HTMLElement | null;
         uiFooterDesc: HTMLElement | null;
@@ -134,6 +140,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         emptyContainer: documentRef.getElementById('empty-state-container'),
         refreshLibraryBtn: documentRef.getElementById('refresh-library-btn'),
         telemetryModal,
+        sortActiveLabel: documentRef.getElementById('sort-active-label'),
 
         // === Container refs ===
         containers: {
@@ -166,6 +173,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         autoLaunchSelect:        settingsContainer ? settingsContainer.querySelector('#auto-launch-select') as HTMLSelectElement : null,
         minimizeToTraySelect:    settingsContainer ? settingsContainer.querySelector('#minimize-to-tray-select') as HTMLSelectElement : null,
         telemetrySelect:         settingsContainer ? settingsContainer.querySelector('#telemetry-select') as HTMLSelectElement : null,
+        exposeBetaSelect:        settingsContainer ? settingsContainer.querySelector('#expose-beta-select') as HTMLSelectElement : null,
 
         // === Button refs ===
         buttons: {
@@ -185,6 +193,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
             searchInput:               searchContainer ? searchContainer.querySelector('#search-input') as HTMLInputElement : null,
             searchPlaceholder:         searchContainer ? searchContainer.querySelector('#search-placeholder') : null,
             sortMenu:                  documentRef.getElementById('sort-menu'),
+        sortActiveLabel:           documentRef.getElementById('sort-active-label'),
             uiAppUpdatesLabel:         documentRef.getElementById('ui-app-updates-label'),
             uiAppVersion:              documentRef.getElementById('ui-app-version'),
             uiFooterDesc:              documentRef.getElementById('ui-footer-desc'),
@@ -215,6 +224,9 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
             uiSortCustom:              documentRef.getElementById('ui-sort-custom'),
             uiSortDate:                documentRef.getElementById('ui-sort-date'),
             uiSortPlayed:              documentRef.getElementById('ui-sort-played'),
+        uiExposeBetaLabel:         documentRef.getElementById('ui-expose-beta-label'),
+        uiExposeBetaOff:           documentRef.getElementById('ui-expose-beta-off'),
+        uiExposeBetaOn:            documentRef.getElementById('ui-expose-beta-on'),
             uiThemeDark:               documentRef.getElementById('ui-theme-dark'),
             uiThemeLabel:              documentRef.getElementById('ui-theme-label'),
             uiThemeLight:              documentRef.getElementById('ui-theme-light'),

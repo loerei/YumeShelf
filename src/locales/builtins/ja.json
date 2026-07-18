@@ -204,6 +204,7 @@
     "option_off": "オフ",
     "option_minimized": "最小化で起動",
     "telemetry_label": "テレメトリとプライバシー",
+    "expose_beta_label": "ベータオプションを表示",
     "telemetry_desc": "匿名の診断ログを送信して、開発者がフォーマットの互換性を最適化し、安全にリファクタリングできるように支援します。",
     "telemetry_opt_in": "有効（匿名データを送信）",
     "telemetry_opt_out": "無効（プライベートに保つ）",

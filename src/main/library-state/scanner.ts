@@ -14,6 +14,7 @@ export interface LibraryConfig {
     autoLaunch: boolean | 'minimized';
     minimizeToTray: boolean;
     telemetryEnabled?: boolean;
+    exposeBetaOptions?: boolean;
 }
 
 export function isPlainObject(value: any): boolean {
@@ -40,7 +41,8 @@ export function normalizeLibraryConfigShape(config: any): LibraryConfig {
             ? 'minimized'
             : (base.autoLaunch === 'on' || base.autoLaunch === 'true' || base.autoLaunch === true),
         minimizeToTray: typeof base.minimizeToTray === 'boolean' ? base.minimizeToTray : false,
-        telemetryEnabled: typeof base.telemetryEnabled === 'boolean' ? base.telemetryEnabled : undefined
+        telemetryEnabled: typeof base.telemetryEnabled === 'boolean' ? base.telemetryEnabled : undefined,
+        exposeBetaOptions: typeof base.exposeBetaOptions === 'boolean' ? base.exposeBetaOptions : false
     };
 }
 

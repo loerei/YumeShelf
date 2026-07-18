@@ -42,7 +42,44 @@
     opacity: 0.45;
     transform: none;
 }
-.sort-btn { position: relative; }
+.sort-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--menu-border, rgba(255, 255, 255, 0.15));
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-size: 13px;
+    transition: all 0.2s ease;
+    user-select: none;
+    width: auto;
+    height: 32px;
+    box-sizing: border-box;
+    opacity: 0.8;
+}
+
+.sort-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: none;
+    opacity: 1;
+}
+
+.sort-btn .icon-svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.8;
+}
+
+.sort-caret {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-left: 2px;
+}
  /* Three-line icon */
 
 .controls {
@@ -98,10 +135,28 @@
 }
 
 .sort-menu {
-    position: absolute; top: 45px; right: 0;
-    background: var(--menu-bg); border: 1px solid var(--menu-border); border-radius: 6px;
-    display: none; z-index: 1000; min-width: 150px; box-shadow: var(--menu-shadow);
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--menu-bg);
+    border: 1px solid var(--menu-border);
+    border-radius: 6px;
+    display: none;
+    z-index: 1000;
+    min-width: 150px;
+    box-shadow: var(--menu-shadow);
 }
+
+.sort-menu::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: transparent;
+}
+
 .sort-menu.show { display: block; }
 .sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); }
 .sort-item:hover { background: var(--menu-hover-bg); color: var(--text-main); }

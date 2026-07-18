@@ -171,6 +171,7 @@
     "post_update_notification_handle": "Đã cập nhật",
     "post_update_notification_review": "Xem thay đổi",
     "post_update_notification_dismiss": "Đóng",
-    "post_update_notification_opt_out": "Đừng hiện nữa"
+    "post_update_notification_opt_out": "Đừng hiện nữa",
+    "expose_beta_label": "Hiển thị các tùy chọn thử nghiệm (Beta)"
   }
 }

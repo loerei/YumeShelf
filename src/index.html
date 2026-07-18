@@ -74,6 +74,8 @@
                         <line x1="7" y1="12" x2="17" y2="12"></line>
                         <line x1="10" y1="18" x2="14" y2="18"></line>
                     </svg>
+                    <span id="sort-active-label">Mới tải về</span>
+                    <span class="sort-caret">▾</span>
                 </div>
                 <div class="sort-menu" id="sort-menu">
                     <div class="sort-item" data-sort="date" id="ui-sort-date">Mới tải về</div>
@@ -234,6 +236,15 @@
                         <select id="telemetry-select">
                             <option value="off" id="ui-telemetry-off">Disabled (Keep Private)</option>
                             <option value="on" id="ui-telemetry-on">Enabled (Send Anonymous Data)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label id="ui-expose-beta-label">Expose Beta Options</label>
+                    <div class="setting-control-zone">
+                        <select id="expose-beta-select">
+                            <option value="off" id="ui-expose-beta-off">Disabled</option>
+                            <option value="on" id="ui-expose-beta-on">Enabled</option>
                         </select>
                     </div>
                 </div>

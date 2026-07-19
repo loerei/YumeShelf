@@ -53,17 +53,21 @@ export interface LibraryContext {
 }
 
 export function createLibraryState(options: LibraryContext) {
-    const loadDB = async () => {
-        try {
-            return JSON.parse(await options.fs.readFile(options.dbFilePath, 'utf8'));
-        } catch {
-            return {};
-        }
-    };
+    const loadDB = typeof (options as any).loadDB === 'function'
+        ? (options as any).loadDB
+        : async () => {
+            try {
+                return JSON.parse(await options.fs.readFile(options.dbFilePath, 'utf8'));
+            } catch {
+                return {};
+            }
+        };
 
-    const saveDB = async (db: any) => {
-        await options.fs.writeFile(options.dbFilePath, JSON.stringify(db, null, 2));
-    };
+    const saveDB = typeof (options as any).saveDB === 'function'
+        ? (options as any).saveDB
+        : async (db: any) => {
+            await options.fs.writeFile(options.dbFilePath, JSON.stringify(db, null, 2));
+        };
 
     const context = {
         categoryState: options.categoryState,

@@ -98,6 +98,7 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "electron-updater": "^6.8.3",
-    "extract-file-icon": "^0.3.2"
+    "extract-file-icon": "^0.3.2",
+    "js-yaml": "^5.2.1"
   }
 }

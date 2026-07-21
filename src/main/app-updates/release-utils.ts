@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 
 export function extractVersion(tagName: string | null | undefined): string {
     const value = String(tagName || '').trim();
@@ -14,7 +14,7 @@ export function parseAppReleaseVersion(value: string | null | undefined): { core
     const [corePart, ...prereleaseParts] = String(normalized || '0').split('-');
     const core = corePart
         .split('.')
-        .map(part => parseInt(part, 10))
+        .map(part => Number.parseInt(part, 10))
         .map(part => Number.isFinite(part) ? part : 0);
     const prerelease = prereleaseParts
         .join('-')
@@ -73,7 +73,7 @@ export function shouldIncludePrereleaseReleases(...versions: string[]): boolean 
 }
 
 export function firstHexDigest(text: string | null | undefined): string | null {
-    const match = String(text || '').match(/\b[a-f0-9]{64}\b/i);
+    const match = /\b[a-f0-9]{64}\b/i.exec(String(text || ''));
     return match ? match[0].toLowerCase() : null;
 }
 
@@ -102,7 +102,7 @@ export function normalizeInlineHtmlToMarkdown(value: string | null | undefined):
         .replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, text) => `*${normalizeInlineHtmlToMarkdown(text).trim()}*`)
         .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_match, text) => `\`${decodeHtmlEntities(text).trim()}\``)
         .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/?[^>]+>/g, '')
+        .replace(/<[^>]+>/g, '')
         .replace(/\n{3,}/g, '\n\n');
 }
 

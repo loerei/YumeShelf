@@ -1,5 +1,5 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { exists, globMatch, getExeStem } from '../utils';
 
 export interface ResolvedSaveInfo {
@@ -140,6 +140,18 @@ export async function resolveUnrealSave(exeDir: string): Promise<ResolvedSaveInf
 export async function resolveWolfRpgSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
     if (await globMatch(exeDir, /\.sav$/i)) {
         return { path: exeDir, engine: 'wolf-rpg', confidence: 'medium' };
+    }
+    return null;
+}
+
+export async function resolveBakinSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
+    const saveDir = path.join(exeDir, 'data', 'savedata');
+    if (await exists(saveDir)) {
+        return { path: saveDir, engine: 'bakin', confidence: 'high' };
+    }
+    const saveDirAlt = path.join(exeDir, 'savedata');
+    if (await exists(saveDirAlt)) {
+        return { path: saveDirAlt, engine: 'bakin', confidence: 'high' };
     }
     return null;
 }

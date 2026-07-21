@@ -6,6 +6,19 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ## [Unreleased]
 
+### 🔧 What Changed
+
+- Fixed Unity Mono binary save file editing inside packaged app.asar production builds by unpacking `ModernSaveConverter.dll` from the ASAR archive.
+- Added support for detecting RPG Developer Bakin games, preventing false-positive Unity save folder matching and crashes on Bakin save files.
+
+### 🛠️ For the Nerds
+
+- [save-editor] Added `"dist/main/save-editor/bin/**/*"` to `asarUnpack` configuration in `package.json` to extract `ModernSaveConverter` dependencies from the ASAR archive.
+- [save-editor] Updated `UnityMonoBinFormat` in `src/main/save-editor/formats/unity-mono-bin.ts` to automatically resolve `ModernSaveConverter.dll` paths under the `app.asar.unpacked` folder in packaged builds.
+- [save-resolver] Added `bakin` engine type, detection logic (based on `bakinengine.dll` and `data.rbpack`), and direct save folder resolving to `data/savedata`.
+- [save-editor] Implemented `BakinSgsFormat` to list `.sgs` save files and gracefully report them as unsupported for editing in the save editor UI.
+
+
 ## [1.5.10] - 2026-06-01 — released
 
 ### 🔧 What Changed

@@ -36,7 +36,8 @@
     "productName": "YumeShelf",
     "asar": true,
     "asarUnpack": [
-      "**/node_modules/extract-file-icon/**/*"
+      "**/node_modules/extract-file-icon/**/*",
+      "dist/main/save-editor/bin/**/*"
     ],
     "publish": [
       {

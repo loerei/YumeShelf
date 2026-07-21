@@ -1,7 +1,7 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { exists, globMatch } from './utils';
 
-export type GameEngineType = 'rpg-mv-mz' | 'rpg-vxace' | 'renpy' | 'unity' | 'unreal' | 'wolf-rpg' | 'flash';
+export type GameEngineType = 'rpg-mv-mz' | 'rpg-vxace' | 'renpy' | 'unity' | 'unreal' | 'wolf-rpg' | 'flash' | 'bakin';
 
 export async function detectEngine(exeDir: string): Promise<GameEngineType | null> {
     // RPG Maker MV/MZ — www/ folder with js/
@@ -26,6 +26,10 @@ export async function detectEngine(exeDir: string): Promise<GameEngineType | nul
 
     // Flash/AIR — .swf files
     if (await globMatch(exeDir, /\.swf$/i)) return 'flash';
+
+    // RPG Developer Bakin — bakinplayer.exe or bakinengine.dll or data.rbpack
+    if (await exists(path.join(exeDir, 'data', 'bakinengine.dll'))) return 'bakin';
+    if (await exists(path.join(exeDir, 'data', 'data.rbpack'))) return 'bakin';
 
     return null;
 }

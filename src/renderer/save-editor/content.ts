@@ -303,18 +303,7 @@ export function renderInventory(context, target, key, metaSource, grid, original
         
         if (!engine.matchesQuery(id, val, meta.name) && !engine.matchesQuery(id, val, translated)) return;
 
-        const isPinned = state.pinnedVariables ? state.pinnedVariables.has(pinId) : false;
-        const onPinToggle = () => {
-            if (!state.pinnedVariables) return;
-            if (state.pinnedVariables.has(pinId)) {
-                state.pinnedVariables.delete(pinId);
-            } else {
-                state.pinnedVariables.add(pinId);
-            }
-            if (state.savePinnedVariables) state.savePinnedVariables();
-            if (typeof context.setupTabs === 'function') context.setupTabs();
-            renderTabContent(context);
-        };
+        const { isPinned, onPinToggle } = createPinToggleHandler(context, pinId);
 
         const row = UIComponents.createDataRow(id, val, meta.name, (newVal) => {
             const parsedVal = parseInt(newVal) || 0;
@@ -377,18 +366,7 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
 
         const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
 
-        const isPinned = state.pinnedVariables ? state.pinnedVariables.has(pinId) : false;
-        const onPinToggle = () => {
-            if (!state.pinnedVariables) return;
-            if (state.pinnedVariables.has(pinId)) {
-                state.pinnedVariables.delete(pinId);
-            } else {
-                state.pinnedVariables.add(pinId);
-            }
-            if (state.savePinnedVariables) state.savePinnedVariables();
-            if (typeof context.setupTabs === 'function') context.setupTabs();
-            renderTabContent(context);
-        };
+        const { isPinned, onPinToggle } = createPinToggleHandler(context, pinId);
 
         if (isNumeric) {
             const row = UIComponents.createDataRow(id, val, name, (nv) => onUpdate(id, val, nv, raw), originalVal, isPinned, onPinToggle);
@@ -440,4 +418,21 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
 
     if (Array.isArray(raw)) raw.forEach((val, id) => process(id, val));
     else if (typeof raw === 'object' && raw !== null) Object.entries(raw).forEach(([id, val]) => process(id, val));
+}
+
+function createPinToggleHandler(context, pinId) {
+    const { state } = context;
+    const isPinned = Boolean(state.pinnedVariables?.has(pinId));
+    const onPinToggle = () => {
+        if (!state.pinnedVariables) return;
+        if (state.pinnedVariables.has(pinId)) {
+            state.pinnedVariables.delete(pinId);
+        } else {
+            state.pinnedVariables.add(pinId);
+        }
+        if (state.savePinnedVariables) state.savePinnedVariables();
+        if (typeof context.setupTabs === 'function') context.setupTabs();
+        renderTabContent(context);
+    };
+    return { isPinned, onPinToggle };
 }

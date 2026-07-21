@@ -44,6 +44,136 @@ export interface SaveEditorServiceConfig {
     saveFolderResolver: any;
 }
 
+async function loadMetadata(dataDir: string, langDataDir: string | null) {
+    const metadata: any = {
+        variables: [],
+        switches: [],
+        items: {},
+        weapons: {},
+        armors: {},
+        gameTitle: ''
+    };
+    
+    try {
+        // Helper to get prioritized file path
+        async function getFilePath(fileName: string) {
+            if (langDataDir) {
+                const lp = path.join(langDataDir, fileName);
+                if (await exists(lp)) return lp;
+            }
+            return path.join(dataDir, fileName);
+        }
+
+        // Load System.json for variables and switches
+        const systemPath = await getFilePath('System.json');
+        if (await exists(systemPath)) {
+            const system = JSON.parse(await fs.readFile(systemPath, 'utf8'));
+            metadata.variables = system.variables || [];
+            metadata.switches = system.switches || [];
+            metadata.gameTitle = system.gameTitle || '';
+        }
+        
+        // Helper to load item-like files
+        async function loadItemType(fileName: string, target: Record<string, any>) {
+            const p = await getFilePath(fileName);
+            if (await exists(p)) {
+                const list = JSON.parse(await fs.readFile(p, 'utf8'));
+                list.forEach((item: any) => {
+                    if (item && item.id) {
+                        target[item.id] = {
+                            name: item.name,
+                            description: item.description,
+                            iconIndex: item.iconIndex
+                        };
+                    }
+                });
+            }
+        }
+
+        await loadItemType('Items.json', metadata.items);
+        await loadItemType('Weapons.json', metadata.weapons);
+        await loadItemType('Armors.json', metadata.armors);
+
+    } catch (err) {
+        console.warn('[SAVE-EDITOR] Failed to load metadata:', err);
+    }
+    
+    return metadata;
+}
+
+async function loadTranslations(lang = 'en') {
+    const filePath = getTranslationFilePath(lang);
+    const legacyPath = path.join(app.getPath('userData'), 'save_editor_translations.json');
+    try {
+        // Backward compatibility fallback for English users
+        if (lang === 'en' && !(await exists(filePath)) && (await exists(legacyPath))) {
+            try {
+                await fs.rename(legacyPath, filePath);
+                console.log(`[SAVE-EDITOR] Migrated legacy translations file to: ${filePath}`);
+            } catch (e) {
+                console.warn(`[SAVE-EDITOR] Failed to migrate legacy translations, reading directly:`, e);
+                const raw = await fs.readFile(legacyPath, 'utf8');
+                return JSON.parse(raw) || {};
+            }
+        }
+
+        if (await exists(filePath)) {
+            const raw = await fs.readFile(filePath, 'utf8');
+            const cache = JSON.parse(raw) || {};
+            console.log(`[SAVE-EDITOR] Loaded translations from AppData: ${filePath} (${Object.keys(cache).length} keys)`);
+            return cache;
+        }
+    } catch (err) {
+        console.error('[SAVE-EDITOR] Error loading translations from AppData:', err);
+    }
+    return {};
+}
+
+async function saveTranslations(lang = 'en', translations: Record<string, string> = {}) {
+    const filePath = getTranslationFilePath(lang);
+    const tempPath = filePath + '.tmp';
+    
+    // Strip off "Identical":"Identical" results from translations dictionary BEFORE writing to disk
+    const strippedTranslations: Record<string, string> = {};
+    for (const [k, v] of Object.entries(translations)) {
+        if (k !== v) {
+            strippedTranslations[k] = v;
+        }
+    }
+
+    try {
+        await fs.writeFile(tempPath, JSON.stringify(strippedTranslations, null, 2), 'utf8');
+        try {
+            if (await exists(filePath)) {
+                await fs.unlink(filePath);
+            }
+        } catch (unlinkErr) {
+            console.warn('[SAVE-EDITOR] Could not unlink existing translation file during atomic save:', unlinkErr);
+        }
+        await fs.rename(tempPath, filePath);
+        console.log(`[SAVE-EDITOR] Successfully persisted atomically ${Object.keys(strippedTranslations).length} translations to AppData: ${filePath}`);
+        return { ok: true };
+    } catch (err) {
+        console.error('[SAVE-EDITOR] Error writing translations to AppData:', err);
+        
+        // Fallback to direct write if temp rename fails (permission issues, etc.)
+        try {
+            await fs.writeFile(filePath, JSON.stringify(strippedTranslations, null, 2), 'utf8');
+            console.log(`[SAVE-EDITOR] Successfully persisted translations directly to AppData: ${filePath}`);
+            return { ok: true };
+        } catch (directWriteErr) {
+            console.error('[SAVE-EDITOR] Fallback direct write failed:', directWriteErr);
+            return { ok: false, error: (directWriteErr as Error).message };
+        } finally {
+            try {
+                if (await exists(tempPath)) {
+                    await fs.unlink(tempPath);
+                }
+            } catch {}
+        }
+    }
+}
+
 async function exists(p: string): Promise<boolean> {
     try {
         await fs.access(p);
@@ -167,62 +297,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
 
 
 
-    async function loadMetadata(dataDir: string, langDataDir: string | null) {
-        const metadata: any = {
-            variables: [],
-            switches: [],
-            items: {},
-            weapons: {},
-            armors: {},
-            gameTitle: ''
-        };
-        
-        try {
-            // Helper to get prioritized file path
-            async function getFilePath(fileName: string) {
-                if (langDataDir) {
-                    const lp = path.join(langDataDir, fileName);
-                    if (await exists(lp)) return lp;
-                }
-                return path.join(dataDir, fileName);
-            }
 
-            // Load System.json for variables and switches
-            const systemPath = await getFilePath('System.json');
-            if (await exists(systemPath)) {
-                const system = JSON.parse(await fs.readFile(systemPath, 'utf8'));
-                metadata.variables = system.variables || [];
-                metadata.switches = system.switches || [];
-                metadata.gameTitle = system.gameTitle || '';
-            }
-            
-            // Helper to load item-like files
-            async function loadItemType(fileName: string, target: Record<string, any>) {
-                const p = await getFilePath(fileName);
-                if (await exists(p)) {
-                    const list = JSON.parse(await fs.readFile(p, 'utf8'));
-                    list.forEach((item: any) => {
-                        if (item && item.id) {
-                            target[item.id] = {
-                                name: item.name,
-                                description: item.description,
-                                iconIndex: item.iconIndex
-                            };
-                        }
-                    });
-                }
-            }
-
-            await loadItemType('Items.json', metadata.items);
-            await loadItemType('Weapons.json', metadata.weapons);
-            await loadItemType('Armors.json', metadata.armors);
-
-        } catch (err) {
-            console.warn('[SAVE-EDITOR] Failed to load metadata:', err);
-        }
-        
-        return metadata;
-    }
 
     async function writeSaveData(gameKey: string, fileName: string, jsonData: any) {
         try {
@@ -255,33 +330,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
 
 
 
-    async function loadTranslations(lang = 'en') {
-        const filePath = getTranslationFilePath(lang);
-        const legacyPath = path.join(app.getPath('userData'), 'save_editor_translations.json');
-        try {
-            // Backward compatibility fallback for English users
-            if (lang === 'en' && !(await exists(filePath)) && (await exists(legacyPath))) {
-                try {
-                    await fs.rename(legacyPath, filePath);
-                    console.log(`[SAVE-EDITOR] Migrated legacy translations file to: ${filePath}`);
-                } catch (e) {
-                    console.warn(`[SAVE-EDITOR] Failed to migrate legacy translations, reading directly:`, e);
-                    const raw = await fs.readFile(legacyPath, 'utf8');
-                    return JSON.parse(raw) || {};
-                }
-            }
 
-            if (await exists(filePath)) {
-                const raw = await fs.readFile(filePath, 'utf8');
-                const cache = JSON.parse(raw) || {};
-                console.log(`[SAVE-EDITOR] Loaded translations from AppData: ${filePath} (${Object.keys(cache).length} keys)`);
-                return cache;
-            }
-        } catch (err) {
-            console.error('[SAVE-EDITOR] Error loading translations from AppData:', err);
-        }
-        return {};
-    }
 
     async function saveTranslations(lang = 'en', translations: Record<string, string> = {}) {
         const filePath = getTranslationFilePath(lang);

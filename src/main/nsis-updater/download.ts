@@ -3,27 +3,13 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { buildDownloadedState, sha512FileBase64, pickReleaseName, pickReleaseNotes } from './update-info';
 import { classifyErrorReason } from './runtime';
+import { UpdaterState, UpdaterStateFiles } from './state-files';
 
 export interface DownloadUpdateContext {
     releasePageUrl: string;
     updateCacheDir: string;
-    state: {
-        updater: any;
-        latestUpdateInfo: any;
-        latestDownloadedEvent: any;
-        activeDownloadPromise: any;
-        updaterFeedKey: any;
-    };
-    stateFiles: {
-        clearDeferredInstallState: () => Promise<void>;
-        clearDownloadedState: () => Promise<void>;
-        getValidatedDeferredInstallState: () => Promise<any>;
-        getValidatedDownloadedStateForVersion: (version: string) => Promise<any>;
-        readDeferredInstallState: () => Promise<any>;
-        readDownloadedState: () => Promise<any>;
-        writeDeferredInstallState: (state: any) => Promise<void>;
-        writeDownloadedState: (state: any) => Promise<void>;
-    };
+    state: UpdaterState;
+    stateFiles: UpdaterStateFiles;
     emitStatus: (payload: any) => void;
     summarizeUpdateState: (payload: any) => any;
     ensureDir: (dirPath: string) => Promise<void>;

@@ -332,48 +332,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
 
 
 
-    async function saveTranslations(lang = 'en', translations: Record<string, string> = {}) {
-        const filePath = getTranslationFilePath(lang);
-        const tempPath = filePath + '.tmp';
-        
-        // Strip off "Identical":"Identical" results from translations dictionary BEFORE writing to disk
-        const strippedTranslations: Record<string, string> = {};
-        for (const [k, v] of Object.entries(translations)) {
-            if (k !== v) {
-                strippedTranslations[k] = v;
-            }
-        }
 
-        try {
-            await fs.writeFile(tempPath, JSON.stringify(strippedTranslations, null, 2), 'utf8');
-            try {
-                if (await exists(filePath)) {
-                    await fs.unlink(filePath);
-                }
-            } catch (unlinkErr) {
-                console.warn('[SAVE-EDITOR] Could not unlink existing translation file during atomic save:', unlinkErr);
-            }
-            await fs.rename(tempPath, filePath);
-            console.log(`[SAVE-EDITOR] Successfully persisted atomically ${Object.keys(strippedTranslations).length} translations to AppData: ${filePath}`);
-            return { ok: true };
-        } catch (err) {
-            console.error('[SAVE-EDITOR] Error saving translations atomically, falling back to direct write:', err);
-            try {
-                await fs.writeFile(filePath, JSON.stringify(strippedTranslations, null, 2), 'utf8');
-                console.log('[SAVE-EDITOR] Successfully wrote translations directly after atomic failure');
-                return { ok: true };
-            } catch (directWriteErr) {
-                console.error('[SAVE-EDITOR] Fallback direct write failed:', directWriteErr);
-                return { ok: false, error: (directWriteErr as Error).message };
-            } finally {
-                try {
-                    if (await exists(tempPath)) {
-                        await fs.unlink(tempPath);
-                    }
-                } catch {}
-            }
-        }
-    }
 
     return {
         listSaveFiles,

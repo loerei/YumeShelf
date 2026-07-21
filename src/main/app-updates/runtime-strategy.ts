@@ -1,5 +1,5 @@
-import * as fsSync from 'fs';
-import * as path from 'path';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 
 export interface PortableEnvironment {
     detected: boolean;
@@ -82,7 +82,7 @@ export function probeWritableDir(dirPath: string): { ok: boolean; reason: string
     } catch (error: any) {
         return {
             ok: false,
-            reason: String((error && error.code) || 'not-writable').toLowerCase()
+            reason: String(error?.code || 'not-writable').toLowerCase()
         };
     }
 }

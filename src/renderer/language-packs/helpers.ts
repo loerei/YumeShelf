@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { compareNumericVersions as compareVersions } from '../../shared/version-utils';
+export { compareNumericVersions as compareVersions } from '../../shared/version-utils';
 
 export function formatTemplate(template, replacements = {}) {
     return Object.entries(replacements).reduce((result, [key, value]) => {
@@ -7,7 +7,6 @@ export function formatTemplate(template, replacements = {}) {
     }, template);
 }
 
-export { compareVersions };
 
 export function buildLanguagePackSearchHaystack(pack) {
     return [
@@ -23,7 +22,7 @@ export function buildLanguagePackSearchHaystack(pack) {
 }
 
 export function formatDataSize(bytes) {
-    if (!bytes || isNaN(bytes) || bytes < 0) return '0 B';
+    if (!bytes || Number.isNaN(bytes) || bytes < 0) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     let size = bytes;
     let unitIndex = 0;

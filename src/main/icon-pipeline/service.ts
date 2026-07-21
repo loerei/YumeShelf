@@ -1,6 +1,6 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import { cropTransparentPaddingFromDataUrl, summarizeNativeImageForDebug } from './cropper';
 import {
     tryGetCachedIconDataUrl,
@@ -44,6 +44,15 @@ export interface IconPipeline {
     registerProtocolHandler(): void;
 }
 
+function createIconPayload(dataUrl: string, fit = 'contain', source = 'unknown', debug: any = null): IconPayload {
+    return {
+        dataUrl,
+        fit: fit === 'cover' ? 'cover' : 'contain',
+        source,
+        debug
+    };
+}
+
 export function createIconPipeline({
     app,
     protocol,
@@ -51,15 +60,6 @@ export function createIconPipeline({
     sourceRootDir
 }: IconPipelineOptions): IconPipeline {
     const pool = createWorkerPool({ app, sourceRootDir });
-
-    function createIconPayload(dataUrl: string, fit = 'contain', source = 'unknown', debug: any = null): IconPayload {
-        return {
-            dataUrl,
-            fit: fit === 'cover' ? 'cover' : 'contain',
-            source,
-            debug
-        };
-    }
 
     async function resolveIconDataUrl(targetPath: string): Promise<IconPayload> {
         const dir = path.dirname(targetPath);
@@ -70,7 +70,7 @@ export function createIconPipeline({
                 const imgPath = path.join(dir, `${name}.${ext}`);
                 if (fsSync.existsSync(imgPath)) {
                     return createIconPayload(
-                        `file:///${imgPath.replace(/\\/g, '/')}`,
+                        `file:///${imgPath.replaceAll('\\', '/')}`,
                         'contain',
                         'local-image',
                         { imagePath: imgPath }
@@ -86,7 +86,7 @@ export function createIconPipeline({
 
         try {
             const result = await pool.enqueueExtraction(targetPath);
-            if (result && result.base64) {
+            if (result?.base64) {
                 try {
                     await storeHighResIconInCache(app, targetPath, result.base64, result.meta || null);
                 } catch (cacheErr) {
@@ -140,18 +140,18 @@ export function createIconPipeline({
                 const state = await loadIconCacheState(app);
                 const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
                 const entry = state.entriesByPath[normalizedPath];
-                if (entry && entry.fingerprint === fingerprint) {
+                if (entry?.fingerprint === fingerprint) {
                     const cacheFilePath = path.join(cacheDir, entry.fileName);
                     try {
                         const buffer = await fs.readFile(cacheFilePath);
                         return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });
-                    } catch (_error) {}
+                    } catch {}
                 }
             }
 
             try {
                 const result = await pool.enqueueExtraction(targetPath);
-                if (result && result.base64) {
+                if (result?.base64) {
                     const buffer = Buffer.from(result.base64, 'base64');
                     storeHighResIconInCache(app, targetPath, result.base64, result.meta || null).catch(() => {});
                     return new Response(buffer, { headers: { 'Content-Type': 'image/png' } });

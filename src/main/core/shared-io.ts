@@ -1,8 +1,8 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as crypto from 'crypto';
-import * as http from 'http';
-import * as https from 'https';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as crypto from 'node:crypto';
+import * as http from 'node:http';
+import * as https from 'node:https';
 
 export async function ensureDir(dirPath: string): Promise<void> {
     await fs.mkdir(dirPath, { recursive: true });
@@ -21,8 +21,8 @@ export function sha256Hex(buffer: Buffer | string): string {
 }
 
 export function isNetworkLikeError(error: any): boolean {
-    const msg = String((error && error.message) || error || '').toLowerCase();
-    const code = String((error && error.code) || '').toLowerCase();
+    const msg = String(error?.message || error || '').toLowerCase();
+    const code = String(error?.code || '').toLowerCase();
     return [
         'econnreset',
         'econnrefused',
@@ -78,7 +78,7 @@ export function downloadBuffer(
                 return;
             }
 
-            const total = parseInt(res.headers['content-length'] || '0', 10);
+            const total = Number.parseInt(res.headers['content-length'] || '0', 10);
             let downloaded = 0;
             const chunks: Buffer[] = [];
             res.on('data', chunk => {
@@ -140,7 +140,7 @@ export function downloadFile(
                 return;
             }
 
-            const total = parseInt(res.headers['content-length'] || '0', 10);
+            const total = Number.parseInt(res.headers['content-length'] || '0', 10);
             let downloaded = 0;
             const fileStream = fsSync.createWriteStream(targetPath);
             

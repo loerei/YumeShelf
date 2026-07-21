@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { exists, globMatch } from './utils';
 
 export type GameEngineType = 'rpg-mv-mz' | 'rpg-vxace' | 'renpy' | 'unity' | 'unreal' | 'wolf-rpg' | 'flash' | 'bakin';

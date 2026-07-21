@@ -76,7 +76,7 @@ export async function resolveSaveFolder(
         }
     }
 
-    if (result && result.path) {
+    if (result?.path) {
         const deeper = await deepenSaveFolder(result.path);
         if (deeper !== result.path) {
             console.log(`[SAVE-RESOLVER][DEEPEN] ${result.path} -> ${deeper}`);

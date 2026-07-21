@@ -6,6 +6,16 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ## [Unreleased]
 
+### 🔧 What Changed
+
+- Fixed Unity Mono binary save file editing inside packaged app.asar production builds by unpacking `ModernSaveConverter.dll` from the ASAR archive.
+
+### 🛠️ For the Nerds
+
+- [save-editor] Added `"dist/main/save-editor/bin/**/*"` to `asarUnpack` configuration in `package.json` to extract `ModernSaveConverter` dependencies from the ASAR archive.
+- [save-editor] Updated `UnityMonoBinFormat` in `src/main/save-editor/formats/unity-mono-bin.ts` to automatically resolve `ModernSaveConverter.dll` paths under the `app.asar.unpacked` folder in packaged builds.
+
+
 ## [1.5.10] - 2026-06-01 — released
 
 ### 🔧 What Changed

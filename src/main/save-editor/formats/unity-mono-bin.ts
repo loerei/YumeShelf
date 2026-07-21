@@ -70,10 +70,18 @@ class UnityMonoBinFormat {
         throw new Error(`Could not locate Assembly-CSharp.dll under: ${paths.exeDir} or any other game folders. Please make sure Sisters Connect or another Unity Hikari Sky game is installed/scanned.`);
     }
 
+    getConverterDllPath(): string {
+        const candidate = path.resolve(__dirname, '..', 'bin', 'ModernSaveConverter.dll');
+        if (candidate.includes('app.asar')) {
+            return candidate.replace('app.asar', 'app.asar.unpacked');
+        }
+        return candidate;
+    }
+
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         const assemblyPath = await this.getAssemblyPath(paths);
 
-        const converterDll = path.resolve(__dirname, '..', 'bin', 'ModernSaveConverter.dll');
+        const converterDll = this.getConverterDllPath();
         const tempIn = path.join(os.tmpdir(), `yumeshelf_dec_${Date.now()}_in.bin`);
         const tempOut = path.join(os.tmpdir(), `yumeshelf_dec_${Date.now()}_out.json`);
 
@@ -98,7 +106,7 @@ class UnityMonoBinFormat {
         const assemblyPath = await this.getAssemblyPath(paths);
 
         const originalBin = path.join(paths.saveDir, fileName);
-        const converterDll = path.resolve(__dirname, '..', 'bin', 'ModernSaveConverter.dll');
+        const converterDll = this.getConverterDllPath();
         const tempBin = path.join(os.tmpdir(), `yumeshelf_enc_${Date.now()}_out.bin`);
         const tempJson = path.join(os.tmpdir(), `yumeshelf_enc_${Date.now()}_in.json`);
 

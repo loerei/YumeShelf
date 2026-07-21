@@ -24,7 +24,6 @@ const SESSION_ATTACH_RETRY_GRACE_MS = 15000;
 export interface PlaytimeSessionManagerOptions {
     app: any;
     BrowserWindow: any;
-    dbFilePath: string;
     libraryState: any;
 }
 
@@ -39,9 +38,9 @@ export interface PlaytimeSessionManager {
 export function createPlaytimeSessionManager({
     app,
     BrowserWindow,
-    dbFilePath,
     libraryState
 }: PlaytimeSessionManagerOptions): PlaytimeSessionManager {
+    const dbFilePath = libraryState.getDbFilePath();
     const sessionsDir = path.join(app.getPath('userData'), 'playtime-sessions');
     const helperLogPath = path.join(app.getPath('userData'), 'playtime-helper.log');
     let refreshTimer: NodeJS.Timeout | null = null;

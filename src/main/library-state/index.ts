@@ -49,19 +49,34 @@ export interface LibraryContext {
     dialog: any;
     fs: any;
     fsSync: any;
-    loadDB: () => Promise<any>;
-    saveDB: (db: any) => Promise<void>;
+    dbFilePath: string;
 }
 
 export function createLibraryState(options: LibraryContext) {
-    const context: LibraryContext = {
+    const loadDB = typeof (options as any).loadDB === 'function'
+        ? (options as any).loadDB
+        : async () => {
+            try {
+                return JSON.parse(await options.fs.readFile(options.dbFilePath, 'utf8'));
+            } catch {
+                return {};
+            }
+        };
+
+    const saveDB = typeof (options as any).saveDB === 'function'
+        ? (options as any).saveDB
+        : async (db: any) => {
+            await options.fs.writeFile(options.dbFilePath, JSON.stringify(db, null, 2));
+        };
+
+    const context = {
         categoryState: options.categoryState,
         defaultGamesDir: options.defaultGamesDir,
         dialog: options.dialog,
         fs: options.fs,
         fsSync: options.fsSync,
-        loadDB: options.loadDB,
-        saveDB: options.saveDB
+        loadDB,
+        saveDB
     };
 
     return {
@@ -80,6 +95,7 @@ export function createLibraryState(options: LibraryContext) {
         toggleFavorite: (gameKey: string) => toggleFavorite(context, gameKey),
         toggleRunInBackground: (gameKey: string) => toggleRunInBackground(context, gameKey),
         toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),
-        updateLibraryConfig: (updates: any) => updateLibraryConfig(context, updates)
+        updateLibraryConfig: (updates: any) => updateLibraryConfig(context, updates),
+        getDbFilePath: () => options.dbFilePath
     };
 }

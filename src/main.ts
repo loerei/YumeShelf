@@ -53,18 +53,6 @@ const translationService = new TranslationService({
     broadcastStatus: createStatusBroadcaster('translation-status')
 });
 
-async function loadDB(): Promise<any> {
-    try {
-        return JSON.parse(await fs.readFile(paths.dbFile, 'utf8'));
-    } catch {
-        return {};
-    }
-}
-
-async function saveDB(db: any): Promise<void> {
-    await fs.writeFile(paths.dbFile, JSON.stringify(db, null, 2));
-}
-
 const languagePackServices = createLanguagePackServices({
     app,
     paths
@@ -96,14 +84,12 @@ const libraryState = createLibraryState({
     dialog,
     fs,
     fsSync,
-    loadDB,
-    saveDB
+    dbFilePath: paths.dbFile
 });
 
 const playtimeSessionManager = createPlaytimeSessionManager({
     app,
     BrowserWindow,
-    dbFilePath: paths.dbFile,
     libraryState
 });
 

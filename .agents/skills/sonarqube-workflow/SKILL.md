@@ -41,4 +41,5 @@ Look up the exact rules or component metrics:
 
 ## Remediation Policy
 
-* **Cognitive Complexity (S3776)**: Always flag these as ACCEPTED using the status transition tool (`change_sonar_issue_status`). Never rewrite code or split deep functions just to satisfy SonarQube's complexity metrics, as it promotes shallow helper modules. Structural refactoring should only be driven by `/improve-codebase-architecture` and user design discussions.
+- **S3776 (Cognitive Complexity)**: ALWAYS flag as ACCEPTED via `change_sonar_issue_status`. NEVER split functions for S3776.
+- **File & Architecture Boundaries**: NEVER delete, rename, or move standalone entrypoints, worker scripts, or child process files. NEVER modify function signatures or module interfaces during remediation.

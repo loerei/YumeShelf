@@ -97,7 +97,7 @@ export function decodeHtmlEntities(value: string | null | undefined): string {
 
 export function normalizeInlineHtmlToMarkdown(value: string | null | undefined): string {
     return String(value || '')
-        .replace(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_match, href, text) => `[${normalizeInlineHtmlToMarkdown(text).trim()}](${href.trim()})`)
+        .replace(/<a[^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi, (_match, href, text) => `[${normalizeInlineHtmlToMarkdown(text).trim()}](${href.trim()})`)
         .replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, text) => `**${normalizeInlineHtmlToMarkdown(text).trim()}**`)
         .replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, text) => `*${normalizeInlineHtmlToMarkdown(text).trim()}*`)
         .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_match, text) => `\`${decodeHtmlEntities(text).trim()}\``)

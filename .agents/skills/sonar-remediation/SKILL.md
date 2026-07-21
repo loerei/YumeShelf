@@ -56,3 +56,9 @@ For false positives, design/style rules where standard WCAG contrast ratios conf
 - **MUST search for the issue key** in SonarQube/SonarCloud using `search_sonar_issues_in_projects` with `issueStatuses: ["OPEN"]` and filter by file or project.
 - **MUST call change_sonar_issue_status** to flag the issue status as `"accept"` or `"falsepositive"` instead of modifying the codebase.
 - Always explain the design or technical rationale to the user or team before flagging the issue.
+
+### 6. Remediation Safety Boundaries
+
+- **NEVER delete, rename, or move** standalone entrypoints, child processes, worker scripts, or dynamic wrappers.
+- **NEVER split functions** for Cognitive Complexity (S3776). ALWAYS flag S3776 as ACCEPTED. Structural refactoring requires `/improve-codebase-architecture`.
+- **NEVER modify** function signatures, return types, or exported module interfaces during Sonar remediation.

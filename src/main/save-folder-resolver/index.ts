@@ -8,6 +8,7 @@ import {
     resolveUnitySave,
     resolveUnrealSave,
     resolveWolfRpgSave,
+    resolveBakinSave,
     ResolvedSaveInfo
 } from './resolvers/engine-resolvers';
 import { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } from './heuristics';
@@ -49,6 +50,9 @@ export async function resolveSaveFolder(
                 break;
             case 'wolf-rpg':
                 result = await resolveWolfRpgSave(exeDir);
+                break;
+            case 'bakin':
+                result = await resolveBakinSave(exeDir);
                 break;
         }
         if (result) {

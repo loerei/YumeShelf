@@ -11,6 +11,7 @@ import unityMonoBin from './formats/unity-mono-bin';
 import renpy from './formats/renpy';
 import simpleKeyedJson from './formats/simple-keyed-json';
 import pureJson from './formats/pure-json';
+import bakinSgs from './formats/bakin-sgs';
 
 export interface SaveFormat {
     match(fileName: string): boolean;
@@ -26,7 +27,8 @@ const formats: SaveFormat[] = [
     unityMonoBin,
     renpy,
     simpleKeyedJson,
-    pureJson
+    pureJson,
+    bakinSgs
 ];
 
 function getFormat(fileName: string): SaveFormat {

@@ -143,3 +143,15 @@ export async function resolveWolfRpgSave(exeDir: string): Promise<ResolvedSaveIn
     }
     return null;
 }
+
+export async function resolveBakinSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
+    const saveDir = path.join(exeDir, 'data', 'savedata');
+    if (await exists(saveDir)) {
+        return { path: saveDir, engine: 'bakin', confidence: 'high' };
+    }
+    const saveDirAlt = path.join(exeDir, 'savedata');
+    if (await exists(saveDirAlt)) {
+        return { path: saveDirAlt, engine: 'bakin', confidence: 'high' };
+    }
+    return null;
+}

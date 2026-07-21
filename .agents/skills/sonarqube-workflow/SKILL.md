@@ -18,6 +18,7 @@ If the project key is unknown, search your organization's projects first:
 Find all open issues for a project or specific pull request:
 * Call `sonarcloud:search_sonar_issues_in_projects` with `projects=["<projectKey>"]` (Note: the argument name is `projects`, not `projectKeys`) and `issueStatuses=["OPEN"]`.
 * If inspecting a Pull Request, add the `pullRequestId` (ID string) argument (Note: the argument name is `pullRequestId`, not `pullRequest`).
+* **Filtering by File**: To optimize queries and only fetch issues for a specific file, pass the `files` parameter (array of strings). The format of each file element MUST be the full Component Key: `["<projectKey>:<relativeFilePath>"]` (e.g. `["loerei_YumeShelf:src/index.html"]`). Querying this way is highly recommended over loading all project issues.
 
 > [!IMPORTANT]
 > **Avoid Scope Confusion**: When analyzing issues for an active Pull Request, **you MUST provide the `pullRequestId` argument**. If `pullRequestId` is omitted, SonarCloud will return all open issues across the default branch (`main`/`master`), which may lead to modifying pre-existing code to resolve old project issues instead of focusing on the current PR's changes.

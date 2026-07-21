@@ -188,14 +188,22 @@ export function createAppUpdateReadyNotification({
     };
 }
 
-export function createAppUpdateScheduledNotification({
+function createAppUpdateReviewNotificationHelper({
     getText,
     openUpdatesReviewModal,
-    update
+    update,
+    eyebrowKey,
+    eyebrowDefault,
+    secondaryLabelKey,
+    secondaryLabelDefault,
+    summaryKey,
+    summaryDefault,
+    titleKey,
+    titleDefault
 }) {
     const version = formatVersion(update?.version);
     return {
-        eyebrow: getText('update_notification_label_scheduled', 'Scheduled'),
+        eyebrow: getText(eyebrowKey, eyebrowDefault),
         handleLabel: getText('update_notification_handle', 'Updates'),
         message: '',
         onPrimaryAction: async () => {
@@ -203,49 +211,51 @@ export function createAppUpdateScheduledNotification({
         },
         persistOnce: false,
         primaryLabel: getText('update_notification_review', 'Review updates'),
-        secondaryLabel: getText('post_update_notification_dismiss', 'Dismiss'),
+        secondaryLabel: getText(secondaryLabelKey, secondaryLabelDefault),
         signature: null,
         summaryItems: [
             formatTemplate(
-                getText('update_notification_summary_app_scheduled_one', 'App update {version} will install on the next launch'),
+                getText(summaryKey, summaryDefault),
                 { version }
             )
         ],
         title: formatTemplate(
-            getText('update_notification_app_scheduled_title', 'Update {version} will install on the next launch'),
+            getText(titleKey, titleDefault),
             { version }
         )
     };
 }
 
-export function createAppUpdateDownloadFailedNotification({
-    getText,
-    openUpdatesReviewModal,
-    update
-}) {
-    const version = formatVersion(update?.version);
-    return {
-        eyebrow: getText('update_notification_label_available', 'Update available'),
-        handleLabel: getText('update_notification_handle', 'Updates'),
-        message: '',
-        onPrimaryAction: async () => {
-            await openUpdatesReviewModal();
-        },
-        persistOnce: false,
-        primaryLabel: getText('update_notification_review', 'Review updates'),
-        secondaryLabel: getText('update_notification_later', 'Remind later'),
-        signature: null,
-        summaryItems: [
-            formatTemplate(
-                getText('update_notification_summary_app_manual_one', 'App update {version} needs a manual download'),
-                { version }
-            )
-        ],
-        title: formatTemplate(
-            getText('update_notification_app_manual_title', 'Update {version} needs a manual download'),
-            { version }
-        )
-    };
+export function createAppUpdateScheduledNotification({ getText, openUpdatesReviewModal, update }) {
+    return createAppUpdateReviewNotificationHelper({
+        getText,
+        openUpdatesReviewModal,
+        update,
+        eyebrowKey: 'update_notification_label_scheduled',
+        eyebrowDefault: 'Scheduled',
+        secondaryLabelKey: 'post_update_notification_dismiss',
+        secondaryLabelDefault: 'Dismiss',
+        summaryKey: 'update_notification_summary_app_scheduled_one',
+        summaryDefault: 'App update {version} will install on the next launch',
+        titleKey: 'update_notification_app_scheduled_title',
+        titleDefault: 'Update {version} will install on the next launch'
+    });
+}
+
+export function createAppUpdateDownloadFailedNotification({ getText, openUpdatesReviewModal, update }) {
+    return createAppUpdateReviewNotificationHelper({
+        getText,
+        openUpdatesReviewModal,
+        update,
+        eyebrowKey: 'update_notification_label_available',
+        eyebrowDefault: 'Update available',
+        secondaryLabelKey: 'update_notification_later',
+        secondaryLabelDefault: 'Remind later',
+        summaryKey: 'update_notification_summary_app_manual_one',
+        summaryDefault: 'App update {version} needs a manual download',
+        titleKey: 'update_notification_app_manual_title',
+        titleDefault: 'Update {version} needs a manual download'
+    });
 }
 
 export function createPostUpdateInstalledNotification({

@@ -13,6 +13,27 @@ import {
 } from './resolvers/engine-resolvers';
 import { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } from './heuristics';
 
+async function resolveDeterministicSaveByEngine(engine: string, exeDir: string, exeStem: string): Promise<ResolvedSaveInfo | null> {
+    switch (engine) {
+        case 'rpg-mv-mz':
+            return await resolveRpgMakerSave(exeDir);
+        case 'rpg-vxace':
+            return await resolveRpgVxAceSave(exeDir);
+        case 'renpy':
+            return await resolveRenPySaveWithStem(exeStem);
+        case 'unity':
+            return await resolveUnitySave(exeDir);
+        case 'unreal':
+            return await resolveUnrealSave(exeDir);
+        case 'wolf-rpg':
+            return await resolveWolfRpgSave(exeDir);
+        case 'bakin':
+            return await resolveBakinSave(exeDir);
+        default:
+            return null;
+    }
+}
+
 async function resolveRenPySaveWithStem(exeStem: string): Promise<ResolvedSaveInfo | null> {
     return await resolveRenPySave(process.cwd(), exeStem);
 }
@@ -32,29 +53,7 @@ export async function resolveSaveFolder(
 
     const engine = await detectEngine(exeDir);
     if (engine) {
-        switch (engine) {
-            case 'rpg-mv-mz':
-                result = await resolveRpgMakerSave(exeDir);
-                break;
-            case 'rpg-vxace':
-                result = await resolveRpgVxAceSave(exeDir);
-                break;
-            case 'renpy':
-                result = await resolveRenPySaveWithStem(exeStem);
-                break;
-            case 'unity':
-                result = await resolveUnitySave(exeDir);
-                break;
-            case 'unreal':
-                result = await resolveUnrealSave(exeDir);
-                break;
-            case 'wolf-rpg':
-                result = await resolveWolfRpgSave(exeDir);
-                break;
-            case 'bakin':
-                result = await resolveBakinSave(exeDir);
-                break;
-        }
+        result = await resolveDeterministicSaveByEngine(engine, exeDir, exeStem);
         if (result) {
             console.log(`[SAVE-RESOLVER][SUCCESS] Deterministic found: ${result.path} (Engine: ${engine})`);
         }

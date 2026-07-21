@@ -44,6 +44,26 @@ export interface SaveEditorServiceConfig {
     saveFolderResolver: any;
 }
 
+async function exists(p: string): Promise<boolean> {
+    try {
+        await fs.access(p);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
+    const mappingMgr = new SaveMappingManager(gameKey);
+    mappingMgr.addMapping(name, offset, dataType);
+    return { ok: true };
+}
+
+function getTranslationFilePath(lang = 'en') {
+    const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_-]/g, '');
+    return path.join(app.getPath('userData'), `save_editor_translations_${cleanLang}.json`);
+}
+
 export function createSaveEditorService({ libraryState, saveFolderResolver }: SaveEditorServiceConfig) {
     
     async function getGamePaths(gameKey: string) {
@@ -87,14 +107,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         };
     }
 
-    async function exists(p: string): Promise<boolean> {
-        try {
-            await fs.access(p);
-            return true;
-        } catch {
-            return false;
-        }
-    }
+
 
     async function listSaveFiles(gameKey: string): Promise<string[]> {
         try {
@@ -152,11 +165,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         }
     }
 
-    async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
-        const mappingMgr = new SaveMappingManager(gameKey);
-        mappingMgr.addMapping(name, offset, dataType);
-        return { ok: true };
-    }
+
 
     async function loadMetadata(dataDir: string, langDataDir: string | null) {
         const metadata: any = {
@@ -244,10 +253,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         }
     }
 
-    function getTranslationFilePath(lang = 'en') {
-        const cleanLang = (lang || 'en').replace(/[^a-zA-Z0-9_\-]/g, '');
-        return path.join(app.getPath('userData'), `save_editor_translations_${cleanLang}.json`);
-    }
+
 
     async function loadTranslations(lang = 'en') {
         const filePath = getTranslationFilePath(lang);

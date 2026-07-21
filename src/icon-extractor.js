@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // Send ready message immediately on startup to signal healthy process boot
 if (process.send) {
@@ -16,7 +16,7 @@ function summarizePathFlavor(targetPath) {
 }
 
 process.on('message', (msg) => {
-    if (msg && msg.type === 'extract' && msg.id && msg.path && msg.extPath) {
+    if (msg?.type === 'extract' && msg.id && msg.path && msg.extPath) {
         const startedAt = Date.now();
         const normalizedPath = path.win32.normalize(msg.path);
         const rawExists = fs.existsSync(msg.path);
@@ -87,7 +87,7 @@ process.on('message', (msg) => {
                     rawFlavor,
                     normalizedFlavor,
                     durationMs: Date.now() - startedAt,
-                    error: String((err && err.stack) || err)
+                    error: String(err?.stack || err)
                 }
             });
         }

@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { isPlainObject } from './scanner';
 import {
     normalizeGameRecord,
@@ -164,7 +164,7 @@ export async function finalizeTrackedSession(
     await saveDB(db);
 }
 
-export async function getGameRecord(context: any, gameKey: string): Promise<any | null> {
+export async function getGameRecord(context: any, gameKey: string): Promise<Record<string, any> | null> {
     const { loadDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);

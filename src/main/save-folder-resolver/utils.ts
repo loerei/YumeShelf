@@ -31,13 +31,13 @@ export function normalizeForSearch(text: any): string {
 export function getExeStem(exeDir: string): string {
     const dirName = path.basename(exeDir);
     let stem = dirName.replace(/_Data$/i, '');
-    stem = stem.replace(/\s*v?\d+(?:\.\d+)*\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
+    stem = stem.replace(/\bv?\d+(?:\.\d+)*\b/gi, ' ').replace(/\bpc\b/gi, ' ').trim();
     return stem;
 }
 
 export function getExeStemFromPath(exePath: string): string {
     const baseName = path.basename(exePath || '');
     let stem = baseName.replace(/\.exe$/i, '');
-    stem = stem.replace(/\s*v?\d+(?:\.\d+)*\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
+    stem = stem.replace(/\bv?\d+(?:\.\d+)*\b/gi, ' ').replace(/\bpc\b/gi, ' ').trim();
     return stem;
 }

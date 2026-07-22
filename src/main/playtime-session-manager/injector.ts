@@ -9,7 +9,7 @@ export function isPidAlive(pid: number): boolean {
     try {
         process.kill(pid, 0);
         return true;
-    } catch (_) {
+    } catch {
         return false;
     }
 }
@@ -65,10 +65,8 @@ export async function injectRunInBackgroundDll({ app, log, readSessionJournal, d
                 execFile(injectorPath, [journal.rootPid.toString(), payloadPath], (error, stdout, stderr) => {
                     if (error) {
                         console.error('[PLAYTIME][SESSIONS] DLL injection failed:', error, stderr);
-                    } else {
-                        if (typeof log === 'function') {
-                            log(`DLL injection successful: ${stdout}`);
-                        }
+                    } else if (typeof log === 'function') {
+                        log(`DLL injection successful: ${stdout}`);
                     }
                 });
                 return;
@@ -76,7 +74,7 @@ export async function injectRunInBackgroundDll({ app, log, readSessionJournal, d
             if (journal.status === 'failed' || journal.status === 'completed') {
                 return;
             }
-        } catch (e) {
+        } catch {
             // Keep polling
         }
     }

@@ -189,8 +189,7 @@ export class Translator {
         }
         /** @type {string[]} */
         const textsToTranslate = [];
-        /** @type {{ el: Element, original: string }[]} */
-        const labelMap = [];
+
 
         labels.forEach(label => {
             const originalName = label.getAttribute('title') || label.textContent || '';
@@ -209,7 +208,6 @@ export class Translator {
                 label.classList.add('is-translated');
             } else {
                 textsToTranslate.push(originalName);
-                labelMap.push({ el: label, original: originalName });
             }
         });
 
@@ -243,7 +241,7 @@ export class Translator {
                 }
                 const result = await response.json();
 
-                if (result && result[0]) {
+                if (result?.[0]) {
                     let translatedFull = "";
                     result[0].forEach((/** @type {any[]} */ part) => {
                         if (part[0]) translatedFull += part[0];

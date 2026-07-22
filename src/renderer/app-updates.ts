@@ -126,9 +126,15 @@ export function createAppUpdateController({
 
         const appUpdateCheck = bootstrapData?.bootChecks?.appUpdateCheck || null;
         if (appUpdateCheck) {
-            state.setCurrentUpdate(appUpdateCheck, {
-                actionState: appUpdateCheck.deferredUntilNextLaunch ? 'scheduled' : (appUpdateCheck.downloadReady ? 'ready' : (appUpdateCheck.available ? 'available' : 'idle'))
-            });
+            let actionState = 'idle';
+            if (appUpdateCheck.deferredUntilNextLaunch) {
+                actionState = 'scheduled';
+            } else if (appUpdateCheck.downloadReady) {
+                actionState = 'ready';
+            } else if (appUpdateCheck.available) {
+                actionState = 'available';
+            }
+            state.setCurrentUpdate(appUpdateCheck, { actionState });
         }
 
         logDebug(`initialize appUpdateCheck=${JSON.stringify({

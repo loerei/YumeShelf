@@ -98,7 +98,7 @@ export function setupTabs(context) {
         const el = document.createElement('div');
         el.className = `save-tab ${state.activeTab === tab.id ? 'active' : ''}`;
         el.textContent = tab.label;
-        el.setAttribute('data-i18n', tab.i18n ?? '');
+        el.dataset.i18n = tab.i18n ?? '';
         el.onclick = () => {
             state.activeTab = tab.id;
             overlay.querySelectorAll('.save-tab').forEach(t => t.classList.remove('active'));

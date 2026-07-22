@@ -201,7 +201,7 @@ export class Translator {
             if (isASCII && originalName.length < 2) return;
 
             // Skip pure punctuation/symbol rows
-            const isPunctuation = /^[ \t\r\n\-\_\+\=\!\@\#\$\%\^\&\*\(\)\{\}\[\]\:\;\"\'\<\>\,\.\?\/\\|~`]*$/.test(originalName);
+            const isPunctuation = /^[ \t\r\n+\=!@#$%^&*(){}[\]:;"'<>,.?/\\|~`_-]*$/.test(originalName);
             if (isPunctuation) return;
 
             if (this.translationCache[originalName]) {
@@ -268,12 +268,10 @@ export class Translator {
                                         this.translationCache[original] = translatedText;
                                         changed = true;
                                     }
-                                } else {
+                                } else if (this.translationCache[original] !== original) {
                                     // Memory-only identical caching to prevent future re-translation in this session
-                                    if (this.translationCache[original] !== original) {
-                                        this.translationCache[original] = original;
-                                        changed = true;
-                                    }
+                                    this.translationCache[original] = original;
+                                    changed = true;
                                 }
                             });
                             if (changed) await this.saveTranslations();
@@ -286,7 +284,7 @@ export class Translator {
                                     const res = await fetch(singleUrl);
                                     if (res.ok) {
                                         const singleResult = await res.json();
-                                        if (singleResult && singleResult[0] && singleResult[0][0] && singleResult[0][0][0]) {
+                                        if (singleResult?.[0]?.[0]?.[0]) {
                                             const translatedText = singleResult[0][0][0].trim();
                                             if (original !== translatedText) {
                                                 if (this.translationCache[original] !== translatedText) {
@@ -324,12 +322,10 @@ export class Translator {
                                         changed = true;
                                         console.log(`[SAVE-EDITOR] Translated: "${original}" -> "${translatedText}"`);
                                     }
-                                } else {
+                                } else if (this.translationCache[original] !== original) {
                                     // Memory-only identical caching to prevent future re-translation in this session
-                                    if (this.translationCache[original] !== original) {
-                                        this.translationCache[original] = original;
-                                        changed = true;
-                                    }
+                                    this.translationCache[original] = original;
+                                    changed = true;
                                 }
                             }
                         });

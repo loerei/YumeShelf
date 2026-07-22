@@ -13,7 +13,7 @@ export class TelemetryShipper {
     private userDataDir: string = '';
     private dbFile: string = '';
     private queueFile: string = '';
-    private memoryBuffer: Map<string, TelemetryPayload> = new Map();
+    private readonly memoryBuffer: Map<string, TelemetryPayload> = new Map();
     private flushInterval: NodeJS.Timeout | null = null;
     private isShipping: boolean = false;
     private saveQueueDebounce: NodeJS.Timeout | null = null;

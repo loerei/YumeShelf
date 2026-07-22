@@ -9,6 +9,11 @@ function filterLanguagePacks(packs, query) {
     return packs.filter((pack) => buildLanguagePackSearchHaystack(pack).includes(normalized));
 }
 
+function getReviewLanguageMatches(query, availableUpdates) {
+    const pendingPacks = Array.from(availableUpdates.values()).map(updateInfo => updateInfo.manifestEntry);
+    return filterLanguagePacks(pendingPacks, query);
+}
+
 export function createLanguagePackResultsController({
     getAppSectionMode,
     getAppUpdateState,
@@ -57,10 +62,7 @@ export function createLanguagePackResultsController({
         return updates;
     }
 
-    function getReviewLanguageMatches(query, availableUpdates) {
-        const pendingPacks = Array.from(availableUpdates.values()).map(updateInfo => updateInfo.manifestEntry);
-        return filterLanguagePacks(pendingPacks, query);
-    }
+
 
     function renderLanguagePackResults() {
         const manifestState = getManifestState();

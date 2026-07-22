@@ -1,13 +1,9 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
 import { NsisUpdater } from 'electron-updater';
 import { createInstallerHandoff } from './nsis-updater/installer-handoff';
-import { resolveUpdaterRuntime, classifyErrorReason, delay, isFakeVersionRun, normalizeText, toBoolean } from './nsis-updater/runtime';
+import { resolveUpdaterRuntime, delay, isFakeVersionRun, normalizeText, toBoolean } from './nsis-updater/runtime';
 import { createStateFiles } from './nsis-updater/state-files';
-import { buildDownloadedState, normalizeDownloadedState, pickReleaseName, pickReleaseNotes, sha512FileBase64 } from './nsis-updater/update-info';
+import { normalizeDownloadedState, sha512FileBase64 } from './nsis-updater/update-info';
 import { attachUpdaterEventLogging } from './nsis-updater/updater-events';
-import { downloadBuffer } from './core/shared-io';
 import { configureDifferentialDownload } from './nsis-updater/cache-inputs';
 import { setupUpdateFlow } from './nsis-updater/update-flow';
 
@@ -17,7 +13,7 @@ const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 
 export interface NsisUpdaterServiceConfig {
     app: any;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     broadcastStatus: (payload: any) => void;
     compareVersions: (a: string, b: string) => number;
     ensureDir: (dirPath: string) => Promise<void>;
@@ -51,14 +47,14 @@ export function createNsisUpdaterService({
         return resolveUpdaterRuntime(app, isFakeVersionRun);
     }
 
-    function createUpdaterLogger() {
-        function forward(level: string, message: any) {
-            if (level === 'debug' && !VERBOSE_UPDATE_LOG) return;
-            const text = normalizeText(message, '');
-            if (!text) return;
-            void appendUpdateLog(`nsis-updater:${level} ${text}`);
-        }
+    function forward(level: string, message: any) {
+        if (level === 'debug' && !VERBOSE_UPDATE_LOG) return;
+        const text = normalizeText(message, '');
+        if (!text) return;
+        void appendUpdateLog(`nsis-updater:${level} ${text}`);
+    }
 
+    function createUpdaterLogger() {
         return {
             debug(message: any) {
                 forward('debug', message);
@@ -110,12 +106,7 @@ export function createNsisUpdaterService({
 
     const {
         clearDeferredInstallState,
-        clearDownloadedState,
-        getValidatedDeferredInstallState,
-        getValidatedDownloadedStateForVersion,
-        readDeferredInstallState,
-        writeDeferredInstallState,
-        writeDownloadedState
+        readDeferredInstallState
     } = stateFiles;
 
     function summarizeReadyUpdateFromState(stateObj: any, patch: any = {}) {
@@ -229,9 +220,7 @@ export function createNsisUpdaterService({
             };
         }
 
-        if (state.updaterFeedKey == null) {
-            state.updaterFeedKey = runtime.usesDevConfig ? 'dev-config' : `publish:${runtime.provider}`;
-        }
+        state.updaterFeedKey ??= runtime.usesDevConfig ? 'dev-config' : `publish:${runtime.provider}`;
         await configureDifferentialDownload(nsisUpdater, {
             currentVersion: app.getVersion(),
             feedOverride: null,

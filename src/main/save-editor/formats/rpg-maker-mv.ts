@@ -23,7 +23,7 @@ class RpgMakerMvFormat {
                 return JSON.parse(decompressed);
             }
             throw new Error('Decompression returned null');
-        } catch (err) {
+        } catch {
             return JSON.parse(str);
         }
     }

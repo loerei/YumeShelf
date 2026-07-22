@@ -1,6 +1,25 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
+
+export interface UpdaterState {
+    updater: any;
+    latestUpdateInfo: any;
+    latestDownloadedEvent: any;
+    activeDownloadPromise: any;
+    updaterFeedKey: any;
+}
+
+export interface UpdaterStateFiles {
+    clearDeferredInstallState: () => Promise<void>;
+    clearDownloadedState: () => Promise<void>;
+    getValidatedDeferredInstallState: () => Promise<any>;
+    getValidatedDownloadedStateForVersion: (version: string) => Promise<any>;
+    readDeferredInstallState: () => Promise<any>;
+    readDownloadedState: () => Promise<any>;
+    writeDeferredInstallState: (state: any) => Promise<void>;
+    writeDownloadedState: (state: any) => Promise<void>;
+}
 
 export interface DownloadedState {
     downloadedAt: string | null;
@@ -13,11 +32,19 @@ export interface DownloadedState {
 }
 
 export interface StateFilesConfig {
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     ensureDir: (dirPath: string) => Promise<void>;
     normalizeDownloadedState: (raw: any) => DownloadedState | null;
     updateCacheDir: string;
     verifyInstallerHash: (filePath: string) => Promise<string>;
+}
+
+async function readJson(filePath: string): Promise<any> {
+    try {
+        return JSON.parse(await fs.readFile(filePath, 'utf8'));
+    } catch {
+        return null;
+    }
 }
 
 export function createStateFiles({
@@ -33,14 +60,6 @@ export function createStateFiles({
     async function writeJson(filePath: string, value: any): Promise<void> {
         await ensureDir(path.dirname(filePath));
         await fs.writeFile(filePath, JSON.stringify(value, null, 2), 'utf8');
-    }
-
-    async function readJson(filePath: string): Promise<any> {
-        try {
-            return JSON.parse(await fs.readFile(filePath, 'utf8'));
-        } catch {
-            return null;
-        }
     }
 
     async function readDownloadedState(): Promise<DownloadedState | null> {

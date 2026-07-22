@@ -179,15 +179,23 @@ export function createRendererComposition({
         sortGames: (type) => libraryRuntime.sortGames(type)
     });
 
-    const gameCardFactory = createGameCardFactory({
+    const handleFavoriteToggled = (gameKey, favorite) => {
+        withLogicalGameMutation(gameKey, (entry) => {
+            entry.favorite = favorite;
+            if (Array.isArray(entry.instances)) {
+                entry.instances.forEach((instance) => {
+                    instance.favorite = favorite;
+                });
+            }
+            if (entry.primaryInstance) {
+                entry.primaryInstance.favorite = favorite;
+            }
+        });
+    };
+
+    const commonCardCallbacks = {
         attachTooltip: (element, getContent) => {
             tooltipController.attachTooltip(element, getContent);
-        },
-        electronAPI,
-        getStrings: () => getStrings(),
-        onCardDeleted: (gameKey) => {
-            state.setAllGames(state.getAllGames().filter(g => getGameKey(g) !== gameKey));
-            libraryRuntime.reannotateGames();
         },
         onDragStart: (gameKey) => {
             dragDropGridController.startDrag(gameKey);
@@ -195,18 +203,16 @@ export function createRendererComposition({
         onDragStateReset: () => {
             dragDropGridController.resetDragState();
         },
-        onFavoriteToggled: (gameKey, favorite) => {
-            withLogicalGameMutation(gameKey, (entry) => {
-                entry.favorite = favorite;
-                if (Array.isArray(entry.instances)) {
-                    entry.instances.forEach((instance) => {
-                        instance.favorite = favorite;
-                    });
-                }
-                if (entry.primaryInstance) {
-                    entry.primaryInstance.favorite = favorite;
-                }
-            });
+        onFavoriteToggled: handleFavoriteToggled
+    };
+
+    const gameCardFactory = createGameCardFactory({
+        ...commonCardCallbacks,
+        electronAPI,
+        getStrings: () => getStrings(),
+        onCardDeleted: (gameKey) => {
+            state.setAllGames(state.getAllGames().filter(g => getGameKey(g) !== gameKey));
+            libraryRuntime.reannotateGames();
         },
         onGameLaunched: () => {
             libraryRuntime.sortGames(state.getCurrentSort());
@@ -224,30 +230,9 @@ export function createRendererComposition({
     });
 
     const stackCardFactory = createStackCardFactory({
-        attachTooltip: (element, getContent) => {
-            tooltipController.attachTooltip(element, getContent);
-        },
+        ...commonCardCallbacks,
         electronAPI,
         getStrings: () => getStrings(),
-        onDragStart: (gameKey) => {
-            dragDropGridController.startDrag(gameKey);
-        },
-        onDragStateReset: () => {
-            dragDropGridController.resetDragState();
-        },
-        onFavoriteToggled: (gameKey, favorite) => {
-            withLogicalGameMutation(gameKey, (entry) => {
-                entry.favorite = favorite;
-                if (Array.isArray(entry.instances)) {
-                    entry.instances.forEach((instance) => {
-                        instance.favorite = favorite;
-                    });
-                }
-                if (entry.primaryInstance) {
-                    entry.primaryInstance.favorite = favorite;
-                }
-            });
-        },
         onOpenStack: (stack) => {
             duplicateStackOverlayController.open(stack);
         },

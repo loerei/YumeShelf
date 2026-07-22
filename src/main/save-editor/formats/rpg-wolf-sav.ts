@@ -1,7 +1,7 @@
-import * as crypto from 'crypto';
-import * as zlib from 'zlib';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as crypto from 'node:crypto';
+import * as zlib from 'node:zlib';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
 function sha256(buffer: Buffer): string {
     return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -36,7 +36,7 @@ function printableRatio(buffer: Buffer): number {
 function extractAsciiStrings(buffer: Buffer, minLength = 5, limit = 80): string[] {
     const matches = buffer
         .toString('latin1')
-        .match(new RegExp(`[\\x20-\\x7e]{${minLength},}`, 'g'));
+        .match(new RegExp(String.raw`[\x20-\x7e]{${minLength},}`, 'g'));
 
     return (matches || [])
         .map((s) => s.trim())
@@ -126,9 +126,12 @@ export function buildVariables(buffer: Buffer): Record<number, any> {
 
     const decoderAttempts = tryDecoders(buffer);
     decoderAttempts.forEach((attempt, index) => {
-        variables[200 + index] = attempt.ok
-            ? `${attempt.label}: OK${attempt.decodedSize ? ` (${attempt.decodedSize} bytes)` : ''}`
-            : `${attempt.label}: ${attempt.error}`;
+        let statusText = `${attempt.label}: ${attempt.error}`;
+        if (attempt.ok) {
+            const sizeText = attempt.decodedSize ? ` (${attempt.decodedSize} bytes)` : '';
+            statusText = `${attempt.label}: OK${sizeText}`;
+        }
+        variables[200 + index] = statusText;
     });
 
     return variables;
@@ -244,7 +247,7 @@ class RpgWolfSavFormat {
 
     async encode(jsonData: any): Promise<Buffer> {
         console.log(`[WOLF-SAV] encode called for file: ${jsonData.fileName}`);
-        if (!jsonData || jsonData.$type !== 'RpgWolfSavBinaryInspection') {
+        if (jsonData?.$type !== 'RpgWolfSavBinaryInspection') {
             throw new Error('Invalid RPG/Wolf .sav inspection payload');
         }
 
@@ -261,11 +264,11 @@ class RpgWolfSavFormat {
             console.log(`[WOLF-SAV] encode writing variables...`);
             console.log(`[WOLF-SAV] variables[7] value to write: ${jsonData.variables[7]}`);
             for (const [key, value] of Object.entries(jsonData.variables)) {
-                const index = parseInt(key);
-                if (!isNaN(index) && index < 800) {
+                const index = Number.parseInt(key, 10);
+                if (!Number.isNaN(index) && index < 800) {
                     const offset = varArrayOffset + index * 4;
                     if (offset + 4 <= decrypted.length) {
-                        decrypted.writeInt32LE(parseInt(value as string), offset);
+                        decrypted.writeInt32LE(Number.parseInt(value as string, 10), offset);
                     }
                 }
             }
@@ -277,8 +280,8 @@ class RpgWolfSavFormat {
         // Construct a safe, mutable copy of the header and update the checksum (payload sum LSB)
         const headerCopy = Buffer.from(header);
         let sum = 0;
-        for (let i = 0; i < decrypted.length; i++) {
-            sum = (sum + decrypted[i]) & 0xFF;
+        for (const byte of decrypted) {
+            sum = (sum + byte) & 0xFF;
         }
         console.log(`[WOLF-SAV] decrypted payload byte sum (lower 8 bits): 0x${sum.toString(16).toUpperCase()}`);
         console.log(`[WOLF-SAV] original header checksum byte:        0x${header[2].toString(16).toUpperCase()}`);
@@ -301,7 +304,7 @@ class RpgWolfSavFormat {
             gameTitle: 'WOLF RPG Game'
         };
 
-        if (!paths || !paths.exeDir) return metadata;
+        if (!paths?.exeDir) return metadata;
         
         try {
             const dataDir = path.join(paths.exeDir, 'Data', 'BasicData');
@@ -320,8 +323,7 @@ class RpgWolfSavFormat {
                 // Robust heuristic string extraction
                 const strings: string[] = [];
                 let currentStr: number[] = [];
-                for (let i = 0; i < buffer.length; i++) {
-                    const b = buffer[i];
+                for (const b of buffer) {
                     if ((b >= 0x20 && b <= 0x7E) || b >= 0x80) {
                         currentStr.push(b);
                     } else {
@@ -331,7 +333,7 @@ class RpgWolfSavFormat {
                                 if (/[^\x00-\x7F]/.test(s) || /[a-zA-Z0-9]/.test(s)) {
                                     strings.push(s);
                                 }
-                            } catch (e) {}
+                            } catch {}
                         }
                         currentStr = [];
                     }
@@ -344,7 +346,7 @@ class RpgWolfSavFormat {
                         if (markerIndex + 1 + i < strings.length) {
                             let name = strings[markerIndex + 1 + i];
                             if (name && !name.includes('<なし>') && !name.includes('<変化なし>')) {
-                                metadata.variables[i] = name.replace(/\0/g, '').trim();
+                                metadata.variables[i] = name.replaceAll('\0', '').trim();
                             }
                         }
                     }

@@ -158,7 +158,7 @@
 }
 
 .sort-menu.show { display: block; }
-.sort-item { padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); }
+.sort-item { position: relative; padding: 12px 15px; font-size: 13px; cursor: pointer; color: var(--text-sub); }
 .sort-item:hover { background: var(--menu-hover-bg); color: var(--text-main); }
 
 .category-filter-menu {
@@ -175,11 +175,6 @@
 @keyframes header-icon-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
-}
-
-/* ACTIVE EFFECT FOR SORT ITEM */
-.sort-item {
-    position: relative; /* Essential to anchor the white indicator line */
 }
 .sort-item.active {
     background-color: var(--menu-active-bg); /* Light background highlight */

@@ -1,5 +1,4 @@
-import * as os from 'os';
-import * as path from 'path';
+import * as os from 'node:os';
 
 export interface TelemetryPayload {
     filePath: string;
@@ -24,7 +23,7 @@ try {
  * Standardize path slashes to forward slashes for backend consistency and remove local drive letters
  */
 export function normalizePathSlashes(p: string): string {
-    return p.replace(/\\/g, '/');
+    return p.replaceAll('\\', '/');
 }
 
 /**
@@ -84,13 +83,13 @@ export function scrubSecrets(input: string): string {
 
     // Common authorization/credentials patterns
     const secretPatterns = [
-        /(authorization|auth|token|password|passwd|pwd|key|secret|apikey|bearer)\s*[:=]\s*["']?[a-zA-Z0-9_\-\.\~]{10,}["']?/gi,
+        /(authorization|auth|token|password|passwd|pwd|key|secret|apikey|bearer)\s*[:=]\s*["']?[\w.~-]{10,}["']?/gi,
         /db:\/\/[^@\s]+@[^\s]+/gi, // database URIs
         /https?:\/\/[^@\s]+@[^\s]+/gi, // basic auth URLs
         /\bAKIA[A-Z0-9]{16}\b/g, // AWS Access Keys
-        /\b[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\b/g, // JWT Tokens (3-part dot-separated base64)
-        /\b(ghp|npm)_[a-zA-Z0-9_]{36}\b/g, // GitHub / npm personal access tokens
-        /-----BEGIN[A-Z ]*PRIVATE KEY-----[a-zA-Z0-9+/=\s\r\n]+-----END[A-Z ]*PRIVATE KEY-----/gi, // Full PEM block
+        /\b[\w-]+\.[\w-]+\.[\w-]+\b/g, // JWT Tokens (3-part dot-separated base64)
+        /\b(ghp|npm)_\w{36}\b/g, // GitHub / npm personal access tokens
+        /-----BEGIN[A-Z ]*PRIVATE KEY-----[a-z0-9+/=\s]+-----END[A-Z ]*PRIVATE KEY-----/gi, // Full PEM block
         /-----BEGIN[A-Z ]*PRIVATE KEY-----/gi // PEM private key boundary start
     ];
 
@@ -152,5 +151,5 @@ export function sanitizeLogPayload(
 }
 
 function escapeRegExp(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }

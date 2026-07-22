@@ -1,9 +1,9 @@
-import * as fsSync from 'fs';
-import * as path from 'path';
-import { fork, spawnSync, ChildProcess } from 'child_process';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
+import { fork, ChildProcess } from 'node:child_process';
 
 const ICON_WORKER_BOOT_MAX_ATTEMPTS = 5;
-const ICON_WORKER_PROBE_PATH = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'notepad.exe');
+const ICON_WORKER_PROBE_PATH = path.join(process.env.WINDIR || String.raw`C:\Windows`, 'System32', 'notepad.exe');
 
 export interface WorkerPoolAppInterface {
     getAppPath(): string;
@@ -146,7 +146,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
                 });
             }
 
-            if (activeExtractionReq && activeExtractionReq.worker === worker) {
+            if (activeExtractionReq?.worker === worker) {
                 console.error(`[MAIN][NODE-WORKER] Active request #${activeExtractionReq.id} lost because worker pid=${worker.pid} exited`);
                 activeExtractionReq = null;
                 isExtracting = false;
@@ -242,7 +242,7 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
                     cause: 'worker_healthcheck_failed',
                     requestId: req.id,
                     mode: 'node-worker',
-                    error: String((error && error.stack) || error)
+                    error: String(error?.stack || error)
                 }
             });
             activeExtractionReq = null;

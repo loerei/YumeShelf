@@ -48,7 +48,7 @@ export class Translator {
                     .find(p => p.code === currentLang);
                 
                 let resolved = null;
-                if (activeMeta && activeMeta.bcp47 && /^[a-zA-Z0-9-]+$/.test(activeMeta.bcp47)) {
+                if (activeMeta?.bcp47 && /^[a-zA-Z0-9-]+$/.test(activeMeta.bcp47)) {
                     resolved = activeMeta.bcp47;
                 } else if (currentLang && /^[a-zA-Z0-9-]+$/.test(currentLang)) {
                     resolved = currentLang;
@@ -91,7 +91,7 @@ export class Translator {
         try {
             this.translationCache = JSON.parse(localStorage.getItem('yumeshelf_translation_cache') || '{}') || {};
             console.log(`[SAVE-EDITOR] Loaded ${Object.keys(this.translationCache).length} translations from LocalStorage.`);
-        } catch (e) {
+        } catch {
             this.translationCache = {};
         }
         this.isInitialized = true;
@@ -133,7 +133,7 @@ export class Translator {
         const strings = /** @type {any} */ (window).currentUIStrings || this.uiStrings || {};
         const elements = container.querySelectorAll('[data-i18n]');
         for (const el of elements) {
-            const key = el.getAttribute('data-i18n');
+            const key = /** @type {HTMLElement} */ (el).dataset.i18n;
             if (key) {
                 const translation = strings[key];
                 if (translation && translation !== key) {
@@ -145,7 +145,7 @@ export class Translator {
         // Handle placeholders
         const placeholders = container.querySelectorAll('[data-i18n-placeholder]');
         for (const el of placeholders) {
-            const key = el.getAttribute('data-i18n-placeholder');
+            const key = /** @type {HTMLElement} */ (el).dataset.i18nPlaceholder;
             if (key) {
                 const translation = strings[key];
                 if (translation && translation !== key) {
@@ -189,8 +189,7 @@ export class Translator {
         }
         /** @type {string[]} */
         const textsToTranslate = [];
-        /** @type {{ el: Element, original: string }[]} */
-        const labelMap = [];
+
 
         labels.forEach(label => {
             const originalName = label.getAttribute('title') || label.textContent || '';
@@ -201,7 +200,7 @@ export class Translator {
             if (isASCII && originalName.length < 2) return;
 
             // Skip pure punctuation/symbol rows
-            const isPunctuation = /^[ \t\r\n\-\_\+\=\!\@\#\$\%\^\&\*\(\)\{\}\[\]\:\;\"\'\<\>\,\.\?\/\\|~`]*$/.test(originalName);
+            const isPunctuation = /^[ \t\r\n+=!@#$%^&*(){}[\]:;"'<>,.?/\\|~`_-]*$/.test(originalName);
             if (isPunctuation) return;
 
             if (this.translationCache[originalName]) {
@@ -209,7 +208,6 @@ export class Translator {
                 label.classList.add('is-translated');
             } else {
                 textsToTranslate.push(originalName);
-                labelMap.push({ el: label, original: originalName });
             }
         });
 
@@ -243,7 +241,7 @@ export class Translator {
                 }
                 const result = await response.json();
 
-                if (result && result[0]) {
+                if (result?.[0]) {
                     let translatedFull = "";
                     result[0].forEach((/** @type {any[]} */ part) => {
                         if (part[0]) translatedFull += part[0];
@@ -268,12 +266,10 @@ export class Translator {
                                         this.translationCache[original] = translatedText;
                                         changed = true;
                                     }
-                                } else {
+                                } else if (this.translationCache[original] !== original) {
                                     // Memory-only identical caching to prevent future re-translation in this session
-                                    if (this.translationCache[original] !== original) {
-                                        this.translationCache[original] = original;
-                                        changed = true;
-                                    }
+                                    this.translationCache[original] = original;
+                                    changed = true;
                                 }
                             });
                             if (changed) await this.saveTranslations();
@@ -286,7 +282,7 @@ export class Translator {
                                     const res = await fetch(singleUrl);
                                     if (res.ok) {
                                         const singleResult = await res.json();
-                                        if (singleResult && singleResult[0] && singleResult[0][0] && singleResult[0][0][0]) {
+                                        if (singleResult?.[0]?.[0]?.[0]) {
                                             const translatedText = singleResult[0][0][0].trim();
                                             if (original !== translatedText) {
                                                 if (this.translationCache[original] !== translatedText) {
@@ -294,12 +290,10 @@ export class Translator {
                                                     changed = true;
                                                     console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
                                                 }
-                                            } else {
-                                                if (this.translationCache[original] !== original) {
-                                                    this.translationCache[original] = original;
-                                                    changed = true;
-                                                }
-                                            }
+                                             } else if (this.translationCache[original] !== original) {
+                                                 this.translationCache[original] = original;
+                                                 changed = true;
+                                             }
                                         }
                                     }
                                     // Small delay to prevent rate limit
@@ -324,12 +318,10 @@ export class Translator {
                                         changed = true;
                                         console.log(`[SAVE-EDITOR] Translated: "${original}" -> "${translatedText}"`);
                                     }
-                                } else {
+                                } else if (this.translationCache[original] !== original) {
                                     // Memory-only identical caching to prevent future re-translation in this session
-                                    if (this.translationCache[original] !== original) {
-                                        this.translationCache[original] = original;
-                                        changed = true;
-                                    }
+                                    this.translationCache[original] = original;
+                                    changed = true;
                                 }
                             }
                         });

@@ -184,7 +184,7 @@ export function initSaveEditorUI() {
         document.addEventListener('keydown', handleGlobalKeydown);
 
         const close = (force = false) => {
-            if (!force && state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+            if (!force && state.hasUnsavedChanges?.()) {
                 if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to close and discard changes?')) {
                     return;
                 }
@@ -193,7 +193,7 @@ export function initSaveEditorUI() {
             if (isStandalone) {
                 window.close();
             } else {
-                document.body.removeChild(overlay);
+                overlay.remove();
             }
         };
         overlay.querySelector('.save-editor-close').onclick = () => close(false);
@@ -203,7 +203,7 @@ export function initSaveEditorUI() {
             const popoutBtn = overlay.querySelector('.save-editor-popout');
             if (popoutBtn) {
                 popoutBtn.onclick = () => {
-                    if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+                    if (state.hasUnsavedChanges?.()) {
                         if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to open in a separate window and discard them?')) {
                             return;
                         }
@@ -292,8 +292,8 @@ export function initSaveEditorUI() {
             currentFileName: popoutState ? popoutState.currentFileName : null,
             originalSnapshot: null,
             activeTab: popoutState ? popoutState.activeTab : 'gold',
-            showEmpty: popoutState && popoutState.showEmpty !== undefined ? popoutState.showEmpty : false,
-            showImportant: popoutState && popoutState.showImportant !== undefined ? popoutState.showImportant : true,
+            showEmpty: popoutState?.showEmpty ?? false,
+            showImportant: popoutState?.showImportant ?? true,
             gameKey,
             isStandalone,
             d,
@@ -336,7 +336,7 @@ export function initSaveEditorUI() {
             }
         });
 
-        if (popoutState && popoutState.searchOptions) {
+        if (popoutState?.searchOptions) {
             engine.setSearchOptions(popoutState.searchOptions);
             if (refs.searchInput) {
                 refs.searchInput.value = popoutState.searchOptions.query || '';
@@ -402,7 +402,7 @@ export function initSaveEditorUI() {
                     data: state.currentSaveData
                 });
                 
-                state.originalSnapshot = JSON.parse(JSON.stringify(state.currentSaveData));
+                state.originalSnapshot = structuredClone(state.currentSaveData);
                 renderTabContent(); // Re-render to clear deltas
                 
                 saveBtn.textContent = 'Saved!';

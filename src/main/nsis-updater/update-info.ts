@@ -1,5 +1,5 @@
-import * as crypto from 'crypto';
-import * as fsSync from 'fs';
+import * as crypto from 'node:crypto';
+import * as fsSync from 'node:fs';
 import { normalizeText } from './runtime';
 
 export function pickReleaseName(updateInfo: any): string {

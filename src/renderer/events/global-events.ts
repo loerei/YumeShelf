@@ -38,7 +38,7 @@ export function bindGlobalUiEvents({
             if (saveEditorOverlay) {
                 const closeBtn = saveEditorOverlay.querySelector('.save-editor-close') as HTMLElement | null;
                 if (closeBtn) closeBtn.click();
-            } else if (refs.languagePackOverlay && refs.languagePackOverlay.style.display === 'flex') {
+            } else if (refs.languagePackOverlay?.style.display === 'flex') {
                 closeLanguagePackModal();
             } else if (duplicateStackOverlayController.isOpen()) {
                 duplicateStackOverlayController.close();
@@ -217,11 +217,14 @@ export function bindControlEvents({
             if (!['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) return;
             event.preventDefault();
             const inputEl = event.target as HTMLInputElement;
-            const maxDepth = event.key === 'ArrowUp'
-                ? settingsController.handleMaxDepthStep(1)
-                : event.key === 'ArrowDown'
-                    ? settingsController.handleMaxDepthStep(-1)
-                    : settingsController.handleMaxDepthChange(inputEl.value);
+            let maxDepth: number;
+            if (event.key === 'ArrowUp') {
+                maxDepth = settingsController.handleMaxDepthStep(1);
+            } else if (event.key === 'ArrowDown') {
+                maxDepth = settingsController.handleMaxDepthStep(-1);
+            } else {
+                maxDepth = settingsController.handleMaxDepthChange(inputEl.value);
+            }
             await startupController.handleLibraryConfigChange({ maxDepth });
         };
     }

@@ -1,5 +1,5 @@
 import { App, IpcMain, Shell, BrowserWindow } from 'electron';
-import * as fsSync from 'fs';
+import * as fsSync from 'node:fs';
 import { TelemetryShipper } from '../telemetry/shipper';
 import { isPathWithinLibrary } from './path-validator';
 
@@ -99,7 +99,7 @@ export function registerMainIpc({
     ipcMain.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
         try {
             const record = await libraryState.getGameRecord(gameKey);
-            if (record && record.autoTranslate) {
+            if (record?.autoTranslate) {
                 await translationService.prepareTranslator(gameKey, exePath);
             } else {
                 await translationService.removeTranslator(exePath);
@@ -122,13 +122,13 @@ export function registerMainIpc({
     ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState.toggleAutoTranslate(gameKey));
     ipcMain.handle('translation:check-support', async (_event, gameKey) => {
         const record = await libraryState.getGameRecord(gameKey);
-        if (!record || !record.exePath) return { supported: false, engine: null };
+        if (!record?.exePath) return { supported: false, engine: null };
         const engine = await translationService.detectEngineSupport(record.exePath);
         return { supported: !!engine, engine };
     });
     ipcMain.handle('translation:start-sync', async (_event, { gameKey, targetLang }) => {
         const record = await libraryState.getGameRecord(gameKey);
-        if (!record || !record.exePath) return { success: false, error: 'game-not-found' };
+        if (!record?.exePath) return { success: false, error: 'game-not-found' };
         translationService.queueDeepSync(gameKey, record.exePath, targetLang, record.name);
         return { success: true };
     });
@@ -249,11 +249,16 @@ export function registerMainIpc({
     let devAutoLaunchState = 'off';
 
     try {
-        if (paths && paths.dbFile && fsSync.existsSync(paths.dbFile)) {
+        if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
             const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
-            if (db && db.config) {
+            if (db?.config) {
                 const configVal = db.config.autoLaunch;
-                const value = (configVal === 'minimized') ? 'minimized' : (configVal === 'on' || configVal === 'true' || configVal === true ? 'on' : 'off');
+                let value = 'off';
+                if (configVal === 'minimized') {
+                    value = 'minimized';
+                } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
+                    value = 'on';
+                }
                 
                 const openAtLogin = (value === 'on' || value === 'minimized');
                 const args = (value === 'minimized') ? ['--minimized'] : [];
@@ -286,7 +291,13 @@ export function registerMainIpc({
                     args: args
                 });
             } else {
-                devAutoLaunchState = (value === 'minimized') ? 'minimized' : (openAtLogin ? 'on' : 'off');
+                if (value === 'minimized') {
+                    devAutoLaunchState = 'minimized';
+                } else if (openAtLogin) {
+                    devAutoLaunchState = 'on';
+                } else {
+                    devAutoLaunchState = 'off';
+                }
                 console.log(`[AUTO-LAUNCH][DEV] Skipped OS startup registration (openAtLogin: ${openAtLogin}, args: ${JSON.stringify(args)})`);
             }
             return { success: true };
@@ -303,7 +314,7 @@ export function registerMainIpc({
             }
             const settings = app.getLoginItemSettings() as any;
             if (!settings.openAtLogin) return 'off';
-            if (settings.args && settings.args.includes('--minimized')) {
+            if (settings.args?.includes('--minimized')) {
                 return 'minimized';
             }
             return 'on';

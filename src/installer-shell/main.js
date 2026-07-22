@@ -1,5 +1,5 @@
-const path = require('path');
-const fs = require('fs/promises');
+const path = require('node:path');
+const fs = require('node:fs/promises');
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { readInstallerContract, writeInstallerContract } = require('../shared/installer-contract');
 
@@ -22,7 +22,7 @@ function getArgValue(flagName) {
 function normalizeLocaleCode(value) {
     return String(value || '')
         .trim()
-        .replace(/_/g, '-')
+        .replaceAll('_', '-')
         .toLowerCase();
 }
 
@@ -38,13 +38,15 @@ function matchLocale(locales, requestedCode) {
     const normalizedRequestedCode = normalizeLocaleCode(requestedCode);
     const normalizedBaseCode = normalizedRequestedCode.split('-')[0];
     return locales.find((locale) => {
-        const candidates = [
-            locale.code,
-            ...(Array.isArray(locale.aliases) ? locale.aliases : [])
-        ]
-            .map(normalizeLocaleCode)
-            .filter(Boolean);
-        return candidates.includes(normalizedRequestedCode) || candidates.includes(normalizedBaseCode);
+        const candidates = new Set(
+            [
+                locale.code,
+                ...(Array.isArray(locale.aliases) ? locale.aliases : [])
+            ]
+                .map(normalizeLocaleCode)
+                .filter(Boolean)
+        );
+        return candidates.has(normalizedRequestedCode) || candidates.has(normalizedBaseCode);
     }) || null;
 }
 
@@ -85,7 +87,7 @@ async function loadLocales() {
                     localeMap.set(locale.code, locale);
                 }
             } catch (error) {
-                console.warn(`[INSTALLER-SHELL] failed to load locale ${entry.name}: ${String((error && error.message) || error || '')}`);
+                console.warn(`[INSTALLER-SHELL] failed to load locale ${entry.name}: ${String(error?.message || error || '')}`);
             }
         }
     }
@@ -220,6 +222,6 @@ async function createInstallerShellRuntime() {
 }
 
 void createInstallerShellRuntime().catch((error) => {
-    console.error(`[INSTALLER-SHELL] fatal ${String((error && error.stack) || error || '')}`);
+    console.error(`[INSTALLER-SHELL] fatal ${String(error?.stack || error || '')}`);
     app.exit(1);
 });

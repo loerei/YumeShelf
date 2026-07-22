@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { isPlainObject } from './scanner';
 import {
     normalizeGameRecord,
@@ -109,21 +109,21 @@ export async function toggleAutoTranslate(context: any, gameKey: string): Promis
     return nextAutoTranslate;
 }
 
+function resolveTargetGameKey(games: Record<string, any>, gameKey: string): { targetKey: string | null; targetGroup?: any } {
+    if (games[gameKey]) {
+        return { targetKey: gameKey };
+    }
+    const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+    const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
+    return { targetKey: targetGroup?.gameKey || null, targetGroup };
+}
+
 export async function addPlaytime(context: any, gameKey: string, durationMs: number): Promise<void> {
     const { loadDB, saveDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);
     
-    let targetKey: string | null = null;
-    if (games[gameKey]) {
-        targetKey = gameKey;
-    } else {
-        const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
-        const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
-        if (targetGroup) {
-            targetKey = targetGroup.gameKey;
-        }
-    }
+    const { targetKey } = resolveTargetGameKey(games, gameKey);
     
     if (!targetKey || !games[targetKey]) return;
     games[targetKey].playtime = (games[targetKey].playtime || 0) + Math.max(0, durationMs || 0);
@@ -142,24 +142,18 @@ export async function finalizeTrackedSession(
     const db = await loadDB();
     const games = readStoredGames(db);
     
-    let targetKey: string | null = null;
-    if (games[gameKey]) {
-        targetKey = gameKey;
-    } else {
-        const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
-        const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
-        if (targetGroup) {
-            if (exePath) {
-                const matchedInstance = targetGroup.instances.find(
-                    (inst: any) => inst.exePath && path.resolve(inst.exePath) === path.resolve(exePath)
-                );
-                if (matchedInstance) {
-                    targetKey = matchedInstance.gameKey;
-                }
+    let { targetKey, targetGroup } = resolveTargetGameKey(games, gameKey);
+    if (!games[gameKey] && targetGroup) {
+        if (exePath) {
+            const matchedInstance = targetGroup.instances.find(
+                (inst: any) => inst.exePath && path.resolve(inst.exePath) === path.resolve(exePath)
+            );
+            if (matchedInstance) {
+                targetKey = matchedInstance.gameKey;
             }
-            if (!targetKey) {
-                targetKey = targetGroup.gameKey;
-            }
+        }
+        if (!targetKey) {
+            targetKey = targetGroup.gameKey;
         }
     }
     
@@ -170,7 +164,7 @@ export async function finalizeTrackedSession(
     await saveDB(db);
 }
 
-export async function getGameRecord(context: any, gameKey: string): Promise<any | null> {
+export async function getGameRecord(context: any, gameKey: string): Promise<Record<string, any> | null> {
     const { loadDB } = context;
     const db = await loadDB();
     const games = readStoredGames(db);

@@ -74,7 +74,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                     item.textContent = file;
                     item.title = file;
                     item.onclick = async () => {
-                        if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+                        if (state.hasUnsavedChanges?.()) {
                             if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to load another file and discard changes?')) {
                                 return;
                             }
@@ -107,7 +107,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                     `;
                 }
             }
-        } catch (err) {
+        } catch {
             sidebar.innerHTML = `<div class="error">Failed to list saves</div>`;
         }
     }
@@ -128,7 +128,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         try {
             const { data, metadata } = await window.electronAPI.loadSaveData({ gameKey, fileName });
             state.currentSaveData = data;
-            state.originalSnapshot = JSON.parse(JSON.stringify(data));
+            state.originalSnapshot = structuredClone(data);
             state.currentMetadata = metadata;
             state.currentFileName = fileName;
             
@@ -148,7 +148,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
     if (refreshBtn) {
         // @ts-ignore
         refreshBtn.onclick = () => {
-            if (state.hasUnsavedChanges && state.hasUnsavedChanges()) {
+            if (state.hasUnsavedChanges?.()) {
                 const d = state.d || {};
                 if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to refresh and discard changes?')) {
                     return;

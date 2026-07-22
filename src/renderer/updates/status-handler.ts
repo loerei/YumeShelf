@@ -25,7 +25,7 @@ export function setupStatusHandler({
     }
 
     function handleRuntimeStatus(payload) {
-        if (!payload || !payload.phase) return;
+        if (!payload?.phase) return;
         const update = payload.update || null;
         if (!update) return;
 
@@ -118,7 +118,6 @@ export function setupStatusHandler({
                 }));
             }
             reviewState.actionInFlight = false;
-            return;
         }
     }
 

@@ -5,16 +5,16 @@ export const LOCATION_DISPLAY_MODES = {
 };
 
 function normalizePathSegment(value) {
-    return String(value || '')
-        .replace(/[\\/]+/g, '/')
-        .replace(/^\/+/, '')
-        .replace(/\/+$/, '');
+    let s = String(value || '').replaceAll('\\', '/').replace(/\/+/g, '/');
+    if (s.startsWith('/')) s = s.slice(1);
+    if (s.endsWith('/')) s = s.slice(0, -1);
+    return s;
 }
 
 function getLibraryRootName(libraryPath) {
     const normalized = normalizePathSegment(libraryPath);
     const parts = normalized.split('/').filter(Boolean);
-    return parts.length > 0 ? parts[parts.length - 1] : '';
+    return parts.at(-1) ?? '';
 }
 
 function getParentLocationLabel(relativePathDisplay) {
@@ -28,7 +28,7 @@ function getParentLocationLabel(relativePathDisplay) {
 function normalizeComparableText(value) {
     return String(value || '')
         .toLowerCase()
-        .replace(/\[[^\]]*]/g, ' ')
+        .replace(/\[[^\]]*\]/g, ' ')
         .replace(/\b(rj\d{6,8}|\d{6,8})\b/gi, ' ')
         .replace(/\bv?\d+(?:\.\d+)+(?:\s*[a-z]+)?\b/gi, ' ')
         .replace(/[_-]+/g, ' ')
@@ -48,7 +48,7 @@ export function buildDuplicateSignature(game) {
         return game.duplicateSignature;
     }
     const signatureSource = `${game.name || ''} ${game.folderName || ''} ${game.exePath || ''}`;
-    const idMatch = signatureSource.match(/(RJ\d{6,8}|\b\d{6,8}\b)/i);
+    const idMatch = /(RJ\d{6,8}|\b\d{6,8}\b)/i.exec(signatureSource);
     if (idMatch) {
         return `id:${idMatch[0].toUpperCase()}`;
     }

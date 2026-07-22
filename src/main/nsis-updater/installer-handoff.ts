@@ -1,13 +1,13 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { spawn } from 'child_process';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { spawn } from 'node:child_process';
 import { BrowserWindow } from 'electron';
 import { normalizeText } from './runtime';
 import { pickReleaseName, pickReleaseNotes } from './update-info';
 
 export interface InstallerHandoffConfig {
     app: any;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     delay: (ms: number) => Promise<void>;
     emitStatus: (payload: any) => void;
     ensureDir: (dirPath: string) => Promise<void>;

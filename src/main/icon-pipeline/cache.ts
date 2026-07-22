@@ -1,6 +1,6 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as crypto from 'crypto';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import * as crypto from 'node:crypto';
 import { cropTransparentPaddingFromDataUrl } from './cropper';
 
 export const ICON_CACHE_VERSION = 1;
@@ -50,7 +50,7 @@ export async function loadIconCacheState(app: CacheAppInterface): Promise<IconCa
                 version: parsed.version || ICON_CACHE_VERSION,
                 entriesByPath: parsed.entriesByPath || {}
             };
-        } catch (err) {
+        } catch {
             iconCacheState = { version: ICON_CACHE_VERSION, entriesByPath: {} };
         }
         return iconCacheState;
@@ -78,13 +78,12 @@ export async function deleteIconCacheFileIfUnused(app: CacheAppInterface, state:
     const { cacheDir } = resolveCachePaths(app);
     const stillUsed = Object.entries(state.entriesByPath).some(([entryPath, entry]) => {
         if (exceptPath && entryPath === exceptPath) return false;
-        return entry && entry.fileName === fileName;
+        return entry?.fileName === fileName;
     });
     if (stillUsed) return;
     try {
         await fs.unlink(path.join(cacheDir, fileName));
-    } catch (err) {
-        void err;
+    } catch {
     }
 }
 
@@ -116,7 +115,7 @@ export async function tryGetCachedIconDataUrl(app: CacheAppInterface, targetPath
         const cachedDataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
         const normalizedIcon = cropTransparentPaddingFromDataUrl(cachedDataUrl, { source: 'cache' });
         return normalizedIcon.dataUrl;
-    } catch (err) {
+    } catch {
         return null;
     }
 }

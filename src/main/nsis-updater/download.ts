@@ -1,35 +1,21 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 import { buildDownloadedState, sha512FileBase64, pickReleaseName, pickReleaseNotes } from './update-info';
 import { classifyErrorReason } from './runtime';
+import { UpdaterState, UpdaterStateFiles } from './state-files';
 
 export interface DownloadUpdateContext {
     releasePageUrl: string;
     updateCacheDir: string;
-    state: {
-        updater: any;
-        latestUpdateInfo: any;
-        latestDownloadedEvent: any;
-        activeDownloadPromise: any;
-        updaterFeedKey: any;
-    };
-    stateFiles: {
-        clearDeferredInstallState: () => Promise<void>;
-        clearDownloadedState: () => Promise<void>;
-        getValidatedDeferredInstallState: () => Promise<any>;
-        getValidatedDownloadedStateForVersion: (version: string) => Promise<any>;
-        readDeferredInstallState: () => Promise<any>;
-        readDownloadedState: () => Promise<any>;
-        writeDeferredInstallState: (state: any) => Promise<void>;
-        writeDownloadedState: (state: any) => Promise<void>;
-    };
+    state: UpdaterState;
+    stateFiles: UpdaterStateFiles;
     emitStatus: (payload: any) => void;
     summarizeUpdateState: (payload: any) => any;
     ensureDir: (dirPath: string) => Promise<void>;
     configureUpdaterFeed: (runtime: any) => Promise<{ updater: any; feedOverride: any }>;
     resolveRuntime: () => any;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     VERBOSE_UPDATE_LOG?: boolean;
     checkForUpdates: () => Promise<any>;
 }
@@ -109,7 +95,7 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
             let downloadUrl = fileName;
             if (!/^https?:\/\//i.test(downloadUrl)) {
                 const base = feedOverride?.url || `https://github.com/loerei/YumeShelf/releases/download/v${version}`;
-                const encodedFileName = encodeURIComponent(fileName).replace(/%2B/g, '+');
+                const encodedFileName = encodeURIComponent(fileName).replaceAll('%2B', '+');
                 downloadUrl = `${base.replace(/\/$/, '')}/${encodedFileName}`;
             }
 
@@ -128,7 +114,7 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
 
             const acceptRanges = headRes.headers.get('accept-ranges');
             const contentLengthStr = headRes.headers.get('content-length');
-            const contentLength = contentLengthStr ? parseInt(contentLengthStr, 10) : NaN;
+            const contentLength = contentLengthStr ? Number.parseInt(contentLengthStr, 10) : Number.NaN;
 
             if (VERBOSE_UPDATE_LOG) {
                 await appendUpdateLog(`nsis-updater parallel-download info accept-ranges=${acceptRanges} content-length=${contentLength}`);
@@ -157,7 +143,7 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
             }
 
             // Fallback to single-stream sequential if accepts-ranges is not supported or content length is missing
-            if (acceptRanges !== 'bytes' || isNaN(contentLength) || contentLength <= 0) {
+            if (acceptRanges !== 'bytes' || Number.isNaN(contentLength) || contentLength <= 0) {
                 if (VERBOSE_UPDATE_LOG) {
                     await appendUpdateLog(`nsis-updater parallel-download range-requests unsupported, falling back to single stream`);
                 }

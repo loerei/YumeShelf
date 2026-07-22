@@ -68,7 +68,7 @@ export interface CacheStateOptions {
     downloadBuffer: (url: string, start?: number, end?: number, token?: any, appVersion?: string) => Promise<Buffer>;
     appVersion?: string;
     VERBOSE_UPDATE_LOG?: boolean;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
 }
 
 export interface InstallerCacheState {
@@ -200,7 +200,7 @@ export interface DifferentialDownloadOptions {
     currentVersion: string;
     feedOverride: any;
     runtime: any;
-    appendUpdateLog: (message: string) => Promise<any> | any;
+    appendUpdateLog: (message: string) => any;
     VERBOSE_UPDATE_LOG?: boolean;
 }
 

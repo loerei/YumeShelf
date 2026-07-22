@@ -1,6 +1,6 @@
 import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
-import fs from 'fs/promises';
-import fsSync from 'fs';
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 
 import { createAppPaths } from './main/core/app-paths';
 import { createCategoryState } from './main/category-state';

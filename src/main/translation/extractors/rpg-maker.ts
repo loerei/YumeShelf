@@ -1,5 +1,5 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { TranslationExtractor } from './base';
 
 export class RpgMakerExtractor implements TranslationExtractor {
@@ -126,7 +126,10 @@ export class RpgMakerExtractor implements TranslationExtractor {
         if (!trimmed || /^\d+$/.test(trimmed) || trimmed.startsWith('//') || trimmed.length <= 1) return;
         
         // Escape newlines to match XUnity.AutoTranslator dictionary format (single line per entry)
-        const escaped = trimmed.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
+        const escaped = trimmed
+            .replaceAll('\r\n', String.raw`\n`)
+            .replaceAll('\n', String.raw`\n`)
+            .replaceAll('\r', String.raw`\n`);
         strings.add(escaped);
     }
 }

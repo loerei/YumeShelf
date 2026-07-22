@@ -79,7 +79,7 @@ async function loadMetadata(dataDir: string, langDataDir: string | null) {
             if (await exists(p)) {
                 const list = JSON.parse(await fs.readFile(p, 'utf8'));
                 list.forEach((item: any) => {
-                    if (item && item.id) {
+                    if (item?.id) {
                         target[item.id] = {
                             name: item.name,
                             description: item.description,
@@ -198,12 +198,12 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
     
     async function getGamePaths(gameKey: string) {
         const record = await libraryState.getGameRecord(gameKey);
-        if (!record || !record.exePath) return null;
+        if (!record?.exePath) return null;
         
         const exeDir = path.dirname(record.exePath);
         const saveInfo = await saveFolderResolver.resolveSaveFolder(record.exePath, record.saveFolderOverride);
         
-        if (!saveInfo || !saveInfo.path) return null;
+        if (!saveInfo?.path) return null;
         
         // Find data directory (MV/MZ specific)
         let dataDir = path.join(exeDir, 'www', 'data');
@@ -217,7 +217,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         if (await exists(langConfigPath)) {
             try {
                 const config = JSON.parse(await fs.readFile(langConfigPath, 'utf8'));
-                if (config && config.lang) {
+                if (config?.lang) {
                     const potentialPath = path.join(exeDir, 'www', 'lang_packs', config.lang, 'data');
                     if (await exists(potentialPath)) {
                         langDataDir = potentialPath;

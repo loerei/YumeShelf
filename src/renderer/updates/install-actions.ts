@@ -12,7 +12,12 @@ export function setupInstallActions({
             return { ok: false, reason: 'no-update' };
         }
 
-        const fallbackActionState = currentUpdate.deferredUntilNextLaunch ? 'scheduled' : (currentUpdate.downloadReady ? 'ready' : 'idle');
+        let fallbackActionState = 'idle';
+        if (currentUpdate.deferredUntilNextLaunch) {
+            fallbackActionState = 'scheduled';
+        } else if (currentUpdate.downloadReady) {
+            fallbackActionState = 'ready';
+        }
         state.patchCurrentUpdate({
             actionState: 'installing',
             installPhase: 'install-preparing'
@@ -20,7 +25,7 @@ export function setupInstallActions({
         installFlow.beginInstallShellSequence('install-preparing');
         await installFlow.waitForNextPaint();
         const installResult = await electronAPI.restartAndInstallAppUpdate();
-        if (!installResult || !installResult.ok) {
+        if (!installResult?.ok) {
             installFlow.clearInstallShellTimers();
             bootController.hide();
             state.patchCurrentUpdate({
@@ -43,7 +48,7 @@ export function setupInstallActions({
         }
 
         const scheduleResult = await electronAPI.scheduleAppUpdateNextLaunch();
-        if (!scheduleResult || !scheduleResult.ok) {
+        if (!scheduleResult?.ok) {
             state.patchCurrentUpdate({
                 actionState: currentUpdate.downloadReady ? 'ready' : 'idle'
             });
@@ -68,7 +73,7 @@ export function setupInstallActions({
         installFlow.beginInstallShellSequence('install-preparing');
         await installFlow.waitForNextPaint();
         const result = await electronAPI.beginDeferredAppUpdateInstall();
-        if (result && result.launched) {
+        if (result?.launched) {
             state.patchCurrentUpdate({
                 actionState: 'installing',
                 installPhase: 'install-handoff'

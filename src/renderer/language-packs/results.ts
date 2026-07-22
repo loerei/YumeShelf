@@ -3,6 +3,17 @@ import { buildLanguagePackSearchHaystack, compareVersions, isFinalInstallPhase }
 import { renderAppUpdateReview, setOverlayChrome } from './review-surface';
 import { escapeHtml } from '../markdown-lite';
 
+function filterLanguagePacks(packs, query) {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return packs;
+    return packs.filter((pack) => buildLanguagePackSearchHaystack(pack).includes(normalized));
+}
+
+function getReviewLanguageMatches(query, availableUpdates) {
+    const pendingPacks = Array.from(availableUpdates.values()).map(updateInfo => updateInfo.manifestEntry);
+    return filterLanguagePacks(pendingPacks, query);
+}
+
 export function createLanguagePackResultsController({
     getAppSectionMode,
     getAppUpdateState,
@@ -27,11 +38,7 @@ export function createLanguagePackResultsController({
         }
     }
 
-    function filterLanguagePacks(packs, query) {
-        const normalized = query.trim().toLowerCase();
-        if (!normalized) return packs;
-        return packs.filter((pack) => buildLanguagePackSearchHaystack(pack).includes(normalized));
-    }
+
 
     function getAvailableLanguagePackUpdates() {
         const updates = new Map();
@@ -55,10 +62,7 @@ export function createLanguagePackResultsController({
         return updates;
     }
 
-    function getReviewLanguageMatches(query, availableUpdates) {
-        const pendingPacks = Array.from(availableUpdates.values()).map(updateInfo => updateInfo.manifestEntry);
-        return filterLanguagePacks(pendingPacks, query);
-    }
+
 
     function renderLanguagePackResults() {
         const manifestState = getManifestState();
@@ -139,18 +143,32 @@ export function createLanguagePackResultsController({
             card.className = 'language-pack-card';
 
             const title = localeController.formatLanguageLabel(pack);
-            const sourceText = updateAvailable
-                ? getText('lang_modal_update_available', 'Update available')
-                : installed
-                    ? (localeController.getLanguageMeta(pack.code)?.source === 'built-in' ? getText('lang_builtin_source') : getText('lang_downloaded_source'))
-                    : getText('lang_modal_available_title');
+            let sourceText: string;
+            if (updateAvailable) {
+                sourceText = getText('lang_modal_update_available', 'Update available');
+            } else if (installed) {
+                const meta = localeController.getLanguageMeta(pack.code);
+                sourceText = meta?.source === 'built-in'
+                    ? getText('lang_builtin_source')
+                    : getText('lang_downloaded_source');
+            } else {
+                sourceText = getText('lang_modal_available_title');
+            }
 
             const actionDisabled = (!updateAvailable && installed) || getDownloadingLanguageCode() !== null;
-            const actionLabel = updateAvailable
-                ? (getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_update', 'Update'))
-                : installed
-                    ? getText('lang_modal_installed')
-                    : (getDownloadingLanguageCode() === pack.code ? getText('lang_modal_downloading') : getText('lang_modal_download'));
+            const isDownloadingThisPack = getDownloadingLanguageCode() === pack.code;
+            let actionLabel: string;
+            if (updateAvailable) {
+                actionLabel = isDownloadingThisPack
+                    ? getText('lang_modal_downloading')
+                    : getText('lang_modal_update', 'Update');
+            } else if (installed) {
+                actionLabel = getText('lang_modal_installed');
+            } else {
+                actionLabel = isDownloadingThisPack
+                    ? getText('lang_modal_downloading')
+                    : getText('lang_modal_download');
+            }
 
             card.innerHTML = `
                 <div class="language-pack-card-copy">

@@ -77,7 +77,7 @@ export function summarizeNativeImageForDebug(image: any): NativeImageSummary {
             summary.opaqueBounds = null;
         }
     } catch (error: any) {
-        summary.bitmapError = String((error && error.message) || error);
+        summary.bitmapError = String(error?.message || error);
     }
 
     return summary;
@@ -103,13 +103,13 @@ export function cropTransparentPaddingFromDataUrl(dataUrl: string, options: any 
             cropped: false,
             summary: {
                 empty: true,
-                error: String((error && error.message) || error)
+                error: String(error?.message || error)
             }
         };
     }
 
     const summary = summarizeNativeImageForDebug(image);
-    const bounds = summary && summary.opaqueBounds;
+    const bounds = summary?.opaqueBounds;
     if (!bounds || !summary || summary.empty) {
         return { dataUrl, cropped: false, summary };
     }
@@ -164,7 +164,7 @@ export function cropTransparentPaddingFromDataUrl(dataUrl: string, options: any 
             cropped: false,
             summary: {
                 ...summary,
-                cropError: String((error && error.message) || error)
+                cropError: String(error?.message || error)
             }
         };
     }

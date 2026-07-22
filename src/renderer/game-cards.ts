@@ -50,7 +50,7 @@ export function createGameCardFactory({
                 <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span></div>
                 <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('save-editor')}<span>Pre-Translate Game</span></div>
                 <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
-                <div class=\"dropdown-item danger action-delete\">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
+                <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
                 </div>
             <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
@@ -157,7 +157,7 @@ export function createGameCardFactory({
             console.log(`[FRONTEND][ACTION] Open Save Folder clicked for ${gameKey}`);
             card.querySelector('.dropdown-menu').classList.remove('show');
             const result = await electronAPI.getSaveFolder(gameKey);
-            if (result && result.path) {
+            if (result?.path) {
                 electronAPI.openPath(result.path);
             } else {
                 const item = card.querySelector('.action-save-folder');
@@ -202,8 +202,8 @@ export function createGameCardFactory({
             let targetLang = 'en';
             try {
                 const langState = await electronAPI.getLanguageState();
-                targetLang = (langState && langState.current) ? langState.current : 'en';
-            } catch (e) {
+                targetLang = langState?.current ?? 'en';
+            } catch {
                 // fall back to 'en'
             }
             await electronAPI.startTranslationSync({ gameKey, targetLang });

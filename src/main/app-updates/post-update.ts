@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 import {
     shouldIncludePrereleaseReleases,
     getReleaseDisplayName,
@@ -17,7 +17,7 @@ export interface PostUpdateMarkerOptions {
 }
 
 export interface PostUpdateMarkerService {
-    consumePostUpdateMarker(): Promise<any | null>;
+    consumePostUpdateMarker(): Promise<any>;
 }
 
 export function setupPostUpdateMarker({
@@ -28,7 +28,7 @@ export function setupPostUpdateMarker({
     appendUpdateLog,
     appendVerboseUpdateLog
 }: PostUpdateMarkerOptions): PostUpdateMarkerService {
-    async function consumePostUpdateMarker(): Promise<any | null> {
+    async function consumePostUpdateMarker(): Promise<any> {
         const markerExists = await fs.access(postUpdateMarkerFile).then(() => true).catch(() => false);
         await appendVerboseUpdateLog(`consumePostUpdateMarker begin exists=${markerExists}`);
         if (!markerExists) {
@@ -39,18 +39,18 @@ export function setupPostUpdateMarker({
         try {
             const rawText = await fs.readFile(postUpdateMarkerFile, 'utf8');
             const sanitizedText = rawText.replace(/^\uFEFF/, '');
-            const hasBom = rawText.charCodeAt(0) === 0xFEFF;
+            const hasBom = rawText.codePointAt(0) === 0xFEFF;
             await appendVerboseUpdateLog(`consumePostUpdateMarker raw length=${rawText.length} hasBom=${hasBom}`);
             marker = JSON.parse(sanitizedText);
         } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(`consumePostUpdateMarker parse-failed error=${String(error?.stack || error || '')}`);
         }
 
         try {
             await fs.unlink(postUpdateMarkerFile);
             await appendVerboseUpdateLog('consumePostUpdateMarker deleted-marker-file');
         } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker delete-failed error=${String((error && error.message) || error || '')}`);
+            await appendUpdateLog(`consumePostUpdateMarker delete-failed error=${String(error?.message || error || '')}`);
         }
 
         if (!marker || typeof marker !== 'object') {
@@ -58,6 +58,7 @@ export function setupPostUpdateMarker({
             return null;
         }
 
+        const rawVersion = marker.toVersion || marker.version;
         const notice: any = {
             actionState: 'installed',
             available: false,
@@ -69,7 +70,7 @@ export function setupPostUpdateMarker({
             releaseNotes: normalizeReleaseNotesForReview(marker.releaseNotes || ''),
             releaseUrl: marker.releaseUrl ? String(marker.releaseUrl) : APP_UPDATE_RELEASE_PAGE_URL,
             selfApplicable: true,
-            version: marker.toVersion ? String(marker.toVersion) : (marker.version ? String(marker.version) : '')
+            version: rawVersion ? String(rawVersion) : ''
         };
 
         if (!notice.version) {
@@ -101,7 +102,7 @@ export function setupPostUpdateMarker({
                 }
             }
         } catch (error: any) {
-            await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String((error && error.stack) || error || '')}`);
+            await appendUpdateLog(`consumePostUpdateMarker refresh-failed error=${String(error?.stack || error || '')}`);
         }
 
         await appendVerboseUpdateLog(`consumePostUpdateMarker notice=${JSON.stringify({

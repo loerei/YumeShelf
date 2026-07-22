@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 export const CATEGORY_STATE_VERSION = 1;
 
@@ -35,14 +35,14 @@ export function normalizeCategoryName(value: any): string {
 
 export function createCategoryId(): string {
     if (typeof randomUUID === 'function') {
-        return `cat_${randomUUID().replace(/-/g, '')}`;
+        return `cat_${randomUUID().replaceAll('-', '')}`;
     }
     return `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function flattenTree(tree: CategoryTree, bucket: Map<string, CategoryNode> = new Map()): Map<string, CategoryNode> {
     for (const node of Array.isArray(tree) ? tree : []) {
-        if (!node || !node.id) continue;
+        if (!node?.id) continue;
         bucket.set(node.id, node);
         flattenTree(node.children, bucket);
     }

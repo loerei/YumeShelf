@@ -90,6 +90,8 @@ class SafeUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         return get_or_create_class(module, name)
 
+TYPE_KEY = "$type"
+
 def serialize_val(val):
     if val is None:
         return None
@@ -101,14 +103,14 @@ def serialize_val(val):
         return {k: serialize_val(v) for k, v in val.items() if isinstance(k, str)}
     elif isinstance(val, set):
         return {
-            "$type": "set",
+            TYPE_KEY: "set",
             "values": [serialize_val(x) for x in val]
         }
     elif hasattr(val, '__dict__'):
         class_name = type(val).__name__
         module_name = type(val).__module__
         return {
-            "$type": "object",
+            TYPE_KEY: "object",
             "$class": f"{module_name}.{class_name}",
             "fields": {k: serialize_val(v) for k, v in val.__dict__.items() if not k.startswith('_')}
         }
@@ -129,7 +131,7 @@ def deserialize_val(json_val, original_val=None):
         else:
             return [deserialize_val(x) for x in json_val]
     elif isinstance(json_val, dict):
-        if json_val.get("$type") == "set":
+        if json_val.get(TYPE_KEY) == "set":
             vals = json_val.get("values", [])
             if isinstance(original_val, set):
                 original_val.clear()
@@ -137,8 +139,8 @@ def deserialize_val(json_val, original_val=None):
                     original_val.add(deserialize_val(x))
                 return original_val
             else:
-                return set(deserialize_val(x) for x in vals)
-        elif json_val.get("$type") == "object":
+                return {deserialize_val(x) for x in vals}
+        elif json_val.get(TYPE_KEY) == "object":
             class_path = json_val.get("$class")
             fields = json_val.get("fields", {})
             if original_val is not None:

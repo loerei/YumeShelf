@@ -4,8 +4,18 @@ export function getPointerDistanceToRect(pointerX, pointerY, rect, slop) {
     const right = rect.right + slop;
     const top = rect.top - slop;
     const bottom = rect.bottom + slop;
-    const dx = pointerX < left ? left - pointerX : (pointerX > right ? pointerX - right : 0);
-    const dy = pointerY < top ? top - pointerY : (pointerY > bottom ? pointerY - bottom : 0);
+    let dx = 0;
+    if (pointerX < left) {
+        dx = left - pointerX;
+    } else if (pointerX > right) {
+        dx = pointerX - right;
+    }
+    let dy = 0;
+    if (pointerY < top) {
+        dy = top - pointerY;
+    } else if (pointerY > bottom) {
+        dy = pointerY - bottom;
+    }
     return Math.hypot(dx, dy);
 }
 

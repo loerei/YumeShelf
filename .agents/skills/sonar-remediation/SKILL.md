@@ -38,7 +38,16 @@ Always verify changes locally before pushing:
 - **Run Unit Tests**: Execute the test suites (e.g. `npm run test` or `npm run test:chat-turn`) to ensure behavior remains correct.
 - **Run Local Linters**: Run fast local linters (e.g. `ruff` for Python, `eslint`/`biome` for JS/TS) to verify code style and conventions. If resolving quality or Sonar issues, proactively fix any linter warnings reported in the modified files to ensure overall code health.
 
-### 4. Safe Issue Acceptance (Flagging on SonarQube/SonarCloud)
+### 4. Unused Code & Unused Functions (Dead Code)
+
+When handling issues regarding unused functions, methods, or exports:
+
+- **Do NOT delete immediately**: Many functions are called dynamically (e.g. via Electron IPC routing, string-based lookups, or external exports) which static analysers cannot trace.
+- **MUST run Impact Analysis first**: Use `gitnexus_impact` or `jcodemunch:find_references` / `check_references` to check for occurrences.
+- **Check dynamic references**: Verify if the function name matches any string literals or IPC event names (e.g. inside `ipcMain.handle` or `ipcRenderer.invoke`).
+- **If dynamic or exported**: Keep the code and flag the issue as `accept` / `falsepositive` instead of deleting it to avoid breaking runtime behavior.
+
+### 5. Safe Issue Acceptance (Flagging on SonarQube/SonarCloud)
 
 For false positives, design/style rules where standard WCAG contrast ratios conflict with custom brand themes, or when a code fix introduces disproportionate regression risk:
 
@@ -47,3 +56,9 @@ For false positives, design/style rules where standard WCAG contrast ratios conf
 - **MUST search for the issue key** in SonarQube/SonarCloud using `search_sonar_issues_in_projects` with `issueStatuses: ["OPEN"]` and filter by file or project.
 - **MUST call change_sonar_issue_status** to flag the issue status as `"accept"` or `"falsepositive"` instead of modifying the codebase.
 - Always explain the design or technical rationale to the user or team before flagging the issue.
+
+### 6. Remediation Safety Boundaries
+
+- **NEVER delete, rename, or move** standalone entrypoints, child processes, worker scripts, or dynamic wrappers.
+- **NEVER split functions** for Cognitive Complexity (S3776). ALWAYS flag S3776 as ACCEPTED. Structural refactoring requires `/improve-codebase-architecture`.
+- **NEVER modify** function signatures, return types, or exported module interfaces during Sonar remediation.

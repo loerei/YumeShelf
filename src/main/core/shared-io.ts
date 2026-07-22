@@ -1,8 +1,8 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as crypto from 'crypto';
-import * as http from 'http';
-import * as https from 'https';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as crypto from 'node:crypto';
+import * as http from 'node:http';
+import * as https from 'node:https';
 
 export async function ensureDir(dirPath: string): Promise<void> {
     await fs.mkdir(dirPath, { recursive: true });
@@ -21,8 +21,8 @@ export function sha256Hex(buffer: Buffer | string): string {
 }
 
 export function isNetworkLikeError(error: any): boolean {
-    const msg = String((error && error.message) || error || '').toLowerCase();
-    const code = String((error && error.code) || '').toLowerCase();
+    const msg = String(error?.message || error || '').toLowerCase();
+    const code = String(error?.code || '').toLowerCase();
     return [
         'econnreset',
         'econnrefused',
@@ -37,13 +37,14 @@ export function isNetworkLikeError(error: any): boolean {
     ].some(token => msg.includes(token) || code.includes(token));
 }
 
-export function downloadBuffer(
+function executeDownloadStream<T>(
     urlString: string,
-    redirectCount = 0,
-    timeoutMs = 8000,
-    onProgress: ((downloaded: number, total: number) => void) | null = null,
-    userAgentVersion = '0.0.0'
-): Promise<Buffer> {
+    redirectCount: number,
+    timeoutMs: number,
+    userAgentVersion: string,
+    onRedirect: (redirectedUrl: string) => Promise<T>,
+    onResponse: (res: http.IncomingMessage, resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void
+): Promise<T> {
     return new Promise((resolve, reject) => {
         if (redirectCount > 5) {
             reject(new Error('Too many redirects while downloading data.'));
@@ -68,7 +69,7 @@ export function downloadBuffer(
             if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
                 const redirected = new URL(res.headers.location, requestUrl).toString();
                 res.resume();
-                resolve(downloadBuffer(redirected, redirectCount + 1, timeoutMs, onProgress, userAgentVersion));
+                resolve(onRedirect(redirected));
                 return;
             }
 
@@ -78,7 +79,28 @@ export function downloadBuffer(
                 return;
             }
 
-            const total = parseInt(res.headers['content-length'] || '0', 10);
+            onResponse(res, resolve, reject);
+        });
+
+        req.setTimeout(timeoutMs, () => {
+            req.destroy(new Error('Request timed out.'));
+        });
+        req.on('error', reject);
+    });
+}
+
+export function downloadBuffer(
+    urlString: string,
+    redirectCount = 0,
+    timeoutMs = 8000,
+    onProgress: ((downloaded: number, total: number) => void) | null = null,
+    userAgentVersion = '0.0.0'
+): Promise<Buffer> {
+    return executeDownloadStream(
+        urlString, redirectCount, timeoutMs, userAgentVersion,
+        redirected => downloadBuffer(redirected, redirectCount + 1, timeoutMs, onProgress, userAgentVersion),
+        (res, resolve) => {
+            const total = Number.parseInt(res.headers['content-length'] || '0', 10);
             let downloaded = 0;
             const chunks: Buffer[] = [];
             res.on('data', chunk => {
@@ -89,13 +111,8 @@ export function downloadBuffer(
                 }
             });
             res.on('end', () => resolve(Buffer.concat(chunks)));
-        });
-
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error('Request timed out.'));
-        });
-        req.on('error', reject);
-    });
+        }
+    );
 }
 
 export function downloadFile(
@@ -106,44 +123,13 @@ export function downloadFile(
     onProgress: ((downloaded: number, total: number) => void) | null = null,
     userAgentVersion = '0.0.0'
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        if (redirectCount > 5) {
-            reject(new Error('Too many redirects while downloading data.'));
-            return;
-        }
-
-        let requestUrl: URL;
-        try {
-            requestUrl = new URL(urlString);
-        } catch {
-            reject(new Error(`Invalid download URL: ${urlString}`));
-            return;
-        }
-
-        const client = requestUrl.protocol === 'http:' ? http : https;
-        const req = client.get(requestUrl, {
-            headers: {
-                'User-Agent': `YumeShelf/${userAgentVersion}`
-            }
-        }, (res) => {
-            const status = res.statusCode || 0;
-            if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
-                const redirected = new URL(res.headers.location, requestUrl).toString();
-                res.resume();
-                resolve(downloadFile(redirected, targetPath, redirectCount + 1, timeoutMs, onProgress, userAgentVersion));
-                return;
-            }
-
-            if (status !== 200) {
-                res.resume();
-                reject(new Error(`HTTP ${status} while downloading ${requestUrl.toString()}`));
-                return;
-            }
-
-            const total = parseInt(res.headers['content-length'] || '0', 10);
+    return executeDownloadStream(
+        urlString, redirectCount, timeoutMs, userAgentVersion,
+        redirected => downloadFile(redirected, targetPath, redirectCount + 1, timeoutMs, onProgress, userAgentVersion),
+        (res, resolve, reject) => {
+            const total = Number.parseInt(res.headers['content-length'] || '0', 10);
             let downloaded = 0;
             const fileStream = fsSync.createWriteStream(targetPath);
-            
             res.pipe(fileStream);
 
             res.on('data', chunk => {
@@ -162,11 +148,6 @@ export function downloadFile(
                 fileStream.close();
                 reject(err);
             });
-        });
-
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new Error('Request timed out.'));
-        });
-        req.on('error', reject);
-    });
+        }
+    );
 }

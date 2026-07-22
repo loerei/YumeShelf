@@ -1,4 +1,7 @@
 // @ts-nocheck
+async function waitForNextPaint() {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
 export function createUpdateInstallFlow({ bootController }) {
     let installShellTimers = [];
 
@@ -42,9 +45,7 @@ export function createUpdateInstallFlow({ bootController }) {
         ];
     }
 
-    async function waitForNextPaint() {
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    }
+
 
     return {
         beginInstallShellSequence,

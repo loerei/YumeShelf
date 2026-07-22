@@ -68,7 +68,7 @@ export class DataEngine {
         const relMatch = query.trim().match(/^(>=|<=|>|<|==|=|!=)\s*(-?\d+(\.\d+)?)$/);
         if (relMatch) {
             const op = relMatch[1];
-            const target = parseFloat(relMatch[2]);
+            const target = Number.parseFloat(relMatch[2]);
             
             /**
              * @param {number} val
@@ -92,7 +92,7 @@ export class DataEngine {
             // Evaluate on index
             if (searchIndex && id !== null && id !== undefined) {
                 const numericId = Number(id);
-                if (!isNaN(numericId) && compare(numericId, op, target)) {
+                if (!Number.isNaN(numericId) && compare(numericId, op, target)) {
                     return true;
                 }
             }
@@ -100,7 +100,7 @@ export class DataEngine {
             // Evaluate on value
             if (searchValue && value !== null && value !== undefined) {
                 const numericVal = Number(value);
-                if (!isNaN(numericVal) && compare(numericVal, op, target)) {
+                if (!Number.isNaN(numericVal) && compare(numericVal, op, target)) {
                     return true;
                 }
             }
@@ -113,21 +113,15 @@ export class DataEngine {
         // Search by Index (ID)
         if (searchIndex) {
             const idStr = (id !== null && id !== undefined) ? id.toString() : '';
-            if (exact) {
-                if (idStr === query) return true;
-            } else {
-                if (idStr.includes(query)) return true;
-            }
+            if (exact && idStr === query) return true;
+            if (!exact && idStr.includes(query)) return true;
         }
         
         // Search by Value
         if (searchValue) {
             const valStr = (value !== null && value !== undefined) ? value.toString() : '';
-            if (exact) {
-                if (valStr === query) return true;
-            } else {
-                if (valStr.toLowerCase().includes(q)) return true;
-            }
+            if (exact && valStr === query) return true;
+            if (!exact && valStr.toLowerCase().includes(q)) return true;
         }
         
         // Search by Name (Label)

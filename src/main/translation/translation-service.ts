@@ -1,9 +1,9 @@
-import path from 'path';
-import fs from 'fs/promises';
-import fsSync from 'fs';
-import http from 'http';
-import https from 'https';
-import { exec } from 'child_process';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import { exec } from 'node:child_process';
 import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
 import { RpgMakerExtractor } from './extractors/rpg-maker';
 import { UnityExtractor } from './extractors/unity';
@@ -32,14 +32,14 @@ export interface UnityDetection {
 }
 
 export class TranslationService {
-    private translatorsDir: string;
-    private appVersion: string;
-    private broadcastStatus: (data: any) => void;
+    private readonly translatorsDir: string;
+    private readonly appVersion: string;
+    private readonly broadcastStatus: (data: any) => void;
     private isDownloading: boolean = false;
     private proxyServer: http.Server | null = null;
     private proxyPort: number = 0;
-    private extractors: Record<string, TranslationExtractor>;
-    private jobs: Map<string, TranslationJob>;
+    private readonly extractors: Record<string, TranslationExtractor>;
+    private readonly jobs: Map<string, TranslationJob>;
 
     constructor({ translatorsDir, appVersion, broadcastStatus }: TranslationServiceOptions) {
         this.translatorsDir = translatorsDir;
@@ -173,7 +173,12 @@ export class TranslationService {
 
         const exeDir = path.dirname(exePath);
         const detection = await this.detectUnityType(exePath);
-        const engineType = detection ? 'unity' : (await this.isRpgMaker(exeDir) ? 'rpg-maker' : null);
+        let engineType: string | null = null;
+        if (detection) {
+            engineType = 'unity';
+        } else if (await this.isRpgMaker(exeDir)) {
+            engineType = 'rpg-maker';
+        }
 
         if (!engineType || !this.extractors[engineType]) {
             console.log(`[DEEP-SYNC] No extractor for ${gameKey} (${engineType})`);
@@ -217,7 +222,7 @@ export class TranslationService {
 
     async runTranslationLoop(gameKey: string, dictPath: string): Promise<void> {
         const job = this.jobs.get(gameKey);
-        if (!job || job.status !== 'translating') return;
+        if (job?.status !== 'translating') return;
 
         const batchSize = 15;
         while (job.queue.length > 0) {
@@ -236,7 +241,7 @@ export class TranslationService {
                         try {
                             const trans = await this.googleTranslateGtx(orig, 'ja', 'en');
                             lines.push(trans);
-                        } catch (e) {
+                        } catch {
                             lines.push(orig);
                         }
                     }
@@ -356,14 +361,16 @@ export class TranslationService {
                 } else {
                     await fs.unlink(targetPath);
                 }
-            } catch (e) {}
+            } catch {}
         }
     }
 
     async detectEngineSupport(exePath: string): Promise<string | null> {
         const exeDir = path.dirname(exePath);
         const detection = await this.detectUnityType(exePath);
-        return detection ? 'unity' : (await this.isRpgMaker(exeDir) ? 'rpg-maker' : null);
+        if (detection) return 'unity';
+        if (await this.isRpgMaker(exeDir)) return 'rpg-maker';
+        return null;
     }
 
     async isRpgMaker(exeDir: string): Promise<boolean> {
@@ -383,9 +390,11 @@ export class TranslationService {
             const peOffset = peOffsetBuf.readUInt32LE(0);
             const { buffer: machineBuf } = await handle.read(Buffer.alloc(2), 0, 2, peOffset + 4);
             const machine = machineBuf.readUInt16LE(0);
-            arch = machine === 0x8664 ? 'x64' : (machine === 0x14c ? 'x86' : 'x64');
+            if (machine === 0x14c) {
+                arch = 'x86';
+            }
             await handle.close();
-        } catch (e) {}
+        } catch {}
 
         const managedDir = path.join(exeDir, dataDir, 'Managed');
         if (fsSync.existsSync(path.join(managedDir, 'mscorlib.dll'))) return { type: 'mono', arch };
@@ -454,12 +463,12 @@ export class TranslationService {
         try {
             const buffer = await downloadBuffer(apiUrl, 0, 10000, null, this.appVersion);
             return JSON.parse(buffer.toString('utf8'));
-        } catch (err) { return null; }
+        } catch { return null; }
     }
 
     extractZip(zipPath: string, outDir: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${outDir.replace(/'/g, "''")}' -Force"`;
+            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replaceAll("'", "''")}' -DestinationPath '${outDir.replaceAll("'", "''")}' -Force"`;
             exec(cmd, (err) => err ? reject(err) : resolve());
         });
     }

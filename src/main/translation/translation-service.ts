@@ -463,12 +463,12 @@ export class TranslationService {
         try {
             const buffer = await downloadBuffer(apiUrl, 0, 10000, null, this.appVersion);
             return JSON.parse(buffer.toString('utf8'));
-        } catch (err) { return null; }
+        } catch { return null; }
     }
 
     extractZip(zipPath: string, outDir: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${outDir.replace(/'/g, "''")}' -Force"`;
+            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replaceAll("'", "''")}' -DestinationPath '${outDir.replaceAll("'", "''")}' -Force"`;
             exec(cmd, (err) => err ? reject(err) : resolve());
         });
     }

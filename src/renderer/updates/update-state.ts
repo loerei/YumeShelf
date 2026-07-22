@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { isPostUpdateNoticeSuppressed, setPostUpdateNoticeSuppressed } from '../post-update-preferences';
+import { setPostUpdateNoticeSuppressed } from '../post-update-preferences';
 
 function normalizeUpdate(update, patch = {}) {
     if (!update || (!update.available && !update.installed)) return null;

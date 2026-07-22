@@ -66,7 +66,7 @@ export class RenpyEngine {
             }
         }
         // Return prefixes with at least 3 occurrences
-        return Object.keys(counts).filter(p => counts[p] >= 3).sort();
+        return Object.keys(counts).filter(p => counts[p] >= 3).sort((a, b) => a.localeCompare(b));
     }
 
     /**
@@ -98,7 +98,7 @@ export class RenpyEngine {
                         if (!k.startsWith('store.') || k.startsWith('store._') || k === '$type') return false;
 
                         // Exclude keys belonging to dynamic prefix tabs
-                        const match = k.match(/^store\.([a-zA-Z0-9]+)_/);
+                        const match = /^store\.([a-zA-Z0-9]+)_/.exec(k);
                         if (match && prefixes.includes(match[1])) {
                             return false;
                         }
@@ -127,7 +127,7 @@ export class RenpyEngine {
         const currencyKeys = ['store.money', 'store.cash', 'store.gold', 'store.savings_account'];
         for (const key of currencyKeys) {
             if (root[key] !== undefined) {
-                return { obj: root, key: key, val: root[key] };
+                return { obj: root, key, val: root[key] };
             }
         }
         return null;

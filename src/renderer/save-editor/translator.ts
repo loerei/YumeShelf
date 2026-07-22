@@ -91,7 +91,7 @@ export class Translator {
         try {
             this.translationCache = JSON.parse(localStorage.getItem('yumeshelf_translation_cache') || '{}') || {};
             console.log(`[SAVE-EDITOR] Loaded ${Object.keys(this.translationCache).length} translations from LocalStorage.`);
-        } catch (e) {
+        } catch {
             this.translationCache = {};
         }
         this.isInitialized = true;

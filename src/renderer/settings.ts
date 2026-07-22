@@ -182,9 +182,14 @@ export function createSettingsController({
         if (maxDepthDecreaseBtn) maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
         if (maxDepthIncreaseBtn) maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
 
-        const paths = Array.isArray(libraryConfig?.libraryPaths)
-            ? libraryConfig.libraryPaths
-            : (libraryConfig?.libraryPath ? [libraryConfig.libraryPath] : []);
+        let paths: string[];
+        if (Array.isArray(libraryConfig?.libraryPaths)) {
+            paths = libraryConfig.libraryPaths;
+        } else if (libraryConfig?.libraryPath) {
+            paths = [libraryConfig.libraryPath];
+        } else {
+            paths = [];
+        }
         renderLibraryPaths(paths);
 
         if (libraryConfig) {

@@ -98,7 +98,7 @@ function pickPreferredExecutable(currentPath: string, executableEntries: Executa
 export function getSmartName(exePath: string, topName: string): string {
     const id = /(RJ\d{6,8}|\b\d{6,8}\b)/i.exec(exePath);
     const clean = (value: string) => value
-        .replace(/\[.*?\]/g, ' ')
+        .replace(/\[[^\]]*\]/g, ' ')
         .replace(/RY-/gi, ' ')
         .replace(/RJ\d+/gi, ' ')
         .replace(/\b\d{6,8}\b/gi, ' ')

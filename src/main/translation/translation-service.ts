@@ -1,9 +1,9 @@
-import path from 'path';
-import fs from 'fs/promises';
-import fsSync from 'fs';
-import http from 'http';
-import https from 'https';
-import { exec } from 'child_process';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import { exec } from 'node:child_process';
 import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
 import { RpgMakerExtractor } from './extractors/rpg-maker';
 import { UnityExtractor } from './extractors/unity';
@@ -32,9 +32,9 @@ export interface UnityDetection {
 }
 
 export class TranslationService {
-    private translatorsDir: string;
-    private appVersion: string;
-    private broadcastStatus: (data: any) => void;
+    private readonly translatorsDir: string;
+    private readonly appVersion: string;
+    private readonly broadcastStatus: (data: any) => void;
     private isDownloading: boolean = false;
     private proxyServer: http.Server | null = null;
     private proxyPort: number = 0;
@@ -173,7 +173,12 @@ export class TranslationService {
 
         const exeDir = path.dirname(exePath);
         const detection = await this.detectUnityType(exePath);
-        const engineType = detection ? 'unity' : (await this.isRpgMaker(exeDir) ? 'rpg-maker' : null);
+        let engineType: string | null = null;
+        if (detection) {
+            engineType = 'unity';
+        } else if (await this.isRpgMaker(exeDir)) {
+            engineType = 'rpg-maker';
+        }
 
         if (!engineType || !this.extractors[engineType]) {
             console.log(`[DEEP-SYNC] No extractor for ${gameKey} (${engineType})`);
@@ -363,7 +368,9 @@ export class TranslationService {
     async detectEngineSupport(exePath: string): Promise<string | null> {
         const exeDir = path.dirname(exePath);
         const detection = await this.detectUnityType(exePath);
-        return detection ? 'unity' : (await this.isRpgMaker(exeDir) ? 'rpg-maker' : null);
+        if (detection) return 'unity';
+        if (await this.isRpgMaker(exeDir)) return 'rpg-maker';
+        return null;
     }
 
     async isRpgMaker(exeDir: string): Promise<boolean> {

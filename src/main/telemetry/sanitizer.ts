@@ -87,7 +87,7 @@ export function scrubSecrets(input: string): string {
         /db:\/\/[^@\s]+@[^\s]+/gi, // database URIs
         /https?:\/\/[^@\s]+@[^\s]+/gi, // basic auth URLs
         /\bAKIA[A-Z0-9]{16}\b/g, // AWS Access Keys
-        /\b[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\b/g, // JWT Tokens (3-part dot-separated base64)
+        /\b[\w-]+\.[\w-]+\.[\w-]+\b/g, // JWT Tokens (3-part dot-separated base64)
         /\b(ghp|npm)_\w{36}\b/g, // GitHub / npm personal access tokens
         /-----BEGIN[A-Z ]*PRIVATE KEY-----[a-zA-Z0-9+/=\s]+-----END[A-Z ]*PRIVATE KEY-----/gi, // Full PEM block
         /-----BEGIN[A-Z ]*PRIVATE KEY-----/gi // PEM private key boundary start

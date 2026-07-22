@@ -25,6 +25,7 @@
     "mock:app-update": "node .\\scripts\\write-dev-app-update-manifest.js",
     "mock:app-update:serve": "node .\\scripts\\serve-dev-app-update-feed.js",
     "sync:release-metadata": "node .\\scripts\\sync-release-metadata.js",
+    "release": "node .\\scripts\\release.js",
     "compile:release-notes": "node .\\scripts\\compile-release-notes.js",
     "compile:release-notes:release": "node .\\scripts\\compile-release-notes.js --release",
     "typecheck": "tsc --noEmit",

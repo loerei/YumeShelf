@@ -60,9 +60,6 @@ export function renderIconMarkup(dataUrl, fit = 'contain', source = 'unknown') {
     return `<img src="${dataUrl}" alt="icon" draggable="false" data-icon-fit="${normalizedFit}" data-icon-source="${source}" style="width:100%; height:100%; object-fit:${normalizedFit}; pointer-events:none;">`;
 }
 
-export function logIconRender(context, key, payload, imgElement) {
-    void context;
-    void key;
-    void payload;
-    void imgElement;
+export function logIconRender(_context, _key, _payload, _imgElement) {
+    // No-op diagnostic logger
 }

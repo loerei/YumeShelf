@@ -1,4 +1,10 @@
 // @ts-nocheck
+function formatLanguageLabel(meta) {
+    if (!meta) return '';
+    if (!meta.englishName || meta.englishName === meta.nativeName) return meta.nativeName || meta.code;
+    return `${meta.nativeName} (${meta.englishName})`;
+}
+
 export function createLocaleController({
     applyUIStrings,
     bootController,
@@ -47,7 +53,7 @@ export function createLocaleController({
         const normalizedCode = String(code || '').toLowerCase();
         return {
             ...getEnglishStrings(),
-            ...(localeState.locales[normalizedCode] || {})
+            ...localeState.locales[normalizedCode]
         };
     }
 
@@ -66,13 +72,7 @@ export function createLocaleController({
 
     function getLanguageMeta(code) {
         const normalizedCode = String(code || '').toLowerCase();
-        return getAvailableLanguages().find(language => language.code === normalizedCode) || null;
-    }
-
-    function formatLanguageLabel(meta) {
-        if (!meta) return '';
-        if (!meta.englishName || meta.englishName === meta.nativeName) return meta.nativeName || meta.code;
-        return `${meta.nativeName} (${meta.englishName})`;
+        return getAvailableLanguages().find(language => language.code === normalizedCode) ?? null;
     }
 
     function sortLanguageOptions(languages) {
@@ -126,8 +126,8 @@ export function createLocaleController({
     async function loadLanguageState(nextState = null) {
         const appVersion = await electronAPI.getAppVersion();
         console.log(`[I18N][RENDERER] loadLanguageState: fetched appVersion from Electron = ${appVersion}`);
-        const incomingState = nextState || await electronAPI.getLanguageState();
-        if (incomingState && incomingState.locales && incomingState.locales.en) {
+        const incomingState = nextState ?? await electronAPI.getLanguageState();
+        if (incomingState?.locales?.en) {
             console.log(`[I18N][RENDERER] loadLanguageState: overwriting localeState with incomingState.`);
             localeState = incomingState;
         }
@@ -149,7 +149,7 @@ export function createLocaleController({
 
         const welcomeBox = document.querySelector('.welcome-box');
         const welcomeScreen = document.getElementById('welcome-screen');
-        const isWelcomeVisible = welcomeScreen && welcomeScreen.style.display === 'flex';
+        const isWelcomeVisible = welcomeScreen?.style.display === 'flex';
 
         if (welcomeBox && isWelcomeVisible && currentLang !== nextLang) {
             welcomeBox.classList.remove('reassemble');

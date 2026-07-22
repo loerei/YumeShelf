@@ -107,7 +107,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                     `;
                 }
             }
-        } catch (err) {
+        } catch {
             sidebar.innerHTML = `<div class="error">Failed to list saves</div>`;
         }
     }

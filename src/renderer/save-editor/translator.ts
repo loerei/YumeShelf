@@ -48,7 +48,7 @@ export class Translator {
                     .find(p => p.code === currentLang);
                 
                 let resolved = null;
-                if (activeMeta && activeMeta.bcp47 && /^[a-zA-Z0-9-]+$/.test(activeMeta.bcp47)) {
+                if (activeMeta?.bcp47 && /^[a-zA-Z0-9-]+$/.test(activeMeta.bcp47)) {
                     resolved = activeMeta.bcp47;
                 } else if (currentLang && /^[a-zA-Z0-9-]+$/.test(currentLang)) {
                     resolved = currentLang;
@@ -201,7 +201,7 @@ export class Translator {
             if (isASCII && originalName.length < 2) return;
 
             // Skip pure punctuation/symbol rows
-            const isPunctuation = /^[ \t\r\n+\=!@#$%^&*(){}[\]:;"'<>,.?/\\|~`_-]*$/.test(originalName);
+            const isPunctuation = /^[ \t\r\n+=!@#$%^&*(){}[\]:;"'<>,.?/\\|~`_-]*$/.test(originalName);
             if (isPunctuation) return;
 
             if (this.translationCache[originalName]) {

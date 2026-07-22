@@ -105,17 +105,23 @@ export function createLanguagePackActions({
         const result = await electronAPI.installLanguagePack(code);
         setDownloadingLanguageCode(null);
 
-        if (!result || !result.ok) {
-            if (result && result.reason === 'checksum') {
-                setLanguagePackBanner(getText('lang_modal_checksum_failed', 'Checksum verification failed.'), true);
-            } else if (result && result.reason === 'schema') {
-                setLanguagePackBanner(getText('lang_modal_schema_failed', 'Language pack schema is invalid.'), true);
-            } else if (result && result.reason === 'not-compatible') {
-                setLanguagePackBanner(getText('lang_modal_not_compatible', 'This language pack needs a newer version of YumeShelf.'), true);
-            } else if (result && result.reason === 'offline') {
-                setLanguagePackBanner(getText('lang_modal_offline', 'You are offline.'), true);
-            } else {
-                setLanguagePackBanner(getText('lang_modal_install_error', 'Could not install that language pack.'), true);
+        if (!result?.ok) {
+            switch (result?.reason) {
+                case 'checksum':
+                    setLanguagePackBanner(getText('lang_modal_checksum_failed', 'Checksum verification failed.'), true);
+                    break;
+                case 'schema':
+                    setLanguagePackBanner(getText('lang_modal_schema_failed', 'Language pack schema is invalid.'), true);
+                    break;
+                case 'not-compatible':
+                    setLanguagePackBanner(getText('lang_modal_not_compatible', 'This language pack needs a newer version of YumeShelf.'), true);
+                    break;
+                case 'offline':
+                    setLanguagePackBanner(getText('lang_modal_offline', 'You are offline.'), true);
+                    break;
+                default:
+                    setLanguagePackBanner(getText('lang_modal_install_error', 'Could not install that language pack.'), true);
+                    break;
             }
             renderLanguagePackResults();
             return;

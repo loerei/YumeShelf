@@ -1,5 +1,5 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 
 export async function exists(target: string): Promise<boolean> {
     try {
@@ -23,7 +23,7 @@ export function normalizeForSearch(text: any): string {
     if (!text) return '';
     return String(text)
         .toLowerCase()
-        .replace(/[v\.\s\-\_]+/g, '')
+        .replace(/[v.\s_-]+/g, '')
         .replace(/[^a-z0-9]/g, '')
         .trim();
 }
@@ -31,13 +31,13 @@ export function normalizeForSearch(text: any): string {
 export function getExeStem(exeDir: string): string {
     const dirName = path.basename(exeDir);
     let stem = dirName.replace(/_Data$/i, '');
-    stem = stem.replace(/\s*(v?\d+[\.\d]*)\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
+    stem = stem.replace(/\s*v?\d+(?:\.\d+)*\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
     return stem;
 }
 
 export function getExeStemFromPath(exePath: string): string {
     const baseName = path.basename(exePath || '');
     let stem = baseName.replace(/\.exe$/i, '');
-    stem = stem.replace(/\s*(v?\d+[\.\d]*)\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
+    stem = stem.replace(/\s*v?\d+(?:\.\d+)*\s*/gi, ' ').replace(/\s*pc\s*/gi, ' ').trim();
     return stem;
 }

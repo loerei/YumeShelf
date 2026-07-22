@@ -46,32 +46,39 @@ export function renderAppUpdateReview({
             { version: appUpdate.version || '' }
         );
     const currentVersion = localeController.getLocaleState().appVersion || '';
-    const statusText = installedMode
-        ? getText('app_update_review_status_installed', 'YumeShelf was updated successfully. Review the release notes below.')
-        : appUpdate.actionState === 'downloading'
-            ? getText('app_update_review_status_downloading', 'Downloading and verifying the new build...')
-            : appUpdate.installPhase === 'install-preparing'
-                ? getText('app_update_review_status_install_preparing', 'Preparing YumeShelf for installation...')
-                : appUpdate.installPhase === 'install-handoff'
-                    ? getText('app_update_review_status_install_handoff', 'Handing off to the installer and restarting YumeShelf...')
-                    : appUpdate.actionState === 'installing'
-                        ? getText('app_update_review_status_installing', 'Closing YumeShelf and applying the update...')
-                        : appUpdate.actionState === 'scheduled' || appUpdate.deferredUntilNextLaunch
-                            ? getText('app_update_review_status_scheduled', 'This update will install automatically the next time you launch YumeShelf.')
-                            : !appUpdate.downloadable
-                                ? getText('app_update_review_status_manual', 'This update cannot be installed in place here. You can still open the download page.')
-                                : appUpdate.downloadReady
-                                    ? getText('app_update_review_status_ready', 'The verified update is ready. Press Restart and Update to apply it now.')
-                                    : getText('app_update_review_status_available', 'Review the latest release notes, then press Update when you are ready.');
-    const primaryLabel = installedMode
-        ? ''
-        : appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing'
-            ? getText('lang_modal_downloading', 'Downloading...')
-            : !appUpdate.downloadable
-                ? getText('update_notification_open_download_page', 'Open download page')
-                : appUpdate.downloadReady
-                    ? getText('update_notification_restart_and_update', 'Restart and Update')
-                    : getText('app_update_review_action', 'Update');
+    let statusText: string;
+    if (installedMode) {
+        statusText = getText('app_update_review_status_installed', 'YumeShelf was updated successfully. Review the release notes below.');
+    } else if (appUpdate.actionState === 'downloading') {
+        statusText = getText('app_update_review_status_downloading', 'Downloading and verifying the new build...');
+    } else if (appUpdate.installPhase === 'install-preparing') {
+        statusText = getText('app_update_review_status_install_preparing', 'Preparing YumeShelf for installation...');
+    } else if (appUpdate.installPhase === 'install-handoff') {
+        statusText = getText('app_update_review_status_install_handoff', 'Handing off to the installer and restarting YumeShelf...');
+    } else if (appUpdate.actionState === 'installing') {
+        statusText = getText('app_update_review_status_installing', 'Closing YumeShelf and applying the update...');
+    } else if (appUpdate.actionState === 'scheduled' || appUpdate.deferredUntilNextLaunch) {
+        statusText = getText('app_update_review_status_scheduled', 'This update will install automatically the next time you launch YumeShelf.');
+    } else if (!appUpdate.downloadable) {
+        statusText = getText('app_update_review_status_manual', 'This update cannot be installed in place here. You can still open the download page.');
+    } else if (appUpdate.downloadReady) {
+        statusText = getText('app_update_review_status_ready', 'The verified update is ready. Press Restart and Update to apply it now.');
+    } else {
+        statusText = getText('app_update_review_status_available', 'Review the latest release notes, then press Update when you are ready.');
+    }
+
+    let primaryLabel: string;
+    if (installedMode) {
+        primaryLabel = '';
+    } else if (appUpdate.actionState === 'downloading' || appUpdate.actionState === 'installing') {
+        primaryLabel = getText('lang_modal_downloading', 'Downloading...');
+    } else if (!appUpdate.downloadable) {
+        primaryLabel = getText('update_notification_open_download_page', 'Open download page');
+    } else if (appUpdate.downloadReady) {
+        primaryLabel = getText('update_notification_restart_and_update', 'Restart and Update');
+    } else {
+        primaryLabel = getText('app_update_review_action', 'Update');
+    }
 
     refs.appUpdateReviewEyebrow.textContent = getText('app_update_review_eyebrow', 'App update');
     refs.appUpdateReviewTitle.textContent = releaseLabel;

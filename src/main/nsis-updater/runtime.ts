@@ -12,8 +12,8 @@ export function normalizeText(value: any, fallback: any = ''): any {
 }
 
 export function classifyErrorReason(error: any): string {
-    const code = String((error && error.code) || '').toLowerCase();
-    const message = String((error && error.message) || error || '').toLowerCase();
+    const code = String(error?.code || '').toLowerCase();
+    const message = String(error?.message || error || '').toLowerCase();
     if (message.includes('checksum') || message.includes('sha512')) return 'checksum';
     if (message.includes('signature')) return 'signature';
     if (code === 'enoent' || message.includes('no such file')) return 'missing-installer';

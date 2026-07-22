@@ -278,7 +278,7 @@ export function renderInventory(context, target, key, metaSource, grid, original
         Object.keys(metaSource).forEach(id => {
             if (id === '0') return;
             const meta = metaSource[id];
-            if (meta && meta.name && meta.name.trim() !== '') {
+            if (meta?.name?.trim()) {
                 allIds.add(id);
             }
         });
@@ -289,7 +289,7 @@ export function renderInventory(context, target, key, metaSource, grid, original
 
     sortedIds.forEach(id => {
         const val = items[id] !== undefined ? items[id] : 0;
-        const originalVal = originalItems && originalItems[id] !== undefined ? originalItems[id] : undefined;
+        const originalVal = originalItems?.[id] !== undefined ? originalItems[id] : undefined;
         
         // Check if we are filtering for onlyPinned
         const pinId = key + ":" + id;
@@ -364,7 +364,7 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
 
         if (!engine.matchesQuery(id, val, name) && !engine.matchesQuery(id, val, translated)) return;
 
-        const originalVal = originalRaw && originalRaw[id] !== undefined ? originalRaw[id] : undefined;
+        const originalVal = originalRaw?.[id] !== undefined ? originalRaw[id] : undefined;
 
         const { isPinned, onPinToggle } = createPinToggleHandler(context, pinId);
 

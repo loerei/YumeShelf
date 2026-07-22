@@ -222,7 +222,7 @@ export class TranslationService {
 
     async runTranslationLoop(gameKey: string, dictPath: string): Promise<void> {
         const job = this.jobs.get(gameKey);
-        if (!job || job.status !== 'translating') return;
+        if (job?.status !== 'translating') return;
 
         const batchSize = 15;
         while (job.queue.length > 0) {
@@ -241,7 +241,7 @@ export class TranslationService {
                         try {
                             const trans = await this.googleTranslateGtx(orig, 'ja', 'en');
                             lines.push(trans);
-                        } catch (e) {
+                        } catch {
                             lines.push(orig);
                         }
                     }
@@ -390,12 +390,8 @@ export class TranslationService {
             const peOffset = peOffsetBuf.readUInt32LE(0);
             const { buffer: machineBuf } = await handle.read(Buffer.alloc(2), 0, 2, peOffset + 4);
             const machine = machineBuf.readUInt16LE(0);
-            if (machine === 0x8664) {
-                arch = 'x64';
-            } else if (machine === 0x14c) {
+            if (machine === 0x14c) {
                 arch = 'x86';
-            } else {
-                arch = 'x64';
             }
             await handle.close();
         } catch {}

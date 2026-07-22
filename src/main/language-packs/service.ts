@@ -1,6 +1,6 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import { compareNumericVersions } from '../core/version-utils';
 import {
     ensureDir,
@@ -109,6 +109,13 @@ function normalizeLocalePack(raw: any, options: { installed?: boolean; builtIn?:
         throw new Error(`${sourceLabel} is missing required keys: ${missingKeys.join(', ')}`);
     }
 
+    let source: 'built-in' | 'downloaded' | 'remote' = 'remote';
+    if (builtIn) {
+        source = 'built-in';
+    } else if (installed) {
+        source = 'downloaded';
+    }
+
     return {
         code,
         bcp47: raw.bcp47 ? String(raw.bcp47) : null,
@@ -117,9 +124,9 @@ function normalizeLocalePack(raw: any, options: { installed?: boolean; builtIn?:
         packVersion: String(raw.packVersion || raw.version || '1.0.0'),
         minAppVersion: raw.minAppVersion ? String(raw.minAppVersion) : null,
         reviewedForAppVersion: raw.reviewedForAppVersion ? String(raw.reviewedForAppVersion) : null,
-        aliases: Array.isArray(raw.aliases) ? raw.aliases.map((value: any) => String(value)).filter(Boolean) : [],
-        keywords: Array.isArray(raw.keywords) ? raw.keywords.map((value: any) => String(value)).filter(Boolean) : [],
-        source: builtIn ? 'built-in' : (installed ? 'downloaded' : 'remote'),
+        aliases: Array.isArray(raw.aliases) ? raw.aliases.map(String).filter(Boolean) : [],
+        keywords: Array.isArray(raw.keywords) ? raw.keywords.map(String).filter(Boolean) : [],
+        source,
         strings: raw.strings
     };
 }
@@ -143,8 +150,8 @@ function normalizeManifest(raw: any): LanguageManifest {
             packVersion: String(entry.packVersion || entry.version || '1.0.0'),
             minAppVersion: entry.minAppVersion ? String(entry.minAppVersion) : null,
             reviewedForAppVersion: entry.reviewedForAppVersion ? String(entry.reviewedForAppVersion) : null,
-            aliases: Array.isArray(entry.aliases) ? entry.aliases.map((value: any) => String(value)).filter(Boolean) : [],
-            keywords: Array.isArray(entry.keywords) ? entry.keywords.map((value: any) => String(value)).filter(Boolean) : [],
+            aliases: Array.isArray(entry.aliases) ? entry.aliases.map(String).filter(Boolean) : [],
+            keywords: Array.isArray(entry.keywords) ? entry.keywords.map(String).filter(Boolean) : [],
             downloadUrl: String(entry.downloadUrl),
             sha256: String(entry.sha256).toLowerCase()
         };
@@ -179,34 +186,34 @@ export interface LanguagePackServices {
     repoUrl: string;
 }
 
+async function loadLocaleDirectory(dirPath: string, options: { installed?: boolean; builtIn?: boolean } = {}): Promise<LanguagePack[]> {
+    const results: LanguagePack[] = [];
+    try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== '.json') continue;
+            const filePath = path.join(dirPath, entry.name);
+            const raw = await readJsonFile(filePath);
+            if (!raw) continue;
+            try {
+                results.push(normalizeLocalePack(raw, {
+                    ...options,
+                    sourceLabel: filePath
+                }));
+            } catch (error: any) {
+                console.warn(`[MAIN][I18N] Skipping locale file ${filePath}: ${String(error?.message || error)}`);
+            }
+        }
+    } catch {
+        return [];
+    }
+    return results;
+}
+
 export function createLanguagePackServices({
     app,
     paths
 }: LanguagePackServicesOptions): LanguagePackServices {
-    async function loadLocaleDirectory(dirPath: string, options: { installed?: boolean; builtIn?: boolean } = {}): Promise<LanguagePack[]> {
-        const results: LanguagePack[] = [];
-        try {
-            const entries = await fs.readdir(dirPath, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== '.json') continue;
-                const filePath = path.join(dirPath, entry.name);
-                const raw = await readJsonFile(filePath);
-                if (!raw) continue;
-                try {
-                    results.push(normalizeLocalePack(raw, {
-                        ...options,
-                        sourceLabel: filePath
-                    }));
-                } catch (error: any) {
-                    console.warn(`[MAIN][I18N] Skipping locale file ${filePath}: ${String((error && error.message) || error)}`);
-                }
-            }
-        } catch {
-            return [];
-        }
-        return results;
-    }
-
     async function buildLanguageState(): Promise<LanguageState> {
         const builtInPacks = await loadLocaleDirectory(paths.builtInLocalesDir, { builtIn: true });
         const installedPacks = await loadLocaleDirectory(paths.userLocalesDir, { installed: true });
@@ -242,7 +249,7 @@ export function createLanguagePackServices({
         try {
             return normalizeManifest(raw);
         } catch (error: any) {
-            console.warn(`[MAIN][I18N] Ignoring invalid cached manifest: ${String((error && error.message) || error)}`);
+            console.warn(`[MAIN][I18N] Ignoring invalid cached manifest: ${String(error?.message || error)}`);
             return null;
         }
     }
@@ -255,7 +262,7 @@ export function createLanguagePackServices({
                     const manifest = normalizeManifest(localManifest);
                     return { ok: true, offline: false, source: 'local', manifest, error: null };
                 } catch (error: any) {
-                    console.warn(`[MAIN][I18N] Invalid local dev manifest: ${String((error && error.message) || error)}`);
+                    console.warn(`[MAIN][I18N] Invalid local dev manifest: ${String(error?.message || error)}`);
                 }
             }
         }
@@ -274,7 +281,7 @@ export function createLanguagePackServices({
                     offline: true,
                     source: 'cache',
                     manifest: cached,
-                    error: String((error && error.message) || error)
+                    error: String(error?.message || error)
                 };
             }
 
@@ -283,13 +290,13 @@ export function createLanguagePackServices({
                 offline: isNetworkLikeError(error),
                 source: 'none',
                 manifest: null,
-                error: String((error && error.message) || error)
+                error: String(error?.message || error)
             };
         }
     }
 
     async function installLanguagePackFromManifestEntry(entry: ManifestPack, options: any = {}): Promise<{ ok: boolean; installedCode?: string; error?: string; reason?: string; offline?: boolean }> {
-        const normalizedCode = normalizeLanguageCode(entry && entry.code);
+        const normalizedCode = normalizeLanguageCode(entry?.code);
         const downloadTimeoutMs = Number(options.downloadTimeoutMs) > 0 ? Number(options.downloadTimeoutMs) : LANGUAGE_PACK_TIMEOUT_MS;
         if (!normalizedCode) {
             return { ok: false, error: 'Missing language pack code.', reason: 'invalid-code' };
@@ -353,7 +360,7 @@ export function createLanguagePackServices({
             return {
                 ok: false,
                 offline: isNetworkLikeError(error),
-                error: String((error && error.message) || error),
+                error: String(error?.message || error),
                 reason: isNetworkLikeError(error) ? 'offline' : 'download'
             };
         }

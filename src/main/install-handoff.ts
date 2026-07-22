@@ -1,6 +1,6 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { setTimeout as delay } from 'timers/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { readInstallerContract } from '../shared/installer-contract';
 
 function toBoolean(value: any, fallback = false): boolean {
@@ -11,7 +11,11 @@ function toBoolean(value: any, fallback = false): boolean {
 }
 
 function normalizePath(value: any): string {
-    return path.normalize(String(value || '').trim()).replace(/[\\/]+$/, '').toLowerCase();
+    let str = path.normalize(String(value || '').trim());
+    while (str.endsWith('\\') || str.endsWith('/')) {
+        str = str.slice(0, -1);
+    }
+    return str.toLowerCase();
 }
 
 export interface InstallHandoffServiceOptions {
@@ -61,7 +65,7 @@ export function createInstallHandoffService({
                 await writeLog(`marker_read_success path=${candidate}`);
                 return { contract, markerPath: candidate };
             } catch (error: any) {
-                const errorMessage = String((error && error.code) || (error && error.message) || error || '');
+                const errorMessage = String(error?.code || error?.message || error || '');
                 await writeLog(`marker_read_miss path=${candidate} error=${errorMessage}`);
             }
         }
@@ -74,9 +78,9 @@ export function createInstallHandoffService({
                 await fs.unlink(candidate);
                 await writeLog(`marker_deleted path=${candidate}`);
             } catch (error: any) {
-                const code = String((error && error.code) || '');
+                const code = String(error?.code || '');
                 if (code && code !== 'ENOENT') {
-                    await writeLog(`marker_delete_failed path=${candidate} error=${String((error && error.message) || error || '')}`);
+                    await writeLog(`marker_delete_failed path=${candidate} error=${String(error?.message || error || '')}`);
                 }
             }
         }
@@ -134,8 +138,8 @@ export function createInstallHandoffService({
                     shouldDeleteSetupFile
                 };
             } catch (error: any) {
-                const errorCode = String((error && error.code) || '');
-                const errorMessage = String((error && error.message) || error || '');
+                const errorCode = String(error?.code || '');
+                const errorMessage = String(error?.message || error || '');
                 if (errorCode === 'ENOENT') {
                     await writeLog(`cleanup_already_missing installerPath=${installerPath} attempt=${index + 1}`);
                     return {

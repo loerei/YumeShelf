@@ -1,5 +1,5 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { TranslationExtractor } from './base';
 
 export class UnityExtractor implements TranslationExtractor {
@@ -64,11 +64,14 @@ export class UnityExtractor implements TranslationExtractor {
         
         // Scan for UTF-16LE string literals (printable Japanese/English sequences)
         // Match printable English UTF-16LE strings (3+ characters)
-        const englishMatches = content.match(/[A-Z\x00a-z\x000-9\x00\s\x00!,?.:;'"-]{6,100}/g) || [];
+        const englishMatches = content.match(/[A-Za-z0-9\s!,?.:;'"\x00-]{6,100}/g) || [];
         for (const match of englishMatches) {
-            const clean = match.replace(/\x00/g, '').trim();
+            const clean = match.replaceAll('\x00', '').trim();
             if (this.isValidString(clean)) {
-                const escaped = clean.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
+                const escaped = clean
+                    .replaceAll('\r\n', String.raw`\n`)
+                    .replaceAll('\n', String.raw`\n`)
+                    .replaceAll('\r', String.raw`\n`);
                 strings.add(escaped);
             }
         }
@@ -78,9 +81,12 @@ export class UnityExtractor implements TranslationExtractor {
         const cjkRegex = /[\u3040-\u30ff\u4e00-\u9faf\u3000-\u303f\uff00-\uffef\x00]{6,120}/g;
         const cjkMatches = content.match(cjkRegex) || [];
         for (const match of cjkMatches) {
-            const clean = match.replace(/\x00/g, '').trim();
+            const clean = match.replaceAll('\x00', '').trim();
             if (this.isValidString(clean)) {
-                const escaped = clean.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
+                const escaped = clean
+                    .replaceAll('\r\n', String.raw`\n`)
+                    .replaceAll('\n', String.raw`\n`)
+                    .replaceAll('\r', String.raw`\n`);
                 strings.add(escaped);
             }
         }
@@ -93,7 +99,7 @@ export class UnityExtractor implements TranslationExtractor {
         if (str.startsWith('UnityEngine') || str.startsWith('System.') || str.startsWith('Assembly-')) return false;
         
         // Reject strings that are only symbols or punctuation
-        if (/^[!@#$%^&*()_+={}\[\]|\\:;"'<>,.?/-]+$/.test(str)) return false;
+        if (/^[!@#$%^&*()_+={}[\]|\\:;"'<>,.?/-]+$/.test(str)) return false;
         
         return true;
     }

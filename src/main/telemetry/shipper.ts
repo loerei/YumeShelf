@@ -1,8 +1,8 @@
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import * as path from 'path';
-import * as http from 'http';
-import * as https from 'https';
+import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
+import * as http from 'node:http';
+import * as https from 'node:https';
 import { sanitizeLogPayload, TelemetryPayload } from './sanitizer';
 
 export class TelemetryShipper {
@@ -20,15 +20,13 @@ export class TelemetryShipper {
 
     // The endpoint is proxy-secured by Cloudflare Workers to protect the Supabase key.
     // Client has a general Client App Token to prevent generic spamming.
-    private workerEndpoint: string = process.env.TELEMETRY_WORKER_ENDPOINT || 'https://yumeshelf-telemetry.sayusumat.workers.dev/v1/ship';
-    private clientAppToken: string = process.env.TELEMETRY_CLIENT_TOKEN || '';
+    private readonly workerEndpoint: string = process.env.TELEMETRY_WORKER_ENDPOINT || 'https://yumeshelf-telemetry.sayusumat.workers.dev/v1/ship';
+    private readonly clientAppToken: string = process.env.TELEMETRY_CLIENT_TOKEN || '';
 
     private constructor() {}
 
     public static getInstance(): TelemetryShipper {
-        if (!TelemetryShipper.instance) {
-            TelemetryShipper.instance = new TelemetryShipper();
-        }
+        TelemetryShipper.instance ??= new TelemetryShipper();
         return TelemetryShipper.instance;
     }
 
@@ -62,7 +60,7 @@ export class TelemetryShipper {
             if (fsSync.existsSync(this.dbFile)) {
                 const dbRaw = await fs.readFile(this.dbFile, 'utf8');
                 const db = JSON.parse(dbRaw);
-                if (db && db.config) {
+                if (db?.config) {
                     this.enabled = !!db.config.telemetryEnabled;
                     return;
                 }

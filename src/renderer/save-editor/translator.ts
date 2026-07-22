@@ -292,12 +292,10 @@ export class Translator {
                                                     changed = true;
                                                     console.log(`[SAVE-EDITOR] Individual Fallback Translated: "${original}" -> "${translatedText}"`);
                                                 }
-                                            } else {
-                                                if (this.translationCache[original] !== original) {
-                                                    this.translationCache[original] = original;
-                                                    changed = true;
-                                                }
-                                            }
+                                             } else if (this.translationCache[original] !== original) {
+                                                 this.translationCache[original] = original;
+                                                 changed = true;
+                                             }
                                         }
                                     }
                                     // Small delay to prevent rate limit

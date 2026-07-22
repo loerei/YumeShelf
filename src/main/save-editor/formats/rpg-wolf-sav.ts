@@ -126,9 +126,12 @@ export function buildVariables(buffer: Buffer): Record<number, any> {
 
     const decoderAttempts = tryDecoders(buffer);
     decoderAttempts.forEach((attempt, index) => {
-        variables[200 + index] = attempt.ok
-            ? `${attempt.label}: OK${attempt.decodedSize ? ` (${attempt.decodedSize} bytes)` : ''}`
-            : `${attempt.label}: ${attempt.error}`;
+        let statusText = `${attempt.label}: ${attempt.error}`;
+        if (attempt.ok) {
+            const sizeText = attempt.decodedSize ? ` (${attempt.decodedSize} bytes)` : '';
+            statusText = `${attempt.label}: OK${sizeText}`;
+        }
+        variables[200 + index] = statusText;
     });
 
     return variables;
@@ -244,7 +247,7 @@ class RpgWolfSavFormat {
 
     async encode(jsonData: any): Promise<Buffer> {
         console.log(`[WOLF-SAV] encode called for file: ${jsonData.fileName}`);
-        if (!jsonData || jsonData.$type !== 'RpgWolfSavBinaryInspection') {
+        if (jsonData?.$type !== 'RpgWolfSavBinaryInspection') {
             throw new Error('Invalid RPG/Wolf .sav inspection payload');
         }
 
@@ -277,8 +280,8 @@ class RpgWolfSavFormat {
         // Construct a safe, mutable copy of the header and update the checksum (payload sum LSB)
         const headerCopy = Buffer.from(header);
         let sum = 0;
-        for (let i = 0; i < decrypted.length; i++) {
-            sum = (sum + decrypted[i]) & 0xFF;
+        for (const byte of decrypted) {
+            sum = (sum + byte) & 0xFF;
         }
         console.log(`[WOLF-SAV] decrypted payload byte sum (lower 8 bits): 0x${sum.toString(16).toUpperCase()}`);
         console.log(`[WOLF-SAV] original header checksum byte:        0x${header[2].toString(16).toUpperCase()}`);

@@ -128,7 +128,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         try {
             const { data, metadata } = await window.electronAPI.loadSaveData({ gameKey, fileName });
             state.currentSaveData = data;
-            state.originalSnapshot = JSON.parse(JSON.stringify(data));
+            state.originalSnapshot = structuredClone(data);
             state.currentMetadata = metadata;
             state.currentFileName = fileName;
             

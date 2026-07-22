@@ -68,7 +68,7 @@ export class DataEngine {
         const relMatch = query.trim().match(/^(>=|<=|>|<|==|=|!=)\s*(-?\d+(\.\d+)?)$/);
         if (relMatch) {
             const op = relMatch[1];
-            const target = parseFloat(relMatch[2]);
+            const target = Number.parseFloat(relMatch[2]);
             
             /**
              * @param {number} val

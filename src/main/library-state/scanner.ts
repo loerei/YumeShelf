@@ -103,7 +103,7 @@ export function getSmartName(exePath: string, topName: string): string {
         .replace(/RJ\d+/gi, ' ')
         .replace(/\b\d{6,8}\b/gi, ' ')
         .replace(/_pc|_win|_dlsite|_eng|subscriber/gi, ' ')
-        .replace(/v\d+\.\d+.*/i, ' ')
+        .replace(/v\d+\.\d+.*$/i, ' ')
         .replace(/[_-]/g, ' ')
         .trim()
         .replace(/\s+/g, ' ');

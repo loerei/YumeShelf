@@ -38,8 +38,8 @@ export class TranslationService {
     private isDownloading: boolean = false;
     private proxyServer: http.Server | null = null;
     private proxyPort: number = 0;
-    private extractors: Record<string, TranslationExtractor>;
-    private jobs: Map<string, TranslationJob>;
+    private readonly extractors: Record<string, TranslationExtractor>;
+    private readonly jobs: Map<string, TranslationJob>;
 
     constructor({ translatorsDir, appVersion, broadcastStatus }: TranslationServiceOptions) {
         this.translatorsDir = translatorsDir;

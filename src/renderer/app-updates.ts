@@ -18,8 +18,8 @@ export function createAppUpdateController({
     const state = createUpdateState();
     const installFlow = createUpdateInstallFlow({ bootController });
 
-    function logDebug(message) {
-        void message;
+    function logDebug(_message) {
+        // no-op debug logger
     }
 
     // Initialize execution actions

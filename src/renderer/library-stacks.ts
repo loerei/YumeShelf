@@ -64,9 +64,9 @@ export function buildLibraryViewItems(games, type) {
                     return (a.relativePath || '').localeCompare(b.relativePath || '');
                 })
                 : [logicalGame];
-            const primaryGame = logicalGame.primaryInstance
-                ? (orderedGames.find((game) => getGameKey(game) === logicalGame.primaryInstance.gameId || game.gameKey === logicalGame.primaryInstance.gameKey) || logicalGame.primaryInstance)
-                : choosePrimaryGame(orderedGames, sortedGames);
+            if (!logicalGame.primaryInstance) {
+                logicalGame.primaryInstance = choosePrimaryGame(orderedGames, sortedGames);
+            }
             const groupFavorite = !!logicalGame.favorite;
             const representativeKey = getGameKey(logicalGame);
 

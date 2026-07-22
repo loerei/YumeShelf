@@ -67,27 +67,26 @@ export class PureJsonEngine {
      */
     getProp(obj, prop) {
         if (!obj) return null;
-        const self = this;
 
         if (prop === 'variables') {
             return new Proxy(obj, {
-                get(target, key) {
+                get: (target, key) => {
                     if (key === 'toJSON' || typeof key === 'symbol') return target[key];
-                    return self._getDeep(target, /** @type {string} */(key));
+                    return this._getDeep(target, /** @type {string} */(key));
                 },
-                set(target, key, value) {
-                    const currentVal = self._getDeep(target, /** @type {string} */(key));
+                set: (target, key, value) => {
+                    const currentVal = this._getDeep(target, /** @type {string} */(key));
                     if (typeof currentVal === 'number') {
                         const num = Number(value);
-                        self._setDeep(target, /** @type {string} */(key), Number.isNaN(num) ? value : num);
+                        this._setDeep(target, /** @type {string} */(key), Number.isNaN(num) ? value : num);
                     } else {
-                        self._setDeep(target, /** @type {string} */(key), value);
+                        this._setDeep(target, /** @type {string} */(key), value);
                     }
                     return true;
                 },
-                ownKeys(target) {
-                    return self._getDeepPaths(target).filter(key => {
-                        const val = self._getDeep(target, key);
+                ownKeys: (target) => {
+                    return this._getDeepPaths(target).filter(key => {
+                        const val = this._getDeep(target, key);
                         return typeof val === 'number' || typeof val === 'string';
                     });
                 },
@@ -99,17 +98,17 @@ export class PureJsonEngine {
 
         if (prop === 'switches') {
             return new Proxy(obj, {
-                get(target, key) {
+                get: (target, key) => {
                     if (key === 'toJSON' || typeof key === 'symbol') return target[key];
-                    return self._getDeep(target, /** @type {string} */(key));
+                    return this._getDeep(target, /** @type {string} */(key));
                 },
-                set(target, key, value) {
-                    self._setDeep(target, /** @type {string} */(key), Boolean(value));
+                set: (target, key, value) => {
+                    this._setDeep(target, /** @type {string} */(key), Boolean(value));
                     return true;
                 },
-                ownKeys(target) {
-                    return self._getDeepPaths(target).filter(key => {
-                        const val = self._getDeep(target, key);
+                ownKeys: (target) => {
+                    return this._getDeepPaths(target).filter(key => {
+                        const val = this._getDeep(target, key);
                         return typeof val === 'boolean';
                     });
                 },

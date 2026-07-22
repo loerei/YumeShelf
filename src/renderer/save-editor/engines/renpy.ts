@@ -59,7 +59,7 @@ export class RenpyEngine {
         const counts = {};
         for (const key of Object.keys(root)) {
             if (!key.startsWith('store.') || key.startsWith('store._') || key === '$type') continue;
-            const match = key.match(/^store\.([a-zA-Z0-9]+)_/);
+            const match = /^store\.([a-zA-Z0-9]+)_/.exec(key);
             if (match) {
                 const prefix = match[1];
                 counts[prefix] = (counts[prefix] || 0) + 1;

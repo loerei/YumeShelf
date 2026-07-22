@@ -10,6 +10,9 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 - Fixed Unity Mono binary save file editing inside packaged app.asar production builds by unpacking `ModernSaveConverter.dll` from the ASAR archive.
 - Added support for detecting RPG Developer Bakin games, preventing false-positive Unity save folder matching and crashes on Bakin save files.
+- Restored favorite button and drag-and-drop functionality in library grid by fixing primary game domain contract mapping.
+- Added `https://translate.googleapis.com` to renderer Content Security Policy (`connect-src`), restoring Save Editor translation feature.
+- Achieved **0 open issues** on SonarCloud code quality analysis across main and renderer processes.
 
 ### 🛠️ For the Nerds
 
@@ -17,6 +20,9 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [save-editor] Updated `UnityMonoBinFormat` in `src/main/save-editor/formats/unity-mono-bin.ts` to automatically resolve `ModernSaveConverter.dll` paths under the `app.asar.unpacked` folder in packaged builds.
 - [save-resolver] Added `bakin` engine type, detection logic (based on `bakinengine.dll` and `data.rbpack`), and direct save folder resolving to `data/savedata`.
 - [save-editor] Implemented `BakinSgsFormat` to list `.sgs` save files and gracefully report them as unsupported for editing in the save editor UI.
+- [renderer] Restored `logicalGame` domain instance reference in `src/renderer/library-stacks.ts` to preserve `favorite` state metadata.
+- [security] Updated `connect-src` in `src/main/window/main-window.ts` to permit outbound requests to Google Translate API.
+- [quality] Remediated all SonarCloud code smells and vulnerabilities (optional chaining, nullish coalescing, regex backtracking optimizations, `String.raw`, `codePointAt`, and dead store cleanups).
 
 
 ## [1.5.10] - 2026-06-01 — released

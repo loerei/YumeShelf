@@ -1,6 +1,7 @@
 ---
 name: yumeshelf-release
 description: Master skill for building, compiling release notes, verifying assets, and publishing YumeShelf releases to GitHub. Use when preparing, compiling, building, or publishing a new release for YumeShelf or when user mentions release, release notes, or publish release.
+local: true
 ---
 
 # YumeShelf Release & Publishing Skill

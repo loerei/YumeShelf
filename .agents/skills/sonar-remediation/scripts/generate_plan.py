@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 
@@ -5,8 +6,8 @@ if len(sys.argv) < 3:
     print("Usage: python generate_plan.py <input_json_path> <output_plan_path>")
     sys.exit(1)
 
-input_path = sys.argv[1]
-output_path = sys.argv[2]
+input_path = os.path.abspath(sys.argv[1])
+output_path = os.path.abspath(sys.argv[2])
 
 with open(input_path, "r", encoding="utf-8") as f:
     data = json.load(f)

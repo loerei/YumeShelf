@@ -22,7 +22,13 @@ Whenever a change is approved by the user, apply it identically to both detected
 
 Ensure the contents of both files remain completely synchronized.
 
-### 3. Commit & Push to GitHub
+### 3. Verify Policy Skill Coverage
+Run the automated coverage audit script to ensure 100% of skills are documented:
+```powershell
+node audit-policy-coverage.js
+```
+
+### 4. Commit & Push to GitHub
 Navigate to the `<custom-skills-repo-root>/` directory, commit the policy updates, and push to the remote repository:
 ```powershell
 git add AGENTS.md

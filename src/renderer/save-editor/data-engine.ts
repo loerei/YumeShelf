@@ -113,21 +113,15 @@ export class DataEngine {
         // Search by Index (ID)
         if (searchIndex) {
             const idStr = (id !== null && id !== undefined) ? id.toString() : '';
-            if (exact) {
-                if (idStr === query) return true;
-            } else {
-                if (idStr.includes(query)) return true;
-            }
+            if (exact && idStr === query) return true;
+            if (!exact && idStr.includes(query)) return true;
         }
         
         // Search by Value
         if (searchValue) {
             const valStr = (value !== null && value !== undefined) ? value.toString() : '';
-            if (exact) {
-                if (valStr === query) return true;
-            } else {
-                if (valStr.toLowerCase().includes(q)) return true;
-            }
+            if (exact && valStr === query) return true;
+            if (!exact && valStr.toLowerCase().includes(q)) return true;
         }
         
         // Search by Name (Label)

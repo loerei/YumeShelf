@@ -133,7 +133,7 @@ export class Translator {
         const strings = /** @type {any} */ (window).currentUIStrings || this.uiStrings || {};
         const elements = container.querySelectorAll('[data-i18n]');
         for (const el of elements) {
-            const key = el.getAttribute('data-i18n');
+            const key = /** @type {HTMLElement} */ (el).dataset.i18n;
             if (key) {
                 const translation = strings[key];
                 if (translation && translation !== key) {
@@ -145,7 +145,7 @@ export class Translator {
         // Handle placeholders
         const placeholders = container.querySelectorAll('[data-i18n-placeholder]');
         for (const el of placeholders) {
-            const key = el.getAttribute('data-i18n-placeholder');
+            const key = /** @type {HTMLElement} */ (el).dataset.i18nPlaceholder;
             if (key) {
                 const translation = strings[key];
                 if (translation && translation !== key) {

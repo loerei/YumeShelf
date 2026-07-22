@@ -14,7 +14,7 @@ function renderInlineMarkdown(value) {
     result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
     result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    result = result.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+    result = result.replace(/\[([^\]]+)\]\((https?:\/\/[^()\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
 
     return result;
 }
@@ -43,7 +43,8 @@ export function renderMarkdownLite(markdown) {
 
     function flushList() {
         if (listItems.length === 0) return;
-        html.push(`<ul>${listItems.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ul>`);
+        const itemsHtml = listItems.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join('');
+        html.push(`<ul>${itemsHtml}</ul>`);
         listItems = [];
     }
 
@@ -56,7 +57,7 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+        const headingMatch = /^(#{1,3})\s+(.+)$/.exec(line);
         if (headingMatch) {
             flushParagraph();
             flushList();
@@ -72,7 +73,7 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const listMatch = line.match(/^[-*]\s+(.+)$/);
+        const listMatch = /^[-*]\s+(.+)$/.exec(line);
         if (listMatch) {
             flushParagraph();
             listItems.push(listMatch[1].trim());

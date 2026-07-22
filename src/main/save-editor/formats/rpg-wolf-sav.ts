@@ -323,8 +323,7 @@ class RpgWolfSavFormat {
                 // Robust heuristic string extraction
                 const strings: string[] = [];
                 let currentStr: number[] = [];
-                for (let i = 0; i < buffer.length; i++) {
-                    const b = buffer[i];
+                for (const b of buffer) {
                     if ((b >= 0x20 && b <= 0x7E) || b >= 0x80) {
                         currentStr.push(b);
                     } else {
@@ -334,7 +333,7 @@ class RpgWolfSavFormat {
                                 if (/[^\x00-\x7F]/.test(s) || /[a-zA-Z0-9]/.test(s)) {
                                     strings.push(s);
                                 }
-                            } catch (e) {}
+                            } catch {}
                         }
                         currentStr = [];
                     }
@@ -347,7 +346,7 @@ class RpgWolfSavFormat {
                         if (markerIndex + 1 + i < strings.length) {
                             let name = strings[markerIndex + 1 + i];
                             if (name && !name.includes('<なし>') && !name.includes('<変化なし>')) {
-                                metadata.variables[i] = name.replace(/\0/g, '').trim();
+                                metadata.variables[i] = name.replaceAll('\0', '').trim();
                             }
                         }
                     }

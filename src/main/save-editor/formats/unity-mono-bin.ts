@@ -24,7 +24,7 @@ class UnityMonoBinFormat {
                     if (res) return res;
                 }
             }
-        } catch (err) {
+        } catch {
             // Ignore directory read errors
         }
         return null;

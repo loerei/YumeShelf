@@ -4,6 +4,18 @@ import { getGroupedKeysForGame } from './library-stacks';
 import { getPointerDistanceToRect, isSameDragRow } from './utils/drag-math';
 import { flipAnimateDOMUpdate } from './utils/flip-animation';
 
+function applyFavoriteToLogicalGame(game, favorite) {
+    game.favorite = favorite;
+    if (Array.isArray(game.instances)) {
+        game.instances.forEach((instance) => {
+            instance.favorite = favorite;
+        });
+    }
+    if (game.primaryInstance) {
+        game.primaryInstance.favorite = favorite;
+    }
+}
+
 export function createDragDropGridController({
     dragPointerSlop,
     dragRowTolerance,
@@ -30,17 +42,7 @@ export function createDragDropGridController({
         return true;
     }
 
-    function applyFavoriteToLogicalGame(game, favorite) {
-        game.favorite = favorite;
-        if (Array.isArray(game.instances)) {
-            game.instances.forEach((instance) => {
-                instance.favorite = favorite;
-            });
-        }
-        if (game.primaryInstance) {
-            game.primaryInstance.favorite = favorite;
-        }
-    }
+
 
     function resetDragState() {
         setDraggedGameFolder(null);
@@ -101,7 +103,7 @@ export function createDragDropGridController({
                 const rowCards = cardsWithRects.filter(item => isSameDragRow(item.rect, rect, dragRowTolerance));
                 const rowRight = Math.max(...rowCards.map(item => item.rect.right));
                 const isAppendAfterLastCard =
-                    closestCard === cardsWithRects[cardsWithRects.length - 1].card &&
+                    closestCard === cardsWithRects.at(-1).card &&
                     event.clientX > rowRight + rect.width * 0.15 &&
                     event.clientY >= rect.top - dragPointerSlop &&
                     event.clientY <= rect.bottom + rect.height * 0.6;
@@ -182,7 +184,7 @@ export function createDragDropGridController({
                         });
 
                         let insertIdx = customOrder.length;
-                        if (dragTargetInfo && dragTargetInfo.gameKey) {
+                        if (dragTargetInfo?.gameKey) {
                             const targetGroupKeys = getGroupedKeysForGame(allGames, dragTargetInfo.gameKey, customOrder);
                             const draggingIntoOwnGroup = targetGroupKeys.every((key) => draggedGroupKeys.includes(key));
                             const targetIndexes = targetGroupKeys
@@ -191,7 +193,7 @@ export function createDragDropGridController({
                                 .sort((a, b) => a - b);
                             if (!draggingIntoOwnGroup && targetIndexes.length > 0) {
                                 insertIdx = dragTargetInfo.insertAfter
-                                    ? targetIndexes[targetIndexes.length - 1] + 1
+                                    ? targetIndexes.at(-1) + 1
                                     : targetIndexes[0];
                             }
                         }

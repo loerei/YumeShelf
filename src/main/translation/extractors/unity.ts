@@ -64,7 +64,7 @@ export class UnityExtractor implements TranslationExtractor {
         
         // Scan for UTF-16LE string literals (printable Japanese/English sequences)
         // Match printable English UTF-16LE strings (3+ characters)
-        const englishMatches = content.match(/[A-Za-z0-9\s!,?.:;'"\0\-]{6,100}/g) || [];
+        const englishMatches = content.match(/[A-Za-z0-9\s!,?.:;'"\0-]{6,100}/g) || [];
         for (const match of englishMatches) {
             const clean = match.replaceAll('\x00', '').trim();
             if (this.isValidString(clean)) {

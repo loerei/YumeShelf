@@ -361,7 +361,7 @@ export class TranslationService {
                 } else {
                     await fs.unlink(targetPath);
                 }
-            } catch (e) {}
+            } catch {}
         }
     }
 
@@ -390,9 +390,15 @@ export class TranslationService {
             const peOffset = peOffsetBuf.readUInt32LE(0);
             const { buffer: machineBuf } = await handle.read(Buffer.alloc(2), 0, 2, peOffset + 4);
             const machine = machineBuf.readUInt16LE(0);
-            arch = machine === 0x8664 ? 'x64' : (machine === 0x14c ? 'x86' : 'x64');
+            if (machine === 0x8664) {
+                arch = 'x64';
+            } else if (machine === 0x14c) {
+                arch = 'x86';
+            } else {
+                arch = 'x64';
+            }
             await handle.close();
-        } catch (e) {}
+        } catch {}
 
         const managedDir = path.join(exeDir, dataDir, 'Managed');
         if (fsSync.existsSync(path.join(managedDir, 'mscorlib.dll'))) return { type: 'mono', arch };

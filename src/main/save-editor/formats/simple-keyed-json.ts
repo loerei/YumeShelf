@@ -65,7 +65,7 @@ class SimpleKeyedJsonFormat {
                 json.$type = 'SimpleKeyedSave';
             }
             return json;
-        } catch (e) {
+        } catch {
             console.warn(`[KEYED-JSON] JSON parse failed after extraction. Content: ${jsonPart.substring(0, 50)}...`);
             return JSON.parse(str);
         }
@@ -112,9 +112,9 @@ class SimpleKeyedJsonFormat {
                 // Search for "MyGameKey" style UTF-16 strings
                 const match = content.match(/M\0y\0G\0a\0m\0e\0K\0e\0y\0[A-Za-z0-9\0]+/);
                 if (match) {
-                    return match[0].replace(/\0/g, '');
+                    return match[0].replaceAll('\0', '');
                 }
-            } catch (e) {
+            } catch {
                 // ignore
             }
         } catch (err) {

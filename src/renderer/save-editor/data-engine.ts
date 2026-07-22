@@ -92,7 +92,7 @@ export class DataEngine {
             // Evaluate on index
             if (searchIndex && id !== null && id !== undefined) {
                 const numericId = Number(id);
-                if (!isNaN(numericId) && compare(numericId, op, target)) {
+                if (!Number.isNaN(numericId) && compare(numericId, op, target)) {
                     return true;
                 }
             }
@@ -100,7 +100,7 @@ export class DataEngine {
             // Evaluate on value
             if (searchValue && value !== null && value !== undefined) {
                 const numericVal = Number(value);
-                if (!isNaN(numericVal) && compare(numericVal, op, target)) {
+                if (!Number.isNaN(numericVal) && compare(numericVal, op, target)) {
                     return true;
                 }
             }

@@ -75,7 +75,7 @@ export function buildLibraryViewItems(games, type) {
                 games: orderedGames,
                 groupKey,
                 isStack: orderedGames.length > 1,
-                primaryGame,
+                primaryGame: logicalGame,
                 representativeKey,
                 stackSize: orderedGames.length
             };

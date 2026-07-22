@@ -50,6 +50,15 @@ export interface StartupServicesOptions {
     startupNetworkTimeoutMs: number;
 }
 
+function emitBootStatus(webContents: any, payload: any) {
+    if (!webContents || webContents.isDestroyed()) return;
+    webContents.send('boot-status', {
+        scope: 'startup',
+        timestamp: Date.now(),
+        ...payload
+    });
+}
+
 export function createStartupServices({
     app,
     checkForAppUpdate,
@@ -68,14 +77,6 @@ export function createStartupServices({
     resolveLibraryConfig,
     startupNetworkTimeoutMs
 }: StartupServicesOptions) {
-    function emitBootStatus(webContents: any, payload: any) {
-        if (!webContents || webContents.isDestroyed()) return;
-        webContents.send('boot-status', {
-            scope: 'startup',
-            timestamp: Date.now(),
-            ...payload
-        });
-    }
 
     async function bootstrapAppState(webContents: any, options: any = {}) {
         const appUpdatesMode = String(options.appUpdatesMode || 'notify').toLowerCase();
@@ -184,7 +185,7 @@ export function createStartupServices({
                 const offline = isNetworkLikeError(appUpdateProbe.error);
                 appUpdateCheck.source = offline ? 'offline' : 'error';
                 appUpdateCheck.offline = offline;
-                appUpdateCheck.error = String((appUpdateProbe.error && appUpdateProbe.error.message) || appUpdateProbe.error || '');
+                appUpdateCheck.error = String(appUpdateProbe.error?.message || appUpdateProbe.error || '');
                 emitBootStatus(webContents, {
                     key: offline ? 'boot_app_update_offline' : 'boot_app_update_failed',
                     fallbackText: offline ? 'No internet, skipping app update check' : 'App update check failed, continuing startup'
@@ -203,7 +204,7 @@ export function createStartupServices({
             fallbackText: 'Checking library configuration'
         });
         const config = await resolveLibraryConfig();
-        if (!config || !config.libraryPath) {
+        if (!config?.libraryPath) {
             emitBootStatus(webContents, {
                 key: 'boot_waiting_for_library_setup',
                 fallbackText: 'Library not configured yet'
@@ -244,7 +245,7 @@ export function createStartupServices({
                 const offline = isNetworkLikeError(manifestProbe.error);
                 languagePackCheck.source = offline ? 'offline' : 'error';
                 languagePackCheck.offline = offline;
-                languagePackCheck.error = String((manifestProbe.error && manifestProbe.error.message) || manifestProbe.error || '');
+                languagePackCheck.error = String(manifestProbe.error?.message || manifestProbe.error || '');
                 emitBootStatus(webContents, {
                     key: offline ? 'boot_language_pack_source_offline' : 'boot_language_pack_source_failed',
                     fallbackText: offline ? 'No internet, skipping language pack check' : 'Language pack check failed, continuing startup'

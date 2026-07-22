@@ -36,7 +36,7 @@ function printableRatio(buffer: Buffer): number {
 function extractAsciiStrings(buffer: Buffer, minLength = 5, limit = 80): string[] {
     const matches = buffer
         .toString('latin1')
-        .match(new RegExp(`[\\x20-\\x7e]{${minLength},}`, 'g'));
+        .match(new RegExp(String.raw`[\x20-\x7e]{${minLength},}`, 'g'));
 
     return (matches || [])
         .map((s) => s.trim())

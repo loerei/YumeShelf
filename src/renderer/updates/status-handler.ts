@@ -118,7 +118,6 @@ export function setupStatusHandler({
                 }));
             }
             reviewState.actionInFlight = false;
-            return;
         }
     }
 

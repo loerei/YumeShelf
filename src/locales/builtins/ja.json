@@ -5,7 +5,7 @@
   "englishName": "Japanese",
   "nativeName": "日本語",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.9",
+  "reviewedForAppVersion": "1.5.11",
   "aliases": [
     "ja",
     "japanese",
@@ -211,6 +211,7 @@
     "telemetry_modal_title": "YumeShelf の改善にご協力ください",
     "telemetry_modal_desc": "匿名の診断データとセーブデータのヒューリスティックログを共有しますか？これにより、ファイル形式サポートの最適化、問題の検出、およびより優れたリファクタリング保護の構築が可能になります。",
     "telemetry_modal_btn_opt_in": "匿名データを共有する",
-    "telemetry_modal_btn_opt_out": "プライベートに保つ"
+    "telemetry_modal_btn_opt_out": "プライベートに保つ",
+    "launching_game": "{name} を起動中..."
   }
 }

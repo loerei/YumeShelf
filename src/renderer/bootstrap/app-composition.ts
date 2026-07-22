@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { createBootController } from '../boot';
+import { initToastPill, showToastPill } from '../ui/toast-pill';
 import { createCategoryFilterController } from '../category-filter';
 import { createAppUpdateController } from '../app-updates';
 import { createDragDropGridController } from '../drag-drop-grid';
@@ -214,8 +215,23 @@ export function createRendererComposition({
             state.setAllGames(state.getAllGames().filter(g => getGameKey(g) !== gameKey));
             libraryRuntime.reannotateGames();
         },
-        onGameLaunched: () => {
+        onGameLaunched: (gameKey?: string, gameName?: string) => {
             libraryRuntime.sortGames(state.getCurrentSort());
+            let name = gameName;
+            if (!name && gameKey) {
+                const allGames = state.getAllGames();
+                const found = allGames.find((g: any) => g.key === gameKey || g.folderName === gameKey);
+                if (found) {
+                    name = found.name;
+                } else {
+                    name = gameKey;
+                }
+            }
+            if (name) {
+                const template = getText('launching_game', 'Launching {name}...');
+                const msg = template.replace('{name}', name);
+                showToastPill(msg);
+            }
         },
         onRefreshRequested: () => libraryRuntime.sortGames(state.getCurrentSort()),
         isBetaExposed: () => !!state.getCurrentLibraryConfig()?.exposeBetaOptions
@@ -342,6 +358,8 @@ export function createRendererComposition({
     function createCard(game, options) {
         return gameCardFactory.createCard(game, options);
     }
+
+    initToastPill();
 
     async function initApp(bootstrapData = null) {
         await startupController.initApp(bootstrapData);

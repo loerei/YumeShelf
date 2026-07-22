@@ -220,7 +220,7 @@ export function createGameCardFactory({
             card.style.opacity = '0.5';
             electronAPI.launchYume({ gameKey, exePath: game.exePath, runInBackground: game.runInBackground });
             if (typeof onGameLaunched === 'function') {
-                onGameLaunched(gameKey);
+                onGameLaunched(gameKey, game.name);
             } else {
                 onRefreshRequested();
             }

@@ -45,12 +45,14 @@ function main() {
     packageJson.version = nextVersion;
     writeJson(packageJsonPath, packageJson);
 
-    const packageLock = readJson(packageLockPath);
-    packageLock.version = nextVersion;
-    if (packageLock.packages && packageLock.packages['']) {
-        packageLock.packages[''].version = nextVersion;
+    if (fs.existsSync(packageLockPath)) {
+        const packageLock = readJson(packageLockPath);
+        packageLock.version = nextVersion;
+        if (packageLock.packages && packageLock.packages['']) {
+            packageLock.packages[''].version = nextVersion;
+        }
+        writeJson(packageLockPath, packageLock);
     }
-    writeJson(packageLockPath, packageLock);
 
     const builtinFiles = fs.readdirSync(builtinsDir).filter(file => file.endsWith('.json'));
     builtinFiles.forEach((fileName) => {

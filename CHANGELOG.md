@@ -4,16 +4,23 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
-## [Unreleased]
+## [1.5.11] - 2026-07-22 — released
+
+### ✨ What's New
+
+- Added a floating glassmorphism toast pill feedback notification ("Launching {game_name}...") when launching a game, featuring smooth slide-up and fade transitions.
 
 ### 🔧 What Changed
 
 - Fixed Unity Mono binary save file editing inside packaged app.asar production builds by unpacking `ModernSaveConverter.dll` from the ASAR archive.
 - Added support for detecting RPG Developer Bakin games, preventing false-positive Unity save folder matching and crashes on Bakin save files.
 - Added `https://translate.googleapis.com` to renderer Content Security Policy (`connect-src`), restoring Save Editor translation feature.
+- Added localization strings for game launching feedback in English, Vietnamese, Japanese, and Chinese.
 
 ### 🛠️ For the Nerds
 
+- [ui] Implemented `ToastPillController` in `src/renderer/ui/toast-pill.ts` and `src/styles/toast-pill.css` with auto-dismiss timers and glassmorphic styling.
+- [renderer] Integrated `showToastPill` in `onGameLaunched` callback in `src/renderer/bootstrap/app-composition.ts` and `src/renderer/game-cards.ts`.
 - [save-editor] Added `"dist/main/save-editor/bin/**/*"` to `asarUnpack` configuration in `package.json` to extract `ModernSaveConverter` dependencies from the ASAR archive.
 - [save-editor] Updated `UnityMonoBinFormat` in `src/main/save-editor/formats/unity-mono-bin.ts` to automatically resolve `ModernSaveConverter.dll` paths under the `app.asar.unpacked` folder in packaged builds.
 - [save-resolver] Added `bakin` engine type, detection logic (based on `bakinengine.dll` and `data.rbpack`), and direct save folder resolving to `data/savedata`.

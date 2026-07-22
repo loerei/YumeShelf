@@ -1,0 +1,73 @@
+/* Toast Pill Visual Feedback */
+.toast-pill-host {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-pill-host.toast-pill-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.toast-pill-host.toast-pill-hiding {
+  opacity: 0;
+  transform: translateX(-50%) translateY(12px);
+}
+
+.toast-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  background: rgba(15, 15, 18, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  color: #f3f4f6;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  user-select: none;
+}
+
+.toast-pill-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--accent, #6366f1);
+  animation: toast-pill-pulse 1.8s infinite ease-in-out;
+}
+
+.toast-pill-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+
+.toast-pill-text {
+  white-space: nowrap;
+}
+
+@keyframes toast-pill-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.75;
+  }
+}

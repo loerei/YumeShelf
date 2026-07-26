@@ -5,25 +5,64 @@ description: Inspect, remediate, accept, and automate SonarQube and SonarCloud c
 
 # Sonar Remediation & Quality Gate Workflows
 
-Inspect, remediate, accept, and automate SonarQube/SonarCloud code quality issues across single files, PRs, or entire repositories. (Works with both `sonarcloud:` and `sonarqube:` MCP servers).
+Inspect, remediate, accept, and automate SonarQube/SonarCloud code quality issues across single files, PRs, commits, branches, or entire repositories. (Works with both `sonarcloud:` and `sonarqube:` MCP servers).
 
 ## Workflows
 
-### 1. Issue Query & Inspection (MCP)
+### 1. Issue Query Decision Tree (MCP)
 
-| Task | MCP Tool (`sonarcloud:` / `sonarqube:`) | Required Arguments & Constraints |
-| :--- | :--- | :--- |
-| **Search Projects** | `search_my_sonarqube_projects` | None |
-| **Search Open Issues** | `search_sonar_issues_in_projects` | `projects: ["<key>"]`, `issueStatuses: ["OPEN"]`<br>PR scope: add `pullRequestId: "<id>"`. File scope: `files: ["<key>:<relPath>"]` |
-| **Search Duplications** | `search_duplicated_files`, `get_duplications` | `projectKey: "<key>"`, `key: "<fileKey>"`, optional `pullRequest: "<id>"` |
-| **Component Measures** | `get_component_measures` | `projectKey: "<key>"` (Note: parameter is `projectKey`, not `component`), `metricKeys: [...]` |
-| **Show Rule Details** | `show_rule` | `key: "<ruleKey>"` |
-| **Quality Gate Status** | `get_project_quality_gate_status` | `projectKey: "<key>"` |
+```mermaid
+flowchart TD
+    Start["Sonar Issue Query Request"] --> DetermineScope{"Determine Query Scope"}
+
+    %% Branch 1: File Scope
+    DetermineScope -->|"1. By File Name"| FileScope["File Scope"]
+    FileScope --> FileCall["search_sonar_issues({<br>  projectKey: '...',<br>  componentKeys: ['<projectKey>:<filePath>'],<br>  issueStatuses: ['OPEN']<br>})"]
+
+    %% Branch 2: Commit Scope
+    DetermineScope -->|"2. By Commit"| CommitScope["Commit Scope"]
+    CommitScope --> CommitCall["1. Get list of changed files from commit:<br>   git show --name-only <commit_hash><br>2. search_sonar_issues({<br>  projectKey: '...',<br>  componentKeys: [<changed_files>],<br>  inNewCodePeriod: true<br>})"]
+
+    %% Branch 3: PR Scope
+    DetermineScope -->|"3. By Pull Request (PR)"| PRScope["Pull Request Scope"]
+    PRScope --> PRCall["search_sonar_issues({<br>  projectKey: '...',<br>  pullRequest: '<pr_id>',<br>  issueStatuses: ['OPEN']<br>})"]
+
+    %% Branch 4: Branch Scope
+    DetermineScope -->|"4. By Branch"| BranchScope["Branch Scope"]
+    BranchScope --> BranchCall["search_sonar_issues({<br>  projectKey: '...',<br>  branch: '<branch_name>',<br>  issueStatuses: ['OPEN']<br>})"]
+
+    %% Branch 5: Repo Scope
+    DetermineScope -->|"5. Repository Scope"| RepoScope["Repository Scope"]
+    RepoScope --> RepoCall["search_sonar_issues({<br>  projectKey: '...',<br>  issueStatuses: ['OPEN']<br>})"]
+
+    %% Branch 6: Combined Scope
+    DetermineScope -->|"6. Combined (e.g. File + PR)"| CombinedScope["Combined Scope"]
+    CombinedScope --> CombinedCall["search_sonar_issues({<br>  projectKey: '...',<br>  pullRequest: '<pr_id>',<br>  componentKeys: ['<projectKey>:<filePath>'],<br>  issueStatuses: ['OPEN']<br>})"]
+
+    %% Output Node
+    FileCall --> ProcessIssues["Analyze & Apply Remediation"]
+    CommitCall --> ProcessIssues
+    PRCall --> ProcessIssues
+    BranchCall --> ProcessIssues
+    RepoCall --> ProcessIssues
+    CombinedCall --> ProcessIssues
+```
 
 > [!IMPORTANT]
-> When analyzing an active PR, MUST pass `pullRequestId`. Omitting `pullRequestId` queries the default branch (`main`), leading to unintended refactoring of pre-existing code.
+> When analyzing an active PR, MUST pass `pullRequest: "<pr_id>"`. Omitting `pullRequest` queries the default branch (`main`), leading to unintended refactoring of pre-existing code.
 
-### 2. Issue Triage & Decision Policy
+### 2. Parameter Mapping Reference
+
+| Query Scope | Required / Recommended Parameters for `search_sonar_issues` |
+| :--- | :--- |
+| **File Scope** | `projectKey`, `componentKeys: ["<projectKey>:<relPath>"]`, `issueStatuses: ["OPEN"]` |
+| **Commit Scope** | *Step 1*: `git show --name-only <hash>` <br> *Step 2*: `projectKey`, `componentKeys: [...]`, `inNewCodePeriod: true` |
+| **PR Scope** | `projectKey`, `pullRequest: "<pr_id>"`, `issueStatuses: ["OPEN"]` |
+| **Branch Scope** | `projectKey`, `branch: "<branch_name>"`, `issueStatuses: ["OPEN"]` |
+| **Repo Scope** | `projectKey`, `issueStatuses: ["OPEN"]` |
+| **Combined Scope** | `projectKey`, `pullRequest: "<pr_id>"`, `componentKeys: ["<projectKey>:<relPath>"]`, `issueStatuses: ["OPEN"]` |
+
+### 3. Issue Triage & Decision Policy
 
 | Domain | Issue Category | Rule Keys | Action | Rationale & Requirements |
 | :--- | :--- | :--- | :--- | :--- |
@@ -34,42 +73,27 @@ Inspect, remediate, accept, and automate SonarQube/SonarCloud code quality issue
 | **JS/TS/CSS** | **Language Smells** | `S1854`, `S1481`, `S6582`, `S6606`, `S7780`, `S7758`, `S6594`, `S4666`, `S1874` | **Fix code** | Follow domain-specific refactoring patterns in [REFERENCE.md](REFERENCE.md). |
 
 > [!IMPORTANT]
-> Before calling `change_sonar_issue_status` to flag any issue as `"accept"` or `"falsepositive"`, you MUST search for the exact issue key using `search_sonar_issues_in_projects` with `issueStatuses: ["OPEN"]`.
+> Before calling `change_sonar_issue_status` to flag any issue as `"accept"` or `"falsepositive"`, you MUST search for the exact issue key using `search_sonar_issues` with `issueStatuses: ["OPEN"]`.
 
-### 3. Remediation Safety Boundaries
+### 4. Remediation Safety Boundaries
 
 - **NEVER delete, rename, or move** standalone entrypoints, child processes, worker scripts, or dynamic IPC/service wrappers.
 - **NEVER modify** exported module interfaces, public API signatures, or database schemas during Sonar remediation.
 - **Domain Contract Preservation (`S1854`, `S1481`)**: NEVER alter returned object keys or state properties (e.g. `favorite`, `id`, `status`) to consume an unused variable. Safely delete the dead variable calculation instead.
 
-### 4. Code Duplication Resolution (CPD)
+### 5. Code Duplication Resolution (CPD)
 
 - MUST call `get_duplications` to retrieve exact duplicated lines and read actual code on disk.
 - For structural duplication, read `/improve-codebase-architecture` to design a unified module.
 
-### 5. Continuous Zero-Issue Remediation Loop (Goal-Driven Batching)
+### 6. Continuous Zero-Issue Remediation Loop (Goal-Driven Batching)
 
 Triggered via `/goal` or explicit user instruction to fix/accept open issues until **0 open issues remain**:
 
-1. **Query Open Issues**: Call `search_sonar_issues_in_projects` with `issueStatuses: ["OPEN"]`.
+1. **Query Open Issues**: Call `search_sonar_issues` with appropriate scope parameter (`pullRequest`, `branch`, `componentKeys`, or `projectKey`).
 2. **Check Exit Condition**: If `total === 0`, report completion (`<!-- GOAL_COMPLETE -->`).
-3. **Triage & Apply**: Apply Table 2 actions (Flag `accept` or Fix code).
+3. **Triage & Apply**: Apply Table 3 actions (Flag `accept` or Fix code).
 4. **Local Verification**: Run project-specific typechecks, linters, or test suites (e.g. `npm run typecheck`, `pytest`, `cargo check`).
 5. **Commit & Push**: Stage changes, commit (`git commit -m "refactor: remediate <details>"`), and push.
 6. **Schedule 150s Timer**: Schedule a 150-second timer (`schedule({ DurationSeconds: "150", Prompt: "150s timer expired. Re-query open Sonar issues" })`) for remote CI scan completion.
 7. **Repeat**: Upon timer expiry, re-query open issues until `total === 0`.
-
-### 6. Script-Automated Task Execution
-
-For large backlogs, run bundled companion scripts in `.agents/skills/sonar-remediation/scripts/`:
-- `python .agents/skills/sonar-remediation/scripts/count_issues.py "<issues_json>" "<session_dir>\scratch\issues_details.md"`
-- `python .agents/skills/sonar-remediation/scripts/generate_plan.py "<issues_json>" "<session_dir>\implementation_plan.md"` (Set `request_feedback: true`)
-- `python .agents/skills/sonar-remediation/scripts/generate_task.py "<issues_json>" "<session_dir>\task.md"` (Set `user_facing: true`)
-
-**Task Execution Loop**: Check out fix branch -> For each file in `task.md`: Mark `[/]` -> Patch via `patchitright` (`patch_file`) -> Mark `[x]` -> Verify via project build/typecheck/test tools before committing.
-
----
-
-## Detailed Rules & Code Examples
-
-See [REFERENCE.md](REFERENCE.md) for Preemptive Code Inspection, domain-scoped **Before / After** code examples, and specific rule remediation patterns. (You MUST read [REFERENCE.md](REFERENCE.md) using `view_file` before applying code fixes).

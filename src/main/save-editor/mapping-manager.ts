@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { app } from 'electron';
 
 export interface MappingEntry {
@@ -16,7 +17,8 @@ export default class SaveMappingManager {
 
     constructor(gameId: string) {
         this.gameId = gameId;
-        this.mappingDir = path.join(app.getPath('userData'), 'save-mappings');
+        const userDataPath = app?.getPath ? app.getPath('userData') : path.join(os.tmpdir(), 'yumeshelf', 'userData');
+        this.mappingDir = path.join(userDataPath, 'save-mappings');
         this.mappingPath = path.join(this.mappingDir, `${this.gameId}.json`);
         this.load();
     }

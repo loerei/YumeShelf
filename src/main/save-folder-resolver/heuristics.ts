@@ -32,6 +32,24 @@ export async function deepenSaveFolder(
     return foundPath;
 }
 
+async function checkSaveCandidateDir(
+    exeDir: string,
+    entryName: string,
+    fs: FileSystemProvider
+): Promise<ResolvedSaveDirectory | null> {
+    const fullPath = fs.join(exeDir, entryName);
+    if (!(await fs.isDirectory(fullPath))) return null;
+
+    if (SAVE_DIR_NAMES.test(entryName)) {
+        const files = await fs.readdir(fullPath).catch(() => []);
+        const hasSaveFiles = files.some((file) => SAVE_EXTENSIONS.test(file));
+        if (hasSaveFiles || files.length > 0) {
+            return { path: fullPath, engine: 'unknown', confidence: 'medium', source: 'heuristic' };
+        }
+    }
+    return null;
+}
+
 export async function heuristicSaveScan(
     exeDir: string,
     depth = 0,
@@ -43,16 +61,8 @@ export async function heuristicSaveScan(
     try {
         const entries = await fs.readdir(exeDir);
         for (const entryName of entries) {
-            const fullPath = fs.join(exeDir, entryName);
-            if (!(await fs.isDirectory(fullPath))) continue;
-
-            if (SAVE_DIR_NAMES.test(entryName)) {
-                const files = await fs.readdir(fullPath).catch(() => []);
-                const hasSaveFiles = files.some((file) => SAVE_EXTENSIONS.test(file));
-                if (hasSaveFiles || files.length > 0) {
-                    return { path: fullPath, engine: 'unknown', confidence: 'medium', source: 'heuristic' };
-                }
-            }
+            const match = await checkSaveCandidateDir(exeDir, entryName, fs);
+            if (match) return match;
         }
 
         for (const entryName of entries) {

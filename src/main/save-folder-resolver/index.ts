@@ -1,4 +1,4 @@
-import { exists, getExeStemFromPath } from './utils';
+import { getExeStemFromPath } from './utils';
 import { detectEngine } from './engine-detectors';
 import {
     resolveRpgMakerSave,
@@ -13,13 +13,14 @@ import {
 } from './resolvers/engine-resolvers';
 import { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } from './heuristics';
 import { FileSystemProvider, GameEngineType, ResolvedSaveDirectory } from './types';
-import { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
+import { DefaultFileSystemProvider } from './fs-provider';
 
 export type { GameEngineType, ResolvedSaveDirectory, FileSystemProvider };
-export { DefaultFileSystemProvider, MockFileSystemProvider, detectEngine };
+export { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
+export { detectEngine };
 
 export class SaveFolderResolver {
-    private fs: FileSystemProvider;
+    private readonly fs: FileSystemProvider;
 
     constructor(fsProvider: FileSystemProvider = new DefaultFileSystemProvider()) {
         this.fs = fsProvider;

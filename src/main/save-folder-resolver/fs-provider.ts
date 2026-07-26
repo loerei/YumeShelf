@@ -60,9 +60,9 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
 }
 
 export class MockFileSystemProvider implements FileSystemProvider {
-    private files = new Map<string, string>();
-    private directories = new Set<string>();
-    private env = new Map<string, string>();
+    private readonly files = new Map<string, string>();
+    private readonly directories = new Set<string>();
+    private readonly env = new Map<string, string>();
 
     constructor(initialEnv?: Record<string, string>) {
         if (initialEnv) {
@@ -105,7 +105,7 @@ export class MockFileSystemProvider implements FileSystemProvider {
     }
 
     private normalize(p: string): string {
-        return p.replace(/\\/g, '/').replace(/\/+$/, '');
+        return p.replaceAll('\\', '/').replace(/\/+$/, '');
     }
 
     async exists(target: string): Promise<boolean> {
@@ -171,7 +171,7 @@ export class MockFileSystemProvider implements FileSystemProvider {
     }
 
     join(...paths: string[]): string {
-        const joined = paths.join('/').replace(/\\/g, '/');
+        const joined = paths.join('/').replaceAll('\\', '/');
         const parts = joined.split('/').filter(Boolean);
         const isAbsolute = joined.startsWith('/') || /^[a-zA-Z]:/.test(joined);
         const resultParts: string[] = [];

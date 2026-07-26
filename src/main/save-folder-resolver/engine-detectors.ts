@@ -5,44 +5,47 @@ export type { GameEngineType };
 
 const defaultFs = new DefaultFileSystemProvider();
 
+interface EngineRule {
+    engine: GameEngineType;
+    check: (exeDir: string, fs: FileSystemProvider) => Promise<boolean>;
+}
+
+const ENGINE_RULES: EngineRule[] = [
+    { engine: 'rpg-mv-mz', check: async (dir, fs) => fs.exists(fs.join(dir, 'www', 'js')) },
+    {
+        engine: 'rpg-vxace',
+        check: async (dir, fs) => (await fs.exists(fs.join(dir, 'Data'))) && fs.globMatch(fs.join(dir, 'Data'), /\.rvdata2$/i)
+    },
+    {
+        engine: 'renpy',
+        check: async (dir, fs) =>
+            ((await fs.exists(fs.join(dir, 'game'))) && (await fs.globMatch(fs.join(dir, 'game'), /\.rpy$/i))) ||
+            fs.globMatch(fs.join(dir, 'lib'), /^windows-/i)
+    },
+    { engine: 'unity', check: async (dir, fs) => fs.exists(fs.join(dir, 'UnityPlayer.dll')) },
+    { engine: 'unreal', check: async (dir, fs) => fs.exists(fs.join(dir, 'Engine', 'Binaries')) },
+    { engine: 'wolf-rpg', check: async (dir, fs) => fs.globMatch(dir, /\.wolf$/i) },
+    { engine: 'flash', check: async (dir, fs) => fs.globMatch(dir, /\.swf$/i) },
+    {
+        engine: 'bakin',
+        check: async (dir, fs) => (await fs.exists(fs.join(dir, 'data', 'bakinengine.dll'))) || fs.exists(fs.join(dir, 'data', 'data.rbpack'))
+    },
+    {
+        engine: 'godot',
+        check: async (dir, fs) => (await fs.globMatch(dir, /\.pck$/i)) || fs.exists(fs.join(dir, 'project.godot'))
+    },
+    {
+        engine: 'tyranobuilder',
+        check: async (dir, fs) => (await fs.exists(fs.join(dir, 'tyrano'))) || fs.exists(fs.join(dir, 'data', 'system'))
+    }
+];
+
 export async function detectEngine(
     exeDir: string,
     fs: FileSystemProvider = defaultFs
 ): Promise<GameEngineType | null> {
-    // RPG Maker MV/MZ — www/ folder with js/
-    if (await fs.exists(fs.join(exeDir, 'www', 'js'))) return 'rpg-mv-mz';
-
-    // RPG Maker VX Ace — Data/ folder with .rvdata2 files
-    const dataDir = fs.join(exeDir, 'Data');
-    if ((await fs.exists(dataDir)) && (await fs.globMatch(dataDir, /\.rvdata2$/i))) return 'rpg-vxace';
-
-    // Ren'Py — game/ folder with .rpy or lib/windows-* folder
-    if ((await fs.exists(fs.join(exeDir, 'game'))) && (await fs.globMatch(fs.join(exeDir, 'game'), /\.rpy$/i))) return 'renpy';
-    if (await fs.globMatch(fs.join(exeDir, 'lib'), /^windows-/i)) return 'renpy';
-
-    // Unity — UnityPlayer.dll
-    if (await fs.exists(fs.join(exeDir, 'UnityPlayer.dll'))) return 'unity';
-
-    // Unreal Engine — Engine/Binaries structure
-    if (await fs.exists(fs.join(exeDir, 'Engine', 'Binaries'))) return 'unreal';
-
-    // Wolf RPG — .wolf files or binary game.ini alongside exe
-    if (await fs.globMatch(exeDir, /\.wolf$/i)) return 'wolf-rpg';
-
-    // Flash/AIR — .swf files
-    if (await fs.globMatch(exeDir, /\.swf$/i)) return 'flash';
-
-    // RPG Developer Bakin — bakinplayer.exe or bakinengine.dll or data.rbpack
-    if (await fs.exists(fs.join(exeDir, 'data', 'bakinengine.dll'))) return 'bakin';
-    if (await fs.exists(fs.join(exeDir, 'data', 'data.rbpack'))) return 'bakin';
-
-    // Godot Engine — .pck files or project.godot
-    if (await fs.globMatch(exeDir, /\.pck$/i)) return 'godot';
-    if (await fs.exists(fs.join(exeDir, 'project.godot'))) return 'godot';
-
-    // TyranoBuilder — tyrano/ folder or data/system/
-    if (await fs.exists(fs.join(exeDir, 'tyrano'))) return 'tyranobuilder';
-    if (await fs.exists(fs.join(exeDir, 'data', 'system'))) return 'tyranobuilder';
-
+    for (const rule of ENGINE_RULES) {
+        if (await rule.check(exeDir, fs)) return rule.engine;
+    }
     return null;
 }

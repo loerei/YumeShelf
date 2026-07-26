@@ -61,6 +61,54 @@ export async function resolveRenPySave(
     return null;
 }
 
+async function resolveUnityFromAppInfo(
+    exeDir: string,
+    dataFolder: string,
+    localLow: string,
+    fs: FileSystemProvider
+): Promise<ResolvedSaveDirectory | null> {
+    const appInfoPath = fs.join(exeDir, dataFolder, 'app.info');
+    if (!(await fs.exists(appInfoPath))) return null;
+
+    try {
+        const content = await fs.readFile(appInfoPath, 'utf-8');
+        const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (lines.length >= 2) {
+            const savePath = fs.join(localLow, lines[0], lines[1]);
+            if (await fs.exists(savePath)) {
+                return { path: savePath, engine: 'unity', confidence: 'high', source: 'deterministic' };
+            }
+        }
+    } catch {
+        // ignore
+    }
+    return null;
+}
+
+async function resolveUnityFromDataFolder(
+    exeDir: string,
+    dataFolder: string,
+    localLow: string,
+    fs: FileSystemProvider
+): Promise<ResolvedSaveDirectory | null> {
+    const appInfoResult = await resolveUnityFromAppInfo(exeDir, dataFolder, localLow, fs);
+    if (appInfoResult) return appInfoResult;
+
+    const productName = dataFolder.replace(/_Data$/, '');
+    try {
+        const lowEntries = await fs.readdir(localLow);
+        for (const companyDir of lowEntries) {
+            const productPath = fs.join(localLow, companyDir, productName);
+            if (await fs.exists(productPath)) {
+                return { path: productPath, engine: 'unity', confidence: 'medium', source: 'deterministic' };
+            }
+        }
+    } catch {
+        // ignore
+    }
+    return null;
+}
+
 export async function resolveUnitySave(
     exeDir: string,
     fs: FileSystemProvider = defaultFs
@@ -79,32 +127,7 @@ export async function resolveUnitySave(
         const dirEntries = await fs.readdir(exeDir);
         const dataFolder = dirEntries.find((entry) => entry.endsWith('_Data'));
         if (dataFolder) {
-            const appInfoPath = fs.join(exeDir, dataFolder, 'app.info');
-            if (await fs.exists(appInfoPath)) {
-                const content = await fs.readFile(appInfoPath, 'utf-8');
-                const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-                if (lines.length >= 2) {
-                    const company = lines[0];
-                    const product = lines[1];
-                    const savePath = fs.join(localLow, company, product);
-                    if (await fs.exists(savePath)) {
-                        return { path: savePath, engine: 'unity', confidence: 'high', source: 'deterministic' };
-                    }
-                }
-            }
-
-            const productName = dataFolder.replace(/_Data$/, '');
-            try {
-                const lowEntries = await fs.readdir(localLow);
-                for (const companyDir of lowEntries) {
-                    const productPath = fs.join(localLow, companyDir, productName);
-                    if (await fs.exists(productPath)) {
-                        return { path: productPath, engine: 'unity', confidence: 'medium', source: 'deterministic' };
-                    }
-                }
-            } catch {
-                // ignore
-            }
+            return await resolveUnityFromDataFolder(exeDir, dataFolder, localLow, fs);
         }
     } catch {
         // ignore

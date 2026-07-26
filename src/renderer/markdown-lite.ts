@@ -57,7 +57,7 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const headingMatch = /^(#{1,3})\s+(.*)$/.exec(line);
+        const headingMatch = /^(#{1,3})\s+(.+)$/.exec(line);
         if (headingMatch) {
             flushParagraph();
             flushList();
@@ -73,7 +73,7 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const listMatch = /^[-*]\s+(.*)$/.exec(line);
+        const listMatch = /^[-*]\s+(.+)$/.exec(line);
         if (listMatch) {
             flushParagraph();
             listItems.push(listMatch[1].trim());

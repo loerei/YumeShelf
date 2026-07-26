@@ -3,40 +3,13 @@ import * as path from 'node:path';
 import { app } from 'electron';
 import SaveMappingManager from './mapping-manager';
 
-// Import all save formats
-import rpgMakerMz from './formats/rpg-maker-mz';
-import rpgMakerMv from './formats/rpg-maker-mv';
-import rpgWolfSav from './formats/rpg-wolf-sav';
-import unityMonoBin from './formats/unity-mono-bin';
-import renpy from './formats/renpy';
-import simpleKeyedJson from './formats/simple-keyed-json';
-import pureJson from './formats/pure-json';
-import bakinSgs from './formats/bakin-sgs';
+import { SaveDataEngine } from './engine';
 
 export interface SaveFormat {
     match(fileName: string): boolean;
     decode(rawData: Buffer, paths?: any, fileName?: string): Promise<any>;
     encode(jsonData: any, paths?: any, fileName?: string): Promise<Buffer>;
     metadata?(jsonData: any, paths?: any, fileName?: string): Promise<any>;
-}
-
-const formats: SaveFormat[] = [
-    rpgMakerMz,
-    rpgMakerMv,
-    rpgWolfSav,
-    unityMonoBin,
-    renpy,
-    simpleKeyedJson,
-    pureJson,
-    bakinSgs
-];
-
-function getFormat(fileName: string): SaveFormat {
-    const matched = formats.find(f => f.match(fileName));
-    if (!matched) {
-        throw new Error(`Unsupported save file format for file: ${fileName}`);
-    }
-    return matched;
 }
 
 export interface SaveEditorServiceConfig {
@@ -195,7 +168,6 @@ function getTranslationFilePath(lang = 'en') {
 }
 
 export function createSaveEditorService({ libraryState, saveFolderResolver }: SaveEditorServiceConfig) {
-    
     async function getGamePaths(gameKey: string) {
         const record = await libraryState.getGameRecord(gameKey);
         if (!record?.exePath) return null;
@@ -237,21 +209,14 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         };
     }
 
-
+    const engine = new SaveDataEngine({
+        getGamePaths,
+        loadMetadata
+    });
 
     async function listSaveFiles(gameKey: string): Promise<string[]> {
         try {
-            const paths = await getGamePaths(gameKey);
-            if (!paths) return [];
-            
-            if (!(await exists(paths.saveDir))) return [];
-
-            const files = await fs.readdir(paths.saveDir);
-            const saveFiles = files
-                .filter(f => formats.some(fmt => fmt.match(f)))
-                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-            
-            return saveFiles;
+            return await engine.listSaveFiles(gameKey);
         } catch (err) {
             console.error(`[SAVE-EDITOR] Error listing save files:`, err);
             throw err;
@@ -260,68 +225,16 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
 
     async function loadSaveData(gameKey: string, fileName: string) {
         try {
-            const paths = await getGamePaths(gameKey);
-            if (!paths) throw new Error('Could not resolve game paths');
-            
-            const safeName = path.basename(fileName);
-            const savePath = path.join(paths.saveDir, safeName);
-            
-            const resolvedSavePath = path.resolve(savePath);
-            const resolvedSaveDir = path.resolve(paths.saveDir);
-            if (!resolvedSavePath.startsWith(resolvedSaveDir + path.sep) && resolvedSavePath !== resolvedSaveDir) {
-                throw new Error('Invalid save file path: Path traversal detected');
-            }
-            
-            const rawData = await fs.readFile(savePath);
-            
-            const format = getFormat(fileName);
-            const jsonData = await format.decode(rawData, paths, fileName);
-            
-            // Inject user mappings
-            const mappingMgr = new SaveMappingManager(gameKey);
-            jsonData._userMappings = mappingMgr.mappings.variables;
-            
-            const metadata = typeof format.metadata === 'function'
-                ? await format.metadata(jsonData, paths, fileName)
-                : await loadMetadata(paths.dataDir, paths.langDataDir);
-            
-            return {
-                data: jsonData,
-                metadata
-            };
+            return await engine.loadSave(gameKey, fileName);
         } catch (err) {
             console.error(`[SAVE-EDITOR] Error loading save data:`, err);
             throw err;
         }
     }
 
-
-
-
-
     async function writeSaveData(gameKey: string, fileName: string, jsonData: any) {
         try {
-            const paths = await getGamePaths(gameKey);
-            if (!paths) throw new Error('Could not resolve game paths');
-            
-            const safeName = path.basename(fileName);
-            const savePath = path.join(paths.saveDir, safeName);
-            
-            const resolvedSavePath = path.resolve(savePath);
-            const resolvedSaveDir = path.resolve(paths.saveDir);
-            if (!resolvedSavePath.startsWith(resolvedSaveDir + path.sep) && resolvedSavePath !== resolvedSaveDir) {
-                throw new Error('Invalid save file path: Path traversal detected');
-            }
-            
-            const format = getFormat(fileName);
-            const outputData = await format.encode(jsonData, paths, fileName);
-            
-            try {
-                await fs.copyFile(savePath, savePath + '.bak');
-            } catch {}
-            
-            await fs.writeFile(savePath, outputData);
-            return { ok: true };
+            return await engine.writeSave(gameKey, fileName, jsonData);
         } catch (err) {
             console.error(`[SAVE-EDITOR] Error writing save data:`, err);
             throw err;

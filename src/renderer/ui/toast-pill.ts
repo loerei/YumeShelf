@@ -9,12 +9,8 @@ export function initToastPill(container?: HTMLElement | null): void {
 }
 
 export function showToastPill(message: string, durationMs = 3000): void {
-    if (!toastHost) {
-        toastHost = document.getElementById('toast-pill-host');
-    }
-    if (!toastText) {
-        toastText = document.getElementById('toast-pill-text');
-    }
+    toastHost ??= document.getElementById('toast-pill-host');
+    toastText ??= document.getElementById('toast-pill-text');
 
     if (!toastHost || !toastText) return;
 
@@ -31,7 +27,7 @@ export function showToastPill(message: string, durationMs = 3000): void {
 
     toastHost.style.display = 'flex';
     // Trigger reflow
-    void toastHost.offsetWidth;
+    const _reflow = toastHost.offsetWidth;
     toastHost.classList.remove('toast-pill-hiding');
     toastHost.classList.add('toast-pill-visible');
 
@@ -41,7 +37,7 @@ export function showToastPill(message: string, durationMs = 3000): void {
         toastHost.classList.add('toast-pill-hiding');
 
         hideTimer = setTimeout(() => {
-            if (toastHost && toastHost.classList.contains('toast-pill-hiding')) {
+            if (toastHost?.classList.contains('toast-pill-hiding')) {
                 toastHost.style.display = 'none';
                 toastHost.classList.remove('toast-pill-hiding');
             }

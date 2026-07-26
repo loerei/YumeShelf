@@ -33,8 +33,8 @@ export interface SaveDataEngineConfig {
 }
 
 export class SaveDataEngine {
-    private formats: SaveFormatStrategy[];
-    private config: SaveDataEngineConfig;
+    private readonly formats: SaveFormatStrategy[];
+    private readonly config: SaveDataEngineConfig;
 
     constructor(config: SaveDataEngineConfig, customFormats?: SaveFormatStrategy[]) {
         this.config = config;

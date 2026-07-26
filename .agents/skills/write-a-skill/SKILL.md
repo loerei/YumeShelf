@@ -24,7 +24,7 @@ skill-name/
 
 ## SKILL.md Template
 
-```md
+````md
 ---
 name: skill-name
 description: Brief description of capability. Use when [specific triggers].
@@ -50,7 +50,7 @@ flowchart TD
 ## Advanced features
 
 [Link to separate files: See [REFERENCE.md](REFERENCE.md)]
-```
+````
 
 ## Description Requirements
 

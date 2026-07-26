@@ -4,6 +4,15 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
+## [1.5.12] - 2026-07-26 — released
+
+### 🔧 Fixes & Improvements
+
+- [save-editor] Fixed `.rmmzsave` RPG Maker MZ save file encoding format by converting compressed binary zlib streams to UTF-8 character string representation expected by RPG Maker MZ's `StorageManager` (`pako.inflate`).
+- [save-editor] Automatically strip internal UI metadata (`_userMappings`) prior to encoding `.rmmzsave` files to prevent save file corruption and pollution.
+
+---
+
 ## [1.5.11] - 2026-07-22 — released
 
 ### ✨ What's New

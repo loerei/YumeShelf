@@ -97,7 +97,7 @@ if (missing) {
 // 7. Git commit & tag
 console.log('\n📌 Step 6: Git commit & tagging...');
 const commitMsg = `release: v${targetVersion} - release notes & production build`;
-run(`git add CHANGELOG.md package.json pnpm-lock.yaml src/ language-packs/ scripts/ docs/changelogs/`, { skipInDryRun: true });
+run(`git add CHANGELOG.md package.json pnpm-lock.yaml src/ language-packs/ scripts/`, { skipInDryRun: true });
 run(`git commit -m "${commitMsg}"`, { skipInDryRun: true });
 run(`git push origin main`, { skipInDryRun: true });
 run(`git tag v${targetVersion}`, { skipInDryRun: true });

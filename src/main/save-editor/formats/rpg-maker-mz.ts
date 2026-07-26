@@ -16,6 +16,7 @@ class RpgMakerMzFormat {
             const decompressedBuffer = zlib.inflateSync(rawBytes);
             return JSON.parse(decompressedBuffer.toString('utf8'));
         } catch (err: any) {
+            console.warn('[SAVE-EDITOR-MZ] UTF-8 decoding failed, trying raw binary zlib fallback:', err?.message);
             // Fallback for standard raw binary zlib compressed saves
             const decompressedBuffer = zlib.inflateSync(rawData);
             return JSON.parse(decompressedBuffer.toString('utf8'));
@@ -31,11 +32,10 @@ class RpgMakerMzFormat {
         // Compress JSON to raw zlib buffer
         const compressed = zlib.deflateSync(Buffer.from(jsonStr, 'utf8'), { level: 1 });
 
-        // Convert raw compressed bytes to RPG Maker MZ UTF-8 string representation:
-        // Byte val X (0-255) -> String.fromCharCode(X) -> Buffer.from(str, 'utf8')
+        // Convert raw compressed bytes to RPG Maker MZ UTF-8 string representation
         let str = '';
-        for (let i = 0; i < compressed.length; i++) {
-            str += String.fromCharCode(compressed[i]);
+        for (const byte of compressed) {
+            str += String.fromCodePoint(byte);
         }
         return Buffer.from(str, 'utf8');
     }

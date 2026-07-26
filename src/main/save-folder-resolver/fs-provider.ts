@@ -7,7 +7,10 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
         try {
             await fs.access(target);
             return true;
-        } catch {
+        } catch (err: any) {
+            if (err?.code !== 'ENOENT') {
+                console.warn(`[SAVE-RESOLVER][FS] Error checking existence for ${target}:`, err);
+            }
             return false;
         }
     }
@@ -16,7 +19,10 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
         try {
             const stat = await fs.stat(target);
             return stat.isDirectory();
-        } catch {
+        } catch (err: any) {
+            if (err?.code !== 'ENOENT') {
+                console.warn(`[SAVE-RESOLVER][FS] Error checking stat for ${target}:`, err);
+            }
             return false;
         }
     }
@@ -24,7 +30,10 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
     async readdir(dir: string): Promise<string[]> {
         try {
             return await fs.readdir(dir);
-        } catch {
+        } catch (err: any) {
+            if (err?.code !== 'ENOENT') {
+                console.warn(`[SAVE-RESOLVER][FS] Error reading directory ${dir}:`, err);
+            }
             return [];
         }
     }
@@ -37,7 +46,10 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
         try {
             const entries = await fs.readdir(dir);
             return entries.some((entry) => pattern.test(entry));
-        } catch {
+        } catch (err: any) {
+            if (err?.code !== 'ENOENT') {
+                console.warn(`[SAVE-RESOLVER][FS] Error globbing directory ${dir}:`, err);
+            }
             return false;
         }
     }
@@ -105,7 +117,11 @@ export class MockFileSystemProvider implements FileSystemProvider {
     }
 
     private normalize(p: string): string {
-        return p.replaceAll('\\', '/').replace(/\/+$/, '');
+        let norm = p.replaceAll('\\', '/');
+        while (norm.length > 1 && norm.endsWith('/')) {
+            norm = norm.slice(0, -1);
+        }
+        return norm;
     }
 
     async exists(target: string): Promise<boolean> {

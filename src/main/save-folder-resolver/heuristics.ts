@@ -1,30 +1,29 @@
-import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
-import { exists, normalizeForSearch } from './utils';
-import { ResolvedSaveInfo } from './resolvers/engine-resolvers';
+import { FileSystemProvider, ResolvedSaveDirectory } from './types';
+import { DefaultFileSystemProvider } from './fs-provider';
+import { normalizeForSearch } from './utils';
 
 const SAVE_DIR_NAMES = /^(save|saves|savedata|save_data|savefiles)$/i;
 const SAVE_EXTENSIONS = /\.(sav|save|rpgsave|rvdata2|dat|ksd|sol)$/i;
 const MAX_HEURISTIC_DEPTH = 3;
 
-export async function deepenSaveFolder(foundPath: string): Promise<string>;
-export async function deepenSaveFolder(foundPath: null | undefined): Promise<null>;
-export async function deepenSaveFolder(foundPath: string | null | undefined): Promise<string | null>;
-export async function deepenSaveFolder(foundPath: string | null | undefined): Promise<string | null | undefined> {
+const defaultFs = new DefaultFileSystemProvider();
+
+export async function deepenSaveFolder(
+    foundPath: string | null | undefined,
+    fs: FileSystemProvider = defaultFs
+): Promise<string | null | undefined> {
     if (!foundPath) return foundPath;
     try {
-        const rootStat = await fs.stat(foundPath);
-        if (!rootStat.isDirectory()) return foundPath;
+        if (!(await fs.isDirectory(foundPath))) return foundPath;
 
-        const naniPath = path.join(foundPath, 'NaninovelData', 'NaniSaves');
-        if (await exists(naniPath)) return naniPath;
+        const naniPath = fs.join(foundPath, 'NaninovelData', 'NaniSaves');
+        if (await fs.exists(naniPath)) return naniPath;
 
         const subDirs = ['Save', 'Saves', 'SaveGames', 'SaveData', 'savedata', 'saves', 'game_save'];
         for (const sub of subDirs) {
-            const candidate = path.join(foundPath, sub);
-            if (await exists(candidate)) {
-                const stat = await fs.stat(candidate);
-                if (stat.isDirectory()) return candidate;
+            const candidate = fs.join(foundPath, sub);
+            if (await fs.exists(candidate)) {
+                if (await fs.isDirectory(candidate)) return candidate;
             }
         }
     } catch {
@@ -33,28 +32,35 @@ export async function deepenSaveFolder(foundPath: string | null | undefined): Pr
     return foundPath;
 }
 
-export async function heuristicSaveScan(exeDir: string, depth = 0): Promise<ResolvedSaveInfo | null> {
+export async function heuristicSaveScan(
+    exeDir: string,
+    depth = 0,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
     if (depth > MAX_HEURISTIC_DEPTH) return null;
     if (depth === 0) console.log(`[SAVE-RESOLVER][HEURISTIC] Scanning ${exeDir}...`);
 
     try {
-        const entries = await fs.readdir(exeDir, { withFileTypes: true });
-        for (const entry of entries) {
-            if (!entry.isDirectory()) continue;
-            if (SAVE_DIR_NAMES.test(entry.name)) {
-                const candidate = path.join(exeDir, entry.name);
-                const files = await fs.readdir(candidate).catch(() => []);
+        const entries = await fs.readdir(exeDir);
+        for (const entryName of entries) {
+            const fullPath = fs.join(exeDir, entryName);
+            if (!(await fs.isDirectory(fullPath))) continue;
+
+            if (SAVE_DIR_NAMES.test(entryName)) {
+                const files = await fs.readdir(fullPath).catch(() => []);
                 const hasSaveFiles = files.some((file) => SAVE_EXTENSIONS.test(file));
                 if (hasSaveFiles || files.length > 0) {
-                    return { path: candidate, engine: 'unknown', confidence: 'medium' };
+                    return { path: fullPath, engine: 'unknown', confidence: 'medium', source: 'heuristic' };
                 }
             }
         }
 
-        for (const entry of entries) {
-            if (!entry.isDirectory()) continue;
-            if (/^(node_modules|lib|www|data|img|audio|fonts|css|js|plugins|effects)$/i.test(entry.name)) continue;
-            const result = await heuristicSaveScan(path.join(exeDir, entry.name), depth + 1);
+        for (const entryName of entries) {
+            const fullPath = fs.join(exeDir, entryName);
+            if (!(await fs.isDirectory(fullPath))) continue;
+            if (/^(node_modules|lib|www|data|img|audio|fonts|css|js|plugins|effects)$/i.test(entryName)) continue;
+
+            const result = await heuristicSaveScan(fullPath, depth + 1, fs);
             if (result) return result;
         }
     } catch {
@@ -63,28 +69,32 @@ export async function heuristicSaveScan(exeDir: string, depth = 0): Promise<Reso
     return null;
 }
 
-export async function appDataFuzzyMatch(exeDir: string, exeStem: string): Promise<ResolvedSaveInfo | null> {
+export async function appDataFuzzyMatch(
+    exeDir: string,
+    exeStem: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
     console.log(`[SAVE-RESOLVER][APPDATA] Fuzzy matching stem: ${exeStem}`);
     if (exeStem.length < 3) return null;
 
-    const localLow = path.join(process.env.USERPROFILE || '', 'AppData', 'LocalLow');
+    const userProfile = fs.getEnv('USERPROFILE') || '';
+    const localLow = fs.join(userProfile, 'AppData', 'LocalLow');
     const normalizedStem = normalizeForSearch(exeStem);
     if (!normalizedStem) return null;
 
     try {
         const companies = await fs.readdir(localLow);
         for (const company of companies) {
-            const companyPath = path.join(localLow, company);
+            const companyPath = fs.join(localLow, company);
             try {
-                const stat = await fs.stat(companyPath);
-                if (!stat.isDirectory()) continue;
+                if (!(await fs.isDirectory(companyPath))) continue;
                 const products = await fs.readdir(companyPath);
                 const match = products.find((product) => {
                     const normProduct = normalizeForSearch(product);
                     return normProduct.includes(normalizedStem) || normalizedStem.includes(normProduct);
                 });
                 if (match) {
-                    return { path: path.join(companyPath, match), engine: 'unity', confidence: 'low' };
+                    return { path: fs.join(companyPath, match), engine: 'unity', confidence: 'low', source: 'appdata' };
                 }
             } catch {
                 continue;
@@ -94,16 +104,14 @@ export async function appDataFuzzyMatch(exeDir: string, exeStem: string): Promis
         // ignore
     }
 
-    const localAppData = process.env.LOCALAPPDATA || '';
+    const localAppData = fs.getEnv('LOCALAPPDATA') || '';
     try {
         const entries = await fs.readdir(localAppData);
-        const match = entries.find((entry) =>
-            entry.toLowerCase() === exeStem.toLowerCase()
-        );
+        const match = entries.find((entry) => entry.toLowerCase() === exeStem.toLowerCase());
         if (match) {
-            const saveGames = path.join(localAppData, match, 'Saved', 'SaveGames');
-            if (await exists(saveGames)) {
-                return { path: saveGames, engine: 'unreal', confidence: 'low' };
+            const saveGames = fs.join(localAppData, match, 'Saved', 'SaveGames');
+            if (await fs.exists(saveGames)) {
+                return { path: saveGames, engine: 'unreal', confidence: 'low', source: 'appdata' };
             }
         }
     } catch {

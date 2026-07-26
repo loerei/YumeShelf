@@ -4,6 +4,18 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
+## [1.5.13] - working
+
+### 🛠️ For the Nerds
+
+- [save-resolver] Consolidated engine detection, deterministic path discovery, and heuristic fallback scanning behind a unified `SaveFolderResolver` deep module class.
+- [save-resolver] Added `FileSystemProvider` interface (`DefaultFileSystemProvider` and `MockFileSystemProvider`) enabling virtual filesystem unit testing without real OS path dependencies.
+- [save-resolver] Standardized return DTO `ResolvedSaveDirectory` with `path`, `engine`, `confidence`, and `source` fields while preserving backward-compatible `resolveSaveFolder` export.
+- [save-resolver] Added engine detection and path resolution rules for Godot Engine (`.pck`, `project.godot`) and TyranoBuilder (`tyrano/`, `tyrano/savedata`).
+- [save-resolver] Added comprehensive vitest suite (`save-folder-resolver.test.ts`) covering all engine resolvers and fallbacks.
+
+---
+
 ## [1.5.12] - 2026-07-26 — released
 
 ### 🔧 Fixes & Improvements

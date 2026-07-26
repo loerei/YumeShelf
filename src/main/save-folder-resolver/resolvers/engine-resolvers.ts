@@ -1,35 +1,43 @@
-import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
-import { exists, globMatch, getExeStem } from '../utils';
+import { FileSystemProvider, ResolvedSaveDirectory } from '../types';
+import { DefaultFileSystemProvider } from '../fs-provider';
+import { getExeStem } from '../utils';
 
-export interface ResolvedSaveInfo {
-    path: string;
-    engine: string;
-    confidence: 'high' | 'medium' | 'low';
-}
+export type { ResolvedSaveInfo, ResolvedSaveDirectory } from '../types';
+const defaultFs = new DefaultFileSystemProvider();
 
-export async function resolveRpgMakerSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
-    const saveDir = path.join(exeDir, 'www', 'save');
-    if (await exists(saveDir)) {
-        return { path: saveDir, engine: 'rpg-mv-mz', confidence: 'high' };
+export async function resolveRpgMakerSave(
+    exeDir: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
+    const saveDir = fs.join(exeDir, 'www', 'save');
+    if (await fs.exists(saveDir)) {
+        return { path: saveDir, engine: 'rpg-mv-mz', confidence: 'high', source: 'deterministic' };
     }
     return null;
 }
 
-export async function resolveRpgVxAceSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
-    const saveDir = path.join(exeDir, 'Save');
-    if (await exists(saveDir)) {
-        return { path: saveDir, engine: 'rpg-vxace', confidence: 'high' };
+export async function resolveRpgVxAceSave(
+    exeDir: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
+    const saveDir = fs.join(exeDir, 'Save');
+    if (await fs.exists(saveDir)) {
+        return { path: saveDir, engine: 'rpg-vxace', confidence: 'high', source: 'deterministic' };
     }
-    if (await globMatch(exeDir, /^Save\d+\.rvdata2$/i)) {
-        return { path: exeDir, engine: 'rpg-vxace', confidence: 'high' };
+    if (await fs.globMatch(exeDir, /^Save\d+\.rvdata2$/i)) {
+        return { path: exeDir, engine: 'rpg-vxace', confidence: 'high', source: 'deterministic' };
     }
     return null;
 }
 
-export async function resolveRenPySave(exeDir: string, exeStem: string): Promise<ResolvedSaveInfo | null> {
-    const renpySaveRoot = path.join(process.env.APPDATA || '', 'RenPy');
-    if (!await exists(renpySaveRoot)) return null;
+export async function resolveRenPySave(
+    exeDir: string,
+    exeStem: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
+    const appData = fs.getEnv('APPDATA') || '';
+    const renpySaveRoot = fs.join(appData, 'RenPy');
+    if (!(await fs.exists(renpySaveRoot))) return null;
 
     try {
         const entries = await fs.readdir(renpySaveRoot);
@@ -38,14 +46,14 @@ export async function resolveRenPySave(exeDir: string, exeStem: string): Promise
             return normalized === exeStem.toLowerCase();
         });
         if (match) {
-            return { path: path.join(renpySaveRoot, match), engine: 'renpy', confidence: 'high' };
+            return { path: fs.join(renpySaveRoot, match), engine: 'renpy', confidence: 'high', source: 'deterministic' };
         }
 
-        const fuzzyMatch = entries.find((entry) =>
-            entry.toLowerCase().includes(exeStem.toLowerCase()) && exeStem.length >= 4
+        const fuzzyMatch = entries.find(
+            (entry) => entry.toLowerCase().includes(exeStem.toLowerCase()) && exeStem.length >= 4
         );
         if (fuzzyMatch) {
-            return { path: path.join(renpySaveRoot, fuzzyMatch), engine: 'renpy', confidence: 'medium' };
+            return { path: fs.join(renpySaveRoot, fuzzyMatch), engine: 'renpy', confidence: 'medium', source: 'deterministic' };
         }
     } catch {
         // ignore
@@ -53,30 +61,34 @@ export async function resolveRenPySave(exeDir: string, exeStem: string): Promise
     return null;
 }
 
-export async function resolveUnitySave(exeDir: string): Promise<ResolvedSaveInfo | null> {
+export async function resolveUnitySave(
+    exeDir: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
     const localCandidates = ['saves', 'save', 'SaveData', 'save_data'];
     for (const dirName of localCandidates) {
-        const candidate = path.join(exeDir, dirName);
-        if (await exists(candidate)) {
-            return { path: candidate, engine: 'unity', confidence: 'high' };
+        const candidate = fs.join(exeDir, dirName);
+        if (await fs.exists(candidate)) {
+            return { path: candidate, engine: 'unity', confidence: 'high', source: 'deterministic' };
         }
     }
 
-    const localLow = path.join(process.env.USERPROFILE || '', 'AppData', 'LocalLow');
+    const userProfile = fs.getEnv('USERPROFILE') || '';
+    const localLow = fs.join(userProfile, 'AppData', 'LocalLow');
     try {
         const dirEntries = await fs.readdir(exeDir);
         const dataFolder = dirEntries.find((entry) => entry.endsWith('_Data'));
         if (dataFolder) {
-            const appInfoPath = path.join(exeDir, dataFolder, 'app.info');
-            if (await exists(appInfoPath)) {
+            const appInfoPath = fs.join(exeDir, dataFolder, 'app.info');
+            if (await fs.exists(appInfoPath)) {
                 const content = await fs.readFile(appInfoPath, 'utf-8');
                 const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
                 if (lines.length >= 2) {
                     const company = lines[0];
                     const product = lines[1];
-                    const savePath = path.join(localLow, company, product);
-                    if (await exists(savePath)) {
-                        return { path: savePath, engine: 'unity', confidence: 'high' };
+                    const savePath = fs.join(localLow, company, product);
+                    if (await fs.exists(savePath)) {
+                        return { path: savePath, engine: 'unity', confidence: 'high', source: 'deterministic' };
                     }
                 }
             }
@@ -85,9 +97,9 @@ export async function resolveUnitySave(exeDir: string): Promise<ResolvedSaveInfo
             try {
                 const lowEntries = await fs.readdir(localLow);
                 for (const companyDir of lowEntries) {
-                    const productPath = path.join(localLow, companyDir, productName);
-                    if (await exists(productPath)) {
-                        return { path: productPath, engine: 'unity', confidence: 'medium' };
+                    const productPath = fs.join(localLow, companyDir, productName);
+                    if (await fs.exists(productPath)) {
+                        return { path: productPath, engine: 'unity', confidence: 'medium', source: 'deterministic' };
                     }
                 }
             } catch {
@@ -100,23 +112,26 @@ export async function resolveUnitySave(exeDir: string): Promise<ResolvedSaveInfo
     return null;
 }
 
-export async function resolveUnrealSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
+export async function resolveUnrealSave(
+    exeDir: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
     const exeStem = getExeStem(exeDir);
-    const localAppData = process.env.LOCALAPPDATA || '';
+    const localAppData = fs.getEnv('LOCALAPPDATA') || '';
 
-    const savePath = path.join(localAppData, exeStem, 'Saved', 'SaveGames');
-    if (await exists(savePath)) {
-        return { path: savePath, engine: 'unreal', confidence: 'high' };
+    const savePath = fs.join(localAppData, exeStem, 'Saved', 'SaveGames');
+    if (await fs.exists(savePath)) {
+        return { path: savePath, engine: 'unreal', confidence: 'high', source: 'deterministic' };
     }
 
     try {
         const binariesIdx = exeDir.toLowerCase().indexOf('binaries');
         if (binariesIdx > 0) {
             const projectRoot = exeDir.substring(0, binariesIdx - 1);
-            const projectName = path.basename(projectRoot);
-            const altSavePath = path.join(localAppData, projectName, 'Saved', 'SaveGames');
-            if (await exists(altSavePath)) {
-                return { path: altSavePath, engine: 'unreal', confidence: 'high' };
+            const projectName = fs.basename(projectRoot);
+            const altSavePath = fs.join(localAppData, projectName, 'Saved', 'SaveGames');
+            if (await fs.exists(altSavePath)) {
+                return { path: altSavePath, engine: 'unreal', confidence: 'high', source: 'deterministic' };
             }
         }
     } catch {
@@ -124,11 +139,11 @@ export async function resolveUnrealSave(exeDir: string): Promise<ResolvedSaveInf
     }
 
     try {
-        const parent = path.dirname(exeDir);
-        const parentName = path.basename(parent);
-        const altSavePath = path.join(localAppData, parentName, 'Saved', 'SaveGames');
-        if (await exists(altSavePath)) {
-            return { path: altSavePath, engine: 'unreal', confidence: 'medium' };
+        const parent = fs.dirname(exeDir);
+        const parentName = fs.basename(parent);
+        const altSavePath = fs.join(localAppData, parentName, 'Saved', 'SaveGames');
+        if (await fs.exists(altSavePath)) {
+            return { path: altSavePath, engine: 'unreal', confidence: 'medium', source: 'deterministic' };
         }
     } catch {
         // ignore
@@ -137,21 +152,51 @@ export async function resolveUnrealSave(exeDir: string): Promise<ResolvedSaveInf
     return null;
 }
 
-export async function resolveWolfRpgSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
-    if (await globMatch(exeDir, /\.sav$/i)) {
-        return { path: exeDir, engine: 'wolf-rpg', confidence: 'medium' };
+export async function resolveWolfRpgSave(
+    exeDir: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
+    if (await fs.globMatch(exeDir, /\.sav$/i)) {
+        return { path: exeDir, engine: 'wolf-rpg', confidence: 'medium', source: 'deterministic' };
     }
     return null;
 }
 
-export async function resolveBakinSave(exeDir: string): Promise<ResolvedSaveInfo | null> {
-    const saveDir = path.join(exeDir, 'data', 'savedata');
-    if (await exists(saveDir)) {
-        return { path: saveDir, engine: 'bakin', confidence: 'high' };
+export async function resolveBakinSave(
+    exeDir: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
+    const saveDir = fs.join(exeDir, 'data', 'savedata');
+    if (await fs.exists(saveDir)) {
+        return { path: saveDir, engine: 'bakin', confidence: 'high', source: 'deterministic' };
     }
-    const saveDirAlt = path.join(exeDir, 'savedata');
-    if (await exists(saveDirAlt)) {
-        return { path: saveDirAlt, engine: 'bakin', confidence: 'high' };
+    const saveDirAlt = fs.join(exeDir, 'savedata');
+    if (await fs.exists(saveDirAlt)) {
+        return { path: saveDirAlt, engine: 'bakin', confidence: 'high', source: 'deterministic' };
+    }
+    return null;
+}
+
+export async function resolveGodotSave(
+    exeDir: string,
+    exeStem: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
+    const appData = fs.getEnv('APPDATA') || '';
+    const godotUserDir = fs.join(appData, 'Godot', 'app_userdata', exeStem);
+    if (await fs.exists(godotUserDir)) {
+        return { path: godotUserDir, engine: 'godot', confidence: 'high', source: 'deterministic' };
+    }
+    return null;
+}
+
+export async function resolveTyranoBuilderSave(
+    exeDir: string,
+    fs: FileSystemProvider = defaultFs
+): Promise<ResolvedSaveDirectory | null> {
+    const saveDir = fs.join(exeDir, 'tyrano', 'savedata');
+    if (await fs.exists(saveDir)) {
+        return { path: saveDir, engine: 'tyranobuilder', confidence: 'high', source: 'deterministic' };
     }
     return null;
 }

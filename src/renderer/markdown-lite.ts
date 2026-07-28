@@ -1,5 +1,6 @@
 export function escapeHtml(value: unknown): string {
-    return String(value || '')
+    const str = typeof value === 'string' ? value : String(value ?? '');
+    return str
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;')
@@ -56,12 +57,15 @@ export function renderMarkdownLite(markdown: string): string {
             continue;
         }
 
-        const headingMatch = /^(#{1,3})\s+(.*)$/.exec(line);
-        if (headingMatch) {
+        const headingMatch = line.match(/^#{1,3}\s+(.+)$/);
+        if (headingMatch && line.startsWith('#')) {
             flushParagraph();
             flushList();
-            const level = Math.min(headingMatch[1].length, 3);
-            html.push(`<h${level}>${renderInlineMarkdown(headingMatch[2].trim())}</h${level}>`);
+            const spaceIndex = line.indexOf(' ');
+            const hashCount = spaceIndex > 0 ? spaceIndex : 1;
+            const level = Math.min(hashCount, 3);
+            const titleText = line.slice(spaceIndex + 1).trim();
+            html.push(`<h${level}>${renderInlineMarkdown(titleText)}</h${level}>`);
             continue;
         }
 
@@ -72,10 +76,9 @@ export function renderMarkdownLite(markdown: string): string {
             continue;
         }
 
-        const listMatch = /^[-*]\s+(.*)$/.exec(line);
-        if (listMatch) {
+        if ((line.startsWith('- ') || line.startsWith('* ')) && line.length > 2) {
             flushParagraph();
-            listItems.push(listMatch[1].trim());
+            listItems.push(line.slice(2).trim());
             continue;
         }
 

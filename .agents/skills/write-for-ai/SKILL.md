@@ -14,7 +14,7 @@ Text written for AI must help it make decisions — not explain how things work,
 3. **No marketing adjectives.** Cut: robust, seamless, powerful, atomic, crash-resilient, smart, advanced, best-in-class.
 4. **Don't repeat the schema.** Tool descriptions must not restate what parameter descriptions already say.
 5. **Keep failure conditions.** AI needs to know *when it will fail* to plan its next step.
-6. **Prefer tables for decision rules.** Tables cost fewer tokens than equivalent prose for the same information density.
+6. **Prefer Mermaid diagrams over tables when ADHERENCE IS NEEDED.** Agent adherence drops significantly when reading flat tables for multi-branch workflows.
 7. **Don't rename domain terms.** If a word is used consistently in the codebase or spec, keep it -- even if a synonym sounds simpler.
 8. **Only add information to resolve ambiguity.** Add a purpose statement only if it helps AI distinguish this tool from an alternative. Don't add what the tool name already implies.
 9. **Don't cut "e.g." from enum lists** unless you've confirmed the list is exhaustive. Removing it signals to AI that the list is complete when it may not be.

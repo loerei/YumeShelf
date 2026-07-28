@@ -1,7 +1,7 @@
 import { RegisterIpcOptions } from '../types';
 
 export class TranslationIpcController {
-    constructor(private options: RegisterIpcOptions) {}
+    constructor(private readonly options: RegisterIpcOptions) {}
 
     public registerHandlers(): void {
         const { ipcMain, languagePackServices, libraryState, translationService } = this.options;

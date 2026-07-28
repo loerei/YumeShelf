@@ -23,6 +23,26 @@ git add -A && git commit -m "feat(auth): implement basic JWT validation"
 
 ## Workflows
 
+```mermaid
+flowchart TD
+    Start["Start Session / Task"] --> Branch["1. Branch Creation & Naming"]
+    Branch --> Edit["2. Atomic Edits & Test Checks"]
+    Edit --> Verify{"Verification Pass?"}
+    Verify -->|"Pass"| Commit["Commit (Conventional Commit)"]
+    Verify -->|"Fail (under 2 retries)"| FixEdit["Fix edit locally"]
+    FixEdit --> Edit
+    Verify -->|"Fail (2+ retries)"| RollbackTest{"4. Test Failure Rollback"}
+    RollbackTest -->|"Save work"| Stash["git stash"]
+    RollbackTest -->|"Discard changes"| ResetHard["git reset --hard HEAD"]
+    DesignPivot{"Design Approach Incorrect?"} -->|"Keep changes for edit"| ResetSoft["git reset --soft commit-hash"]
+    DesignPivot -->|"Discard completely"| ResetHardPath["git reset --hard commit-hash"]
+    Commit --> PRSync{"3. PR Synchronization"}
+    PRSync -->|"First Commit"| CreatePR["Create Draft PR (github:create_pull_request)"]
+    PRSync -->|"Subsequent Commit"| UpdatePR["Update PR description (create-and-update-pr)"]
+    CreatePR --> NextTask["Proceed to next atomic slice"]
+    UpdatePR --> NextTask
+```
+
 ### 1. Branch Creation & Naming
 - Create a branch from the latest base branch (e.g., `main` or `develop`).
 - Format branch names clearly: `feature/<short-desc>`, `bugfix/<issue-id>`, or `chore/<task-name>`.

@@ -3,7 +3,7 @@ import { isPathWithinLibrary } from '../path-validator';
 import { RegisterIpcOptions } from '../types';
 
 export class LibraryIpcController {
-    constructor(private options: RegisterIpcOptions) {}
+    constructor(private readonly options: RegisterIpcOptions) {}
 
     public registerHandlers(): void {
         const {
@@ -20,9 +20,7 @@ export class LibraryIpcController {
         if (!ipcMain) return;
 
         ipcMain.handle('check-config', async () => startupServices?.resolveLibraryConfig());
-
         ipcMain.handle('get-default-path', () => defaultGamesDir);
-
         ipcMain.handle('setup-library', async (_event, type) => libraryState?.setupLibrary(type));
 
         ipcMain.handle('update-library-config', async (_event, updates = {}) => {

@@ -5,10 +5,10 @@ import { TranslationIpcController } from './controllers/translation.controller';
 import { RegisterIpcOptions } from './types';
 
 export class IpcRouter {
-    private appController: AppIpcController;
-    private libraryController: LibraryIpcController;
-    private translationController: TranslationIpcController;
-    private saveEditorController: SaveEditorIpcController;
+    private readonly appController: AppIpcController;
+    private readonly libraryController: LibraryIpcController;
+    private readonly translationController: TranslationIpcController;
+    private readonly saveEditorController: SaveEditorIpcController;
 
     constructor(options: RegisterIpcOptions) {
         this.appController = new AppIpcController(options);

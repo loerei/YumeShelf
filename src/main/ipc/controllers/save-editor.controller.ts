@@ -2,7 +2,7 @@ import { BrowserWindow } from 'electron';
 import { RegisterIpcOptions } from '../types';
 
 export class SaveEditorIpcController {
-    constructor(private options: RegisterIpcOptions) {}
+    constructor(private readonly options: RegisterIpcOptions) {}
 
     public registerHandlers(): void {
         const { ipcMain, libraryState, saveFolderResolver, saveEditorService, paths } = this.options;

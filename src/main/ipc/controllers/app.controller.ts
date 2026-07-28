@@ -4,38 +4,40 @@ import { RegisterIpcOptions } from '../types';
 export class AppIpcController {
     private devAutoLaunchState: string = 'off';
 
-    constructor(private options: RegisterIpcOptions) {}
+    constructor(private readonly options: RegisterIpcOptions) {}
+
+    private parseAutoLaunchSetting(configVal: unknown): { openAtLogin: boolean; args: string[]; value: string } {
+        let value = 'off';
+        if (configVal === 'minimized') {
+            value = 'minimized';
+        } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
+            value = 'on';
+        }
+        const openAtLogin = (value === 'on' || value === 'minimized');
+        const args = (value === 'minimized') ? ['--minimized'] : [];
+        return { openAtLogin, args, value };
+    }
 
     public initStartupAutoLaunch(): void {
         const { app, paths } = this.options;
-        if (!app) return;
+        if (!app || !paths?.dbFile || !fsSync.existsSync(paths.dbFile)) return;
+
         try {
-            if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
-                const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
-                if (db?.config) {
-                    const configVal = db.config.autoLaunch;
-                    let value = 'off';
-                    if (configVal === 'minimized') {
-                        value = 'minimized';
-                    } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
-                        value = 'on';
-                    }
+            const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
+            if (!db?.config) return;
 
-                    const openAtLogin = (value === 'on' || value === 'minimized');
-                    const args = (value === 'minimized') ? ['--minimized'] : [];
+            const { openAtLogin, args, value } = this.parseAutoLaunchSetting(db.config.autoLaunch);
 
-                    if (app.isPackaged) {
-                        app.setLoginItemSettings({
-                            openAtLogin: openAtLogin,
-                            path: app.getPath('exe'),
-                            args: args
-                        });
-                        console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
-                    } else {
-                        this.devAutoLaunchState = value;
-                        console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${this.devAutoLaunchState}`);
-                    }
-                }
+            if (app.isPackaged) {
+                app.setLoginItemSettings({
+                    openAtLogin,
+                    path: app.getPath('exe'),
+                    args
+                });
+                console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
+            } else {
+                this.devAutoLaunchState = value;
+                console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${this.devAutoLaunchState}`);
             }
         } catch (e) {
             console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch on startup:', e);
@@ -47,9 +49,7 @@ export class AppIpcController {
         if (!ipcMain) return;
 
         ipcMain.handle('get-app-version', async () => app?.getVersion());
-
         ipcMain.handle('get-language-state', async () => languagePackServices?.buildLanguageState());
-
         ipcMain.handle('bootstrap-app', async (event, options = {}) => startupServices?.bootstrapAppState(event.sender, options));
 
         ipcMain.handle('log-app-update-debug', async (_event, message) => {
@@ -86,9 +86,9 @@ export class AppIpcController {
                 const args = (value === 'minimized') ? ['--minimized'] : [];
                 if (app?.isPackaged) {
                     app.setLoginItemSettings({
-                        openAtLogin: openAtLogin,
+                        openAtLogin,
                         path: app.getPath('exe'),
-                        args: args
+                        args
                     });
                 } else {
                     if (value === 'minimized') {

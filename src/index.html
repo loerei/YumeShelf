@@ -9,8 +9,8 @@
 <body class="system-theme">
     <div id="welcome-screen" class="overlay-full" style="display: none;">
         <div class="welcome-box">
-            <h1 id="ui-welcome-title">Welcome to YumeShelf</h1>
-            <p id="ui-welcome-desc">Choose how you want to manage your dreams.</p>
+            <h1 id="ui-welcome-title" data-i18n="welcome">Welcome to YumeShelf</h1>
+            <p id="ui-welcome-desc" data-i18n="welcome_desc">Choose how you want to manage your dreams.</p>
             <div class="welcome-lang-picker" id="welcome-lang-picker"></div>
             
             <div class="welcome-options">
@@ -22,8 +22,8 @@
                             <line x1="9" y1="14" x2="15" y2="14"></line>
                         </svg>
                     </div>
-                    <h3 id="ui-opt-choose">Choose Folder</h3>
-                    <p id="ui-opt-choose-desc">Select an existing game directory</p>
+                    <h3 id="ui-opt-choose" data-i18n="opt_choose">Choose Folder</h3>
+                    <p id="ui-opt-choose-desc" data-i18n="opt_choose_desc">Select an existing game directory</p>
                 </div>
                 <div class="welcome-card primary" id="btn-setup-default">
                     <div class="welcome-icon">
@@ -31,7 +31,7 @@
                             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
                         </svg>
                     </div>
-                    <h3 id="ui-opt-lazy">I'm lazy!</h3>
+                    <h3 id="ui-opt-lazy" data-i18n="opt_lazy">I'm lazy!</h3>
                     <p id="ui-opt-lazy-desc">Create /YumeShelf/ folder here</p>
                 </div>
             </div>
@@ -39,7 +39,7 @@
     </div>
 
     <div class="header">
-        <h1 id="ui-title">YumeShelf</h1>
+        <h1 id="ui-title" data-i18n="title">YumeShelf</h1>
         
         <div class="search-container">
             <div class="search-input-wrapper">
@@ -78,10 +78,10 @@
                     <span class="sort-caret">▾</span>
                 </div>
                 <div class="sort-menu" id="sort-menu">
-                    <div class="sort-item" data-sort="date" id="ui-sort-date">Mới tải về</div>
-                    <div class="sort-item" data-sort="played" id="ui-sort-played">Chơi gần nhất</div>
-                    <div class="sort-item" data-sort="az" id="ui-sort-az">Tên A-Z</div>
-                    <div class="sort-item" data-sort="custom" id="ui-sort-custom">Tùy chỉnh</div>
+                    <div class="sort-item" data-sort="date" id="ui-sort-date" data-i18n="sort_date">Mới tải về</div>
+                    <div class="sort-item" data-sort="played" id="ui-sort-played" data-i18n="sort_played">Chơi gần nhất</div>
+                    <div class="sort-item" data-sort="az" id="ui-sort-az" data-i18n="sort_az">Tên A-Z</div>
+                    <div class="sort-item" data-sort="custom" id="ui-sort-custom" data-i18n="sort_custom">Tùy chỉnh</div>
                 </div>
             </div>
             
@@ -135,45 +135,45 @@
     <div class="settings-overlay" id="settings-overlay">
         <div class="settings-panel">
             <div class="settings-header">
-                <h2 id="ui-settings-title">Settings</h2>
+                <h2 id="ui-settings-title" data-i18n="settings">Settings</h2>
                 <div class="close-settings" id="settings-close-btn">×</div>
             </div>
             <div class="settings-body">
                 <div class="setting-item">
-                    <label id="ui-lang-label" for="lang-select">Language</label>
+                    <label id="ui-lang-label" for="lang-select" data-i18n="lang">Language</label>
                     <div class="setting-control-zone setting-field-group">
-                        <button class="small-btn secondary-btn" id="more-languages-btn">More languages...</button>
+                        <button class="small-btn secondary-btn" id="more-languages-btn" data-i18n="settings_more_languages">More languages...</button>
                         <select id="lang-select"></select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-theme-label" for="theme-select">Theme Mode</label>
+                    <label id="ui-theme-label" for="theme-select" data-i18n="theme">Theme Mode</label>
                     <div class="setting-control-zone">
                         <select id="theme-select">
-                            <option value="system" id="ui-theme-system">System</option>
-                            <option value="dark" id="ui-theme-dark">Dark</option>
-                            <option value="light" id="ui-theme-light">Light</option>
+                            <option value="system" id="ui-theme-system" data-i18n="theme_system">System</option>
+                            <option value="dark" id="ui-theme-dark" data-i18n="theme_dark">Dark</option>
+                            <option value="light" id="ui-theme-light" data-i18n="theme_light">Light</option>
                         </select>
                     </div>
                 </div>
                 <div class="setting-item setting-item-paths">
                     <div class="setting-paths-header">
-                        <span id="ui-path-label" class="setting-label">Library Paths</span>
+                        <span id="ui-path-label" class="setting-label" data-i18n="path">Library Paths</span>
                         <button class="small-btn text-btn" id="btn-add-library-path" type="button">+ Add Path</button>
                     </div>
                     <div class="library-paths-list" id="library-paths-container"></div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-location-display-label" for="location-display-select">Path Display</label>
+                    <label id="ui-location-display-label" for="location-display-select" data-i18n="location_display_label">Path Display</label>
                     <div class="setting-control-zone">
                         <select id="location-display-select">
-                            <option value="parent" id="ui-location-display-parent">Category only</option>
-                            <option value="full" id="ui-location-display-full">Full game folder path</option>
+                            <option value="parent" id="ui-location-display-parent" data-i18n="location_display_parent">Category only</option>
+                            <option value="full" id="ui-location-display-full" data-i18n="location_display_full">Full game folder path</option>
                         </select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-max-depth-label" for="max-depth-input">Max Depth</label>
+                    <label id="ui-max-depth-label" for="max-depth-input" data-i18n="max_depth_label">Max Depth</label>
                     <div class="setting-control-zone">
                         <div class="max-depth-stepper">
                             <button class="max-depth-stepper-btn" id="max-depth-decrease-btn" type="button" aria-label="Decrease max depth">
@@ -192,65 +192,65 @@
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-app-updates-label" for="app-updates-select">App Updates</label>
+                    <label id="ui-app-updates-label" for="app-updates-select" data-i18n="app_updates_label">App Updates</label>
                     <div class="setting-control-zone">
                         <select id="app-updates-select">
-                            <option value="automatic" id="ui-update-automatic">Automatic</option>
-                            <option value="notify" id="ui-update-notify">Notify me</option>
-                            <option value="off" id="ui-update-off">Off</option>
+                            <option value="automatic" id="ui-update-automatic" data-i18n="update_mode_automatic">Automatic</option>
+                            <option value="notify" id="ui-update-notify" data-i18n="update_mode_notify">Notify me</option>
+                            <option value="off" id="ui-update-off" data-i18n="update_mode_off">Off</option>
                         </select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-language-pack-updates-label" for="language-pack-updates-select">Language Pack Updates</label>
+                    <label id="ui-language-pack-updates-label" for="language-pack-updates-select" data-i18n="language_pack_updates_label">Language Pack Updates</label>
                     <div class="setting-control-zone">
                         <select id="language-pack-updates-select">
-                            <option value="automatic" id="ui-pack-update-automatic">Automatic</option>
-                            <option value="notify" id="ui-pack-update-notify">Notify me</option>
-                            <option value="off" id="ui-pack-update-off">Off</option>
+                            <option value="automatic" id="ui-pack-update-automatic" data-i18n="update_mode_automatic">Automatic</option>
+                            <option value="notify" id="ui-pack-update-notify" data-i18n="update_mode_notify">Notify me</option>
+                            <option value="off" id="ui-pack-update-off" data-i18n="update_mode_off">Off</option>
                         </select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-auto-launch-label" for="auto-launch-select">Auto-launch on startup</label>
+                    <label id="ui-auto-launch-label" for="auto-launch-select" data-i18n="auto_launch_label">Auto-launch on startup</label>
                     <div class="setting-control-zone">
                         <select id="auto-launch-select">
-                            <option value="off" id="ui-auto-launch-off">Off</option>
-                            <option value="on" id="ui-auto-launch-on">On</option>
-                            <option value="minimized" id="ui-auto-launch-minimized">Start Minimized</option>
+                            <option value="off" id="ui-auto-launch-off" data-i18n="option_off">Off</option>
+                            <option value="on" id="ui-auto-launch-on" data-i18n="option_on">On</option>
+                            <option value="minimized" id="ui-auto-launch-minimized" data-i18n="option_minimized">Start Minimized</option>
                         </select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-minimize-to-tray-label" for="minimize-to-tray-select">Minimize to System Tray</label>
+                    <label id="ui-minimize-to-tray-label" for="minimize-to-tray-select" data-i18n="minimize_to_tray_label">Minimize to System Tray</label>
                     <div class="setting-control-zone">
                         <select id="minimize-to-tray-select">
-                            <option value="off" id="ui-minimize-to-tray-off">Off</option>
-                            <option value="on" id="ui-minimize-to-tray-on">On</option>
+                            <option value="off" id="ui-minimize-to-tray-off" data-i18n="option_off">Off</option>
+                            <option value="on" id="ui-minimize-to-tray-on" data-i18n="option_on">On</option>
                         </select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-telemetry-label" for="telemetry-select">Telemetry & Privacy</label>
+                    <label id="ui-telemetry-label" for="telemetry-select" data-i18n="telemetry_label">Telemetry & Privacy</label>
                     <div class="setting-control-zone">
                         <select id="telemetry-select">
-                            <option value="off" id="ui-telemetry-off">Disabled (Keep Private)</option>
-                            <option value="on" id="ui-telemetry-on">Enabled (Send Anonymous Data)</option>
+                            <option value="off" id="ui-telemetry-off" data-i18n="telemetry_opt_out">Disabled (Keep Private)</option>
+                            <option value="on" id="ui-telemetry-on" data-i18n="telemetry_opt_in">Enabled (Send Anonymous Data)</option>
                         </select>
                     </div>
                 </div>
                 <div class="setting-item">
-                    <label id="ui-expose-beta-label" for="expose-beta-select">Expose Beta Options</label>
+                    <label id="ui-expose-beta-label" for="expose-beta-select" data-i18n="expose_beta_label">Expose Beta Options</label>
                     <div class="setting-control-zone">
                         <select id="expose-beta-select">
-                            <option value="off" id="ui-expose-beta-off">Disabled</option>
-                            <option value="on" id="ui-expose-beta-on">Enabled</option>
+                            <option value="off" id="ui-expose-beta-off" data-i18n="option_off">Disabled</option>
+                            <option value="on" id="ui-expose-beta-on" data-i18n="option_on">Enabled</option>
                         </select>
                     </div>
                 </div>
                 <div class="settings-info">
                     <p id="ui-app-version">YumeShelf</p>
-                    <p id="ui-footer-desc">Your dreams, organized perfectly.</p>
+                    <p id="ui-footer-desc" data-i18n="footer_desc">Your dreams, organized perfectly.</p>
                 </div>
             </div>
         </div>
@@ -259,7 +259,7 @@
     <div class="settings-overlay" id="language-pack-overlay">
         <div class="settings-panel language-pack-panel">
             <div class="settings-header">
-                <h2 id="ui-language-pack-title">Language packs</h2>
+                <h2 id="ui-language-pack-title" data-i18n="lang_modal_title">Language packs</h2>
                 <div class="close-settings" id="language-pack-close-btn">×</div>
             </div>
             <div class="settings-body language-pack-body">
@@ -337,8 +337,6 @@
             <span class="toast-pill-text" id="toast-pill-text"></span>
         </div>
     </div>
-
-
 
     <script type="module" src="renderer.ts"></script>
 </body>

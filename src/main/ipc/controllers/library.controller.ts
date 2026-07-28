@@ -51,12 +51,13 @@ export class LibraryIpcController {
         ipcMain.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
             try {
                 const record = await libraryState?.getGameRecord(gameKey);
+                const trustedExe = record?.exePath || exePath;
                 if (record?.autoTranslate) {
-                    await translationService?.prepareTranslator(gameKey, exePath);
+                    await translationService?.prepareTranslator(gameKey, trustedExe);
                 } else {
-                    await translationService?.removeTranslator(exePath);
+                    await translationService?.removeTranslator(trustedExe);
                 }
-                await playtimeSessionManager?.launchTrackedGame(gameKey, exePath, runInBackground);
+                await playtimeSessionManager?.launchTrackedGame(gameKey, trustedExe, runInBackground);
             } catch (error) {
                 console.error(`[PLAYTIME][SESSIONS] failed to launch tracked game ${gameKey}:`, error);
             }
@@ -64,7 +65,7 @@ export class LibraryIpcController {
 
         ipcMain.on('open-folder', async () => {
             const libraryPath = await libraryState?.resolveLibraryFolderToOpen();
-            if (libraryPath && shell) {
+            if (typeof libraryPath === 'string' && libraryPath.trim().length > 0 && shell) {
                 shell.openPath(libraryPath);
             }
         });

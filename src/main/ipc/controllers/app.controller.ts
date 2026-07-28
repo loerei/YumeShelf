@@ -2,12 +2,12 @@ import * as fsSync from 'node:fs';
 import { RegisterIpcOptions } from '../types';
 
 export class AppIpcController {
-    private devAutoLaunchState: string = 'off';
+    private devAutoLaunchState: 'off' | 'on' | 'minimized' = 'off';
 
     constructor(private readonly options: RegisterIpcOptions) {}
 
-    private parseAutoLaunchSetting(configVal: unknown): { openAtLogin: boolean; args: string[]; value: string } {
-        let value = 'off';
+    private parseAutoLaunchSetting(configVal: unknown): { openAtLogin: boolean; args: string[]; value: 'off' | 'on' | 'minimized' } {
+        let value: 'off' | 'on' | 'minimized' = 'off';
         if (configVal === 'minimized') {
             value = 'minimized';
         } else if (configVal === 'on' || configVal === 'true' || configVal === true) {

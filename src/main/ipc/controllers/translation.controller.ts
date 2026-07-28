@@ -8,7 +8,16 @@ export class TranslationIpcController {
         if (!ipcMain) return;
 
         ipcMain.handle('get-language-pack-manifest', async () => {
-            if (!languagePackServices) return { ok: false, packs: [] };
+            if (!languagePackServices) {
+                return {
+                    ok: false,
+                    offline: false,
+                    source: null,
+                    error: 'services-unavailable',
+                    repoUrl: null,
+                    packs: []
+                };
+            }
             const result = await languagePackServices.fetchLanguageManifest();
             return {
                 ok: result.ok,

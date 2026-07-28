@@ -7,7 +7,7 @@ import { RegisterIpcOptions } from '../types';
 async function resolveValidatedLibraryPath(libraryState: any, targetPath: unknown): Promise<string | null> {
     if (typeof targetPath !== 'string' || !targetPath.trim()) return null;
     const config = await libraryState?.resolveLibraryConfig();
-    if (!config || !config.libraryPaths) return null;
+    if (!config?.libraryPaths) return null;
     const safePath = path.resolve(targetPath);
     if (isPathWithinLibrary(safePath, config.libraryPaths) && fs.existsSync(safePath)) {
         return safePath;

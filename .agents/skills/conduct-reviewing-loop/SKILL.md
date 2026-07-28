@@ -9,6 +9,17 @@ Run iterative, independent subagent reviews to stress-test plans, code designs, 
 
 ## Workflows
 
+```mermaid
+flowchart TD
+    Start["Start Review Loop"] --> Synth["1. Synthesize Review Criteria (User + System + Domain)"]
+    Synth --> Draft["2. Prepare Target Artifact in draft path"]
+    Draft --> Spawn["3. Spawn Independent Reviewer Subagent (Role #N)"]
+    Spawn --> Eval{"4. Evaluate Reviewer Response"}
+    Eval -->|"STATUS: REVISIONS NEEDED"| ApplyEdits["Apply required edits to draft"] --> NextIter["Iteration N = N + 1"] --> Spawn
+    Eval -->|"Contradictory Requirements"| ConsultUser["Consult user for alignment"] --> ApplyEdits
+    Eval -->|"STATUS: PASS"| Present["5. Present Verified Final Output"]
+```
+
 ### 1. Artifact & Review Matrix
 
 | Artifact Type | Primary Checklist Sources | Model Selection Strategy | Termination Condition |

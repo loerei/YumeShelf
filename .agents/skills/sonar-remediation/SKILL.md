@@ -5,41 +5,27 @@ description: Inspect, remediate, accept, and automate SonarQube and SonarCloud c
 
 # Sonar Remediation & Quality Gate Workflows
 
-Inspect, remediate, accept, and automate SonarQube/SonarCloud code quality issues across single files, PRs, commits, branches, or entire repositories. (Works with both `sonarcloud:` and `sonarqube:` MCP servers).
+Inspect, remediate, accept, and automate SonarQube/SonarCloud code quality issues across single files, PRs, or entire repositories. (Works with `sonarcloud:` and `sonarqube:` MCP servers).
 
 ## Workflows
 
-### 1. Issue Query Decision Tree (MCP)
+### 1. Issue Query Scope Flowchart
 
 ```mermaid
 flowchart TD
     Start["Sonar Issue Query Request"] --> DetermineScope{"Determine Query Scope"}
-
-    %% Branch 1: File Scope
     DetermineScope -->|"1. By File Name"| FileScope["File Scope"]
-    FileScope --> FileCall["search_sonar_issues({<br>  projectKey: '...',<br>  componentKeys: ['<projectKey>:<filePath>'],<br>  issueStatuses: ['OPEN']<br>})"]
-
-    %% Branch 2: Commit Scope
+    FileScope --> FileCall["search_sonar_issues({ projectKey, componentKeys: ['<projectKey>:<filePath>'], issueStatuses: ['OPEN'] })"]
     DetermineScope -->|"2. By Commit"| CommitScope["Commit Scope"]
-    CommitScope --> CommitCall["1. Get list of changed files from commit:<br>   git show --name-only <commit_hash><br>2. search_sonar_issues({<br>  projectKey: '...',<br>  componentKeys: [<changed_files>],<br>  inNewCodePeriod: true<br>})"]
-
-    %% Branch 3: PR Scope
+    CommitScope --> CommitCall["git show --name-only <commit_hash> -> search_sonar_issues({ projectKey, componentKeys, inNewCodePeriod: true })"]
     DetermineScope -->|"3. By Pull Request (PR)"| PRScope["Pull Request Scope"]
-    PRScope --> PRCall["search_sonar_issues({<br>  projectKey: '...',<br>  pullRequest: '<pr_id>',<br>  issueStatuses: ['OPEN']<br>})"]
-
-    %% Branch 4: Branch Scope
+    PRScope --> PRCall["search_sonar_issues({ projectKey, pullRequest: '<pr_id>', issueStatuses: ['OPEN'] })"]
     DetermineScope -->|"4. By Branch"| BranchScope["Branch Scope"]
-    BranchScope --> BranchCall["search_sonar_issues({<br>  projectKey: '...',<br>  branch: '<branch_name>',<br>  issueStatuses: ['OPEN']<br>})"]
-
-    %% Branch 5: Repo Scope
+    BranchScope --> BranchCall["search_sonar_issues({ projectKey, branch: '<branch_name>', issueStatuses: ['OPEN'] })"]
     DetermineScope -->|"5. Repository Scope"| RepoScope["Repository Scope"]
-    RepoScope --> RepoCall["search_sonar_issues({<br>  projectKey: '...',<br>  issueStatuses: ['OPEN']<br>})"]
-
-    %% Branch 6: Combined Scope
-    DetermineScope -->|"6. Combined (e.g. File + PR)"| CombinedScope["Combined Scope"]
-    CombinedScope --> CombinedCall["search_sonar_issues({<br>  projectKey: '...',<br>  pullRequest: '<pr_id>',<br>  componentKeys: ['<projectKey>:<filePath>'],<br>  issueStatuses: ['OPEN']<br>})"]
-
-    %% Output Node
+    RepoScope --> RepoCall["search_sonar_issues({ projectKey, issueStatuses: ['OPEN'] })"]
+    DetermineScope -->|"6. Combined (File + PR)"| CombinedScope["Combined Scope"]
+    CombinedScope --> CombinedCall["search_sonar_issues({ projectKey, pullRequest: '<pr_id>', componentKeys: ['<projectKey>:<filePath>'], issueStatuses: ['OPEN'] })"]
     FileCall --> ProcessIssues["Analyze & Apply Remediation"]
     CommitCall --> ProcessIssues
     PRCall --> ProcessIssues
@@ -49,51 +35,56 @@ flowchart TD
 ```
 
 > [!IMPORTANT]
-> When analyzing an active PR, MUST pass `pullRequest: "<pr_id>"`. Omitting `pullRequest` queries the default branch (`main`), leading to unintended refactoring of pre-existing code.
+> When analyzing an active PR, MUST pass `pullRequestId` or `pullRequest`. Omitting PR ID queries the default branch (`main`).
+> See [REFERENCE.md](REFERENCE.md) for full MCP Tool Parameter Reference & Argument Schemas.
 
-### 2. Parameter Mapping Reference
+### 2. Issue Triage & Action Decision Flowchart
 
-| Query Scope | Required / Recommended Parameters for `search_sonar_issues` |
-| :--- | :--- |
-| **File Scope** | `projectKey`, `componentKeys: ["<projectKey>:<relPath>"]`, `issueStatuses: ["OPEN"]` |
-| **Commit Scope** | *Step 1*: `git show --name-only <hash>` <br> *Step 2*: `projectKey`, `componentKeys: [...]`, `inNewCodePeriod: true` |
-| **PR Scope** | `projectKey`, `pullRequest: "<pr_id>"`, `issueStatuses: ["OPEN"]` |
-| **Branch Scope** | `projectKey`, `branch: "<branch_name>"`, `issueStatuses: ["OPEN"]` |
-| **Repo Scope** | `projectKey`, `issueStatuses: ["OPEN"]` |
-| **Combined Scope** | `projectKey`, `pullRequest: "<pr_id>"`, `componentKeys: ["<projectKey>:<relPath>"]`, `issueStatuses: ["OPEN"]` |
-
-### 3. Issue Triage & Decision Policy
-
-| Domain | Issue Category | Rule Keys | Action | Rationale & Requirements |
-| :--- | :--- | :--- | :--- | :--- |
-| **General** | **Cognitive Complexity** | `S3776` | **Flag `accept`** via `change_sonar_issue_status` | MUST search issue key first. NEVER split functions solely for S3776. Structural splits require `/improve-codebase-architecture`. |
-| **General** | **Function Nesting** | `S2004` | **Flag `accept`** via `change_sonar_issue_status` | Deep nesting in UI/search/event closures is intentional design. |
-| **General** | **Backtracking Regex** | `S8786` | **Fix or Flag `accept`** | Simplify regex if possible; flag `accept` if regex is already minimal. |
-| **CSS** | **Theme / Contrast** | `css:S7924` | **Flag `accept`** via `change_sonar_issue_status` | Brand theme colors override generic WCAG contrast checks. |
-| **JS/TS/CSS** | **Language Smells** | `S1854`, `S1481`, `S6582`, `S6606`, `S7780`, `S7758`, `S6594`, `S4666`, `S1874` | **Fix code** | Follow domain-specific refactoring patterns in [REFERENCE.md](REFERENCE.md). |
+```mermaid
+flowchart TD
+    Start["Query Open Issues (search_sonar_issues)"] --> Triage{"Issue Category / Rule Key"}
+    Triage -->|"S3776 / S2004 / css:S7924"| FlagAccept["DO NOT EDIT CODE / DO NOT SPLIT FUNCTIONS - Flag 'ACCEPT' via change_sonar_issue_status"]
+    Triage -->|"S8786 (Regex Backtracking)"| CheckRegex{"Regex Simplifiable?"}
+    CheckRegex -->|"Yes"| FixCode["Fix Code (Eliminate Backtracking)"]
+    CheckRegex -->|"No"| FlagAccept
+    Triage -->|"CPD / Duplications"| GetDup["Call get_duplications & inspect disk"]
+    GetDup --> FixCode
+    Triage -->|"S1854, S1481, S7781, S2933..."| FixCode
+    FlagAccept --> VerifyLoop["Continuous Verification Loop"]
+    FixCode --> VerifyLoop
+```
 
 > [!IMPORTANT]
-> Before calling `change_sonar_issue_status` to flag any issue as `"accept"` or `"falsepositive"`, you MUST search for the exact issue key using `search_sonar_issues` with `issueStatuses: ["OPEN"]`.
+> Before calling `change_sonar_issue_status` to flag any issue as `"accept"` or `"falsepositive"`, MUST search for the issue key using `search_sonar_issues` with `issueStatuses: ["OPEN"]`.
+> See [REFERENCE.md](REFERENCE.md) for Detailed Rule Remediation & Triage Matrix.
 
-### 4. Remediation Safety Boundaries
+### 3. Remediation Safety Boundaries
 
 - **NEVER delete, rename, or move** standalone entrypoints, child processes, worker scripts, or dynamic IPC/service wrappers.
-- **NEVER modify** exported module interfaces, public API signatures, or database schemas during Sonar remediation.
+- **NEVER modify** exported module interfaces, public API signatures, or database schemas during Sonar Remediation.
 - **Domain Contract Preservation (`S1854`, `S1481`)**: NEVER alter returned object keys or state properties (e.g. `favorite`, `id`, `status`) to consume an unused variable. Safely delete the dead variable calculation instead.
 
-### 5. Code Duplication Resolution (CPD)
+### 4. Continuous Zero-Issue & Remote CI Verification Flowchart
 
-- MUST call `get_duplications` to retrieve exact duplicated lines and read actual code on disk.
-- For structural duplication, read `/improve-codebase-architecture` to design a unified module.
+```mermaid
+flowchart TD
+    ApplyChanges["Apply Code Fixes / Flag Accept"] --> LocalVerify["Run Local Verification (typecheck, vitest)"]
+    LocalVerify --> CommitPush["Commit & Push to Remote Branch"]
+    CommitPush --> ScheduleTimer["MUST Schedule 150s Timer (schedule)"]
+    ScheduleTimer --> TimerExpire["150s Timer Expired Notification"]
+    TimerExpire --> ReQuery["Re-query Sonar Open Issues (search_sonar_issues)"]
+    ReQuery --> CheckZero{"total === 0?"}
+    CheckZero -->|"No (Issues remain)"| ApplyChanges
+    CheckZero -->|"Yes (0 issues)"| Complete["Goal Complete / Safe to Merge PR"]
+```
 
-### 6. Continuous Zero-Issue Remediation Loop (Goal-Driven Batching)
+### 5. Script-Automated Task Execution
 
-Triggered via `/goal` or explicit user instruction to fix/accept open issues until **0 open issues remain**:
+For large backlogs, run companion scripts in `.agents/skills/sonar-remediation/scripts/`: `count_issues.py`, `generate_plan.py` (`request_feedback: true`), `generate_task.py` (`user_facing: true`).
+**Task Execution Loop**: Fix branch -> For each file in `task.md`: Mark `[/]` -> Patch via `patch_file` -> Mark `[x]` -> Verify via project build/test tools before committing.
 
-1. **Query Open Issues**: Call `search_sonar_issues` with appropriate scope parameter (`pullRequest`, `branch`, `componentKeys`, or `projectKey`).
-2. **Check Exit Condition**: If `total === 0`, report completion (`<!-- GOAL_COMPLETE -->`).
-3. **Triage & Apply**: Apply Table 3 actions (Flag `accept` or Fix code).
-4. **Local Verification**: Run project-specific typechecks, linters, or test suites (e.g. `npm run typecheck`, `pytest`, `cargo check`).
-5. **Commit & Push**: Stage changes, commit (`git commit -m "refactor: remediate <details>"`), and push.
-6. **Schedule 150s Timer**: Schedule a 150-second timer (`schedule({ DurationSeconds: "150", Prompt: "150s timer expired. Re-query open Sonar issues" })`) for remote CI scan completion.
-7. **Repeat**: Upon timer expiry, re-query open issues until `total === 0`.
+---
+
+## Detailed Rules & Code Examples
+
+See [REFERENCE.md](REFERENCE.md) for Preemptive Code Inspection, domain-scoped **Before / After** code examples, MCP argument schemas, and specific rule remediation patterns. (MUST read [REFERENCE.md](REFERENCE.md) before applying code fixes).

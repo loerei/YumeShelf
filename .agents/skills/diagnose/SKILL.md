@@ -9,6 +9,25 @@ A discipline for hard bugs. Skip phases only when explicitly justified.
 
 When exploring the codebase, use the project's domain glossary to get a clear mental model of the relevant modules, and check ADRs in the area you're touching.
 
+## Workflows
+
+```mermaid
+flowchart TD
+    Start["Reported Bug / Symptom"] --> P1{"Phase 1: Build Feedback Loop"}
+    P1 -->|"Cannot build loop"| StopP1["MUST STOP: Report options & request logs/HAR/env"]
+    P1 -->|"Loop created"| P2{"Phase 2: Reproduce"}
+    P2 -->|"Flaky / Low repro rate"| StressLoop["Increase repro rate (loop 100x, stress, timing)"] --> P2
+    P2 -->|"Reproduced & symptom captured"| P3["Phase 3: Form 3-5 Falsifiable Hypotheses"]
+    P3 --> RankShow["Rank hypotheses & show to User"]
+    RankShow --> P4["Phase 4: Instrument (Targeted logs/debug tag [DEBUG-xxx])"]
+    P4 --> P5{"Phase 5: Fix & Regression Test"}
+    P5 -->|"Correct seam exists"| FailingTest["Write failing test -> Apply fix -> Verify pass"]
+    P5 -->|"No correct seam"| DocumentSeam["Document architecture limitation"] --> ApplyFix["Apply fix"]
+    FailingTest --> P6["Phase 6: Cleanup & Post-Mortem"]
+    ApplyFix --> P6
+    P6 --> Verification["Verify repro gone, clean [DEBUG-xxx], handoff if architecture issue"]
+```
+
 ## Phase 1 — Build a feedback loop
 
 **This is the skill.** Everything else is mechanical. If you have a fast, deterministic, agent-runnable pass/fail signal for the bug, you will find the cause — bisection, hypothesis-testing, and instrumentation all just consume that signal. If you don't have one, no amount of staring at code will save you.

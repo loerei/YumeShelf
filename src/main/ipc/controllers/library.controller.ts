@@ -4,6 +4,17 @@ import { TelemetryShipper } from '../../telemetry/shipper';
 import { isPathWithinLibrary } from '../path-validator';
 import { RegisterIpcOptions } from '../types';
 
+async function resolveValidatedLibraryPath(libraryState: any, targetPath: unknown): Promise<string | null> {
+    if (typeof targetPath !== 'string' || !targetPath.trim()) return null;
+    const config = await libraryState?.resolveLibraryConfig();
+    if (!config || !config.libraryPaths) return null;
+    const safePath = path.resolve(targetPath);
+    if (isPathWithinLibrary(safePath, config.libraryPaths) && fs.existsSync(safePath)) {
+        return safePath;
+    }
+    return null;
+}
+
 export class LibraryIpcController {
     constructor(private readonly options: RegisterIpcOptions) {}
 
@@ -85,10 +96,8 @@ export class LibraryIpcController {
         ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState?.toggleAutoTranslate(gameKey));
 
         ipcMain.on('reveal-game', async (_event, targetPath) => {
-            if (typeof targetPath !== 'string' || !targetPath.trim()) return;
-            const safePath = path.resolve(targetPath);
-            const config = await libraryState?.resolveLibraryConfig();
-            if (config && isPathWithinLibrary(safePath, config.libraryPaths) && fs.existsSync(safePath)) {
+            const safePath = await resolveValidatedLibraryPath(libraryState, targetPath);
+            if (safePath) {
                 shell?.showItemInFolder(safePath);
             } else {
                 console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
@@ -96,10 +105,8 @@ export class LibraryIpcController {
         });
 
         ipcMain.on('open-path', async (_event, targetPath) => {
-            if (typeof targetPath !== 'string' || !targetPath.trim()) return;
-            const safePath = path.resolve(targetPath);
-            const config = await libraryState?.resolveLibraryConfig();
-            if (config && isPathWithinLibrary(safePath, config.libraryPaths) && fs.existsSync(safePath)) {
+            const safePath = await resolveValidatedLibraryPath(libraryState, targetPath);
+            if (safePath) {
                 shell?.openPath(safePath);
             } else {
                 console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
@@ -107,10 +114,8 @@ export class LibraryIpcController {
         });
 
         ipcMain.handle('delete-game', async (_event, targetPath) => {
-            if (typeof targetPath !== 'string' || !targetPath.trim()) return { ok: false, error: 'invalid-path' };
-            const safePath = path.resolve(targetPath);
-            const config = await libraryState?.resolveLibraryConfig();
-            if (config && isPathWithinLibrary(safePath, config.libraryPaths) && fs.existsSync(safePath)) {
+            const safePath = await resolveValidatedLibraryPath(libraryState, targetPath);
+            if (safePath) {
                 return shell?.trashItem(safePath);
             }
             return { ok: false, error: 'unauthorized-path' };

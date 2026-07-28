@@ -1,6 +1,13 @@
 export function escapeHtml(value: unknown): string {
-    if (value === null || value === undefined) return '';
-    const str = typeof value === 'string' ? value : (typeof value === 'number' || typeof value === 'boolean' ? String(value) : '');
+    if (value === null || value === undefined) {
+        return '';
+    }
+    let str = '';
+    if (typeof value === 'string') {
+        str = value;
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+        str = String(value);
+    }
     return str
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -58,27 +65,30 @@ export function renderMarkdownLite(markdown: string): string {
             continue;
         }
 
-        const headingMatch = /^(#{1,3})\s+(.*)$/.exec(line);
-        if (headingMatch && line.startsWith('#')) {
-            flushParagraph();
-            flushList();
-            const level = Math.min(headingMatch[1].length, 3);
-            const titleText = headingMatch[2].trim();
-            html.push(`<h${level}>${renderInlineMarkdown(titleText)}</h${level}>`);
-            continue;
+        if (line.startsWith('#')) {
+            let hashCount = 0;
+            while (hashCount < line.length && line[hashCount] === '#') {
+                hashCount++;
+            }
+            if (hashCount >= 1 && hashCount <= 3 && line[hashCount] === ' ') {
+                flushParagraph();
+                flushList();
+                const titleText = line.slice(hashCount + 1).trim();
+                html.push(`<h${hashCount}>${renderInlineMarkdown(titleText)}</h${hashCount}>`);
+                continue;
+            }
         }
 
-        if (/^---+$/.test(line)) {
+        if (line.length >= 3 && line.replaceAll('-', '') === '') {
             flushParagraph();
             flushList();
             html.push('<hr>');
             continue;
         }
 
-        const listMatch = /^[-*]\s+(.*)$/.exec(line);
-        if (listMatch) {
+        if ((line.startsWith('- ') || line.startsWith('* ')) && line.length > 2) {
             flushParagraph();
-            listItems.push(listMatch[1].trim());
+            listItems.push(line.slice(2).trim());
             continue;
         }
 

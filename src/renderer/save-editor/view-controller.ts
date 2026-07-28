@@ -25,8 +25,8 @@ export interface SaveEditorState {
 }
 
 export class SaveEditorViewController {
-    private engine: DataEngine;
-    private translator: Translator;
+    private readonly engine: DataEngine;
+    private readonly translator: Translator;
     private overlay: HTMLElement | null = null;
     private handleGlobalKeydown: ((e: KeyboardEvent) => void) | null = null;
     private activeControllerState: SaveEditorState | null = null;
@@ -36,15 +36,7 @@ export class SaveEditorViewController {
         this.translator = new Translator((window as any).electronAPI);
     }
 
-    public async open(gameKey: string, options: SaveEditorOpenOptions = {}): Promise<void> {
-        await this.translator.initialize();
-        const d = (window as any).currentUIStrings || {};
-        const isStandalone = !!options.isStandaloneWindow;
-
-        const overlay = document.createElement('div');
-        overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`;
-        this.overlay = overlay;
-
+    private buildOverlayHTML(d: Record<string, string>, isStandalone: boolean): string {
         const popoutBtnHTML = isStandalone ? '' : `
             <button class="save-editor-popout" title="Open in separate window" style="background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
@@ -55,7 +47,7 @@ export class SaveEditorViewController {
             </button>
         `;
 
-        overlay.innerHTML = `
+        return `
             <div class="save-editor-panel">
                 <div class="save-editor-header">
                     <h2 data-i18n="action_save_editor">${d.action_save_editor || 'Save Editor'}</h2>
@@ -157,12 +149,10 @@ export class SaveEditorViewController {
                 </div>
             </div>
         `;
+    }
 
-        document.body.appendChild(overlay);
-
-        let renderTabContentFn: () => void = () => {};
-
-        this.handleGlobalKeydown = (e: KeyboardEvent) => {
+    private setupKeydownListener(overlay: HTMLElement, renderTabContent: () => void): (e: KeyboardEvent) => void {
+        return (e: KeyboardEvent) => {
             const activeElement = document.activeElement as HTMLElement | null;
             const isTyping = activeElement && (
                 (activeElement.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'email', 'tel', 'url'].includes((activeElement as HTMLInputElement).type)) ||
@@ -190,7 +180,7 @@ export class SaveEditorViewController {
                 if (chk && this.activeControllerState) {
                     chk.checked = !chk.checked;
                     this.activeControllerState.showEmpty = chk.checked;
-                    renderTabContentFn();
+                    renderTabContent();
                 }
             } else if (key === 'i') {
                 e.preventDefault();
@@ -198,7 +188,7 @@ export class SaveEditorViewController {
                 if (chk && this.activeControllerState) {
                     chk.checked = !chk.checked;
                     this.activeControllerState.showImportant = chk.checked;
-                    renderTabContentFn();
+                    renderTabContent();
                 }
             } else if (key === 'x') {
                 e.preventDefault();
@@ -206,11 +196,142 @@ export class SaveEditorViewController {
                 if (chk) {
                     chk.checked = !chk.checked;
                     this.engine.setSearchOptions({ exact: chk.checked });
-                    renderTabContentFn();
+                    renderTabContent();
                 }
             }
         };
+    }
 
+    private setupTabShadows(tabsContainer: HTMLElement, leftShadow: HTMLElement | null, rightShadow: HTMLElement | null): void {
+        const updateTabShadows = () => {
+            if (!tabsContainer || !leftShadow || !rightShadow) return;
+            const scrollLeft = tabsContainer.scrollLeft;
+            const scrollWidth = tabsContainer.scrollWidth;
+            const clientWidth = tabsContainer.clientWidth;
+
+            if (scrollLeft > 2) {
+                leftShadow.classList.add('visible');
+            } else {
+                leftShadow.classList.remove('visible');
+            }
+
+            if (scrollWidth - clientWidth - scrollLeft > 2) {
+                rightShadow.classList.add('visible');
+            } else {
+                rightShadow.classList.remove('visible');
+            }
+        };
+
+        tabsContainer.addEventListener('scroll', updateTabShadows);
+        if (typeof ResizeObserver !== 'undefined') {
+            const resizeObserver = new ResizeObserver(() => {
+                updateTabShadows();
+            });
+            resizeObserver.observe(tabsContainer);
+        }
+    }
+
+    private restorePopoutState(overlay: HTMLElement, popoutState: any): void {
+        if (!popoutState?.searchOptions) return;
+        this.engine.setSearchOptions(popoutState.searchOptions);
+        const searchInput = overlay.querySelector('.save-editor-search') as HTMLInputElement | null;
+        if (searchInput) {
+            searchInput.value = popoutState.searchOptions.query || '';
+        }
+        const exactCheck = overlay.querySelector('.exact-match-check') as HTMLInputElement | null;
+        if (exactCheck) exactCheck.checked = !!popoutState.searchOptions.exact;
+
+        const searchNameCheck = overlay.querySelector('.search-name-check') as HTMLInputElement | null;
+        if (searchNameCheck) searchNameCheck.checked = !!popoutState.searchOptions.searchName;
+
+        const searchValueCheck = overlay.querySelector('.search-value-check') as HTMLInputElement | null;
+        if (searchValueCheck) searchValueCheck.checked = !!popoutState.searchOptions.searchValue;
+
+        const searchIndexCheck = overlay.querySelector('.search-index-check') as HTMLInputElement | null;
+        if (searchIndexCheck) searchIndexCheck.checked = !!popoutState.searchOptions.searchIndex;
+    }
+
+    private setupTranslateAction(overlay: HTMLElement, content: HTMLElement): void {
+        const translateBtn = overlay.querySelector('.translate-btn') as HTMLElement | null;
+        if (!translateBtn) return;
+
+        translateBtn.onclick = () => {
+            const translatorAny = this.translator as any;
+            if (translatorAny.isTranslating || !this.activeControllerState?.currentSaveData) {
+                return;
+            }
+
+            const targetLang = translatorAny.resolvedBcp47 || localStorage.getItem('yumeshelf_lang') || 'en';
+            const labels = Array.from(content.querySelectorAll('.data-label')) as HTMLElement[];
+
+            translateBtn.classList.add('loading');
+            const spanEl = translateBtn.querySelector('span');
+            const originalBtnText = spanEl ? spanEl.textContent || 'Translate' : 'Translate';
+            if (spanEl) spanEl.textContent = 'Translating (0%)';
+            const progressBar = translateBtn.querySelector('.translate-progress') as HTMLElement;
+            if (progressBar) progressBar.style.width = '0%';
+
+            this.translator.translateLabels(labels, targetLang, (progress: number) => {
+                if (progressBar) progressBar.style.width = `${progress}%`;
+                if (spanEl) spanEl.textContent = `Translating (${progress}%)`;
+            }).then(() => {
+                console.log('[SAVE-EDITOR] Background translation complete successfully.');
+            }).catch(err => {
+                console.error('[SAVE-EDITOR] Background translation failed:', err);
+            }).finally(() => {
+                translateBtn.classList.remove('loading');
+                if (spanEl) spanEl.textContent = originalBtnText;
+                if (progressBar) {
+                    setTimeout(() => { progressBar.style.width = '0%'; }, 500);
+                }
+            });
+        };
+    }
+
+    private setupSaveAction(overlay: HTMLElement, gameKey: string, renderTabContent: () => void): void {
+        const saveBtn = overlay.querySelector('.save-btn') as HTMLButtonElement | null;
+        if (!saveBtn) return;
+
+        saveBtn.onclick = async () => {
+            if (!this.activeControllerState) return;
+            saveBtn.disabled = true;
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = 'Saving...';
+            try {
+                await (window as any).electronAPI.writeSaveData({
+                    gameKey,
+                    fileName: this.activeControllerState.currentFileName,
+                    data: this.activeControllerState.currentSaveData
+                });
+
+                this.activeControllerState.originalSnapshot = structuredClone(this.activeControllerState.currentSaveData);
+                renderTabContent();
+
+                saveBtn.textContent = 'Saved!';
+                setTimeout(() => { saveBtn.textContent = originalText; }, 2000);
+            } catch (err: any) {
+                alert('Failed to save: ' + err.message);
+                saveBtn.textContent = originalText;
+            } finally {
+                saveBtn.disabled = false;
+            }
+        };
+    }
+
+    public async open(gameKey: string, options: SaveEditorOpenOptions = {}): Promise<void> {
+        await this.translator.initialize();
+        const d = (window as any).currentUIStrings || {};
+        const isStandalone = !!options.isStandaloneWindow;
+
+        const overlay = document.createElement('div');
+        overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`;
+        overlay.innerHTML = this.buildOverlayHTML(d, isStandalone);
+        this.overlay = overlay;
+
+        document.body.appendChild(overlay);
+
+        let renderTabContentFn: () => void = () => {};
+        this.handleGlobalKeydown = this.setupKeydownListener(overlay, () => renderTabContentFn());
         document.addEventListener('keydown', this.handleGlobalKeydown);
 
         const close = (force = false) => {
@@ -247,7 +368,6 @@ export class SaveEditorViewController {
                         searchOptions: (this.engine as any).searchOptions
                     };
                     localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
-
                     (window as any).electronAPI.openSaveEditorWindow(gameKey);
                     close(true);
                 };
@@ -266,33 +386,8 @@ export class SaveEditorViewController {
         const leftShadow = overlay.querySelector('.tabs-shadow-left') as HTMLElement | null;
         const rightShadow = overlay.querySelector('.tabs-shadow-right') as HTMLElement | null;
 
-        const updateTabShadows = () => {
-            if (!tabsContainer || !leftShadow || !rightShadow) return;
-            const scrollLeft = tabsContainer.scrollLeft;
-            const scrollWidth = tabsContainer.scrollWidth;
-            const clientWidth = tabsContainer.clientWidth;
-
-            if (scrollLeft > 2) {
-                leftShadow.classList.add('visible');
-            } else {
-                leftShadow.classList.remove('visible');
-            }
-
-            if (scrollWidth - clientWidth - scrollLeft > 2) {
-                rightShadow.classList.add('visible');
-            } else {
-                rightShadow.classList.remove('visible');
-            }
-        };
-
         if (tabsContainer) {
-            tabsContainer.addEventListener('scroll', updateTabShadows);
-            if (typeof ResizeObserver !== 'undefined') {
-                const resizeObserver = new ResizeObserver(() => {
-                    updateTabShadows();
-                });
-                resizeObserver.observe(tabsContainer);
-            }
+            this.setupTabShadows(tabsContainer, leftShadow, rightShadow);
         }
 
         const storedPins = localStorage.getItem(`yumeshelf_pinned_${gameKey}`);
@@ -362,93 +457,14 @@ export class SaveEditorViewController {
             onSaveLoaded: () => {
                 setupTabs();
                 renderTabContent();
-                setTimeout(updateTabShadows, 50);
             }
         });
 
-        if (popoutState?.searchOptions) {
-            this.engine.setSearchOptions(popoutState.searchOptions);
-            if (refs.searchInput) {
-                refs.searchInput.value = popoutState.searchOptions.query || '';
-            }
-            const exactCheck = overlay.querySelector('.exact-match-check') as HTMLInputElement | null;
-            if (exactCheck) exactCheck.checked = !!popoutState.searchOptions.exact;
-
-            const searchNameCheck = overlay.querySelector('.search-name-check') as HTMLInputElement | null;
-            if (searchNameCheck) searchNameCheck.checked = !!popoutState.searchOptions.searchName;
-
-            const searchValueCheck = overlay.querySelector('.search-value-check') as HTMLInputElement | null;
-            if (searchValueCheck) searchValueCheck.checked = !!popoutState.searchOptions.searchValue;
-
-            const searchIndexCheck = overlay.querySelector('.search-index-check') as HTMLInputElement | null;
-            if (searchIndexCheck) searchIndexCheck.checked = !!popoutState.searchOptions.searchIndex;
-        }
-
+        this.restorePopoutState(overlay, popoutState);
         reloadFileList(state.currentFileName);
 
-        const translateBtn = overlay.querySelector('.translate-btn') as HTMLElement | null;
-        if (translateBtn) {
-            translateBtn.onclick = () => {
-                console.log('[SAVE-EDITOR] Starting translation of visible labels in background...');
-                const translatorAny = this.translator as any;
-                if (translatorAny.isTranslating || !state.currentSaveData) {
-                    console.warn('[SAVE-EDITOR] Translation skipped: isTranslating=' + translatorAny.isTranslating + ', hasData=' + !!state.currentSaveData);
-                    return;
-                }
-
-                const targetLang = translatorAny.resolvedBcp47 || localStorage.getItem('yumeshelf_lang') || 'en';
-                const labels = Array.from(content.querySelectorAll('.data-label')) as HTMLElement[];
-                console.log(`[SAVE-EDITOR] Found ${labels.length} labels to check for translation.`);
-
-                translateBtn.classList.add('loading');
-                const spanEl = translateBtn.querySelector('span');
-                const originalBtnText = spanEl ? spanEl.textContent || 'Translate' : 'Translate';
-                if (spanEl) spanEl.textContent = 'Translating (0%)';
-                const progressBar = translateBtn.querySelector('.translate-progress') as HTMLElement;
-                if (progressBar) progressBar.style.width = '0%';
-
-                this.translator.translateLabels(labels, targetLang, (progress: number) => {
-                    if (progressBar) progressBar.style.width = `${progress}%`;
-                    if (spanEl) spanEl.textContent = `Translating (${progress}%)`;
-                }).then(() => {
-                    console.log('[SAVE-EDITOR] Background translation complete successfully.');
-                }).catch(err => {
-                    console.error('[SAVE-EDITOR] Background translation failed:', err);
-                }).finally(() => {
-                    translateBtn.classList.remove('loading');
-                    if (spanEl) spanEl.textContent = originalBtnText;
-                    if (progressBar) {
-                        setTimeout(() => { progressBar.style.width = '0%'; }, 500);
-                    }
-                });
-            };
-        }
-
-        if (saveBtn) {
-            saveBtn.onclick = async () => {
-                saveBtn.disabled = true;
-                const originalText = saveBtn.textContent;
-                saveBtn.textContent = 'Saving...';
-                try {
-                    await (window as any).electronAPI.writeSaveData({
-                        gameKey,
-                        fileName: state.currentFileName,
-                        data: state.currentSaveData
-                    });
-
-                    state.originalSnapshot = structuredClone(state.currentSaveData);
-                    renderTabContent();
-
-                    saveBtn.textContent = 'Saved!';
-                    setTimeout(() => { saveBtn.textContent = originalText; }, 2000);
-                } catch (err: any) {
-                    alert('Failed to save: ' + err.message);
-                    saveBtn.textContent = originalText;
-                } finally {
-                    saveBtn.disabled = false;
-                }
-            };
-        }
+        this.setupTranslateAction(overlay, content);
+        this.setupSaveAction(overlay, gameKey, renderTabContent);
     }
 
     public destroy(): void {

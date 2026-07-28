@@ -1,3 +1,4 @@
+import { bindI18nStrings } from '../i18n-binder';
 import { DataEngine } from './data-engine';
 import { setupGridRenderer } from './grid-renderer';
 import { setupSearchBar } from './search-bar';
@@ -36,7 +37,7 @@ export class SaveEditorViewController {
         this.translator = new Translator((window as any).electronAPI);
     }
 
-    private buildOverlayHTML(d: Record<string, string>, isStandalone: boolean): string {
+    private buildOverlayHTML(isStandalone: boolean): string {
         const popoutBtnHTML = isStandalone ? '' : `
             <button class="save-editor-popout" title="Open in separate window" style="background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
@@ -50,7 +51,7 @@ export class SaveEditorViewController {
         return `
             <div class="save-editor-panel">
                 <div class="save-editor-header">
-                    <h2 data-i18n="action_save_editor">${d.action_save_editor || 'Save Editor'}</h2>
+                    <h2 data-i18n="action_save_editor">Save Editor</h2>
                     <div style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
                         ${popoutBtnHTML}
                         <button class="save-editor-close">×</button>
@@ -58,7 +59,7 @@ export class SaveEditorViewController {
                 </div>
                 <div class="save-editor-body">
                     <div class="save-editor-sidebar">
-                        <div class="save-editor-loading-sidebar" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading...'}</div>
+                        <div class="save-editor-loading-sidebar" data-i18n="save_editor_loading">Loading...</div>
                     </div>
                     <div class="save-editor-main">
                         <div class="save-editor-tabs-wrapper" style="display: none;">
@@ -70,7 +71,7 @@ export class SaveEditorViewController {
                             <div class="save-editor-actions">
                                 <div class="save-editor-top-bar">
                                     <div class="save-editor-search-wrapper">
-                                        <input type="text" class="save-editor-search" data-i18n-placeholder="save_editor_search_placeholder" placeholder="${d.save_editor_search_placeholder || 'Search...'}">
+                                        <input type="text" class="save-editor-search" data-i18n-placeholder="save_editor_search_placeholder" placeholder="Search...">
                                     </div>
                                     <button class="refresh-save-btn" title="Reload from disk">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -84,48 +85,48 @@ export class SaveEditorViewController {
                                             <path d="M4 14l6-6 2-3"/>
                                             <path d="M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/>
                                         </svg>
-                                        <span data-i18n="save_editor_translate">${d.save_editor_translate || 'Translate'}</span>
+                                        <span data-i18n="save_editor_translate">Translate</span>
                                         <div class="translate-progress"></div>
                                     </button>
                                 </div>
                                 <div class="save-editor-filters">
                                     <label class="save-editor-filter-check" title="Show all variables, including those with zero or no value">
                                         <input type="checkbox" class="show-empty-check">
-                                        <span data-i18n="save_editor_show_empty">${d.save_editor_show_empty || 'Show empty'}</span>
+                                        <span data-i18n="save_editor_show_empty">Show empty</span>
                                     </label>
                                     <label class="save-editor-filter-check" title="Always show important variables, even if they have zero or no value">
                                         <input type="checkbox" class="show-important-check" checked>
-                                        <span data-i18n="save_editor_show_important">${d.save_editor_show_important || 'Show important'}</span>
+                                        <span data-i18n="save_editor_show_important">Show important</span>
                                     </label>
                                     <label class="save-editor-filter-check" title="Only show entries where the value matches your search exactly">
                                         <input type="checkbox" class="exact-match-check">
-                                        <span data-i18n="save_editor_exact">${d.save_editor_exact || 'Exact'}</span>
+                                        <span data-i18n="save_editor_exact">Exact</span>
                                     </label>
                                     
                                     <div class="filter-divider"></div>
                                     
                                     <label class="save-editor-filter-check" title="Search in names">
                                         <input type="checkbox" class="search-name-check" checked>
-                                        <span data-i18n="save_editor_search_name">${d.save_editor_search_name || 'Name'}</span>
+                                        <span data-i18n="save_editor_search_name">Name</span>
                                     </label>
                                     <label class="save-editor-filter-check" title="Search in values">
                                         <input type="checkbox" class="search-value-check" checked>
-                                        <span data-i18n="save_editor_search_value">${d.save_editor_search_value || 'Value'}</span>
+                                        <span data-i18n="save_editor_search_value">Value</span>
                                     </label>
                                     <label class="save-editor-filter-check" title="Search in index (ID)">
                                         <input type="checkbox" class="search-index-check">
-                                        <span data-i18n="save_editor_search_index">${d.save_editor_search_index || 'Index'}</span>
+                                        <span data-i18n="save_editor_search_index">Index</span>
                                     </label>
 
                                     <div class="filter-divider switch-filters-only" style="display: none;"></div>
 
                                     <label class="save-editor-filter-check switch-filters-only" style="display: none;" title="Only show switches that are ON">
                                         <input type="checkbox" class="switch-true-check">
-                                        <span data-i18n="save_editor_true_only">${d.save_editor_true_only || 'True only'}</span>
+                                        <span data-i18n="save_editor_true_only">True only</span>
                                     </label>
                                     <label class="save-editor-filter-check switch-filters-only" style="display: none;" title="Only show switches that are OFF">
                                         <input type="checkbox" class="switch-false-check">
-                                        <span data-i18n="save_editor_false_only">${d.save_editor_false_only || 'False only'}</span>
+                                        <span data-i18n="save_editor_false_only">False only</span>
                                     </label>
                                 </div>
                             </div>
@@ -137,15 +138,15 @@ export class SaveEditorViewController {
                                     <polyline points="17 21 17 13 7 13 7 21"/>
                                     <polyline points="7 3 7 8 15 8"/>
                                 </svg>
-                                <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
+                                <p data-i18n="save_editor_select_title">Select a save file to start editing</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="save-editor-footer">
                     <button class="secondary-btn map-variable-btn" style="display: none;" data-i18n="save_editor_map">Map Variable</button>
-                    <button class="secondary-btn cancel-btn" data-i18n="save_editor_cancel">${d.save_editor_cancel || 'Cancel'}</button>
-                    <button class="primary-btn save-btn" style="display: none;" data-i18n="save_editor_save">${d.save_editor_save || 'Save Changes'}</button>
+                    <button class="secondary-btn cancel-btn" data-i18n="save_editor_cancel">Cancel</button>
+                    <button class="primary-btn save-btn" style="display: none;" data-i18n="save_editor_save">Save Changes</button>
                 </div>
             </div>
         `;
@@ -408,7 +409,8 @@ export class SaveEditorViewController {
 
         const overlay = document.createElement('div');
         overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`;
-        overlay.innerHTML = this.buildOverlayHTML(d, isStandalone);
+        overlay.innerHTML = this.buildOverlayHTML(isStandalone);
+        bindI18nStrings({ dictionary: d }, overlay);
         this.overlay = overlay;
 
         document.body.appendChild(overlay);

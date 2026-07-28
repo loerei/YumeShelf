@@ -1,5 +1,4 @@
-// @ts-nocheck
-export function escapeHtml(value) {
+export function escapeHtml(value: unknown): string {
     return String(value || '')
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -8,7 +7,7 @@ export function escapeHtml(value) {
         .replaceAll("'", '&#39;');
 }
 
-function renderInlineMarkdown(value) {
+function renderInlineMarkdown(value: string): string {
     let result = escapeHtml(value);
 
     result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
@@ -19,29 +18,29 @@ function renderInlineMarkdown(value) {
     return result;
 }
 
-function renderParagraph(lines) {
+function renderParagraph(lines: string[]): string {
     const text = lines.map(line => line.trim()).join(' ');
     return text ? `<p>${renderInlineMarkdown(text)}</p>` : '';
 }
 
-export function renderMarkdownLite(markdown) {
+export function renderMarkdownLite(markdown: string): string {
     const normalized = String(markdown || '').replace(/\r\n?/g, '\n').trim();
     if (!normalized) {
         return '';
     }
 
     const lines = normalized.split('\n');
-    const html = [];
-    let paragraphLines = [];
-    let listItems = [];
+    const html: string[] = [];
+    let paragraphLines: string[] = [];
+    let listItems: string[] = [];
 
-    function flushParagraph() {
+    function flushParagraph(): void {
         if (paragraphLines.length === 0) return;
         html.push(renderParagraph(paragraphLines));
         paragraphLines = [];
     }
 
-    function flushList() {
+    function flushList(): void {
         if (listItems.length === 0) return;
         const itemsHtml = listItems.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join('');
         html.push(`<ul>${itemsHtml}</ul>`);
@@ -57,7 +56,7 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const headingMatch = /^(#{1,3})\s+(.+)$/.exec(line);
+        const headingMatch = /^(#{1,3})\s+(.*)$/.exec(line);
         if (headingMatch) {
             flushParagraph();
             flushList();
@@ -73,7 +72,7 @@ export function renderMarkdownLite(markdown) {
             continue;
         }
 
-        const listMatch = /^[-*]\s+(.+)$/.exec(line);
+        const listMatch = /^[-*]\s+(.*)$/.exec(line);
         if (listMatch) {
             flushParagraph();
             listItems.push(listMatch[1].trim());

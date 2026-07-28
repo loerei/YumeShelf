@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import { TelemetryShipper } from '../../telemetry/shipper';
 import { isPathWithinLibrary } from '../path-validator';
 import { RegisterIpcOptions } from '../types';
@@ -52,12 +53,13 @@ export class LibraryIpcController {
             try {
                 const record = await libraryState?.getGameRecord(gameKey);
                 const trustedExe = record?.exePath || exePath;
+                const safeExe = path.resolve(trustedExe);
                 if (record?.autoTranslate) {
-                    await translationService?.prepareTranslator(gameKey, trustedExe);
+                    await translationService?.prepareTranslator(gameKey, safeExe);
                 } else {
-                    await translationService?.removeTranslator(trustedExe);
+                    await translationService?.removeTranslator(safeExe);
                 }
-                await playtimeSessionManager?.launchTrackedGame(gameKey, trustedExe, runInBackground);
+                await playtimeSessionManager?.launchTrackedGame(gameKey, safeExe, runInBackground);
             } catch (error) {
                 console.error(`[PLAYTIME][SESSIONS] failed to launch tracked game ${gameKey}:`, error);
             }
@@ -66,7 +68,8 @@ export class LibraryIpcController {
         ipcMain.on('open-folder', async () => {
             const libraryPath = await libraryState?.resolveLibraryFolderToOpen();
             if (typeof libraryPath === 'string' && libraryPath.trim().length > 0 && shell) {
-                shell.openPath(libraryPath);
+                const safePath = path.resolve(libraryPath);
+                shell.openPath(safePath);
             }
         });
 
@@ -76,27 +79,33 @@ export class LibraryIpcController {
         ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState?.toggleAutoTranslate(gameKey));
 
         ipcMain.on('reveal-game', async (_event, targetPath) => {
+            if (!targetPath) return;
+            const safePath = path.resolve(targetPath);
             const config = await libraryState?.resolveLibraryConfig();
-            if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-                shell?.showItemInFolder(targetPath);
+            if (config && isPathWithinLibrary(safePath, config.libraryPaths)) {
+                shell?.showItemInFolder(safePath);
             } else {
-                console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${targetPath}`);
+                console.warn(`[SECURITY] Blocked unauthorized reveal-game path: ${safePath}`);
             }
         });
 
         ipcMain.on('open-path', async (_event, targetPath) => {
+            if (!targetPath) return;
+            const safePath = path.resolve(targetPath);
             const config = await libraryState?.resolveLibraryConfig();
-            if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-                shell?.openPath(targetPath);
+            if (config && isPathWithinLibrary(safePath, config.libraryPaths)) {
+                shell?.openPath(safePath);
             } else {
-                console.warn(`[SECURITY] Blocked unauthorized open-path: ${targetPath}`);
+                console.warn(`[SECURITY] Blocked unauthorized open-path: ${safePath}`);
             }
         });
 
         ipcMain.handle('delete-game', async (_event, targetPath) => {
+            if (!targetPath) return { ok: false, error: 'invalid-path' };
+            const safePath = path.resolve(targetPath);
             const config = await libraryState?.resolveLibraryConfig();
-            if (config && isPathWithinLibrary(targetPath, config.libraryPaths)) {
-                return shell?.trashItem(targetPath);
+            if (config && isPathWithinLibrary(safePath, config.libraryPaths)) {
+                return shell?.trashItem(safePath);
             }
             return { ok: false, error: 'unauthorized-path' };
         });

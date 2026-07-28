@@ -1,13 +1,15 @@
 import * as fsSync from 'node:fs';
 import { RegisterIpcOptions } from '../types';
 
+export type DevAutoLaunchState = 'off' | 'on' | 'minimized';
+
 export class AppIpcController {
-    private devAutoLaunchState: 'off' | 'on' | 'minimized' = 'off';
+    private devAutoLaunchState: DevAutoLaunchState = 'off';
 
     constructor(private readonly options: RegisterIpcOptions) {}
 
-    private parseAutoLaunchSetting(configVal: unknown): { openAtLogin: boolean; args: string[]; value: 'off' | 'on' | 'minimized' } {
-        let value: 'off' | 'on' | 'minimized' = 'off';
+    private parseAutoLaunchSetting(configVal: unknown): { openAtLogin: boolean; args: string[]; value: DevAutoLaunchState } {
+        let value: DevAutoLaunchState = 'off';
         if (configVal === 'minimized') {
             value = 'minimized';
         } else if (configVal === 'on' || configVal === 'true' || configVal === true) {
@@ -23,103 +25,115 @@ export class AppIpcController {
         if (!app || !paths?.dbFile || !fsSync.existsSync(paths.dbFile)) return;
 
         try {
-            const db = JSON.parse(fsSync.readFileSync(paths.dbFile, 'utf8'));
-            if (!db?.config) return;
+            const raw = fsSync.readFileSync(paths.dbFile, 'utf8');
+            const data = JSON.parse(raw);
+            const rawAutoLaunch = data.config?.autoLaunch ?? data.autoLaunch;
+            const { openAtLogin, args, value } = this.parseAutoLaunchSetting(rawAutoLaunch);
 
-            const { openAtLogin, args, value } = this.parseAutoLaunchSetting(db.config.autoLaunch);
-
-            if (app.isPackaged) {
-                app.setLoginItemSettings({
-                    openAtLogin,
-                    path: app.getPath('exe'),
-                    args
-                });
-                console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
-            } else {
+            const isPackaged = typeof app.isPackaged === 'boolean' ? app.isPackaged : (typeof app.isPackaged === 'function' ? (app.isPackaged as any)() : false);
+            if (!isPackaged) {
                 this.devAutoLaunchState = value;
                 console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${this.devAutoLaunchState}`);
+                return;
             }
-        } catch (e) {
-            console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch on startup:', e);
+
+            if (typeof app.setLoginItemSettings === 'function') {
+                app.setLoginItemSettings({ openAtLogin, args });
+                console.log(`[AUTO-LAUNCH][STARTUP] Synced OS startup settings: openAtLogin=${openAtLogin}, args=${JSON.stringify(args)}`);
+            }
+        } catch (error) {
+            console.error('[AUTO-LAUNCH][STARTUP] Failed to sync autoLaunch settings:', error);
         }
     }
 
     public registerHandlers(): void {
-        const { app, ipcMain, shell, appUpdateServices, languagePackServices, startupServices } = this.options;
+        const { ipcMain, app, startupServices, appUpdateServices, paths } = this.options;
         if (!ipcMain) return;
-
-        ipcMain.handle('get-app-version', async () => app?.getVersion());
-        ipcMain.handle('get-language-state', async () => languagePackServices?.buildLanguageState());
-        ipcMain.handle('bootstrap-app', async (event, options = {}) => startupServices?.bootstrapAppState(event.sender, options));
-
-        ipcMain.handle('log-app-update-debug', async (_event, message) => {
-            if (appUpdateServices && typeof appUpdateServices.logDebug === 'function') {
-                await appUpdateServices.logDebug(String(message || ''));
-            }
-            return { ok: true };
-        });
-
-        ipcMain.handle('start-app-update-download', async () => appUpdateServices?.startBackgroundDownload());
-        ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices?.restartAndInstallDownloadedUpdate());
-        ipcMain.handle('schedule-app-update-next-launch', async () => appUpdateServices?.scheduleInstallOnNextLaunch());
-        ipcMain.handle('begin-deferred-app-update-install', async () => appUpdateServices?.beginDeferredInstallOnLaunch());
-        ipcMain.handle('open-app-update-download-page', async () => appUpdateServices?.openAppUpdateDownloadPage());
-
-        ipcMain.handle('open-external-url', async (_event, url) => {
-            const normalizedUrl = String(url || '').trim();
-            if (!/^https?:\/\//i.test(normalizedUrl)) {
-                return { ok: false, reason: 'invalid-url' };
-            }
-            if (shell) {
-                await shell.openExternal(normalizedUrl);
-            }
-            return { ok: true };
-        });
-
-        ipcMain.handle('is-dev', () => app ? !app.isPackaged : true);
 
         this.initStartupAutoLaunch();
 
-        ipcMain.handle('set-auto-launch', async (_event, value) => {
+        ipcMain.handle('get-app-version', () => (typeof app?.getVersion === 'function' ? app.getVersion() : '1.5.12'));
+        ipcMain.handle('is-dev', () => {
+            if (!app) return true;
+            if (typeof app.isPackaged === 'boolean') return !app.isPackaged;
+            if (typeof app.isPackaged === 'function') return !(app.isPackaged as any)();
+            return true;
+        });
+
+        ipcMain.handle('update:check', async () => appUpdateServices?.checkForUpdates());
+        ipcMain.handle('update:download', async () => appUpdateServices?.downloadUpdate());
+        ipcMain.handle('update:quit-and-install', () => appUpdateServices?.quitAndInstall());
+
+        ipcMain.handle('set-auto-launch', async (_event, enabled: unknown) => {
+            const { openAtLogin, args, value } = this.parseAutoLaunchSetting(enabled);
+            const isPackaged = typeof app?.isPackaged === 'boolean' ? app.isPackaged : (typeof app?.isPackaged === 'function' ? (app.isPackaged as any)() : false);
+
+            if (!isPackaged) {
+                this.devAutoLaunchState = value;
+                console.log(`[AUTO-LAUNCH][DEV] Dev mode detected, mocking setAutoLaunch to: ${this.devAutoLaunchState}`);
+                return { success: true, devMode: true, state: this.devAutoLaunchState };
+            }
+
             try {
-                const openAtLogin = (value === 'on' || value === 'minimized' || value === true);
-                const args = (value === 'minimized') ? ['--minimized'] : [];
-                if (app?.isPackaged) {
-                    app.setLoginItemSettings({
-                        openAtLogin,
-                        path: app.getPath('exe'),
-                        args
-                    });
-                } else {
-                    if (value === 'minimized') {
-                        this.devAutoLaunchState = 'minimized';
-                    } else if (openAtLogin) {
-                        this.devAutoLaunchState = 'on';
-                    } else {
-                        this.devAutoLaunchState = 'off';
-                    }
-                    console.log(`[AUTO-LAUNCH][DEV] Skipped OS startup registration (openAtLogin: ${openAtLogin}, args: ${JSON.stringify(args)})`);
+                if (typeof app?.setLoginItemSettings === 'function') {
+                    app.setLoginItemSettings({ openAtLogin, args });
                 }
                 return { success: true };
             } catch (error: any) {
-                console.error('[AUTO-LAUNCH] Failed to set startup settings:', error);
+                console.error('[AUTO-LAUNCH] Failed to set login item settings:', error);
                 return { success: false, error: error.message };
             }
         });
 
         ipcMain.handle('get-auto-launch', async () => {
+            const isPackaged = typeof app?.isPackaged === 'boolean' ? app.isPackaged : (typeof app?.isPackaged === 'function' ? (app.isPackaged as any)() : false);
+            if (!isPackaged) {
+                console.log(`[AUTO-LAUNCH][DEV] Dev mode detected, returning mocked state: ${this.devAutoLaunchState}`);
+                return this.devAutoLaunchState;
+            }
+
             try {
-                if (!app?.isPackaged) {
-                    return this.devAutoLaunchState;
+                if (typeof app?.getLoginItemSettings === 'function') {
+                    const settings: any = app.getLoginItemSettings();
+                    const openAtLogin = settings.openAtLogin;
+                    const hasMinimizedArg = Array.isArray(settings.args) && settings.args.includes('--minimized');
+                    if (openAtLogin && hasMinimizedArg) return 'minimized';
+                    if (openAtLogin) return 'on';
+                    return 'off';
                 }
-                const settings = app.getLoginItemSettings() as any;
-                if (!settings.openAtLogin) return 'off';
-                if (settings.args?.includes('--minimized')) {
-                    return 'minimized';
-                }
-                return 'on';
-            } catch {
                 return 'off';
+            } catch (error: any) {
+                console.error('[AUTO-LAUNCH] Failed to get login item settings:', error);
+                return 'off';
+            }
+        });
+
+        ipcMain.handle('app:get-full-config', async () => startupServices?.resolveFullConfig());
+        ipcMain.handle('app:relaunch-yumeshelf', () => {
+            if (typeof app?.relaunch === 'function' && typeof app?.exit === 'function') {
+                app.relaunch();
+                app.exit(0);
+            }
+        });
+
+        ipcMain.on('exit-app', () => {
+            if (typeof app?.quit === 'function') {
+                app.quit();
+            }
+        });
+
+        ipcMain.handle('app:read-backup-history', async () => {
+            if (!paths?.backupsDir || !fsSync.existsSync(paths.backupsDir)) return [];
+            try {
+                const files = fsSync.readdirSync(paths.backupsDir).filter((file) => file.endsWith('.json'));
+                return files.map((file) => {
+                    const filePath = `${paths.backupsDir}/${file}`;
+                    const stats = fsSync.statSync(filePath);
+                    return { fileName: file, path: filePath, mtime: stats.mtimeMs, size: stats.size };
+                }).sort((a, b) => b.mtime - a.mtime);
+            } catch (error) {
+                console.error('[BACKUP-HISTORY] Failed to read backups dir:', error);
+                return [];
             }
         });
     }

@@ -25,6 +25,21 @@ export interface SaveEditorState {
     hasUnsavedChanges: () => boolean;
 }
 
+function createSVGIcon(pathD: string, width = 16, height = 16, viewBox = '0 0 24 24', strokeWidth = 2): SVGSVGElement {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', viewBox);
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', String(strokeWidth));
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathD);
+    svg.appendChild(path);
+    return svg;
+}
+
 export class SaveEditorViewController {
     private readonly engine: DataEngine;
     private readonly translator: Translator;
@@ -37,119 +52,204 @@ export class SaveEditorViewController {
         this.translator = new Translator((window as any).electronAPI);
     }
 
-    private buildOverlayHTML(isStandalone: boolean): string {
-        const popoutBtnHTML = isStandalone ? '' : `
-            <button class="save-editor-popout" title="Open in separate window" style="background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
-            </button>
-        `;
+    private createFilterLabel(i18nKey: string, text: string, className: string, checked = false, title = '', hide = false): HTMLLabelElement {
+        const label = document.createElement('label');
+        label.className = `save-editor-filter-check ${hide ? 'switch-filters-only' : ''}`.trim();
+        if (title) label.title = title;
+        if (hide) label.style.display = 'none';
 
-        return `
-            <div class="save-editor-panel">
-                <div class="save-editor-header">
-                    <h2 data-i18n="action_save_editor">Save Editor</h2>
-                    <div style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
-                        ${popoutBtnHTML}
-                        <button class="save-editor-close">×</button>
-                    </div>
-                </div>
-                <div class="save-editor-body">
-                    <div class="save-editor-sidebar">
-                        <div class="save-editor-loading-sidebar" data-i18n="save_editor_loading">Loading...</div>
-                    </div>
-                    <div class="save-editor-main">
-                        <div class="save-editor-tabs-wrapper" style="display: none;">
-                            <div class="save-editor-tabs-container">
-                                <div class="save-editor-tabs"></div>
-                                <div class="tabs-shadow tabs-shadow-left"></div>
-                                <div class="tabs-shadow tabs-shadow-right"></div>
-                            </div>
-                            <div class="save-editor-actions">
-                                <div class="save-editor-top-bar">
-                                    <div class="save-editor-search-wrapper">
-                                        <input type="text" class="save-editor-search" data-i18n-placeholder="save_editor_search_placeholder" placeholder="Search...">
-                                    </div>
-                                    <button class="refresh-save-btn" title="Reload from disk">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                            <path d="M23 4v6h-6M1 20v-6h6"/>
-                                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                                        </svg>
-                                    </button>
-                                    <button class="translate-btn" title="Translate to app language">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                            <path d="M5 8l6 6"/>
-                                            <path d="M4 14l6-6 2-3"/>
-                                            <path d="M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/>
-                                        </svg>
-                                        <span data-i18n="save_editor_translate">Translate</span>
-                                        <div class="translate-progress"></div>
-                                    </button>
-                                </div>
-                                <div class="save-editor-filters">
-                                    <label class="save-editor-filter-check" title="Show all variables, including those with zero or no value">
-                                        <input type="checkbox" class="show-empty-check">
-                                        <span data-i18n="save_editor_show_empty">Show empty</span>
-                                    </label>
-                                    <label class="save-editor-filter-check" title="Always show important variables, even if they have zero or no value">
-                                        <input type="checkbox" class="show-important-check" checked>
-                                        <span data-i18n="save_editor_show_important">Show important</span>
-                                    </label>
-                                    <label class="save-editor-filter-check" title="Only show entries where the value matches your search exactly">
-                                        <input type="checkbox" class="exact-match-check">
-                                        <span data-i18n="save_editor_exact">Exact</span>
-                                    </label>
-                                    
-                                    <div class="filter-divider"></div>
-                                    
-                                    <label class="save-editor-filter-check" title="Search in names">
-                                        <input type="checkbox" class="search-name-check" checked>
-                                        <span data-i18n="save_editor_search_name">Name</span>
-                                    </label>
-                                    <label class="save-editor-filter-check" title="Search in values">
-                                        <input type="checkbox" class="search-value-check" checked>
-                                        <span data-i18n="save_editor_search_value">Value</span>
-                                    </label>
-                                    <label class="save-editor-filter-check" title="Search in index (ID)">
-                                        <input type="checkbox" class="search-index-check">
-                                        <span data-i18n="save_editor_search_index">Index</span>
-                                    </label>
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = className;
+        input.checked = checked;
 
-                                    <div class="filter-divider switch-filters-only" style="display: none;"></div>
+        const span = document.createElement('span');
+        span.setAttribute('data-i18n', i18nKey);
+        span.textContent = text;
 
-                                    <label class="save-editor-filter-check switch-filters-only" style="display: none;" title="Only show switches that are ON">
-                                        <input type="checkbox" class="switch-true-check">
-                                        <span data-i18n="save_editor_true_only">True only</span>
-                                    </label>
-                                    <label class="save-editor-filter-check switch-filters-only" style="display: none;" title="Only show switches that are OFF">
-                                        <input type="checkbox" class="switch-false-check">
-                                        <span data-i18n="save_editor_false_only">False only</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="save-editor-content">
-                            <div class="empty-state">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                    <polyline points="17 21 17 13 7 13 7 21"/>
-                                    <polyline points="7 3 7 8 15 8"/>
-                                </svg>
-                                <p data-i18n="save_editor_select_title">Select a save file to start editing</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="save-editor-footer">
-                    <button class="secondary-btn map-variable-btn" style="display: none;" data-i18n="save_editor_map">Map Variable</button>
-                    <button class="secondary-btn cancel-btn" data-i18n="save_editor_cancel">Cancel</button>
-                    <button class="primary-btn save-btn" style="display: none;" data-i18n="save_editor_save">Save Changes</button>
-                </div>
-            </div>
-        `;
+        label.appendChild(input);
+        label.appendChild(span);
+        return label;
+    }
+
+    private buildOverlayDOM(isStandalone: boolean): HTMLElement {
+        const overlay = document.createElement('div');
+        overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`;
+
+        const panel = document.createElement('div');
+        panel.className = 'save-editor-panel';
+
+        // 1. Header
+        const header = document.createElement('div');
+        header.className = 'save-editor-header';
+
+        const title = document.createElement('h2');
+        title.setAttribute('data-i18n', 'action_save_editor');
+        title.textContent = 'Save Editor';
+
+        const headerActions = document.createElement('div');
+        headerActions.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-left: auto;';
+
+        if (!isStandalone) {
+            const popoutBtn = document.createElement('button');
+            popoutBtn.className = 'save-editor-popout';
+            popoutBtn.title = 'Open in separate window';
+            popoutBtn.style.cssText = 'background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;';
+            popoutBtn.appendChild(createSVGIcon('M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', 18, 18, '0 0 24 24', 2.2));
+            headerActions.appendChild(popoutBtn);
+        }
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'save-editor-close';
+        closeBtn.textContent = '×';
+        headerActions.appendChild(closeBtn);
+
+        header.appendChild(title);
+        header.appendChild(headerActions);
+
+        // 2. Body
+        const body = document.createElement('div');
+        body.className = 'save-editor-body';
+
+        const sidebar = document.createElement('div');
+        sidebar.className = 'save-editor-sidebar';
+        const loadingSidebar = document.createElement('div');
+        loadingSidebar.className = 'save-editor-loading-sidebar';
+        loadingSidebar.setAttribute('data-i18n', 'save_editor_loading');
+        loadingSidebar.textContent = 'Loading...';
+        sidebar.appendChild(loadingSidebar);
+
+        const main = document.createElement('div');
+        main.className = 'save-editor-main';
+
+        const tabsWrapper = document.createElement('div');
+        tabsWrapper.className = 'save-editor-tabs-wrapper';
+        tabsWrapper.style.display = 'none';
+
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'save-editor-tabs-container';
+        const tabs = document.createElement('div');
+        tabs.className = 'save-editor-tabs';
+        const leftShadow = document.createElement('div');
+        leftShadow.className = 'tabs-shadow tabs-shadow-left';
+        const rightShadow = document.createElement('div');
+        rightShadow.className = 'tabs-shadow tabs-shadow-right';
+        tabsContainer.appendChild(tabs);
+        tabsContainer.appendChild(leftShadow);
+        tabsContainer.appendChild(rightShadow);
+
+        const actions = document.createElement('div');
+        actions.className = 'save-editor-actions';
+
+        const topBar = document.createElement('div');
+        topBar.className = 'save-editor-top-bar';
+
+        const searchWrapper = document.createElement('div');
+        searchWrapper.className = 'save-editor-search-wrapper';
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'save-editor-search';
+        searchInput.setAttribute('data-i18n-placeholder', 'save_editor_search_placeholder');
+        searchInput.placeholder = 'Search...';
+        searchWrapper.appendChild(searchInput);
+
+        const refreshBtn = document.createElement('button');
+        refreshBtn.className = 'refresh-save-btn';
+        refreshBtn.title = 'Reload from disk';
+        refreshBtn.appendChild(createSVGIcon('M23 4v6h-6M1 20v-6h6', 16, 16));
+
+        const translateBtn = document.createElement('button');
+        translateBtn.className = 'translate-btn';
+        translateBtn.title = 'Translate to app language';
+        translateBtn.appendChild(createSVGIcon('M5 8l6 6', 16, 16));
+        const translateSpan = document.createElement('span');
+        translateSpan.setAttribute('data-i18n', 'save_editor_translate');
+        translateSpan.textContent = 'Translate';
+        const translateProgress = document.createElement('div');
+        translateProgress.className = 'translate-progress';
+        translateBtn.appendChild(translateSpan);
+        translateBtn.appendChild(translateProgress);
+
+        topBar.appendChild(searchWrapper);
+        topBar.appendChild(refreshBtn);
+        topBar.appendChild(translateBtn);
+
+        const filters = document.createElement('div');
+        filters.className = 'save-editor-filters';
+        filters.appendChild(this.createFilterLabel('save_editor_show_empty', 'Show empty', 'show-empty-check', false, 'Show all variables, including those with zero or no value'));
+        filters.appendChild(this.createFilterLabel('save_editor_show_important', 'Show important', 'show-important-check', true, 'Always show important variables, even if they have zero or no value'));
+        filters.appendChild(this.createFilterLabel('save_editor_exact', 'Exact', 'exact-match-check', false, 'Only show entries where the value matches your search exactly'));
+
+        const divider1 = document.createElement('div');
+        divider1.className = 'filter-divider';
+        filters.appendChild(divider1);
+
+        filters.appendChild(this.createFilterLabel('save_editor_search_name', 'Name', 'search-name-check', true, 'Search in names'));
+        filters.appendChild(this.createFilterLabel('save_editor_search_value', 'Value', 'search-value-check', true, 'Search in values'));
+        filters.appendChild(this.createFilterLabel('save_editor_search_index', 'Index', 'search-index-check', false, 'Search in index (ID)'));
+
+        const divider2 = document.createElement('div');
+        divider2.className = 'filter-divider switch-filters-only';
+        divider2.style.display = 'none';
+        filters.appendChild(divider2);
+
+        filters.appendChild(this.createFilterLabel('save_editor_true_only', 'True only', 'switch-true-check', false, 'Only show switches that are ON', true));
+        filters.appendChild(this.createFilterLabel('save_editor_false_only', 'False only', 'switch-false-check', false, 'Only show switches that are OFF', true));
+
+        actions.appendChild(topBar);
+        actions.appendChild(filters);
+
+        tabsWrapper.appendChild(tabsContainer);
+        tabsWrapper.appendChild(actions);
+
+        const content = document.createElement('div');
+        content.className = 'save-editor-content';
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        emptyState.appendChild(createSVGIcon('M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z', 48, 48, '0 0 24 24', 1.5));
+        const selectTitle = document.createElement('p');
+        selectTitle.setAttribute('data-i18n', 'save_editor_select_title');
+        selectTitle.textContent = 'Select a save file to start editing';
+        emptyState.appendChild(selectTitle);
+        content.appendChild(emptyState);
+
+        main.appendChild(tabsWrapper);
+        main.appendChild(content);
+
+        body.appendChild(sidebar);
+        body.appendChild(main);
+
+        // 3. Footer
+        const footer = document.createElement('div');
+        footer.className = 'save-editor-footer';
+
+        const mapBtn = document.createElement('button');
+        mapBtn.className = 'secondary-btn map-variable-btn';
+        mapBtn.style.display = 'none';
+        mapBtn.setAttribute('data-i18n', 'save_editor_map');
+        mapBtn.textContent = 'Map Variable';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'secondary-btn cancel-btn';
+        cancelBtn.setAttribute('data-i18n', 'save_editor_cancel');
+        cancelBtn.textContent = 'Cancel';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'primary-btn save-btn';
+        saveBtn.style.display = 'none';
+        saveBtn.setAttribute('data-i18n', 'save_editor_save');
+        saveBtn.textContent = 'Save Changes';
+
+        footer.appendChild(mapBtn);
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+
+        panel.appendChild(header);
+        panel.appendChild(body);
+        panel.appendChild(footer);
+
+        overlay.appendChild(panel);
+        return overlay;
     }
 
     private isUserTyping(): boolean {
@@ -407,9 +507,7 @@ export class SaveEditorViewController {
         const d = (window as any).currentUIStrings || {};
         const isStandalone = !!options.isStandaloneWindow;
 
-        const overlay = document.createElement('div');
-        overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`;
-        overlay.innerHTML = this.buildOverlayHTML(isStandalone);
+        const overlay = this.buildOverlayDOM(isStandalone);
         bindI18nStrings({ dictionary: d }, overlay);
         this.overlay = overlay;
 

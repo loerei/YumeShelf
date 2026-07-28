@@ -151,17 +151,44 @@ export class SaveEditorViewController {
         `;
     }
 
+    private isUserTyping(): boolean {
+        const activeElement = document.activeElement as HTMLElement | null;
+        if (!activeElement) return false;
+        return (
+            (activeElement.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'email', 'tel', 'url'].includes((activeElement as HTMLInputElement).type)) ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.isContentEditable
+        );
+    }
+
+    private handleSingleKeyShortcut(key: string, overlay: HTMLElement, renderTabContent: () => void): void {
+        if (key === 'e') {
+            const chk = overlay.querySelector('.show-empty-check') as HTMLInputElement | null;
+            if (chk && this.activeControllerState) {
+                chk.checked = !chk.checked;
+                this.activeControllerState.showEmpty = chk.checked;
+                renderTabContent();
+            }
+        } else if (key === 'i') {
+            const chk = overlay.querySelector('.show-important-check') as HTMLInputElement | null;
+            if (chk && this.activeControllerState) {
+                chk.checked = !chk.checked;
+                this.activeControllerState.showImportant = chk.checked;
+                renderTabContent();
+            }
+        } else if (key === 'x') {
+            const chk = overlay.querySelector('.exact-match-check') as HTMLInputElement | null;
+            if (chk) {
+                chk.checked = !chk.checked;
+                this.engine.setSearchOptions({ exact: chk.checked });
+                renderTabContent();
+            }
+        }
+    }
+
     private setupKeydownListener(overlay: HTMLElement, renderTabContent: () => void): (e: KeyboardEvent) => void {
         return (e: KeyboardEvent) => {
-            const activeElement = document.activeElement as HTMLElement | null;
-            const isTyping = activeElement && (
-                (activeElement.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'email', 'tel', 'url'].includes((activeElement as HTMLInputElement).type)) ||
-                activeElement.tagName === 'TEXTAREA' ||
-                activeElement.isContentEditable
-            );
-            if (isTyping) return;
-
-            const key = e.key.toLowerCase();
+            if (this.isUserTyping()) return;
 
             if (e.shiftKey && e.key === 'Enter') {
                 e.preventDefault();
@@ -173,31 +200,10 @@ export class SaveEditorViewController {
             }
 
             if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
-
-            if (key === 'e') {
+            const key = e.key.toLowerCase();
+            if (['e', 'i', 'x'].includes(key)) {
                 e.preventDefault();
-                const chk = overlay.querySelector('.show-empty-check') as HTMLInputElement | null;
-                if (chk && this.activeControllerState) {
-                    chk.checked = !chk.checked;
-                    this.activeControllerState.showEmpty = chk.checked;
-                    renderTabContent();
-                }
-            } else if (key === 'i') {
-                e.preventDefault();
-                const chk = overlay.querySelector('.show-important-check') as HTMLInputElement | null;
-                if (chk && this.activeControllerState) {
-                    chk.checked = !chk.checked;
-                    this.activeControllerState.showImportant = chk.checked;
-                    renderTabContent();
-                }
-            } else if (key === 'x') {
-                e.preventDefault();
-                const chk = overlay.querySelector('.exact-match-check') as HTMLInputElement | null;
-                if (chk) {
-                    chk.checked = !chk.checked;
-                    this.engine.setSearchOptions({ exact: chk.checked });
-                    renderTabContent();
-                }
+                this.handleSingleKeyShortcut(key, overlay, renderTabContent);
             }
         };
     }
@@ -229,6 +235,83 @@ export class SaveEditorViewController {
             });
             resizeObserver.observe(tabsContainer);
         }
+    }
+
+    private setupPopoutAction(overlay: HTMLElement, gameKey: string, isStandalone: boolean, d: Record<string, string>, close: (force?: boolean) => void): void {
+        if (isStandalone) return;
+        const popoutBtn = overlay.querySelector('.save-editor-popout') as HTMLElement | null;
+        if (!popoutBtn) return;
+
+        popoutBtn.onclick = () => {
+            if (this.activeControllerState?.hasUnsavedChanges?.()) {
+                if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to open in a separate window and discard them?')) {
+                    return;
+                }
+            }
+            const stateToPass = {
+                currentFileName: this.activeControllerState?.currentFileName,
+                activeTab: this.activeControllerState?.activeTab,
+                showEmpty: this.activeControllerState?.showEmpty,
+                showImportant: this.activeControllerState?.showImportant,
+                searchOptions: (this.engine as any).searchOptions
+            };
+            localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
+            (window as any).electronAPI.openSaveEditorWindow(gameKey);
+            close(true);
+        };
+        popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
+        popoutBtn.addEventListener('mouseleave', () => { popoutBtn.style.color = '#9ca3af'; });
+    }
+
+    private parsePopoutState(gameKey: string, isStandalone: boolean): any {
+        if (!isStandalone) return null;
+        const stateStr = localStorage.getItem(`yumeshelf_popout_state_${gameKey}`);
+        if (!stateStr) return null;
+        try {
+            const popoutState = JSON.parse(stateStr);
+            localStorage.removeItem(`yumeshelf_popout_state_${gameKey}`);
+            return popoutState;
+        } catch (e) {
+            console.error('[SAVE-EDITOR] Failed to parse popout state:', e);
+            return null;
+        }
+    }
+
+    private buildStateContext(gameKey: string, isStandalone: boolean, d: Record<string, string>, popoutState: any): SaveEditorState {
+        const storedPins = localStorage.getItem(`yumeshelf_pinned_${gameKey}`);
+        let parsedPins: string[] = [];
+        try {
+            parsedPins = storedPins ? JSON.parse(storedPins) : [];
+        } catch (e) {
+            console.error('[SAVE-EDITOR] Failed to parse pinned variables:', e);
+        }
+
+        const state: SaveEditorState = {
+            currentSaveData: null,
+            currentMetadata: null,
+            currentFileName: popoutState ? popoutState.currentFileName : null,
+            originalSnapshot: null,
+            activeTab: popoutState ? popoutState.activeTab : 'gold',
+            showEmpty: popoutState?.showEmpty ?? false,
+            showImportant: popoutState?.showImportant ?? true,
+            gameKey,
+            isStandalone,
+            d,
+            pinnedVariables: new Set(parsedPins),
+            savePinnedVariables: () => {
+                try {
+                    localStorage.setItem(`yumeshelf_pinned_${gameKey}`, JSON.stringify(Array.from(state.pinnedVariables)));
+                } catch (e) {
+                    console.error('[SAVE-EDITOR] Failed to save pinned variables:', e);
+                }
+            },
+            hasUnsavedChanges: () => {
+                if (!state.currentSaveData || !state.originalSnapshot) return false;
+                return JSON.stringify(state.currentSaveData) !== JSON.stringify(state.originalSnapshot);
+            }
+        };
+
+        return state;
     }
 
     private restorePopoutState(overlay: HTMLElement, popoutState: any): void {
@@ -351,30 +434,7 @@ export class SaveEditorViewController {
         const cancelBtn = overlay.querySelector('.cancel-btn') as HTMLElement | null;
         if (cancelBtn) cancelBtn.onclick = () => close(false);
 
-        if (!isStandalone) {
-            const popoutBtn = overlay.querySelector('.save-editor-popout') as HTMLElement | null;
-            if (popoutBtn) {
-                popoutBtn.onclick = () => {
-                    if (this.activeControllerState?.hasUnsavedChanges?.()) {
-                        if (!confirm(d.save_editor_unsaved_confirm || 'You have unsaved changes. Are you sure you want to open in a separate window and discard them?')) {
-                            return;
-                        }
-                    }
-                    const stateToPass = {
-                        currentFileName: this.activeControllerState?.currentFileName,
-                        activeTab: this.activeControllerState?.activeTab,
-                        showEmpty: this.activeControllerState?.showEmpty,
-                        showImportant: this.activeControllerState?.showImportant,
-                        searchOptions: (this.engine as any).searchOptions
-                    };
-                    localStorage.setItem(`yumeshelf_popout_state_${gameKey}`, JSON.stringify(stateToPass));
-                    (window as any).electronAPI.openSaveEditorWindow(gameKey);
-                    close(true);
-                };
-                popoutBtn.addEventListener('mouseenter', () => { popoutBtn.style.color = '#ffffff'; });
-                popoutBtn.addEventListener('mouseleave', () => { popoutBtn.style.color = '#9ca3af'; });
-            }
-        }
+        this.setupPopoutAction(overlay, gameKey, isStandalone, d, close);
 
         const sidebar = overlay.querySelector('.save-editor-sidebar') as HTMLElement;
         const content = overlay.querySelector('.save-editor-content') as HTMLElement;
@@ -390,52 +450,8 @@ export class SaveEditorViewController {
             this.setupTabShadows(tabsContainer, leftShadow, rightShadow);
         }
 
-        const storedPins = localStorage.getItem(`yumeshelf_pinned_${gameKey}`);
-        let parsedPins: string[] = [];
-        try {
-            parsedPins = storedPins ? JSON.parse(storedPins) : [];
-        } catch (e) {
-            console.error('[SAVE-EDITOR] Failed to parse pinned variables:', e);
-        }
-
-        let popoutState: any = null;
-        if (isStandalone) {
-            const stateStr = localStorage.getItem(`yumeshelf_popout_state_${gameKey}`);
-            if (stateStr) {
-                try {
-                    popoutState = JSON.parse(stateStr);
-                    localStorage.removeItem(`yumeshelf_popout_state_${gameKey}`);
-                } catch (e) {
-                    console.error('[SAVE-EDITOR] Failed to parse popout state:', e);
-                }
-            }
-        }
-
-        const state: SaveEditorState = {
-            currentSaveData: null,
-            currentMetadata: null,
-            currentFileName: popoutState ? popoutState.currentFileName : null,
-            originalSnapshot: null,
-            activeTab: popoutState ? popoutState.activeTab : 'gold',
-            showEmpty: popoutState?.showEmpty ?? false,
-            showImportant: popoutState?.showImportant ?? true,
-            gameKey,
-            isStandalone,
-            d,
-            pinnedVariables: new Set(parsedPins),
-            savePinnedVariables: () => {
-                try {
-                    localStorage.setItem(`yumeshelf_pinned_${gameKey}`, JSON.stringify(Array.from(state.pinnedVariables)));
-                } catch (e) {
-                    console.error('[SAVE-EDITOR] Failed to save pinned variables:', e);
-                }
-            },
-            hasUnsavedChanges: () => {
-                if (!state.currentSaveData || !state.originalSnapshot) return false;
-                return JSON.stringify(state.currentSaveData) !== JSON.stringify(state.originalSnapshot);
-            }
-        };
-
+        const popoutState = this.parsePopoutState(gameKey, isStandalone);
+        const state = this.buildStateContext(gameKey, isStandalone, d, popoutState);
         this.activeControllerState = state;
 
         const refs = {

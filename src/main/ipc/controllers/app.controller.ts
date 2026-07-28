@@ -8,6 +8,14 @@ export class AppIpcController {
 
     constructor(private readonly options: RegisterIpcOptions) {}
 
+    private isAppPackaged(): boolean {
+        const app = this.options.app;
+        if (!app) return false;
+        if (typeof app.isPackaged === 'boolean') return app.isPackaged;
+        if (typeof app.isPackaged === 'function') return (app.isPackaged as any)();
+        return false;
+    }
+
     private parseAutoLaunchSetting(configVal: unknown): { openAtLogin: boolean; args: string[]; value: DevAutoLaunchState } {
         let value: DevAutoLaunchState = 'off';
         if (configVal === 'minimized') {
@@ -30,8 +38,7 @@ export class AppIpcController {
             const rawAutoLaunch = data.config?.autoLaunch ?? data.autoLaunch;
             const { openAtLogin, args, value } = this.parseAutoLaunchSetting(rawAutoLaunch);
 
-            const isPackaged = typeof app.isPackaged === 'boolean' ? app.isPackaged : (typeof app.isPackaged === 'function' ? (app.isPackaged as any)() : false);
-            if (!isPackaged) {
+            if (!this.isAppPackaged()) {
                 this.devAutoLaunchState = value;
                 console.log(`[AUTO-LAUNCH][DEV][STARTUP] Synced devAutoLaunchState: ${this.devAutoLaunchState}`);
                 return;
@@ -53,12 +60,7 @@ export class AppIpcController {
         this.initStartupAutoLaunch();
 
         ipcMain.handle('get-app-version', () => (typeof app?.getVersion === 'function' ? app.getVersion() : '1.5.12'));
-        ipcMain.handle('is-dev', () => {
-            if (!app) return true;
-            if (typeof app.isPackaged === 'boolean') return !app.isPackaged;
-            if (typeof app.isPackaged === 'function') return !(app.isPackaged as any)();
-            return true;
-        });
+        ipcMain.handle('is-dev', () => !this.isAppPackaged());
 
         ipcMain.handle('update:check', async () => appUpdateServices?.checkForUpdates());
         ipcMain.handle('update:download', async () => appUpdateServices?.downloadUpdate());
@@ -66,9 +68,8 @@ export class AppIpcController {
 
         ipcMain.handle('set-auto-launch', async (_event, enabled: unknown) => {
             const { openAtLogin, args, value } = this.parseAutoLaunchSetting(enabled);
-            const isPackaged = typeof app?.isPackaged === 'boolean' ? app.isPackaged : (typeof app?.isPackaged === 'function' ? (app.isPackaged as any)() : false);
 
-            if (!isPackaged) {
+            if (!this.isAppPackaged()) {
                 this.devAutoLaunchState = value;
                 console.log(`[AUTO-LAUNCH][DEV] Dev mode detected, mocking setAutoLaunch to: ${this.devAutoLaunchState}`);
                 return { success: true, devMode: true, state: this.devAutoLaunchState };
@@ -86,8 +87,7 @@ export class AppIpcController {
         });
 
         ipcMain.handle('get-auto-launch', async () => {
-            const isPackaged = typeof app?.isPackaged === 'boolean' ? app.isPackaged : (typeof app?.isPackaged === 'function' ? (app.isPackaged as any)() : false);
-            if (!isPackaged) {
+            if (!this.isAppPackaged()) {
                 console.log(`[AUTO-LAUNCH][DEV] Dev mode detected, returning mocked state: ${this.devAutoLaunchState}`);
                 return this.devAutoLaunchState;
             }

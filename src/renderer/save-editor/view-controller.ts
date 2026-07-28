@@ -64,7 +64,7 @@ export class SaveEditorViewController {
         input.checked = checked;
 
         const span = document.createElement('span');
-        span.setAttribute('data-i18n', i18nKey);
+        span.dataset.i18n = i18nKey;
         span.textContent = text;
 
         label.appendChild(input);
@@ -84,7 +84,7 @@ export class SaveEditorViewController {
         header.className = 'save-editor-header';
 
         const title = document.createElement('h2');
-        title.setAttribute('data-i18n', 'action_save_editor');
+        title.dataset.i18n = 'action_save_editor';
         title.textContent = 'Save Editor';
 
         const headerActions = document.createElement('div');
@@ -115,7 +115,7 @@ export class SaveEditorViewController {
         sidebar.className = 'save-editor-sidebar';
         const loadingSidebar = document.createElement('div');
         loadingSidebar.className = 'save-editor-loading-sidebar';
-        loadingSidebar.setAttribute('data-i18n', 'save_editor_loading');
+        loadingSidebar.dataset.i18n = 'save_editor_loading';
         loadingSidebar.textContent = 'Loading...';
         sidebar.appendChild(loadingSidebar);
 
@@ -149,7 +149,7 @@ export class SaveEditorViewController {
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.className = 'save-editor-search';
-        searchInput.setAttribute('data-i18n-placeholder', 'save_editor_search_placeholder');
+        searchInput.dataset.i18nPlaceholder = 'save_editor_search_placeholder';
         searchInput.placeholder = 'Search...';
         searchWrapper.appendChild(searchInput);
 
@@ -163,7 +163,7 @@ export class SaveEditorViewController {
         translateBtn.title = 'Translate to app language';
         translateBtn.appendChild(createSVGIcon('M5 8l6 6', 16, 16));
         const translateSpan = document.createElement('span');
-        translateSpan.setAttribute('data-i18n', 'save_editor_translate');
+        translateSpan.dataset.i18n = 'save_editor_translate';
         translateSpan.textContent = 'Translate';
         const translateProgress = document.createElement('div');
         translateProgress.className = 'translate-progress';
@@ -208,7 +208,7 @@ export class SaveEditorViewController {
         emptyState.className = 'empty-state';
         emptyState.appendChild(createSVGIcon('M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z', 48, 48, '0 0 24 24', 1.5));
         const selectTitle = document.createElement('p');
-        selectTitle.setAttribute('data-i18n', 'save_editor_select_title');
+        selectTitle.dataset.i18n = 'save_editor_select_title';
         selectTitle.textContent = 'Select a save file to start editing';
         emptyState.appendChild(selectTitle);
         content.appendChild(emptyState);
@@ -226,18 +226,18 @@ export class SaveEditorViewController {
         const mapBtn = document.createElement('button');
         mapBtn.className = 'secondary-btn map-variable-btn';
         mapBtn.style.display = 'none';
-        mapBtn.setAttribute('data-i18n', 'save_editor_map');
+        mapBtn.dataset.i18n = 'save_editor_map';
         mapBtn.textContent = 'Map Variable';
 
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'secondary-btn cancel-btn';
-        cancelBtn.setAttribute('data-i18n', 'save_editor_cancel');
+        cancelBtn.dataset.i18n = 'save_editor_cancel';
         cancelBtn.textContent = 'Cancel';
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'primary-btn save-btn';
         saveBtn.style.display = 'none';
-        saveBtn.setAttribute('data-i18n', 'save_editor_save');
+        saveBtn.dataset.i18n = 'save_editor_save';
         saveBtn.textContent = 'Save Changes';
 
         footer.appendChild(mapBtn);

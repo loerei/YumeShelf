@@ -37,20 +37,21 @@ export interface UITextContext {
 
 export function applyWelcomeAndSettingsStrings(context: UITextContext, d: any, defPath: string): void {
     const { refs, getEnglishStrings, isDev } = context;
-    bindI18nStrings(document, { dictionary: d, fallbackDictionary: getEnglishStrings() });
+    const fallback = getEnglishStrings();
+    bindI18nStrings({ dictionary: d, fallbackDictionary: fallback });
 
     if (refs.uiTitle) {
-        refs.uiTitle.innerText = isDev ? 'YumeShelf (Develop)' : (d.title ?? 'YumeShelf');
+        refs.uiTitle.innerText = isDev ? 'YumeShelf (Develop)' : (d.title ?? fallback?.title ?? 'YumeShelf');
     }
     if (refs.uiOptLazyDesc) {
-        const prefix = d.opt_lazy_desc_prefix ?? 'Create';
+        const prefix = d.opt_lazy_desc_prefix ?? fallback?.opt_lazy_desc_prefix ?? 'Create';
         refs.uiOptLazyDesc.innerText = `${prefix} ${defPath}/!`;
     }
 }
 
 export function applyThemeAndUpdateStrings(context: UITextContext, d: any): void {
     const { getEnglishStrings } = context;
-    bindI18nStrings(document, { dictionary: d, fallbackDictionary: getEnglishStrings() });
+    bindI18nStrings({ dictionary: d, fallbackDictionary: getEnglishStrings() });
 }
 
 export function applySortAndSearchStrings(context: UITextContext, d: any): void {

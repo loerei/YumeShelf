@@ -9,8 +9,8 @@ export interface I18nBinderOptions {
 }
 
 export function bindI18nStrings(
-    root: ParentNode = document,
-    options: I18nBinderOptions
+    options: I18nBinderOptions,
+    root: ParentNode = document
 ): void {
     const { dictionary, fallbackDictionary } = options;
     if (!dictionary) return;
@@ -18,18 +18,18 @@ export function bindI18nStrings(
     // 1. Text content: [data-i18n]
     const textElements = root.querySelectorAll<HTMLElement>('[data-i18n]');
     textElements.forEach((el) => {
-        const key = el.getAttribute('data-i18n');
+        const key = el.dataset.i18n;
         if (!key) return;
         const value = dictionary[key] ?? fallbackDictionary?.[key];
         if (value !== undefined && value !== null) {
-            el.innerText = value;
+            el.textContent = value;
         }
     });
 
     // 2. Placeholders: [data-i18n-placeholder]
     const placeholderElements = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-i18n-placeholder]');
     placeholderElements.forEach((el) => {
-        const key = el.getAttribute('data-i18n-placeholder');
+        const key = el.dataset.i18nPlaceholder;
         if (!key) return;
         const value = dictionary[key] ?? fallbackDictionary?.[key];
         if (value !== undefined && value !== null) {
@@ -40,7 +40,7 @@ export function bindI18nStrings(
     // 3. Tooltips / Titles: [data-i18n-title]
     const titleElements = root.querySelectorAll<HTMLElement>('[data-i18n-title]');
     titleElements.forEach((el) => {
-        const key = el.getAttribute('data-i18n-title');
+        const key = el.dataset.i18nTitle;
         if (!key) return;
         const value = dictionary[key] ?? fallbackDictionary?.[key];
         if (value !== undefined && value !== null) {

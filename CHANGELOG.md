@@ -11,6 +11,10 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [i18n] Updated and completed Japanese (`ja.json`), Simplified Chinese (`zh.json`), and Vietnamese (`vi.json`) language packs to achieve 100% key parity with the master English dictionary.
 - [i18n] Standardized localized application brand names in Japanese (`ユメシェルフ`) and Simplified Chinese (`梦之架`), eliminating lingering Latin references in UI text and documentation (`README.md`).
 - [i18n] Synchronized Vietnamese language pack version to `1.0.2` and updated manifest SHA256 checksums.
+- [title-pipeline] Introduced modular `TitleCleaningPipeline` decomposing monolithic folder sanitization into isolated single-responsibility rules (`ProductCodeRule`, `LanguageTagRule`, `VersionTagRule`, `DistributionSourceRule`).
+- [title-resolver] Introduced deep `TitleResolutionEngine` implementing a 3-tier title ingestion architecture: Tier 1 (Engine Manifests like RPG Maker `data/System.json` & `package.json`), Tier 2 (Executable PE metadata), and Tier 3 (Cleaned folder pipeline fallback).
+- [title-resolver] Added Language-Aware Cascade matching the user's active YumeShelf locale (`vi` -> `en` -> default native title), automatically prioritizing official translated titles over messy uploader directory names.
+- [title-resolver] Added generic engine name rejection blocklist (`"Game"`, `"nwjs"`, `"Unity Player"`), preventing identical generic titles from polluting library cards.
 - [icon-pipeline] Refactored local game image discovery into a centralized helper `findLocalGameImage` and normalized symmetries across IPC `get-game-icon` and `game-icon://` custom protocol handlers.
 - [icon-pipeline] Added support for nested subfolder icon discovery (`icon/icon.*`, `icon/cover.*`, `www/icon/icon.*`), enabling games built with NW.js / RPG Maker MV & MZ to automatically resolve their custom game icons directly in Branch A (`local-image`).
 - [ipc] Restored missing startup and app lifecycle IPC handlers (`bootstrap-app`, `get-language-state`, `open-external-url`, `log-app-update-debug`, and update download/install handlers) in `AppIpcController`.

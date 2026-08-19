@@ -9,6 +9,7 @@ import {
     isPlainObject,
     LibraryConfig
 } from './scanner';
+import { resolveGameTitle } from './title-resolver';
 
 import {
     buildLegacyMigrationMap,
@@ -96,7 +97,14 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
             migratedFromGameKey: existingRecord?.gameKey && existingRecord.gameKey !== gameKey
                 ? existingRecord.gameKey
                 : undefined,
-            name: existingRecord?.name || getSmartName(candidate.exePath, folderName),
+            name: existingRecord?.name || await resolveGameTitle({
+                folderPath: candidate.folderPath,
+                exePath: candidate.exePath,
+                preferredLocale: (normalizedConfig as any).preferredLocale,
+                titleDisplayMode: (normalizedConfig as any).titleDisplayMode,
+                fs,
+                fsSync
+            }),
             relativePath: gameKey,
             playtime: existingRecord?.playtime || 0,
             runInBackground: existingRecord?.runInBackground || false,

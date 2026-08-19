@@ -39,6 +39,34 @@ export interface IconPayload {
     debug: any;
 }
 
+export interface LocalGameImageResult {
+    imgPath: string;
+    ext: string;
+}
+
+const LOCAL_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
+const LOCAL_IMAGE_CANDIDATE_PATTERNS = [
+    (dir: string, ext: string) => path.join(dir, `icon.${ext}`),
+    (dir: string, ext: string) => path.join(dir, `cover.${ext}`),
+    (dir: string, ext: string) => path.join(dir, `folder.${ext}`),
+    (dir: string, ext: string) => path.join(dir, 'icon', `icon.${ext}`),
+    (dir: string, ext: string) => path.join(dir, 'icon', `cover.${ext}`),
+    (dir: string, ext: string) => path.join(dir, 'www', 'icon', `icon.${ext}`)
+];
+
+export function findLocalGameImage(targetPath: string): LocalGameImageResult | null {
+    const dir = path.dirname(targetPath);
+    for (const pattern of LOCAL_IMAGE_CANDIDATE_PATTERNS) {
+        for (const ext of LOCAL_IMAGE_EXTENSIONS) {
+            const imgPath = pattern(dir, ext);
+            if (fsSync.existsSync(imgPath)) {
+                return { imgPath, ext };
+            }
+        }
+    }
+    return null;
+}
+
 export interface IconPipeline {
     registerIpcHandler(): void;
     registerProtocolHandler(): void;
@@ -62,20 +90,19 @@ export function createIconPipeline({
     const pool = createWorkerPool({ app, sourceRootDir });
 
     async function resolveIconDataUrl(targetPath: string): Promise<IconPayload> {
-        const dir = path.dirname(targetPath);
-        const exts = ['png', 'jpg', 'jpeg', 'webp'];
-        const names = ['icon', 'cover', 'folder'];
-        for (const name of names) {
-            for (const ext of exts) {
-                const imgPath = path.join(dir, `${name}.${ext}`);
-                if (fsSync.existsSync(imgPath)) {
-                    return createIconPayload(
-                        `file:///${imgPath.replaceAll('\\', '/')}`,
-                        'contain',
-                        'local-image',
-                        { imagePath: imgPath }
-                    );
-                }
+        const localImg = findLocalGameImage(targetPath);
+        if (localImg) {
+            try {
+                const buffer = await fs.readFile(localImg.imgPath);
+                const mimeType = localImg.ext === 'jpg' ? 'image/jpeg' : `image/${localImg.ext}`;
+                return createIconPayload(
+                    `data:${mimeType};base64,${buffer.toString('base64')}`,
+                    'contain',
+                    'local-image',
+                    { imagePath: localImg.imgPath }
+                );
+            } catch (error) {
+                console.error(`[MAIN][ICON] Failed to read local image ${localImg.imgPath}:`, error);
             }
         }
 
@@ -118,18 +145,11 @@ export function createIconPipeline({
             const targetPath = urlObj.searchParams.get('path');
             if (!targetPath) return new Response('Missing path', { status: 400 });
 
-            const dir = path.dirname(targetPath);
-            const exts = ['png', 'jpg', 'jpeg', 'webp'];
-            const names = ['icon', 'cover', 'folder'];
-            for (const name of names) {
-                for (const ext of exts) {
-                    const imgPath = path.join(dir, `${name}.${ext}`);
-                    if (fsSync.existsSync(imgPath)) {
-                        const buffer = await fs.readFile(imgPath);
-                        const contentType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-                        return new Response(buffer, { headers: { 'Content-Type': contentType } });
-                    }
-                }
+            const localImg = findLocalGameImage(targetPath);
+            if (localImg) {
+                const buffer = await fs.readFile(localImg.imgPath);
+                const contentType = localImg.ext === 'jpg' ? 'image/jpeg' : `image/${localImg.ext}`;
+                return new Response(buffer, { headers: { 'Content-Type': contentType } });
             }
 
             const { cacheDir } = resolveCachePaths(app);

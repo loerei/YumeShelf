@@ -6,8 +6,16 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ## [1.5.13] - working
 
+### 🔧 Fixes & Improvements
+
+- [icon-pipeline] Refactored local game image discovery into a centralized helper `findLocalGameImage` and normalized symmetries across IPC `get-game-icon` and `game-icon://` custom protocol handlers.
+- [icon-pipeline] Added support for nested subfolder icon discovery (`icon/icon.*`, `icon/cover.*`, `www/icon/icon.*`), enabling games built with NW.js / RPG Maker MV & MZ to automatically resolve their custom game icons directly in Branch A (`local-image`).
+- [ipc] Restored missing startup and app lifecycle IPC handlers (`bootstrap-app`, `get-language-state`, `open-external-url`, `log-app-update-debug`, and update download/install handlers) in `AppIpcController`.
+- [lifecycle] Reordered `startMainRuntime` sequence to register all IPC handlers before initializing the main BrowserWindow, eliminating startup race conditions.
+
 ### 🛠️ For the Nerds
 
+- [devutil] Added official developer utility suite under `.devutil/` (`simulate-icon-pipeline.cjs`, `inspect-exe-icon.cjs`, `inspect-engine-icon.cjs`, and `README.md`) for end-to-end icon pipeline simulation, PE binary icon frame matrix inspection, and game engine asset discovery.
 - [save-resolver] Consolidated engine detection, deterministic path discovery, and heuristic fallback scanning behind a unified `SaveFolderResolver` deep module class.
 - [save-resolver] Added `FileSystemProvider` interface (`DefaultFileSystemProvider` and `MockFileSystemProvider`) enabling virtual filesystem unit testing without real OS path dependencies.
 - [save-resolver] Standardized return DTO `ResolvedSaveDirectory` with `path`, `engine`, `confidence`, and `source` fields while preserving backward-compatible `resolveSaveFolder` export.

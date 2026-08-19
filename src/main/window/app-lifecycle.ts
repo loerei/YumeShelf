@@ -54,13 +54,6 @@ export async function startMainRuntime({
     iconPipeline.registerProtocolHandler();
     logStartupDiagnostics(app);
 
-    const launchedAfterUpdate = process.argv.includes('--after-update');
-    createMainWindow({
-        app,
-        paths,
-        launchedAfterUpdate
-    });
-
     registerMainIpc({
         app,
         ipcMain,
@@ -78,4 +71,11 @@ export async function startMainRuntime({
         paths
     });
     iconPipeline.registerIpcHandler();
+
+    const launchedAfterUpdate = process.argv.includes('--after-update');
+    createMainWindow({
+        app,
+        paths,
+        launchedAfterUpdate
+    });
 }

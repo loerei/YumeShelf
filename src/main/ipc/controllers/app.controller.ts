@@ -54,7 +54,7 @@ export class AppIpcController {
     }
 
     public registerHandlers(): void {
-        const { ipcMain, app, startupServices, appUpdateServices, paths } = this.options;
+        const { ipcMain, app, shell, startupServices, appUpdateServices, languagePackServices, paths } = this.options;
         if (!ipcMain) return;
 
         this.initStartupAutoLaunch();
@@ -62,9 +62,34 @@ export class AppIpcController {
         ipcMain.handle('get-app-version', () => (typeof app?.getVersion === 'function' ? app.getVersion() : '1.5.12'));
         ipcMain.handle('is-dev', () => !this.isAppPackaged());
 
-        ipcMain.handle('update:check', async () => appUpdateServices?.checkForUpdates());
-        ipcMain.handle('update:download', async () => appUpdateServices?.downloadUpdate());
-        ipcMain.handle('update:quit-and-install', () => appUpdateServices?.quitAndInstall());
+        ipcMain.handle('get-language-state', async () => languagePackServices?.buildLanguageState());
+        ipcMain.handle('bootstrap-app', async (event, options = {}) => startupServices?.bootstrapAppState(event.sender, options));
+
+        ipcMain.handle('log-app-update-debug', async (_event, message: unknown) => {
+            if (typeof appUpdateServices?.logDebug === 'function') {
+                await appUpdateServices.logDebug(String(message || ''));
+            }
+            return { ok: true };
+        });
+
+        ipcMain.handle('start-app-update-download', async () => appUpdateServices?.startBackgroundDownload());
+        ipcMain.handle('restart-and-install-app-update', async () => appUpdateServices?.restartAndInstallDownloadedUpdate());
+        ipcMain.handle('schedule-app-update-next-launch', async () => appUpdateServices?.scheduleInstallOnNextLaunch());
+        ipcMain.handle('begin-deferred-app-update-install', async () => appUpdateServices?.beginDeferredInstallOnLaunch());
+        ipcMain.handle('open-app-update-download-page', async () => appUpdateServices?.openAppUpdateDownloadPage());
+
+        ipcMain.handle('open-external-url', async (_event, url: unknown) => {
+            const normalizedUrl = String(url || '').trim();
+            if (!/^https?:\/\//i.test(normalizedUrl)) {
+                return { ok: false, reason: 'invalid-url' };
+            }
+            await shell?.openExternal(normalizedUrl);
+            return { ok: true };
+        });
+
+        ipcMain.handle('update:check', async () => appUpdateServices?.checkForAppUpdate());
+        ipcMain.handle('update:download', async () => appUpdateServices?.startBackgroundDownload());
+        ipcMain.handle('update:quit-and-install', () => appUpdateServices?.restartAndInstallDownloadedUpdate());
 
         ipcMain.handle('set-auto-launch', async (_event, enabled: unknown) => {
             const { openAtLogin, args, value } = this.parseAutoLaunchSetting(enabled);

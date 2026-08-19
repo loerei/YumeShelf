@@ -8,6 +8,9 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ### 🔧 Fixes & Improvements
 
+- [i18n] Updated and completed Japanese (`ja.json`), Simplified Chinese (`zh.json`), and Vietnamese (`vi.json`) language packs to achieve 100% key parity with the master English dictionary.
+- [i18n] Standardized localized application brand names in Japanese (`ユメシェルフ`) and Simplified Chinese (`梦之架`), eliminating lingering Latin references in UI text and documentation (`README.md`).
+- [i18n] Synchronized Vietnamese language pack version to `1.0.2` and updated manifest SHA256 checksums.
 - [icon-pipeline] Refactored local game image discovery into a centralized helper `findLocalGameImage` and normalized symmetries across IPC `get-game-icon` and `game-icon://` custom protocol handlers.
 - [icon-pipeline] Added support for nested subfolder icon discovery (`icon/icon.*`, `icon/cover.*`, `www/icon/icon.*`), enabling games built with NW.js / RPG Maker MV & MZ to automatically resolve their custom game icons directly in Branch A (`local-image`).
 - [ipc] Restored missing startup and app lifecycle IPC handlers (`bootstrap-app`, `get-language-state`, `open-external-url`, `log-app-update-debug`, and update download/install handlers) in `AppIpcController`.

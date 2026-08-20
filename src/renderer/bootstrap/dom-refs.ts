@@ -125,7 +125,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
     // Each Controller queries its own child elements within its container.
     const settingsContainer = documentRef.getElementById('settings-overlay');
     const languagePackContainer = documentRef.getElementById('language-pack-overlay');
-    const searchContainer = documentRef.querySelector('.search-container');
+    const searchContainer = documentRef.querySelector<HTMLElement>('.search-container');
     const telemetryModal = documentRef.getElementById('telemetry-modal');
 
     return {

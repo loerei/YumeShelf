@@ -22,7 +22,7 @@ const LOCAL_HEADER_SIGNATURE = 0x04034b50;
  */
 export function sanitizeZipEntryPath(rawPath: string, destinationDir: string): string {
     // 1. Replace Windows backslashes with forward slashes
-    let normalized = rawPath.replace(/\\/g, '/');
+    let normalized = rawPath.replaceAll('\\', '/');
 
     // 2. Remove drive letters (e.g., C:/foo -> /foo) and leading slashes
     normalized = normalized.replace(/^[a-zA-Z]:/, '').replace(/^\/+/, '');

@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { isGenericOrEmptyTitle } from './blocklist';
 
 export async function resolveUnityTitle(candidateFolders: string[], fs: any): Promise<string | null> {

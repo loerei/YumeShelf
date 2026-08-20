@@ -52,7 +52,8 @@ When running `npm run release <version>`, the master orchestrator (`scripts/rele
      - `build_output/linux/sha256/YumeShelf-<version>.AppImage.sha256`
      - `build_output/linux/sha256/YumeShelf-<version>.tar.gz.sha256`
 7. **Git Automation**: Stages release files, creates commit `release: v<version>`, pushes `main`, creates tag `v<version>`, and pushes tag to GitHub.
-8. **GitHub Release Publication**: Clears dummy `GITHUB_TOKEN` and runs `gh release create v<version>` uploading release notes and all verified multi-platform assets.
+8. **GitHub Release Publication**: Clears dummy `GITHUB_TOKEN` and runs `gh release create v<version>` uploading release notes and all verified Windows assets.
+9. **Automated Linux CI Build & Attachment**: Automatically triggers GitHub Actions workflow (`build-linux-release.yml`) to compile native Linux binaries (Rust helper, C# converter) on `ubuntu-latest`, package `YumeShelf-<version>.AppImage` and `.tar.gz`, and upload them directly into the published GitHub Release.
 
 ---
 
@@ -60,6 +61,7 @@ When running `npm run release <version>`, the master orchestrator (`scripts/rele
 
 - **Single Source of Truth**: `CHANGELOG.md` at root stores incremental feature logs.
 - **Required Release Assets**: Never publish without verifying mandatory installer and auto-updater assets.
-- **Cross-Platform Packaging**: Support Windows (`npm run build`), Linux (`npm run build:linux`), and unified multi-platform packaging (`npm run build:all`).
+- **Cross-Platform Packaging**: Windows installer is built locally during release, while Linux packages (`.AppImage`, `.tar.gz`) are automatically built and attached via GitHub Actions (`.github/workflows/build-linux-release.yml`).
+- **Manual Linux Build Fallback**: If needed, trigger Linux CI build manually via `gh workflow run build-linux-release.yml -f tag=v<version>`.
 - **Environment Isolation**: Always set `CSC_IDENTITY_AUTO_DISCOVERY=false` to prevent network timeouts during `electron-builder` compilation.
 - **Authentication**: Always clear `GITHUB_TOKEN` before invoking `gh` CLI commands to allow fallback to system keyring.

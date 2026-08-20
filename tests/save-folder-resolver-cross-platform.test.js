@@ -155,3 +155,33 @@ test('Cross-Platform Save Resolver: AppData fuzzy matching finds Linux XDG Unity
     assert.equal(result.source, 'appdata');
     assert.equal(result.path, '/home/gamer/.config/unity3d/ObscureStudio/SpecialMysteryGame');
 });
+
+test('Save Editor Drivers: unityMonoBin and renpy format configuration helpers', async () => {
+    const unityMonoBin = require('../dist/main/save-editor/formats/unity-mono-bin').default;
+    const renpy = require('../dist/main/save-editor/formats/renpy').default;
+
+    const unityConfig = unityMonoBin.getConverterExecutionConfig();
+    assert.ok(unityConfig.executable);
+    assert.ok(Array.isArray(unityConfig.baseArgs));
+
+    const renpyScript = renpy.getConverterScriptPath();
+    assert.match(renpyScript, /renpy_save_converter\.py$/);
+
+    const pythonCmd = renpy.getPythonCommand();
+    assert.ok(pythonCmd === 'python' || pythonCmd === 'python3');
+});
+
+test('DefaultFileSystemProvider: path helper methods return strings', async () => {
+    const { DefaultFileSystemProvider } = require('../dist/main/save-folder-resolver/fs-provider');
+    const provider = new DefaultFileSystemProvider();
+
+    assert.equal(typeof provider.getHomeDir(), 'string');
+    assert.equal(typeof provider.getXdgConfigHome(), 'string');
+    assert.equal(typeof provider.getXdgDataHome(), 'string');
+
+    const prefixRoots = await provider.getWinePrefixRoots();
+    assert.ok(Array.isArray(prefixRoots));
+
+    const appDataPaths = await provider.getWineAppDataPaths('/non-existent-prefix', 'Roaming');
+    assert.deepEqual(appDataPaths, []);
+});

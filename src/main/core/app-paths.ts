@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import * as os from 'node:os';
 
 export interface AppPathsInstance {
     isDev: boolean;
@@ -32,11 +33,16 @@ export function createAppPaths(app: ElectronAppInterface, sourceRootDir: string)
     const userDataDir = app.getPath('userData');
     const appDataDir = app.getPath('appData');
     const appName = app.getName();
+    const homeDir = typeof app.getPath === 'function' ? app.getPath('home') : os.homedir();
+    const packagedDefaultGamesDir = process.platform === 'win32'
+        ? path.join(path.dirname(app.getPath('exe')), 'YumeShelf')
+        : path.join(homeDir, 'YumeShelf');
+
     return {
         isDev,
         defaultGamesDir: isDev
             ? path.join(sourceRootDir, '..', 'YumeShelf')
-            : path.join(path.dirname(app.getPath('exe')), 'YumeShelf'),
+            : packagedDefaultGamesDir,
         dbFile: path.join(appDataDir, 'YumeShelf', 'library_db.json'),
         categoryStateFile: path.join(appDataDir, 'YumeShelf', 'category_state.json'),
         installerFirstLaunchMarkerFile: path.join(userDataDir, 'install-handoff.ini'),

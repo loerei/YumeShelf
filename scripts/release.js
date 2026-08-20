@@ -68,28 +68,48 @@ run('npm run ensure:playtime-helper && npm run build:preload && npm run build:ma
 console.log('\n🔑 Step 4: Generating release SHA-256 checksum...');
 run('node scripts/write-release-checksum.js');
 
-// 6. Verify mandatory assets
+// 6. Verify mandatory assets & discover all release artifacts
 console.log('\n🔍 Step 5: Verifying release asset integrity...');
-const assets = [
+const mandatoryAssets = [
   path.join('build_output', 'nsis', 'application', `YumeShelf-Setup-${targetVersion}.exe`),
   path.join('build_output', 'nsis', 'feed', 'latest.yml'),
   path.join('build_output', 'nsis', 'blockmap', `YumeShelf-Setup-${targetVersion}.exe.blockmap`),
   path.join('build_output', 'nsis', 'sha256', `YumeShelf-Setup-${targetVersion}.exe.sha256`),
 ];
 
+const optionalLinuxAssets = [
+  path.join('build_output', 'linux', 'application', `YumeShelf-${targetVersion}.AppImage`),
+  path.join('build_output', 'linux', 'sha256', `YumeShelf-${targetVersion}.AppImage.sha256`),
+  path.join('build_output', 'linux', 'application', `YumeShelf-${targetVersion}.tar.gz`),
+  path.join('build_output', 'linux', 'sha256', `YumeShelf-${targetVersion}.tar.gz.sha256`),
+  path.join('build_output', 'linux', 'feed', 'latest-linux.yml'),
+];
+
 let missing = false;
-for (const asset of assets) {
+const releaseAssets = [];
+
+for (const asset of mandatoryAssets) {
   const fullPath = path.join(rootDir, asset);
   if (!fs.existsSync(fullPath)) {
-    console.error(`❌ Missing asset: ${asset}`);
+    console.error(`❌ Missing mandatory asset: ${asset}`);
     missing = true;
   } else {
     const size = fs.statSync(fullPath).size;
-    console.log(`  ✓ ${asset} (${size} bytes)`);
+    console.log(`  ✓ [Windows] ${asset} (${size} bytes)`);
+    releaseAssets.push(asset);
   }
 }
 
-if (missing) {
+for (const asset of optionalLinuxAssets) {
+  const fullPath = path.join(rootDir, asset);
+  if (fs.existsSync(fullPath)) {
+    const size = fs.statSync(fullPath).size;
+    console.log(`  ✓ [Linux] ${asset} (${size} bytes)`);
+    releaseAssets.push(asset);
+  }
+}
+
+if (missing && !isDryRun) {
   console.error('\n❌ Release failed: One or more required assets are missing.');
   process.exit(1);
 }
@@ -106,7 +126,7 @@ run(`git push origin v${targetVersion}`, { skipInDryRun: true });
 // 8. Publish GitHub Release via gh CLI
 console.log('\n📢 Step 7: Publishing GitHub Release via gh CLI...');
 const compiledNotesPath = path.join('docs', 'changelogs', `compiled.release-notes.${targetVersion}.md`);
-const assetArgs = assets.map((a) => `"${a}"`).join(' ');
+const assetArgs = releaseAssets.map((a) => `"${a}"`).join(' ');
 
 // Clear dummy GITHUB_TOKEN so gh falls back to system keyring
 const ghEnv = { GITHUB_TOKEN: '' };

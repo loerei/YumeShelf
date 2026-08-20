@@ -7,6 +7,10 @@ const {
     getNsisBlockmapOutputDir,
     getNsisChecksumOutputDir,
     getNsisFeedOutputDir,
+    getLinuxOutputDir,
+    getLinuxApplicationOutputDir,
+    getLinuxChecksumOutputDir,
+    getLinuxFeedOutputDir,
     getUnpackedOutputDir,
     getPortableOutputDir,
     getPortableApplicationOutputDir,
@@ -19,6 +23,10 @@ const nsisApplicationOutputDir = getNsisApplicationOutputDir(buildOutputDir);
 const nsisBlockmapOutputDir = getNsisBlockmapOutputDir(buildOutputDir);
 const nsisChecksumOutputDir = getNsisChecksumOutputDir(buildOutputDir);
 const nsisFeedOutputDir = getNsisFeedOutputDir(buildOutputDir);
+const linuxOutputDir = getLinuxOutputDir(buildOutputDir);
+const linuxApplicationOutputDir = getLinuxApplicationOutputDir(buildOutputDir);
+const linuxChecksumOutputDir = getLinuxChecksumOutputDir(buildOutputDir);
+const linuxFeedOutputDir = getLinuxFeedOutputDir(buildOutputDir);
 const unpackedOutputDir = getUnpackedOutputDir(buildOutputDir);
 const portableOutputDir = getPortableOutputDir(buildOutputDir);
 const portableApplicationOutputDir = getPortableApplicationOutputDir(buildOutputDir);
@@ -27,6 +35,7 @@ const metadataOutputDir = path.join(buildOutputDir, 'metadata');
 const internalOutputDir = path.join(buildOutputDir, 'internal');
 const reservedNames = new Set([
     path.basename(nsisOutputDir),
+    path.basename(linuxOutputDir),
     path.basename(unpackedOutputDir),
     path.basename(portableOutputDir),
     path.basename(metadataOutputDir),
@@ -51,12 +60,16 @@ function classifyEntry(entryName) {
         return null;
     }
 
-    if (entryName === 'win-unpacked') {
+    if (entryName === 'win-unpacked' || entryName === 'linux-unpacked') {
         return unpackedOutputDir;
     }
 
     if (entryName === 'latest.yml') {
         return nsisFeedOutputDir;
+    }
+
+    if (entryName === 'latest-linux.yml') {
+        return linuxFeedOutputDir;
     }
 
     if (/^YumeShelf(?:-| )Setup[ -].+\.exe\.blockmap$/i.test(entryName)) {
@@ -69,6 +82,14 @@ function classifyEntry(entryName) {
 
     if (/^YumeShelf(?:-| )Setup[ -].+\.exe$/i.test(entryName)) {
         return nsisApplicationOutputDir;
+    }
+
+    if (/^YumeShelf(?:[ .-]|\b).+\.(?:AppImage|tar\.gz)\.sha256$/i.test(entryName)) {
+        return linuxChecksumOutputDir;
+    }
+
+    if (/^YumeShelf(?:[ .-]|\b).+\.(?:AppImage|tar\.gz)$/i.test(entryName)) {
+        return linuxApplicationOutputDir;
     }
 
     if (/^YumeShelf(?:[ .])\d.+\.exe\.sha256$/i.test(entryName)) {
@@ -109,6 +130,26 @@ function classifyNsisNestedEntry(entryName) {
 
     if (/^YumeShelf(?:-| )Setup[ -].+\.exe$/i.test(entryName)) {
         return nsisApplicationOutputDir;
+    }
+
+    return null;
+}
+
+function classifyLinuxNestedEntry(entryName) {
+    if (['application', 'sha256', 'feed'].includes(entryName)) {
+        return null;
+    }
+
+    if (entryName === 'latest-linux.yml') {
+        return linuxFeedOutputDir;
+    }
+
+    if (/^YumeShelf(?:[ .-]|\b).+\.(?:AppImage|tar\.gz)\.sha256$/i.test(entryName)) {
+        return linuxChecksumOutputDir;
+    }
+
+    if (/^YumeShelf(?:[ .-]|\b).+\.(?:AppImage|tar\.gz)$/i.test(entryName)) {
+        return linuxApplicationOutputDir;
     }
 
     return null;
@@ -166,6 +207,7 @@ function main() {
     }
 
     normalizeNestedEntries(nsisOutputDir, classifyNsisNestedEntry);
+    normalizeNestedEntries(linuxOutputDir, classifyLinuxNestedEntry);
     normalizeNestedEntries(portableOutputDir, classifyPortableNestedEntry);
 }
 

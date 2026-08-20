@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 const INSTALLER_ARTIFACT_REGEX = /^YumeShelf-Setup-(.+)\.exe$/i;
+const LINUX_APPIMAGE_REGEX = /^YumeShelf-(.+)\.AppImage$/i;
+const LINUX_TARBALL_REGEX = /^YumeShelf-(.+)\.tar\.gz$/i;
+const LINUX_ARTIFACT_REGEX = /^YumeShelf-(.+)\.(AppImage|tar\.gz)$/i;
 
 function getBuildOutputDir() {
     return path.resolve(__dirname, '..', 'build_output');
@@ -27,6 +30,22 @@ function getNsisFeedOutputDir(buildOutputDir = getBuildOutputDir()) {
     return path.join(getNsisOutputDir(buildOutputDir), 'feed');
 }
 
+function getLinuxOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(buildOutputDir, 'linux');
+}
+
+function getLinuxApplicationOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(getLinuxOutputDir(buildOutputDir), 'application');
+}
+
+function getLinuxChecksumOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(getLinuxOutputDir(buildOutputDir), 'sha256');
+}
+
+function getLinuxFeedOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(getLinuxOutputDir(buildOutputDir), 'feed');
+}
+
 function getUnpackedOutputDir(buildOutputDir = getBuildOutputDir()) {
     return path.join(buildOutputDir, 'unpacked');
 }
@@ -47,8 +66,28 @@ function isInstallerArtifactName(fileName) {
     return INSTALLER_ARTIFACT_REGEX.test(String(fileName || '').trim());
 }
 
+function isLinuxArtifactName(fileName) {
+    return LINUX_ARTIFACT_REGEX.test(String(fileName || '').trim());
+}
+
+function isLinuxAppImageArtifactName(fileName) {
+    return LINUX_APPIMAGE_REGEX.test(String(fileName || '').trim());
+}
+
+function isLinuxTarballArtifactName(fileName) {
+    return LINUX_TARBALL_REGEX.test(String(fileName || '').trim());
+}
+
 function resolveInstallerArtifactPath(version, buildOutputDir = getBuildOutputDir()) {
     return path.join(getNsisApplicationOutputDir(buildOutputDir), `YumeShelf-Setup-${version}.exe`);
+}
+
+function resolveLinuxArtifactPaths(version, buildOutputDir = getBuildOutputDir()) {
+    const appDir = getLinuxApplicationOutputDir(buildOutputDir);
+    return {
+        appImage: path.join(appDir, `YumeShelf-${version}.AppImage`),
+        tarball: path.join(appDir, `YumeShelf-${version}.tar.gz`)
+    };
 }
 
 function resolveNewestInstallerArtifactPath(buildOutputDir = getBuildOutputDir()) {
@@ -78,11 +117,19 @@ module.exports = {
     getNsisBlockmapOutputDir,
     getNsisChecksumOutputDir,
     getNsisFeedOutputDir,
+    getLinuxOutputDir,
+    getLinuxApplicationOutputDir,
+    getLinuxChecksumOutputDir,
+    getLinuxFeedOutputDir,
     getUnpackedOutputDir,
     getPortableOutputDir,
     getPortableApplicationOutputDir,
     getPortableChecksumOutputDir,
     isInstallerArtifactName,
+    isLinuxArtifactName,
+    isLinuxAppImageArtifactName,
+    isLinuxTarballArtifactName,
     resolveInstallerArtifactPath,
+    resolveLinuxArtifactPaths,
     resolveNewestInstallerArtifactPath
 };

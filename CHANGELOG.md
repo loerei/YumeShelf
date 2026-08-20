@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
-## [1.5.13] - working
+## [1.5.13] - 2026-08-20 — released
 
 ### 🔧 Fixes & Improvements
 
@@ -39,6 +39,8 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [continuity] Updated `getExecutableStem` in `continuity.ts` and `game-annotations.ts` to strip Linux extensions, ensuring stable continuity signatures across platforms and moves (#43).
 - [title-resolver] Added generic Linux script and binary names (`game.x86_64`, `start.sh`, `run.sh`, `launch.sh`, `apprun`) to `GENERIC_TITLE_BLOCKLIST` (#43).
 - [translation] Refactored `TranslationService` to use native Node.js archive extraction and cross-platform directory symlinks, removing `powershell.exe` shell execution and hardcoded NTFS junction dependencies (#42).
+- [packaging] Configured Electron-builder Linux targets (`AppImage` and `tar.gz`) with icon, category, and platform-specific `extraResources` for `playtime-helper` (#48).
+- [release] Extended release orchestration and build artifact management (`release.js`, `organize-build-output.js`, `release-artifacts.js`, `write-release-checksum.js`) to categorize Linux assets into `build_output/linux/{application,feed,sha256}/`, compute multi-binary SHA-256 checksums, and publish unified GitHub Releases (#48).
 - [game-runner] Added Game Runner architecture (`src/main/game-runner/`) with runner auto-detection (`detector.ts`) for System Wine (`wine`/`wine64`), Steam Proton (compatibility tools & SteamApps common paths), UMU Launcher (`umu-run`), and Bottles/Lutris environments (#47).
 - [game-runner] Implemented game launch resolver (`resolver.ts`) with automated execution permission enforcement (`chmod +x` / `0o755`) for native Linux binaries and scripts, and environment synthesis (`WINEPREFIX`, `STEAM_COMPAT_DATA_PATH`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`) (#47).
 - [playtime-helper] Extended `SessionJournal` schema and Rust helper `launch_game_process` to spawn games via configured compatibility runners while monitoring their entire `/proc` process trees (#47).

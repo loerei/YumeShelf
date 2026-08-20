@@ -189,8 +189,8 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         // === Button refs ===
         buttons: {
             setupDefault:    documentRef.getElementById('btn-setup-default'),
-            chooseCustom:    documentRef.getElementById('btn-setup-custom'),
-            settingsOpen:    documentRef.getElementById('settings-btn'),
+            chooseCustom:    documentRef.getElementById('btn-choose-custom') || documentRef.getElementById('btn-setup-custom'),
+            settingsOpen:    documentRef.getElementById('settings-open-btn') || documentRef.getElementById('settings-btn'),
             settingsClose:   settingsContainer ? settingsContainer.querySelector('#settings-close-btn') : null,
             languagePackClose: languagePackContainer ? languagePackContainer.querySelector('#language-pack-close-btn') : null,
             telemetryOptIn:  telemetryModal ? telemetryModal.querySelector('#telemetry-opt-in-btn') : null,

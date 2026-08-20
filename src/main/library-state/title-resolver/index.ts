@@ -1,7 +1,8 @@
-import * as path from 'path';
-import * as fs from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { TitleCleaningPipeline } from '../title-pipeline';
 import { resolveRpgMakerTitle } from './rpg-maker-resolver';
+import { resolveUnityTitle } from './unity-resolver';
 import { isGenericOrEmptyTitle } from './blocklist';
 
 export interface TitleResolutionContext {
@@ -11,6 +12,47 @@ export interface TitleResolutionContext {
     titleDisplayMode?: 'metadata' | 'legacy_folder';
     fs?: any;
     fsSync?: any;
+}
+
+const WRAPPER_NAMES = new Set([
+    'windows', 'win64', 'win32', 'build', 'game', 'games', 'app', 'bin', 
+    'release', 'x64', 'x86', 'linux', 'linux64', 'data', 'www'
+]);
+
+export function extractExeStem(exePath: string): string | null {
+    if (!exePath) return null;
+    const base = path.basename(exePath, path.extname(exePath));
+    if (isGenericOrEmptyTitle(base) || WRAPPER_NAMES.has(base.toLowerCase())) {
+        return null;
+    }
+    const cleaned = TitleCleaningPipeline.cleanFolderName(base);
+    return isGenericOrEmptyTitle(cleaned) ? null : cleaned;
+}
+
+export function extractMeaningfulFolderName(folderPath: string, exePath: string): string {
+    let current = folderPath;
+    while (current && WRAPPER_NAMES.has(path.basename(current).toLowerCase())) {
+        const parent = path.dirname(current);
+        if (!parent || parent === current) break;
+        current = parent;
+    }
+    const cleaned = TitleCleaningPipeline.cleanFolderName(path.basename(current));
+    if (cleaned && !isGenericOrEmptyTitle(cleaned)) return cleaned;
+
+    const exeStem = extractExeStem(exePath);
+    if (exeStem) return exeStem;
+
+    const topFolder = path.basename(folderPath);
+    const topCleaned = TitleCleaningPipeline.cleanFolderName(topFolder);
+    if (topCleaned && !isGenericOrEmptyTitle(topCleaned)) return topCleaned;
+
+    return '';
+}
+
+function formatWithProductCode(id: string | null, title: string): string {
+    if (id && title) return `[${id}] ${title}`;
+    if (id) return `[${id}]`;
+    return title;
 }
 
 export async function resolveGameTitle(context: TitleResolutionContext): Promise<string> {
@@ -23,27 +65,42 @@ export async function resolveGameTitle(context: TitleResolutionContext): Promise
     } = context;
 
     const fsImpl = injectedFs || fs.promises;
+    const id = TitleCleaningPipeline.extractProductCode(exePath)
+        || TitleCleaningPipeline.extractProductCode(folderPath);
 
     // 1. If user explicitly requested legacy folder mode, bypass metadata extraction
     if (titleDisplayMode === 'legacy_folder') {
-        return TitleCleaningPipeline.buildSmartName(exePath, path.basename(folderPath));
+        const folderName = extractMeaningfulFolderName(folderPath, exePath);
+        return formatWithProductCode(id, folderName) || path.basename(folderPath);
     }
 
-    // 2. Try Engine Manifest Tier (RPG Maker MV/MZ, etc.)
+    // 2. Try Engine Manifest Tier: RPG Maker MV/MZ
     try {
-        const engineTitle = await resolveRpgMakerTitle(folderPath, preferredLocale, fsImpl);
-        if (engineTitle && !isGenericOrEmptyTitle(engineTitle)) {
-            const id = TitleCleaningPipeline.extractProductCode(exePath)
-                || TitleCleaningPipeline.extractProductCode(folderPath);
-            return (id ? `[${id}] ` : '') + engineTitle;
+        const rpgMakerTitle = await resolveRpgMakerTitle(folderPath, preferredLocale, fsImpl);
+        if (rpgMakerTitle && !isGenericOrEmptyTitle(rpgMakerTitle)) {
+            return formatWithProductCode(id, rpgMakerTitle);
         }
-    } catch {
-        // Continue to fallback
+    } catch {}
+
+    // 3. Try Engine Manifest Tier: Unity (app.info)
+    try {
+        const unityTitle = await resolveUnityTitle(folderPath, fsImpl);
+        if (unityTitle && !isGenericOrEmptyTitle(unityTitle)) {
+            return formatWithProductCode(id, unityTitle);
+        }
+    } catch {}
+
+    // 4. Try Executable Stem Tier (for custom binaries / Unity compiled)
+    const exeStem = extractExeStem(exePath);
+    if (exeStem && !isGenericOrEmptyTitle(exeStem)) {
+        return formatWithProductCode(id, exeStem);
     }
 
-    // 3. Fallback to Rule-Cleaned Folder Name
-    return TitleCleaningPipeline.buildSmartName(exePath, path.basename(folderPath));
+    // 5. Fallback to Rule-Cleaned Meaningful Folder Name
+    const meaningfulFolder = extractMeaningfulFolderName(folderPath, exePath);
+    return formatWithProductCode(id, meaningfulFolder) || path.basename(folderPath);
 }
 
 export * from './blocklist';
 export * from './rpg-maker-resolver';
+export * from './unity-resolver';

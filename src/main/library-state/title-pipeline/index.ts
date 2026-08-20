@@ -74,9 +74,22 @@ export class TitleCleaningPipeline {
     }
 
     public static buildSmartName(exePath: string, topName: string): string {
-        const id = TitleCleaningPipeline.extractProductCode(exePath);
-        const folderName = path.basename(path.dirname(exePath));
-        const cleaned = TitleCleaningPipeline.cleanFolderName(folderName) || TitleCleaningPipeline.cleanFolderName(topName);
-        return (id ? `[${id}] ` : '') + cleaned;
+        const id = TitleCleaningPipeline.extractProductCode(exePath) || TitleCleaningPipeline.extractProductCode(topName);
+        let folderName = path.basename(path.dirname(exePath));
+        const WRAPPER_NAMES = new Set(['windows', 'win64', 'win32', 'build', 'game', 'games', 'app', 'bin', 'release', 'x64', 'x86', 'linux', 'linux64', 'data', 'www']);
+        if (WRAPPER_NAMES.has(folderName.toLowerCase())) {
+            const parent = path.dirname(path.dirname(exePath));
+            if (parent && parent !== path.dirname(exePath)) {
+                folderName = path.basename(parent);
+            }
+        }
+        let cleaned = TitleCleaningPipeline.cleanFolderName(folderName) || TitleCleaningPipeline.cleanFolderName(topName);
+        if (!cleaned || cleaned.trim() === '') {
+            const exeStem = path.basename(exePath, path.extname(exePath));
+            if (exeStem && !WRAPPER_NAMES.has(exeStem.toLowerCase()) && exeStem.toLowerCase() !== 'game') {
+                cleaned = TitleCleaningPipeline.cleanFolderName(exeStem);
+            }
+        }
+        return (id ? `[${id}] ` : '') + (cleaned || folderName || topName);
     }
 }

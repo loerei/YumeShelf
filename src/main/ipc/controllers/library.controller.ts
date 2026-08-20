@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { TelemetryShipper } from '../../telemetry/shipper';
 import { isPathWithinLibrary } from '../path-validator';
 import { RegisterIpcOptions } from '../types';
+import { GameRunnerService } from '../../game-runner';
 
 async function resolveValidatedLibraryPath(libraryState: any, targetPath: unknown): Promise<string | null> {
     if (typeof targetPath !== 'string' || !targetPath.trim()) return null;
@@ -16,7 +17,11 @@ async function resolveValidatedLibraryPath(libraryState: any, targetPath: unknow
 }
 
 export class LibraryIpcController {
-    constructor(private readonly options: RegisterIpcOptions) {}
+    private readonly gameRunnerService: GameRunnerService;
+
+    constructor(private readonly options: RegisterIpcOptions) {
+        this.gameRunnerService = new GameRunnerService();
+    }
 
     public registerHandlers(): void {
         const {
@@ -61,6 +66,10 @@ export class LibraryIpcController {
         ipcMain.handle('assign-game-categories', async (_event, { gameId, categoryIds }) => categoryState?.assignGameCategories(gameId, categoryIds));
         ipcMain.handle('remove-game-category', async (_event, { gameId, categoryId }) => categoryState?.removeGameFromCategory(gameId, categoryId));
 
+        ipcMain.handle('get-runner-settings', async () => this.gameRunnerService.getSettings());
+        ipcMain.handle('set-runner-settings', async (_event, updates = {}) => this.gameRunnerService.updateSettings(updates));
+        ipcMain.handle('detect-installed-runners', async (_event, forceRefresh = false) => this.gameRunnerService.getDetectedRunners(Boolean(forceRefresh)));
+
         ipcMain.on('launch-yume', async (_event, { gameKey, exePath, runInBackground }) => {
             try {
                 const record = await libraryState?.getGameRecord(gameKey);
@@ -73,7 +82,13 @@ export class LibraryIpcController {
                     } else {
                         await translationService?.removeTranslator(safeExe);
                     }
-                    await playtimeSessionManager?.launchTrackedGame(gameKey, safeExe, runInBackground);
+
+                    const launchParams = await this.gameRunnerService.resolveLaunch(
+                        { platform: record?.platform, exePath: safeExe, gameKey },
+                        record?.runnerConfig
+                    );
+
+                    await playtimeSessionManager?.launchTrackedGame(gameKey, safeExe, runInBackground, launchParams);
                 }
             } catch (error) {
                 console.error(`[PLAYTIME][SESSIONS] failed to launch tracked game ${gameKey}:`, error);

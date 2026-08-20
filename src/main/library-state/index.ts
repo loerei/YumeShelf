@@ -8,7 +8,11 @@ export const {
     MAX_LIBRARY_MAX_DEPTH,
     MIN_LIBRARY_MAX_DEPTH,
     DEFAULT_LIBRARY_MAX_DEPTH,
-    clampLibraryMaxDepth
+    clampLibraryMaxDepth,
+    isRecognizedExecutable,
+    pickPreferredExecutable,
+    collectGameCandidates,
+    dedupeCandidates
 } = scanner;
 
 export const {

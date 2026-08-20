@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
-## [1.5.13] - working
+## [1.6.0] - working
 
 ### 🔧 Fixes & Improvements
 
@@ -12,9 +12,14 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [i18n] Standardized localized application brand names in Japanese (`ユメシェルフ`) and Simplified Chinese (`梦之架`), eliminating lingering Latin references in UI text and documentation (`README.md`).
 - [i18n] Synchronized Vietnamese language pack version to `1.0.2` and updated manifest SHA256 checksums.
 - [title-pipeline] Introduced modular `TitleCleaningPipeline` decomposing monolithic folder sanitization into isolated single-responsibility rules (`ProductCodeRule`, `LanguageTagRule`, `VersionTagRule`, `DistributionSourceRule`).
-- [title-resolver] Introduced deep `TitleResolutionEngine` implementing a 3-tier title ingestion architecture: Tier 1 (Engine Manifests like RPG Maker `data/System.json` & `package.json`), Tier 2 (Executable PE metadata), and Tier 3 (Cleaned folder pipeline fallback).
+- [title-resolver] Introduced deep `TitleResolutionEngine` implementing a multi-tier title ingestion architecture: Tier 1 (Engine Manifests like RPG Maker `data/System.json` & `package.json`), Tier 2 (Unity `*_Data/app.info` manifests), Tier 3 (Cleaned executable stem extraction), and Tier 4 (Cleaned folder pipeline fallback).
+- [title-resolver] Replaced brittle wrapper directory heuristics with a dynamic execution-anchored directory explorer (`directory-explorer.ts`), climbing upward ancestor chains from the binary to the package root and exploring nested structures dynamically.
 - [title-resolver] Added Language-Aware Cascade matching the user's active YumeShelf locale (`vi` -> `en` -> default native title), automatically prioritizing official translated titles over messy uploader directory names.
 - [title-resolver] Added generic engine name rejection blocklist (`"Game"`, `"nwjs"`, `"Unity Player"`), preventing identical generic titles from polluting library cards.
+- [settings] Added Title Display Mode dropdown (`title-display-select`) in Preferences with full multilingual localization (EN, JA, ZH, VI), allowing users to choose between `Game Title (Default)` and `Folder Name (Legacy)`.
+- [settings] Added Display Product Codes toggle (`display-codes-select`) in Preferences (default: Off), giving users the choice to hide or show DLsite/DMM product code tags (`[RJxxxxxx]`) in library titles.
+- [settings] Standardized Preferences dropdown and stepper dimensions into a reusable common CSS control rule, preventing layout shifts and misalignment.
+- [title-resolver] **Notice on Custom Game Names**: With the transition to dynamic title resolution, legacy database records are now refreshed to reflect official metadata titles. If you manually renamed games in previous versions, these names might have been munched by Yume-chan (we sincerely apologize for this one-time inconvenience!). Moving forward, all manual renames via the Rename action are explicitly flagged and permanently preserved.
 - [icon-pipeline] Refactored local game image discovery into a centralized helper `findLocalGameImage` and normalized symmetries across IPC `get-game-icon` and `game-icon://` custom protocol handlers.
 - [icon-pipeline] Added support for nested subfolder icon discovery (`icon/icon.*`, `icon/cover.*`, `www/icon/icon.*`), enabling games built with NW.js / RPG Maker MV & MZ to automatically resolve their custom game icons directly in Branch A (`local-image`).
 - [ipc] Restored missing startup and app lifecycle IPC handlers (`bootstrap-app`, `get-language-state`, `open-external-url`, `log-app-update-debug`, and update download/install handlers) in `AppIpcController`.
@@ -23,6 +28,28 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 ### 🛠️ For the Nerds
 
 - [devutil] Added official developer utility suite under `.devutil/` (`simulate-icon-pipeline.cjs`, `inspect-exe-icon.cjs`, `inspect-engine-icon.cjs`, and `README.md`) for end-to-end icon pipeline simulation, PE binary icon frame matrix inspection, and game engine asset discovery.
+- [core-adapters] Added zero-dependency cross-platform ZIP archive extractor (`src/main/core/zip-extractor.ts`) with End of Central Directory (EOCD) parsing and built-in Zip Slip path traversal security defenses (#42).
+- [core-adapters] Added platform-adaptive filesystem helper (`src/main/core/filesystem-adapter.ts`) supporting NTFS junctions on Windows and POSIX directory symlinks on Linux/macOS with idempotent link recreation (#42).
+- [playtime-helper] Adapted Rust `playtime-helper` for cross-platform compilation (ELF on Linux, `.exe` on Windows) with conditional `windows-sys` dependency scoping (#44).
+- [playtime-helper] Implemented pure `/proc/[pid]/stat` process line parser and `/proc` process tree polling on Linux to track game lifecycles across forks and runners without Win32 Job Objects (#44).
+- [playtime-helper] Made `playtime-helper-paths.ts` and `ensure-playtime-helper.js` platform-adaptive with `getHelperExeName` and dependency injection for cross-platform testing (#44).
+- [scanner] Implemented cross-platform executable discovery (`src/main/library-state/scanner.ts`) recognizing Linux native binaries (`.x86_64`, `.x86`, `.AppImage`, `.sh`, and POSIX executable mode) alongside Windows `.exe` files (#43).
+- [scanner] Implemented 5-tier composite prioritization in `pickPreferredExecutable` that dynamically prioritizes host-native binaries on Linux and Windows while maintaining seamless cross-platform fallbacks (#43).
+- [scanner] Expanded wrapper directory promotion for Linux package layouts (`linux/`, `linux64/`, `x86_64/`) and preserved `platform` metadata across promotion and loader cycles (#43).
+- [continuity] Updated `getExecutableStem` in `continuity.ts` and `game-annotations.ts` to strip Linux extensions, ensuring stable continuity signatures across platforms and moves (#43).
+- [title-resolver] Added generic Linux script and binary names (`game.x86_64`, `start.sh`, `run.sh`, `launch.sh`, `apprun`) to `GENERIC_TITLE_BLOCKLIST` (#43).
+- [translation] Refactored `TranslationService` to use native Node.js archive extraction and cross-platform directory symlinks, removing `powershell.exe` shell execution and hardcoded NTFS junction dependencies (#42).
+- [packaging] Configured Electron-builder Linux targets (`AppImage` and `tar.gz`) with icon, category, and platform-specific `extraResources` for `playtime-helper` (#48).
+- [release] Extended release orchestration and build artifact management (`release.js`, `organize-build-output.js`, `release-artifacts.js`, `write-release-checksum.js`) to categorize Linux assets into `build_output/linux/{application,feed,sha256}/`, compute multi-binary SHA-256 checksums, and publish unified GitHub Releases (#48).
+- [game-runner] Added Game Runner architecture (`src/main/game-runner/`) with runner auto-detection (`detector.ts`) for System Wine (`wine`/`wine64`), Steam Proton (compatibility tools & SteamApps common paths), UMU Launcher (`umu-run`), and Bottles/Lutris environments (#47).
+- [game-runner] Implemented game launch resolver (`resolver.ts`) with automated execution permission enforcement (`chmod +x` / `0o755`) for native Linux binaries and scripts, and environment synthesis (`WINEPREFIX`, `STEAM_COMPAT_DATA_PATH`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`) (#47).
+- [playtime-helper] Extended `SessionJournal` schema and Rust helper `launch_game_process` to spawn games via configured compatibility runners while monitoring their entire `/proc` process trees (#47).
+- [icon-pipeline] Implemented pure TypeScript Portable Executable (PE32 / PE32+) resource decoder (`src/main/icon-pipeline/pe-resource-decoder.ts`) to parse `.rsrc` structures, extract 256px PNG / synthesized ICO frames, and read `VS_VERSIONINFO` metadata directly from Windows `.exe` files on Linux and Windows without Win32 native addon dependencies (#46).
+- [icon-pipeline] Added Linux Desktop Entry asset resolver (`src/main/icon-pipeline/desktop-entry.ts`) to extract and resolve `Icon=` references from `.desktop` files in game folders and standard XDG icon theme directories (#46).
+- [icon-pipeline] Established unified 4-stage icon resolution cascade (Local assets & `.desktop` -> Cache -> Pure TS PE `.rsrc` decoder -> Platform fallback) with dynamic MIME type dispatching and strict non-Windows guards on `extract-file-icon` (#46).
+- [save-resolver] Expanded `SaveFolderResolver` and `FileSystemProvider` to support Linux XDG directories (`$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `~/.renpy`) and multi-source Wine/Proton prefix AppData paths with dynamic user traversal (#45).
+- [save-resolver] Added cross-platform save discovery for Ren'Py, Unity, Unreal, and Godot engines across Linux native and Wine/Proton prefix environments (#45).
+- [save-editor] Adapted `unity-mono-bin.ts` to locate and execute self-contained native `ModernSaveConverter` binaries, refactored subprocess invocations to `execFileSync` with explicit argument arrays, and added platform-adaptive Python dispatcher (`python3`/`python`) with `app.asar.unpacked` path resolution (#45).
 - [save-resolver] Consolidated engine detection, deterministic path discovery, and heuristic fallback scanning behind a unified `SaveFolderResolver` deep module class.
 - [save-resolver] Added `FileSystemProvider` interface (`DefaultFileSystemProvider` and `MockFileSystemProvider`) enabling virtual filesystem unit testing without real OS path dependencies.
 - [save-resolver] Standardized return DTO `ResolvedSaveDirectory` with `path`, `engine`, `confidence`, and `source` fields while preserving backward-compatible `resolveSaveFolder` export.

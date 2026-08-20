@@ -252,6 +252,13 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
     }
 
     function enqueueExtraction(targetPath: string): Promise<{ base64: string; meta: any }> {
+        if (process.platform !== 'win32') {
+            return Promise.resolve({
+                base64: '',
+                meta: { cause: 'non_win32_platform', platform: process.platform }
+            });
+        }
+
         return new Promise((resolve) => {
             const id = ++iconReqIdCounter;
             const extPath = buildExtractFileIconPath();

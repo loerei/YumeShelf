@@ -3,8 +3,9 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
-import { exec } from 'node:child_process';
 import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
+import { extractZip } from '../core/zip-extractor';
+import { createDirectorySymlink } from '../core/filesystem-adapter';
 import { RpgMakerExtractor } from './extractors/rpg-maker';
 import { UnityExtractor } from './extractors/unity';
 import { TranslationExtractor } from './extractors/base';
@@ -467,10 +468,7 @@ export class TranslationService {
     }
 
     extractZip(zipPath: string, outDir: string): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const cmd = `powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replaceAll("'", "''")}' -DestinationPath '${outDir.replaceAll("'", "''")}' -Force"`;
-            exec(cmd, (err) => err ? reject(err) : resolve());
-        });
+        return extractZip(zipPath, outDir);
     }
 
     async deployShims(exeDir: string, corePath: string, unityType: 'mono' | 'il2cpp', proxyPort: number): Promise<void> {
@@ -499,11 +497,9 @@ export class TranslationService {
             const target = path.join(exeDir, folder);
             if (!fsSync.existsSync(source)) await ensureDir(source);
             try {
-                const stats = await fs.lstat(target).catch(() => null);
-                if (stats) await fs.rm(target, { recursive: true, force: true });
-                await fs.symlink(source, target, 'junction');
+                await createDirectorySymlink(source, target);
             } catch (e) {
-                console.warn(`[TRANSLATION] Junction failed for ${folder}:`, e);
+                console.warn(`[TRANSLATION] Directory symlink failed for ${folder}:`, e);
             }
         }
     }

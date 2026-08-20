@@ -2,6 +2,7 @@ const DEFAULT_MAX_DEPTH = 5;
 const MIN_MAX_DEPTH = 0;
 const MAX_MAX_DEPTH = 12;
 const DEFAULT_LOCATION_DISPLAY_MODE = 'parent';
+const DEFAULT_TITLE_DISPLAY_MODE = 'metadata';
 
 function clampMaxDepth(value: number | string | null | undefined): number {
     const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -19,9 +20,13 @@ export interface SettingsController {
     closeSettings: () => void;
     getBootstrapPreferences: () => { appUpdatesMode: string; languagePackUpdatesMode: string };
     getLocationDisplayMode: () => string;
+    getTitleDisplayMode: () => string;
+    getDisplayProductCodes: () => boolean;
     handleAppUpdatesChange: (nextMode: string) => void;
     handleLanguagePackUpdatesChange: (nextMode: string) => void;
     handleLocationDisplayModeChange: (nextMode: string) => string;
+    handleTitleDisplayModeChange: (nextMode: string) => Promise<string>;
+    handleDisplayProductCodesChange: (nextValue: string) => Promise<boolean>;
     handleMaxDepthChange: (nextValue: number | string) => number;
     handleMaxDepthStep: (delta: number) => number;
     handleThemeChange: (nextTheme: string) => void;
@@ -43,6 +48,8 @@ export function createSettingsController({
     const appUpdatesSelect      = container.querySelector('#app-updates-select') as HTMLSelectElement | null;
     const languagePackUpdatesSelect = container.querySelector('#language-pack-updates-select') as HTMLSelectElement | null;
     const locationDisplaySelect = container.querySelector('#location-display-select') as HTMLSelectElement | null;
+    const titleDisplaySelect    = container.querySelector('#title-display-select') as HTMLSelectElement | null;
+    const displayCodesSelect    = container.querySelector('#display-codes-select') as HTMLSelectElement | null;
     const maxDepthInput         = container.querySelector('#max-depth-input') as HTMLInputElement | null;
     const maxDepthDecreaseBtn   = container.querySelector('#max-depth-decrease-btn') as HTMLButtonElement | null;
     const maxDepthIncreaseBtn   = container.querySelector('#max-depth-increase-btn') as HTMLButtonElement | null;
@@ -57,6 +64,8 @@ export function createSettingsController({
     let currentAppUpdates = localStorage.getItem('yumeshelf_app_updates_pref') || 'notify';
     let currentLanguagePackUpdates = localStorage.getItem('yumeshelf_language_pack_updates_pref') || 'automatic';
     let currentLocationDisplayMode = localStorage.getItem('yumeshelf_location_display_mode') || DEFAULT_LOCATION_DISPLAY_MODE;
+    let currentTitleDisplayMode = localStorage.getItem('yumeshelf_title_display_mode') || DEFAULT_TITLE_DISPLAY_MODE;
+    let currentDisplayProductCodes = localStorage.getItem('yumeshelf_display_product_codes') === 'true';
     let currentMaxDepth = DEFAULT_MAX_DEPTH;
     let currentAutoLaunch = 'off';
     let currentMinimizeToTray = false;
@@ -79,7 +88,9 @@ export function createSettingsController({
                 applyLibraryConfig({
                     maxDepth: currentMaxDepth,
                     autoLaunch: actualAutoLaunch,
-                    minimizeToTray: currentMinimizeToTray
+                    minimizeToTray: currentMinimizeToTray,
+                    titleDisplayMode: currentTitleDisplayMode,
+                    displayProductCodes: currentDisplayProductCodes
                 });
             }
         } catch (error) {
@@ -103,6 +114,8 @@ export function createSettingsController({
         if (appUpdatesSelect) appUpdatesSelect.value = currentAppUpdates;
         if (languagePackUpdatesSelect) languagePackUpdatesSelect.value = currentLanguagePackUpdates;
         if (locationDisplaySelect) locationDisplaySelect.value = currentLocationDisplayMode;
+        if (titleDisplaySelect) titleDisplaySelect.value = currentTitleDisplayMode;
+        if (displayCodesSelect) displayCodesSelect.value = currentDisplayProductCodes ? 'on' : 'off';
         if (autoLaunchSelect) autoLaunchSelect.value = currentAutoLaunch;
         if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
         if (telemetrySelect) telemetrySelect.value = currentTelemetry;
@@ -130,6 +143,23 @@ export function createSettingsController({
         localStorage.setItem('yumeshelf_location_display_mode', currentLocationDisplayMode);
         if (locationDisplaySelect) locationDisplaySelect.value = currentLocationDisplayMode;
         return currentLocationDisplayMode;
+    }
+
+    async function handleTitleDisplayModeChange(nextMode: string): Promise<string> {
+        currentTitleDisplayMode = nextMode === 'legacy_folder' ? 'legacy_folder' : 'metadata';
+        localStorage.setItem('yumeshelf_title_display_mode', currentTitleDisplayMode);
+        if (titleDisplaySelect) titleDisplaySelect.value = currentTitleDisplayMode;
+        await (window as any).electronAPI.updateLibraryConfig({ titleDisplayMode: currentTitleDisplayMode });
+        return currentTitleDisplayMode;
+    }
+
+    async function handleDisplayProductCodesChange(nextValue: string): Promise<boolean> {
+        const enabled = nextValue === 'on';
+        currentDisplayProductCodes = enabled;
+        localStorage.setItem('yumeshelf_display_product_codes', String(enabled));
+        if (displayCodesSelect) displayCodesSelect.value = enabled ? 'on' : 'off';
+        await (window as any).electronAPI.updateLibraryConfig({ displayProductCodes: enabled });
+        return enabled;
     }
 
     function renderLibraryPaths(libraryPaths: string[]): void {
@@ -209,6 +239,18 @@ export function createSettingsController({
 
             currentExposeBeta = !!libraryConfig.exposeBetaOptions;
             if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
+
+            if (libraryConfig.titleDisplayMode) {
+                currentTitleDisplayMode = libraryConfig.titleDisplayMode === 'legacy_folder' ? 'legacy_folder' : 'metadata';
+                localStorage.setItem('yumeshelf_title_display_mode', currentTitleDisplayMode);
+                if (titleDisplaySelect) titleDisplaySelect.value = currentTitleDisplayMode;
+            }
+
+            if (typeof libraryConfig.displayProductCodes === 'boolean') {
+                currentDisplayProductCodes = libraryConfig.displayProductCodes;
+                localStorage.setItem('yumeshelf_display_product_codes', String(currentDisplayProductCodes));
+                if (displayCodesSelect) displayCodesSelect.value = currentDisplayProductCodes ? 'on' : 'off';
+            }
         }
     }
 
@@ -219,7 +261,9 @@ export function createSettingsController({
             autoLaunch: currentAutoLaunch,
             minimizeToTray: currentMinimizeToTray,
             telemetryEnabled: currentTelemetry === 'on',
-            exposeBetaOptions: currentExposeBeta
+            exposeBetaOptions: currentExposeBeta,
+            titleDisplayMode: currentTitleDisplayMode,
+            displayProductCodes: currentDisplayProductCodes
         });
         return currentMaxDepth;
     }
@@ -269,9 +313,13 @@ export function createSettingsController({
         closeSettings,
         getBootstrapPreferences,
         getLocationDisplayMode: () => currentLocationDisplayMode,
+        getTitleDisplayMode: () => currentTitleDisplayMode,
+        getDisplayProductCodes: () => currentDisplayProductCodes,
         handleAppUpdatesChange,
         handleLanguagePackUpdatesChange,
         handleLocationDisplayModeChange,
+        handleTitleDisplayModeChange,
+        handleDisplayProductCodesChange,
         handleMaxDepthChange,
         handleMaxDepthStep,
         handleThemeChange,

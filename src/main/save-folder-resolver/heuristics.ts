@@ -87,45 +87,89 @@ export async function appDataFuzzyMatch(
     console.log(`[SAVE-RESOLVER][APPDATA] Fuzzy matching stem: ${exeStem}`);
     if (exeStem.length < 3) return null;
 
-    const userProfile = fs.getEnv('USERPROFILE') || '';
-    const localLow = fs.join(userProfile, 'AppData', 'LocalLow');
     const normalizedStem = normalizeForSearch(exeStem);
     if (!normalizedStem) return null;
 
+    const unityRoots = new Set<string>();
+    const unrealRoots = new Set<string>();
+
+    // 1. Windows standard paths
+    const userProfile = fs.getEnv('USERPROFILE');
+    if (userProfile) {
+        unityRoots.add(fs.join(userProfile, 'AppData', 'LocalLow'));
+    }
+    const localAppData = fs.getEnv('LOCALAPPDATA');
+    if (localAppData) {
+        unrealRoots.add(localAppData);
+    }
+
+    // 2. Linux XDG paths
+    unityRoots.add(fs.join(fs.getXdgConfigHome(), 'unity3d'));
+    const homeDir = fs.getHomeDir();
+    if (homeDir) {
+        unityRoots.add(fs.join(homeDir, '.config', 'unity3d'));
+    }
+    unrealRoots.add(fs.join(fs.getXdgConfigHome(), 'Epic'));
+    unrealRoots.add(fs.getXdgDataHome());
+
+    // 3. Wine / Proton prefixes
     try {
-        const companies = await fs.readdir(localLow);
-        for (const company of companies) {
-            const companyPath = fs.join(localLow, company);
-            try {
-                if (!(await fs.isDirectory(companyPath))) continue;
-                const products = await fs.readdir(companyPath);
-                const match = products.find((product) => {
-                    const normProduct = normalizeForSearch(product);
-                    return normProduct.includes(normalizedStem) || normalizedStem.includes(normProduct);
-                });
-                if (match) {
-                    return { path: fs.join(companyPath, match), engine: 'unity', confidence: 'low', source: 'appdata' };
-                }
-            } catch {
-                continue;
+        const winePrefixes = await fs.getWinePrefixRoots(exeDir);
+        for (const prefix of winePrefixes) {
+            const localLowPaths = await fs.getWineAppDataPaths(prefix, 'LocalLow');
+            for (const localLow of localLowPaths) {
+                unityRoots.add(localLow);
+            }
+            const localPaths = await fs.getWineAppDataPaths(prefix, 'Local');
+            for (const local of localPaths) {
+                unrealRoots.add(local);
             }
         }
     } catch {
         // ignore
     }
 
-    const localAppData = fs.getEnv('LOCALAPPDATA') || '';
-    try {
-        const entries = await fs.readdir(localAppData);
-        const match = entries.find((entry) => entry.toLowerCase() === exeStem.toLowerCase());
-        if (match) {
-            const saveGames = fs.join(localAppData, match, 'Saved', 'SaveGames');
-            if (await fs.exists(saveGames)) {
-                return { path: saveGames, engine: 'unreal', confidence: 'low', source: 'appdata' };
+    // Fuzzy match Unity
+    for (const localLow of unityRoots) {
+        try {
+            if (!(await fs.exists(localLow))) continue;
+            const companies = await fs.readdir(localLow);
+            for (const company of companies) {
+                const companyPath = fs.join(localLow, company);
+                try {
+                    if (!(await fs.isDirectory(companyPath))) continue;
+                    const products = await fs.readdir(companyPath);
+                    const match = products.find((product) => {
+                        const normProduct = normalizeForSearch(product);
+                        return normProduct.includes(normalizedStem) || normalizedStem.includes(normProduct);
+                    });
+                    if (match) {
+                        return { path: fs.join(companyPath, match), engine: 'unity', confidence: 'low', source: 'appdata' };
+                    }
+                } catch {
+                    continue;
+                }
             }
+        } catch {
+            // ignore
         }
-    } catch {
-        // ignore
+    }
+
+    // Fuzzy match Unreal
+    for (const localRoot of unrealRoots) {
+        try {
+            if (!(await fs.exists(localRoot))) continue;
+            const entries = await fs.readdir(localRoot);
+            const match = entries.find((entry) => entry.toLowerCase() === exeStem.toLowerCase());
+            if (match) {
+                const saveGames = fs.join(localRoot, match, 'Saved', 'SaveGames');
+                if (await fs.exists(saveGames)) {
+                    return { path: saveGames, engine: 'unreal', confidence: 'low', source: 'appdata' };
+                }
+            }
+        } catch {
+            // ignore
+        }
     }
 
     return null;

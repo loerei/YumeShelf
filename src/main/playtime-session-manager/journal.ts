@@ -22,6 +22,10 @@ export interface SessionJournal {
     endedAt: number;
     failureReason: string;
     filePath: string;
+    runner?: string;
+    runnerArgs?: string[];
+    env?: Record<string, string>;
+    targetPlatform?: 'windows' | 'linux';
 }
 
 export interface ActiveGameState {
@@ -54,7 +58,11 @@ export function normalizeSessionJournal(raw: any, filePath: string): SessionJour
         status: String(raw?.status || 'launching').trim() || 'launching',
         endedAt: raw?.endedAt ? toInteger(raw.endedAt, 0) : 0,
         failureReason: raw?.failureReason ? String(raw.failureReason) : '',
-        filePath
+        filePath,
+        runner: raw?.runner ? String(raw.runner) : undefined,
+        runnerArgs: Array.isArray(raw?.runnerArgs) ? raw.runnerArgs.map(String) : undefined,
+        env: typeof raw?.env === 'object' && raw.env !== null ? { ...raw.env } : undefined,
+        targetPlatform: raw?.targetPlatform === 'linux' ? 'linux' : raw?.targetPlatform === 'windows' ? 'windows' : undefined
     };
 }
 

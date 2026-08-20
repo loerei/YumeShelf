@@ -5,7 +5,7 @@
   "englishName": "English",
   "nativeName": "English",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "1.5.12",
+  "reviewedForAppVersion": "1.6.0",
   "aliases": [
     "en",
     "english"
@@ -23,6 +23,10 @@
     "location_display_label": "Path Display",
     "location_display_parent": "Category only",
     "location_display_full": "Full game folder path",
+    "title_display_label": "Title Display",
+    "title_display_metadata": "Game Title (Default)",
+    "title_display_legacy": "Folder Name (Legacy)",
+    "display_codes_label": "Display Product Codes (RJ/VJ)",
     "max_depth_label": "Max Depth",
     "app_updates_label": "App Updates",
     "language_pack_updates_label": "Language Pack Updates",

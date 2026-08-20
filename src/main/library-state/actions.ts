@@ -16,6 +16,7 @@ export async function renameGame(context: any, gameKey: string, newName: string)
     const games = readStoredGames(db);
     if (games[gameKey]) {
         games[gameKey].name = newName;
+        games[gameKey].customName = true;
         db.games = games;
         await saveDB(db);
         return true;
@@ -27,6 +28,7 @@ export async function renameGame(context: any, gameKey: string, newName: string)
     targetGroup.instances.forEach((instance: any) => {
         if (games[instance.gameKey]) {
             games[instance.gameKey].name = newName;
+            games[instance.gameKey].customName = true;
         }
     });
     db.games = games;

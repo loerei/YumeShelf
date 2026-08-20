@@ -14,6 +14,18 @@ function createMockFs(fileMap) {
     }
 
     return {
+        readdir: async (dirPath) => {
+            const normDir = normalize(dirPath);
+            const children = new Set();
+            for (const k of normalizedMap.keys()) {
+                if (k.startsWith(`${normDir}/`)) {
+                    const relative = k.slice(normDir.length + 1);
+                    const topSegment = relative.split('/')[0];
+                    children.add(topSegment);
+                }
+            }
+            return Array.from(children);
+        },
         readFile: async (filePath) => {
             const key = normalize(filePath);
             if (normalizedMap.has(key)) {
@@ -27,7 +39,7 @@ function createMockFs(fileMap) {
     };
 }
 
-test('TDD Slice 1: RPG Maker MZ data/System.json overrides package.json window.title', async () => {
+test('TDD Slice 1: RPG Maker MZ data/System.json overrides package.json window.title (default: no product codes)', async () => {
     const folderPath = 'D:/Games/H Games/[Ryuugames] RY-RJ01415588_V1.0.11_EN/RJ01415588 v1.0.11 EN/[ガオン堂] Ikinokore! Mujintou Survival Seikatsu♡ [v1.0.11]';
     const exePath = `${folderPath}/Game.exe`;
 
@@ -47,7 +59,7 @@ test('TDD Slice 1: RPG Maker MZ data/System.json overrides package.json window.t
         fs: mockFs
     });
 
-    assert.equal(title, '[RJ01415588] Survive! Deserted Island Survival Life♡');
+    assert.equal(title, 'Survive! Deserted Island Survival Life♡');
 });
 
 test('TDD Slice 2: Multi-Language Cascade matches preferredLocale -> EN -> default', async (t) => {
@@ -80,6 +92,7 @@ test('TDD Slice 2: Multi-Language Cascade matches preferredLocale -> EN -> defau
         assert.equal(title, 'Survive! Deserted Island Survival Life');
     });
 });
+
 test('TDD Slice 3: Generic Engine Name Rejection falls back to cleaned folder name', async () => {
     const folderPath = 'D:/Games/H Games/[Ryuugames] RY-RJ01578063_V26.03.27/Game';
     const exePath = `${folderPath}/Game.exe`;
@@ -95,10 +108,10 @@ test('TDD Slice 3: Generic Engine Name Rejection falls back to cleaned folder na
         fs: mockFs
     });
 
-    // Should reject "Game" and "nwjs", returning cleaned folder name with product code
-    assert.equal(title, '[RJ01578063] Game');
+    assert.equal(title, '[RJ01578063]');
 });
-test('TDD Slice 4: titleDisplayMode legacy_folder forces folder name cleaning', async () => {
+
+test('TDD Slice 4: titleDisplayMode legacy_folder forces folder name cleaning without product code by default', async () => {
     const folderPath = 'D:/Games/H Games/[Ryuugames] RY-RJ01415588_V1.0.11_EN/RJ01415588 v1.0.11 EN/[ガオン堂] Ikinokore! Mujintou Survival Seikatsu♡ [v1.0.11]';
     const exePath = `${folderPath}/Game.exe`;
 
@@ -113,9 +126,10 @@ test('TDD Slice 4: titleDisplayMode legacy_folder forces folder name cleaning', 
         fs: mockFs
     });
 
-    // In legacy mode, it ignores System.json and cleans the folder path
-    assert.equal(title, '[RJ01415588] Ikinokore! Mujintou Survival Seikatsu♡');
+    // In legacy mode with displayProductCodes: false, it cleans the folder path without prefix
+    assert.equal(title, 'Ikinokore! Mujintou Survival Seikatsu♡');
 });
+
 test('TDD Slice 5: Performance Benchmark resolves 100 mock games in < 50ms', async () => {
     const mockFiles = {};
     for (let i = 0; i < 100; i++) {
@@ -141,4 +155,73 @@ test('TDD Slice 5: Performance Benchmark resolves 100 mock games in < 50ms', asy
     assert.equal(titles[0], 'Game Title 0');
     assert.equal(titles[99], 'Game Title 99');
     assert.ok(elapsed < 50, `Expected 100 games to resolve in < 50ms, took ${elapsed.toFixed(2)}ms`);
+});
+
+test('TDD Slice 6: Unity app.info resolves product name over wrapper folder', async () => {
+    const folderPath = 'D:/Games/H Games/[Ryuugames] RY-RJ01632235_V26.07.07/Build';
+    const exePath = `${folderPath}/Clicker.exe`;
+
+    const mockFs = createMockFs({
+        [`${folderPath}/Clicker_Data/app.info`]: 'Serinette\nClicker\n'
+    });
+
+    const title = await resolveGameTitle({
+        folderPath,
+        exePath,
+        fs: mockFs
+    });
+
+    assert.equal(title, 'Clicker');
+});
+
+test('TDD Slice 7: Meaningful Executable Stem resolves when folder name is empty or wrapper', async () => {
+    const folderPath = 'D:/Games/H Games/[Kimochi] RJ01248879';
+    const exePath = `${folderPath}/Doujin Fever!! Train Assault!.exe`;
+
+    const mockFs = createMockFs({});
+
+    const title = await resolveGameTitle({
+        folderPath,
+        exePath,
+        fs: mockFs
+    });
+
+    assert.equal(title, 'Doujin Fever!! Train Assault!');
+});
+
+test('TDD Slice 8: displayProductCodes true prefixes product codes to title', async () => {
+    const folderPath = 'D:/Games/H Games/[Ryuugames] RY-RJ01632235_V26.07.07/Build';
+    const exePath = `${folderPath}/Clicker.exe`;
+
+    const mockFs = createMockFs({
+        [`${folderPath}/Clicker_Data/app.info`]: 'Serinette\nClicker\n'
+    });
+
+    const titleWithCode = await resolveGameTitle({
+        folderPath,
+        exePath,
+        displayProductCodes: true,
+        fs: mockFs
+    });
+
+    assert.equal(titleWithCode, '[RJ01632235] Clicker');
+});
+
+test('TDD Slice 9: Dynamic candidate tree explorer finds RPG Maker metadata in arbitrary subfolder', async () => {
+    const folderPath = 'D:/Games/H Games/[Ryuugames] RY-RJ01578063_V26.03.27';
+    const exePath = `${folderPath}/Game/Game.exe`;
+
+    const mockFs = createMockFs({
+        [`${folderPath}/Game/data/System.json`]: {
+            gameTitle: 'The Closeted, Gloomy JK Starts to Take Lewd Selfies.'
+        }
+    });
+
+    const title = await resolveGameTitle({
+        folderPath,
+        exePath,
+        fs: mockFs
+    });
+
+    assert.equal(title, 'The Closeted, Gloomy JK Starts to Take Lewd Selfies.');
 });

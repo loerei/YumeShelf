@@ -17,6 +17,7 @@ import {
     spawnHelper,
     injectRunInBackgroundDll
 } from './playtime-session-manager/injector';
+import { ResolvedLaunchParameters } from './game-runner/types';
 
 const SESSION_REFRESH_INTERVAL_MS = 5000;
 const SESSION_ATTACH_RETRY_GRACE_MS = 15000;
@@ -29,7 +30,12 @@ export interface PlaytimeSessionManagerOptions {
 
 export interface PlaytimeSessionManager {
     initialize(): Promise<void>;
-    launchTrackedGame(gameKey: string, exePath: string, runInBackground?: boolean): Promise<string>;
+    launchTrackedGame(
+        gameKey: string,
+        exePath: string,
+        runInBackground?: boolean,
+        launchParams?: ResolvedLaunchParameters
+    ): Promise<string>;
     overlayGames(games: any[]): any[];
     refreshSessions(options?: { recover?: boolean; emit?: boolean }): Promise<SessionJournal[]>;
     getRuntimeSnapshot(): { journals: SessionJournal[]; gameState: any[] };
@@ -197,7 +203,12 @@ export function createPlaytimeSessionManager({
         }
     }
 
-    async function launchTrackedGame(gameKey: string, exePath: string, runInBackground = false): Promise<string> {
+    async function launchTrackedGame(
+        gameKey: string,
+        exePath: string,
+        runInBackground = false,
+        launchParams?: ResolvedLaunchParameters
+    ): Promise<string> {
         if (!refreshTimer) {
             await initialize();
         }
@@ -209,7 +220,7 @@ export function createPlaytimeSessionManager({
             sessionId,
             gameKey,
             exePath,
-            cwd: path.dirname(exePath),
+            cwd: launchParams?.cwd || path.dirname(exePath),
             mode: 'launch',
             helperPid: 0,
             rootPid: 0,
@@ -219,7 +230,11 @@ export function createPlaytimeSessionManager({
             status: 'launching',
             endedAt: 0,
             failureReason: '',
-            filePath: journalPath
+            filePath: journalPath,
+            runner: launchParams?.runnerMode && launchParams.runnerMode !== 'native' ? launchParams.command : undefined,
+            runnerArgs: launchParams?.args,
+            env: launchParams?.env,
+            targetPlatform: launchParams?.targetPlatform
         };
 
         await ensureSessionInfrastructure();

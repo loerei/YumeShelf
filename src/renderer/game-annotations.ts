@@ -40,7 +40,7 @@ function normalizeComparableText(value) {
 function getExecutableStem(exePath) {
     const normalized = String(exePath || '').replace(/[\\/]+/g, '/');
     const baseName = normalized.split('/').pop() || '';
-    return baseName.replace(/\.exe$/i, '');
+    return baseName.replace(/\.(exe|x86_64|x86|appimage|sh)$/i, '');
 }
 
 export function buildDuplicateSignature(game) {

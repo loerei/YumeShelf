@@ -87,9 +87,20 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
             continue;
         }
 
+        const resolvedTitle = await resolveGameTitle({
+            folderPath: candidate.folderPath,
+            exePath: candidate.exePath,
+            preferredLocale: (normalizedConfig as any).preferredLocale,
+            titleDisplayMode: (normalizedConfig as any).titleDisplayMode,
+            displayProductCodes: (normalizedConfig as any).displayProductCodes,
+            fs,
+            fsSync
+        });
+
         nextGames[gameKey] = {
             dateAdded: existingRecord?.dateAdded || stats.birthtimeMs,
             exePath: candidate.exePath,
+            platform: candidate.platform || (candidate.exePath.toLowerCase().endsWith('.exe') ? 'windows' : 'linux'),
             favorite: existingRecord?.favorite || false,
             folderName,
             folderPath: candidate.folderPath,
@@ -97,14 +108,8 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
             migratedFromGameKey: existingRecord?.gameKey && existingRecord.gameKey !== gameKey
                 ? existingRecord.gameKey
                 : undefined,
-            name: existingRecord?.name || await resolveGameTitle({
-                folderPath: candidate.folderPath,
-                exePath: candidate.exePath,
-                preferredLocale: (normalizedConfig as any).preferredLocale,
-                titleDisplayMode: (normalizedConfig as any).titleDisplayMode,
-                fs,
-                fsSync
-            }),
+            name: existingRecord?.customName ? existingRecord.name : resolvedTitle,
+            customName: !!existingRecord?.customName,
             relativePath: gameKey,
             playtime: existingRecord?.playtime || 0,
             runInBackground: existingRecord?.runInBackground || false,

@@ -115,6 +115,7 @@ test('legacy top-level records migrate best-effort to a unique nested descendant
         },
         'Game Three': {
             name: 'My Custom Name',
+            customName: true,
             folderPath: legacyRoot,
             exePath,
             dateAdded: 123,

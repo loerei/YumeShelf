@@ -69,6 +69,103 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
     join(...paths: string[]): string {
         return path.join(...paths);
     }
+
+    getHomeDir(): string {
+        return process.env.HOME || process.env.USERPROFILE || '';
+    }
+
+    getXdgConfigHome(): string {
+        return process.env.XDG_CONFIG_HOME || path.join(this.getHomeDir(), '.config');
+    }
+
+    getXdgDataHome(): string {
+        return process.env.XDG_DATA_HOME || path.join(this.getHomeDir(), '.local', 'share');
+    }
+
+    async getWinePrefixRoots(exeDir?: string): Promise<string[]> {
+        const roots = new Set<string>();
+
+        // 1. Direct environment variable
+        const envPrefix = process.env.WINEPREFIX;
+        if (envPrefix && (await this.exists(envPrefix))) {
+            roots.add(path.resolve(envPrefix));
+        }
+
+        // 2. Default ~/.wine prefix
+        const homeDir = this.getHomeDir();
+        if (homeDir) {
+            const defaultWine = path.join(homeDir, '.wine');
+            if (await this.exists(defaultWine)) {
+                roots.add(defaultWine);
+            }
+
+            // 3. Steam Proton compatdata prefixes
+            const steamCompatPaths = [
+                path.join(homeDir, '.steam', 'steam', 'steamapps', 'compatdata'),
+                path.join(homeDir, '.local', 'share', 'Steam', 'steamapps', 'compatdata'),
+                path.join(homeDir, '.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam', 'steamapps', 'compatdata')
+            ];
+
+            for (const compatRoot of steamCompatPaths) {
+                if (await this.exists(compatRoot)) {
+                    try {
+                        const appDirs = await this.readdir(compatRoot);
+                        for (const appDir of appDirs) {
+                            const pfx = path.join(compatRoot, appDir, 'pfx');
+                            if (await this.exists(pfx)) {
+                                roots.add(pfx);
+                            }
+                        }
+                    } catch {
+                        // ignore
+                    }
+                }
+            }
+        }
+
+        // 4. Ancestor drive_c prefix discovery if exeDir is inside a prefix
+        if (exeDir) {
+            const normalized = path.resolve(exeDir).replaceAll('\\', '/');
+            const driveCIdx = normalized.toLowerCase().indexOf('/drive_c');
+            if (driveCIdx > 0) {
+                const candidatePrefix = normalized.substring(0, driveCIdx);
+                if (await this.exists(candidatePrefix)) {
+                    roots.add(path.resolve(candidatePrefix));
+                }
+            }
+        }
+
+        return Array.from(roots);
+    }
+
+    async getWineAppDataPaths(prefix: string, type: 'Roaming' | 'Local' | 'LocalLow'): Promise<string[]> {
+        const usersDir = path.join(prefix, 'drive_c', 'users');
+        if (!(await this.exists(usersDir))) return [];
+
+        const results: string[] = [];
+        try {
+            const users = await this.readdir(usersDir);
+            for (const user of users) {
+                if (/^(public|default|all users|default user)$/i.test(user)) continue;
+                let appDataSub = '';
+                if (type === 'Roaming') {
+                    appDataSub = path.join('AppData', 'Roaming');
+                } else if (type === 'LocalLow') {
+                    appDataSub = path.join('AppData', 'LocalLow');
+                } else {
+                    appDataSub = path.join('AppData', 'Local');
+                }
+
+                const targetDir = path.join(usersDir, user, appDataSub);
+                if (await this.exists(targetDir)) {
+                    results.push(targetDir);
+                }
+            }
+        } catch {
+            // ignore
+        }
+        return results;
+    }
 }
 
 export class MockFileSystemProvider implements FileSystemProvider {
@@ -204,5 +301,88 @@ export class MockFileSystemProvider implements FileSystemProvider {
             return `${drive}/${resultParts.slice(1).join('/')}`;
         }
         return (isAbsolute ? '/' : '') + resultParts.join('/');
+    }
+
+    getHomeDir(): string {
+        return this.env.get('HOME') || this.env.get('USERPROFILE') || '/home/user';
+    }
+
+    getXdgConfigHome(): string {
+        return this.env.get('XDG_CONFIG_HOME') || this.join(this.getHomeDir(), '.config');
+    }
+
+    getXdgDataHome(): string {
+        return this.env.get('XDG_DATA_HOME') || this.join(this.getHomeDir(), '.local', 'share');
+    }
+
+    async getWinePrefixRoots(exeDir?: string): Promise<string[]> {
+        const roots = new Set<string>();
+        const envPrefix = this.env.get('WINEPREFIX');
+        if (envPrefix && (await this.exists(envPrefix))) {
+            roots.add(this.normalize(envPrefix));
+        }
+
+        const homeDir = this.getHomeDir();
+        if (homeDir) {
+            const defaultWine = this.join(homeDir, '.wine');
+            if (await this.exists(defaultWine)) {
+                roots.add(this.normalize(defaultWine));
+            }
+
+            const steamCompatPaths = [
+                this.join(homeDir, '.steam', 'steam', 'steamapps', 'compatdata'),
+                this.join(homeDir, '.local', 'share', 'Steam', 'steamapps', 'compatdata')
+            ];
+
+            for (const compatRoot of steamCompatPaths) {
+                if (await this.exists(compatRoot)) {
+                    const appDirs = await this.readdir(compatRoot);
+                    for (const appDir of appDirs) {
+                        const pfx = this.join(compatRoot, appDir, 'pfx');
+                        if (await this.exists(pfx)) {
+                            roots.add(this.normalize(pfx));
+                        }
+                    }
+                }
+            }
+        }
+
+        if (exeDir) {
+            const normalized = this.normalize(exeDir);
+            const driveCIdx = normalized.toLowerCase().indexOf('/drive_c');
+            if (driveCIdx > 0) {
+                const candidatePrefix = normalized.substring(0, driveCIdx);
+                if (await this.exists(candidatePrefix)) {
+                    roots.add(this.normalize(candidatePrefix));
+                }
+            }
+        }
+
+        return Array.from(roots);
+    }
+
+    async getWineAppDataPaths(prefix: string, type: 'Roaming' | 'Local' | 'LocalLow'): Promise<string[]> {
+        const usersDir = this.join(prefix, 'drive_c', 'users');
+        if (!(await this.exists(usersDir))) return [];
+
+        const results: string[] = [];
+        const users = await this.readdir(usersDir);
+        for (const user of users) {
+            if (/^(public|default|all users|default user)$/i.test(user)) continue;
+            let appDataSub = '';
+            if (type === 'Roaming') {
+                appDataSub = this.join('AppData', 'Roaming');
+            } else if (type === 'LocalLow') {
+                appDataSub = this.join('AppData', 'LocalLow');
+            } else {
+                appDataSub = this.join('AppData', 'Local');
+            }
+
+            const targetDir = this.join(usersDir, user, appDataSub);
+            if (await this.exists(targetDir)) {
+                results.push(this.normalize(targetDir));
+            }
+        }
+        return results;
     }
 }

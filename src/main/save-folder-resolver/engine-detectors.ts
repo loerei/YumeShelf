@@ -19,11 +19,27 @@ const ENGINE_RULES: EngineRule[] = [
     {
         engine: 'renpy',
         check: async (dir, fs) =>
-            ((await fs.exists(fs.join(dir, 'game'))) && (await fs.globMatch(fs.join(dir, 'game'), /\.rpy$/i))) ||
-            fs.globMatch(fs.join(dir, 'lib'), /^windows-/i)
+            ((await fs.exists(fs.join(dir, 'game'))) && (await fs.globMatch(fs.join(dir, 'game'), /\.(rpy|rpyc|rpa)$/i))) ||
+            (await fs.exists(fs.join(dir, 'game', 'script.rpy'))) ||
+            fs.globMatch(fs.join(dir, 'lib'), /^(windows|linux|py[23])/i)
     },
-    { engine: 'unity', check: async (dir, fs) => fs.exists(fs.join(dir, 'UnityPlayer.dll')) },
-    { engine: 'unreal', check: async (dir, fs) => fs.exists(fs.join(dir, 'Engine', 'Binaries')) },
+    {
+        engine: 'unity',
+        check: async (dir, fs) =>
+            (await fs.exists(fs.join(dir, 'UnityPlayer.dll'))) ||
+            (await fs.exists(fs.join(dir, 'UnityPlayer.so'))) ||
+            fs.globMatch(dir, /_Data$/i)
+    },
+    {
+        engine: 'unreal',
+        check: async (dir, fs) =>
+            (await fs.exists(fs.join(dir, 'Engine', 'Binaries'))) ||
+            (await fs.exists(fs.join(dir, '..', 'Engine', 'Binaries'))) ||
+            (await fs.exists(fs.join(dir, '..', '..', 'Engine', 'Binaries'))) ||
+            (await fs.exists(fs.join(dir, '..', '..', '..', 'Engine', 'Binaries'))) ||
+            /binaries[/\\](win64|win32|linux)/i.test(dir) ||
+            (await fs.globMatch(dir, /\.uproject$/i))
+    },
     { engine: 'wolf-rpg', check: async (dir, fs) => fs.globMatch(dir, /\.wolf$/i) },
     { engine: 'flash', check: async (dir, fs) => fs.globMatch(dir, /\.swf$/i) },
     {

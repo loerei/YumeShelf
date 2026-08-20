@@ -30,6 +30,7 @@
     "title_display_label": "Hiển thị tiêu đề",
     "title_display_metadata": "Tiêu đề game (Mặc định)",
     "title_display_legacy": "Tên thư mục (Cũ)",
+    "display_codes_label": "Hiển thị mã sản phẩm (RJ/VJ)",
     "max_depth_label": "Độ sâu quét tối đa",
     "app_updates_label": "Cập nhật ứng dụng",
     "language_pack_updates_label": "Cập nhật gói ngôn ngữ",

@@ -92,6 +92,7 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
             exePath: candidate.exePath,
             preferredLocale: (normalizedConfig as any).preferredLocale,
             titleDisplayMode: (normalizedConfig as any).titleDisplayMode,
+            displayProductCodes: (normalizedConfig as any).displayProductCodes,
             fs,
             fsSync
         });

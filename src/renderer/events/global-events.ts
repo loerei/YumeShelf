@@ -196,6 +196,12 @@ export function bindControlEvents({
             await startupController.handleLibraryConfigChange({ titleDisplayMode });
         };
     }
+    if (refs.displayCodesSelect) {
+        refs.displayCodesSelect.onchange = async (event) => {
+            const displayProductCodes = await settingsController.handleDisplayProductCodesChange((event.target as HTMLSelectElement).value);
+            await startupController.handleLibraryConfigChange({ displayProductCodes });
+        };
+    }
     if (refs.maxDepthInput) {
         refs.maxDepthInput.onchange = async (event) => {
             const maxDepth = settingsController.handleMaxDepthChange((event.target as HTMLInputElement).value);

@@ -26,6 +26,7 @@
     "title_display_label": "タイトル表示",
     "title_display_metadata": "ゲームタイトル（デフォルト）",
     "title_display_legacy": "フォルダ名（従来）",
+    "display_codes_label": "作品コード（RJ/VJ）の表示",
     "max_depth_label": "最大深度",
     "app_updates_label": "アプリ更新",
     "language_pack_updates_label": "言語パック更新",

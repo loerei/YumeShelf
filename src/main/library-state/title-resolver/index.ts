@@ -10,6 +10,7 @@ export interface TitleResolutionContext {
     exePath: string;
     preferredLocale?: string;
     titleDisplayMode?: 'metadata' | 'legacy_folder';
+    displayProductCodes?: boolean;
     fs?: any;
     fsSync?: any;
 }
@@ -61,17 +62,19 @@ export async function resolveGameTitle(context: TitleResolutionContext): Promise
         exePath,
         preferredLocale,
         titleDisplayMode = 'metadata',
+        displayProductCodes = false,
         fs: injectedFs
     } = context;
 
     const fsImpl = injectedFs || fs.promises;
-    const id = TitleCleaningPipeline.extractProductCode(exePath)
+    const rawId = TitleCleaningPipeline.extractProductCode(exePath)
         || TitleCleaningPipeline.extractProductCode(folderPath);
+    const id = displayProductCodes ? rawId : null;
 
     // 1. If user explicitly requested legacy folder mode, bypass metadata extraction
     if (titleDisplayMode === 'legacy_folder') {
         const folderName = extractMeaningfulFolderName(folderPath, exePath);
-        return formatWithProductCode(id, folderName) || path.basename(folderPath);
+        return formatWithProductCode(id, folderName) || (rawId ? `[${rawId}]` : path.basename(folderPath));
     }
 
     // 2. Try Engine Manifest Tier: RPG Maker MV/MZ
@@ -98,7 +101,7 @@ export async function resolveGameTitle(context: TitleResolutionContext): Promise
 
     // 5. Fallback to Rule-Cleaned Meaningful Folder Name
     const meaningfulFolder = extractMeaningfulFolderName(folderPath, exePath);
-    return formatWithProductCode(id, meaningfulFolder) || path.basename(folderPath);
+    return formatWithProductCode(id, meaningfulFolder) || (rawId ? `[${rawId}]` : path.basename(folderPath));
 }
 
 export * from './blocklist';

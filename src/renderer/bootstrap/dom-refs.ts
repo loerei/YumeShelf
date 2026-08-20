@@ -1,4 +1,5 @@
 export interface RendererRefs {
+    // === Shared / Cross-controller refs ===
     favGrid: HTMLElement | null;
     unfavGrid: HTMLElement | null;
     separator: HTMLElement | null;
@@ -6,6 +7,8 @@ export interface RendererRefs {
     langSelect: HTMLSelectElement | null;
     sortMenu: HTMLElement | null;
     sortBtn: HTMLElement | null;
+
+    // === Boot refs ===
     loading: HTMLElement | null;
     bootProgress: HTMLElement | null;
     bootProgressBar: HTMLElement | null;
@@ -16,13 +19,17 @@ export interface RendererRefs {
     emptyContainer: HTMLElement | null;
     refreshLibraryBtn: HTMLElement | null;
     telemetryModal: HTMLElement | null;
+
+    // === Container refs ===
     containers: {
         settings: HTMLElement | null;
         categoryFilter: HTMLElement | null;
         languagePack: HTMLElement | null;
         duplicateStack: HTMLElement | null;
-        search: Element | null;
+        search: HTMLElement | null;
     };
+
+    // === Event binding refs ===
     searchInput: HTMLInputElement | null;
     searchDropdown: HTMLElement | null;
     searchPlaceholder: HTMLElement | null;
@@ -35,6 +42,7 @@ export interface RendererRefs {
     languagePackUpdatesSelect: HTMLSelectElement | null;
     locationDisplaySelect: HTMLSelectElement | null;
     titleDisplaySelect: HTMLSelectElement | null;
+    displayCodesSelect: HTMLSelectElement | null;
     maxDepthInput: HTMLInputElement | null;
     maxDepthIncreaseBtn: HTMLElement | null;
     maxDepthDecreaseBtn: HTMLElement | null;
@@ -169,6 +177,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         languagePackUpdatesSelect: settingsContainer ? settingsContainer.querySelector('#language-pack-updates-select') as HTMLSelectElement : null,
         locationDisplaySelect:   settingsContainer ? settingsContainer.querySelector('#location-display-select') as HTMLSelectElement : null,
         titleDisplaySelect:      settingsContainer ? settingsContainer.querySelector('#title-display-select') as HTMLSelectElement : null,
+        displayCodesSelect:      settingsContainer ? settingsContainer.querySelector('#display-codes-select') as HTMLSelectElement : null,
         maxDepthInput:           settingsContainer ? settingsContainer.querySelector('#max-depth-input') as HTMLInputElement : null,
         maxDepthIncreaseBtn:     settingsContainer ? settingsContainer.querySelector('#max-depth-increase-btn') : null,
         maxDepthDecreaseBtn:     settingsContainer ? settingsContainer.querySelector('#max-depth-decrease-btn') : null,
@@ -180,72 +189,73 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         // === Button refs ===
         buttons: {
             setupDefault:    documentRef.getElementById('btn-setup-default'),
-            chooseCustom:    documentRef.getElementById('btn-choose-custom'),
-            settingsOpen:    documentRef.getElementById('settings-open-btn'),
-            settingsClose:   documentRef.getElementById('settings-close-btn'),
-            languagePackClose: documentRef.getElementById('language-pack-close-btn'),
-            telemetryOptIn:  documentRef.getElementById('btn-telemetry-opt-in'),
-            telemetryOptOut: documentRef.getElementById('btn-telemetry-opt-out')
+            chooseCustom:    documentRef.getElementById('btn-setup-custom'),
+            settingsOpen:    documentRef.getElementById('settings-btn'),
+            settingsClose:   settingsContainer ? settingsContainer.querySelector('#settings-close-btn') : null,
+            languagePackClose: languagePackContainer ? languagePackContainer.querySelector('#language-pack-close-btn') : null,
+            telemetryOptIn:  telemetryModal ? telemetryModal.querySelector('#telemetry-opt-in-btn') : null,
+            telemetryOptOut: telemetryModal ? telemetryModal.querySelector('#telemetry-opt-out-btn') : null
         },
 
-        // === UI Text refs ===
-        moreLanguagesBtn: documentRef.getElementById('more-languages-btn'),
+        moreLanguagesBtn: languagePackContainer ? languagePackContainer.querySelector('#more-languages-btn') : null,
+
+        // === Static i18n text node refs ===
         uiTextRefs: {
-            moreLanguagesBtn:          documentRef.getElementById('more-languages-btn'),
-            searchInput:               searchContainer ? searchContainer.querySelector('#search-input') as HTMLInputElement : null,
-            searchPlaceholder:         searchContainer ? searchContainer.querySelector('#search-placeholder') : null,
-            sortMenu:                  documentRef.getElementById('sort-menu'),
-        sortActiveLabel:           documentRef.getElementById('sort-active-label'),
-            uiAppUpdatesLabel:         documentRef.getElementById('ui-app-updates-label'),
-            uiAppVersion:              documentRef.getElementById('ui-app-version'),
-            uiFooterDesc:              documentRef.getElementById('ui-footer-desc'),
-            uiLangLabel:               documentRef.getElementById('ui-lang-label'),
-            uiLanguagePackTitle:       documentRef.getElementById('ui-language-pack-title'),
-            uiLanguagePackUpdatesLabel: documentRef.getElementById('ui-language-pack-updates-label'),
-            uiAutoLaunchLabel:         documentRef.getElementById('ui-auto-launch-label'),
-            uiAutoLaunchOff:           documentRef.getElementById('ui-auto-launch-off'),
-            uiAutoLaunchOn:            documentRef.getElementById('ui-auto-launch-on'),
-            uiAutoLaunchMinimized:     documentRef.getElementById('ui-auto-launch-minimized'),
-            uiMinimizeToTrayLabel:     documentRef.getElementById('ui-minimize-to-tray-label'),
-            uiMinimizeToTrayOff:       documentRef.getElementById('ui-minimize-to-tray-off'),
-            uiMinimizeToTrayOn:        documentRef.getElementById('ui-minimize-to-tray-on'),
-            uiLocationDisplayFull:     documentRef.getElementById('ui-location-display-full'),
-            uiLocationDisplayLabel:    documentRef.getElementById('ui-location-display-label'),
-            uiLocationDisplayParent:   documentRef.getElementById('ui-location-display-parent'),
-            uiMaxDepthLabel:           documentRef.getElementById('ui-max-depth-label'),
-            uiOptChoose:               documentRef.getElementById('ui-opt-choose'),
-            uiOptChooseDesc:           documentRef.getElementById('ui-opt-choose-desc'),
-            uiOptLazy:                 documentRef.getElementById('ui-opt-lazy'),
-            uiOptLazyDesc:             documentRef.getElementById('ui-opt-lazy-desc'),
-            uiPackUpdateAutomatic:     documentRef.getElementById('ui-pack-update-automatic'),
-            uiPackUpdateNotify:        documentRef.getElementById('ui-pack-update-notify'),
-            uiPackUpdateOff:           documentRef.getElementById('ui-pack-update-off'),
-            uiPathLabel:               documentRef.getElementById('ui-path-label'),
-            uiSettingsTitle:           documentRef.getElementById('ui-settings-title'),
-            uiSortAz:                  documentRef.getElementById('ui-sort-az'),
-            uiSortCustom:              documentRef.getElementById('ui-sort-custom'),
-            uiSortDate:                documentRef.getElementById('ui-sort-date'),
-            uiSortPlayed:              documentRef.getElementById('ui-sort-played'),
-        uiExposeBetaLabel:         documentRef.getElementById('ui-expose-beta-label'),
-        uiExposeBetaOff:           documentRef.getElementById('ui-expose-beta-off'),
-        uiExposeBetaOn:            documentRef.getElementById('ui-expose-beta-on'),
-            uiThemeDark:               documentRef.getElementById('ui-theme-dark'),
-            uiThemeLabel:              documentRef.getElementById('ui-theme-label'),
-            uiThemeLight:              documentRef.getElementById('ui-theme-light'),
-            uiThemeSystem:             documentRef.getElementById('ui-theme-system'),
-            uiUpdateAutomatic:         documentRef.getElementById('ui-update-automatic'),
-            uiUpdateNotify:            documentRef.getElementById('ui-update-notify'),
-            uiUpdateOff:               documentRef.getElementById('ui-update-off'),
-            uiTitle:                   documentRef.getElementById('ui-title'),
-            uiWelcomeDesc:             documentRef.getElementById('ui-welcome-desc'),
-            uiWelcomeTitle:            documentRef.getElementById('ui-welcome-title'),
-            uiTelemetryLabel:          documentRef.getElementById('ui-telemetry-label'),
-            uiTelemetryOff:            documentRef.getElementById('ui-telemetry-off'),
-            uiTelemetryOn:             documentRef.getElementById('ui-telemetry-on'),
-            uiTelemetryModalTitle:     documentRef.getElementById('ui-telemetry-modal-title'),
-            uiTelemetryModalDesc:      documentRef.getElementById('ui-telemetry-modal-desc'),
-            btnTelemetryOptIn:         documentRef.getElementById('btn-telemetry-opt-in'),
-            btnTelemetryOptOut:        documentRef.getElementById('btn-telemetry-opt-out')
+            moreLanguagesBtn: languagePackContainer ? languagePackContainer.querySelector('#more-languages-btn') : null,
+            searchInput: searchContainer ? searchContainer.querySelector('#search-input') as HTMLInputElement : null,
+            searchPlaceholder: searchContainer ? searchContainer.querySelector('#search-placeholder') : null,
+            sortMenu: documentRef.getElementById('sort-menu'),
+            sortActiveLabel: documentRef.getElementById('sort-active-label'),
+            uiExposeBetaLabel: settingsContainer ? settingsContainer.querySelector('#ui-expose-beta-label') : null,
+            uiExposeBetaOff: settingsContainer ? settingsContainer.querySelector('#ui-expose-beta-off') : null,
+            uiExposeBetaOn: settingsContainer ? settingsContainer.querySelector('#ui-expose-beta-on') : null,
+            uiAppUpdatesLabel: settingsContainer ? settingsContainer.querySelector('#ui-app-updates-label') : null,
+            uiAppVersion: settingsContainer ? settingsContainer.querySelector('#ui-app-version') : null,
+            uiFooterDesc: settingsContainer ? settingsContainer.querySelector('#ui-footer-desc') : null,
+            uiLangLabel: settingsContainer ? settingsContainer.querySelector('#ui-lang-label') : null,
+            uiLanguagePackTitle: languagePackContainer ? languagePackContainer.querySelector('#ui-language-pack-title') : null,
+            uiLanguagePackUpdatesLabel: settingsContainer ? settingsContainer.querySelector('#ui-language-pack-updates-label') : null,
+            uiAutoLaunchLabel: settingsContainer ? settingsContainer.querySelector('#ui-auto-launch-label') : null,
+            uiAutoLaunchOff: settingsContainer ? settingsContainer.querySelector('#ui-auto-launch-off') : null,
+            uiAutoLaunchOn: settingsContainer ? settingsContainer.querySelector('#ui-auto-launch-on') : null,
+            uiAutoLaunchMinimized: settingsContainer ? settingsContainer.querySelector('#ui-auto-launch-minimized') : null,
+            uiMinimizeToTrayLabel: settingsContainer ? settingsContainer.querySelector('#ui-minimize-to-tray-label') : null,
+            uiMinimizeToTrayOff: settingsContainer ? settingsContainer.querySelector('#ui-minimize-to-tray-off') : null,
+            uiMinimizeToTrayOn: settingsContainer ? settingsContainer.querySelector('#ui-minimize-to-tray-on') : null,
+            uiLocationDisplayFull: settingsContainer ? settingsContainer.querySelector('#ui-location-display-full') : null,
+            uiLocationDisplayLabel: settingsContainer ? settingsContainer.querySelector('#ui-location-display-label') : null,
+            uiLocationDisplayParent: settingsContainer ? settingsContainer.querySelector('#ui-location-display-parent') : null,
+            uiMaxDepthLabel: settingsContainer ? settingsContainer.querySelector('#ui-max-depth-label') : null,
+            uiOptChoose: documentRef.getElementById('ui-opt-choose'),
+            uiOptChooseDesc: documentRef.getElementById('ui-opt-choose-desc'),
+            uiOptLazy: documentRef.getElementById('ui-opt-lazy'),
+            uiOptLazyDesc: documentRef.getElementById('ui-opt-lazy-desc'),
+            uiPackUpdateAutomatic: settingsContainer ? settingsContainer.querySelector('#ui-pack-update-automatic') : null,
+            uiPackUpdateNotify: settingsContainer ? settingsContainer.querySelector('#ui-pack-update-notify') : null,
+            uiPackUpdateOff: settingsContainer ? settingsContainer.querySelector('#ui-pack-update-off') : null,
+            uiPathLabel: settingsContainer ? settingsContainer.querySelector('#ui-path-label') : null,
+            uiSettingsTitle: settingsContainer ? settingsContainer.querySelector('#ui-settings-title') : null,
+            uiSortAz: documentRef.getElementById('ui-sort-az'),
+            uiSortCustom: documentRef.getElementById('ui-sort-custom'),
+            uiSortDate: documentRef.getElementById('ui-sort-date'),
+            uiSortPlayed: documentRef.getElementById('ui-sort-played'),
+            uiThemeDark: settingsContainer ? settingsContainer.querySelector('#ui-theme-dark') : null,
+            uiThemeLabel: settingsContainer ? settingsContainer.querySelector('#ui-theme-label') : null,
+            uiThemeLight: settingsContainer ? settingsContainer.querySelector('#ui-theme-light') : null,
+            uiThemeSystem: settingsContainer ? settingsContainer.querySelector('#ui-theme-system') : null,
+            uiUpdateAutomatic: settingsContainer ? settingsContainer.querySelector('#ui-update-automatic') : null,
+            uiUpdateNotify: settingsContainer ? settingsContainer.querySelector('#ui-update-notify') : null,
+            uiUpdateOff: settingsContainer ? settingsContainer.querySelector('#ui-update-off') : null,
+            uiTitle: documentRef.getElementById('ui-title'),
+            uiWelcomeDesc: documentRef.getElementById('ui-welcome-desc'),
+            uiWelcomeTitle: documentRef.getElementById('ui-welcome-title'),
+            uiTelemetryLabel: settingsContainer ? settingsContainer.querySelector('#ui-telemetry-label') : null,
+            uiTelemetryOff: settingsContainer ? settingsContainer.querySelector('#ui-telemetry-off') : null,
+            uiTelemetryOn: settingsContainer ? settingsContainer.querySelector('#ui-telemetry-on') : null,
+            uiTelemetryModalTitle: telemetryModal ? telemetryModal.querySelector('#ui-telemetry-modal-title') : null,
+            uiTelemetryModalDesc: telemetryModal ? telemetryModal.querySelector('#ui-telemetry-modal-desc') : null,
+            btnTelemetryOptIn: telemetryModal ? telemetryModal.querySelector('#btn-telemetry-opt-in') : null,
+            btnTelemetryOptOut: telemetryModal ? telemetryModal.querySelector('#btn-telemetry-opt-out') : null
         }
     };
 }

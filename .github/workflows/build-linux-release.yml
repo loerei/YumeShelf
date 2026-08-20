@@ -44,20 +44,13 @@ jobs:
       - name: Install Node Dependencies
         run: npm install
 
-      - name: Build Native Helpers (Rust Playtime Helper & C# Save Converter)
+      - name: Build and Package Linux Release
         run: |
-          npm run build:playtime-helper
-          npm run build:save-converter
-
-      - name: Build Frontend & Main Process
-        run: |
+          npm run ensure:playtime-helper
           npm run build:preload
           npm run build:main
           npm run copy:assets
           npm run build:vite
-
-      - name: Package Linux Application (AppImage & tar.gz)
-        run: |
           npx electron-builder --linux
           node scripts/organize-build-output.js
           node scripts/write-release-checksum.js

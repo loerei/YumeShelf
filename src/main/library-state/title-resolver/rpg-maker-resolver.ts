@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'node:path';
 import { isGenericOrEmptyTitle } from './blocklist';
 
 function safeParseJson(raw: string): any {
@@ -43,14 +43,10 @@ export async function resolveRpgMakerTitle(
             }
         }
 
-        // 2. English fallback
+        // 2. English fallback and default System.json
         candidatePaths.push(
             path.join(dir, 'data', 'EN', 'System.json'),
-            path.join(dir, 'www', 'data', 'EN', 'System.json')
-        );
-
-        // 3. Default System.json
-        candidatePaths.push(
+            path.join(dir, 'www', 'data', 'EN', 'System.json'),
             path.join(dir, 'data', 'System.json'),
             path.join(dir, 'www', 'data', 'System.json')
         );

@@ -1,6 +1,8 @@
-import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as path from 'node:path';
+
+const ICON_LINE_REGEX = /^Icon\s*=\s*(.+)$/i;
+const ICON_GLOBAL_REGEX = /^Icon\s*=\s*(.+)$/im;
 
 export function parseDesktopFileIcon(content: string): string | null {
     const lines = content.split(/\r?\n/);
@@ -17,7 +19,7 @@ export function parseDesktopFileIcon(content: string): string | null {
             break;
         }
         if (inDesktopEntry) {
-            const match = trimmed.match(/^Icon\s*=\s*(.+)$/i);
+            const match = ICON_LINE_REGEX.exec(trimmed);
             if (match) {
                 return match[1].trim();
             }
@@ -25,7 +27,7 @@ export function parseDesktopFileIcon(content: string): string | null {
     }
 
     // Fallback: search anywhere in file if no explicit [Desktop Entry] section was found
-    const fallbackMatch = content.match(/^Icon\s*=\s*(.+)$/im);
+    const fallbackMatch = ICON_GLOBAL_REGEX.exec(content);
     return fallbackMatch ? fallbackMatch[1].trim() : null;
 }
 

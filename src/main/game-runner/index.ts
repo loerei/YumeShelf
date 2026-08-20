@@ -1,5 +1,4 @@
 import {
-    RunnerMode,
     GameRunnerConfig,
     GlobalRunnerSettings,
     DetectedRunner,
@@ -21,8 +20,8 @@ export interface GameRunnerServiceOptions {
 export class GameRunnerService {
     private settings: GlobalRunnerSettings;
     private cachedRunners: DetectedRunner[] = [];
-    private detectorEnv: RunnerDetectorEnv;
-    private resolverEnv: RunnerResolverEnv;
+    private readonly detectorEnv: RunnerDetectorEnv;
+    private readonly resolverEnv: RunnerResolverEnv;
 
     constructor(options: GameRunnerServiceOptions = {}) {
         this.detectorEnv = options.detectorEnv || defaultDetectorEnv;

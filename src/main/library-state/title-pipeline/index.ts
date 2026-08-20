@@ -16,7 +16,7 @@ export const ProductCodeRule: TitleCleaningRule = {
 export const DistributionSourceRule: TitleCleaningRule = {
     name: 'DistributionSourceRule',
     apply: (text: string) => text
-        .replace(/\[[^\]]*\]/g, ' ')
+        .replace(/\[[^[\]\r\n]*\]/g, ' ')
 };
 
 export const LanguageTagRule: TitleCleaningRule = {
@@ -29,8 +29,8 @@ export const LanguageTagRule: TitleCleaningRule = {
 export const VersionTagRule: TitleCleaningRule = {
     name: 'VersionTagRule',
     apply: (text: string) => text
-        .replace(/v\d+\.\d+.*$/i, ' ')
-        .replace(/ver\s*\d+\.\d+.*$/i, ' ')
+        .replace(/v\d+\.\d+[^\r\n]*$/i, ' ')
+        .replace(/ver\s*\d+\.\d+[^\r\n]*$/i, ' ')
 };
 
 export const WhitespaceNormalizationRule: TitleCleaningRule = {

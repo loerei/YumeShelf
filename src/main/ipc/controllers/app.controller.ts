@@ -67,7 +67,8 @@ export class AppIpcController {
 
         ipcMain.handle('log-app-update-debug', async (_event, message: unknown) => {
             if (typeof appUpdateServices?.logDebug === 'function') {
-                await appUpdateServices.logDebug(String(message || ''));
+                const text = typeof message === 'string' ? message : JSON.stringify(message ?? '');
+                await appUpdateServices.logDebug(text);
             }
             return { ok: true };
         });
@@ -79,7 +80,7 @@ export class AppIpcController {
         ipcMain.handle('open-app-update-download-page', async () => appUpdateServices?.openAppUpdateDownloadPage());
 
         ipcMain.handle('open-external-url', async (_event, url: unknown) => {
-            const normalizedUrl = String(url || '').trim();
+            const normalizedUrl = typeof url === 'string' ? url.trim() : '';
             if (!/^https?:\/\//i.test(normalizedUrl)) {
                 return { ok: false, reason: 'invalid-url' };
             }

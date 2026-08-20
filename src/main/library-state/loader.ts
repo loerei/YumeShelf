@@ -3,7 +3,6 @@ import {
     normalizePathForComparison,
     buildGameKey,
     getLeafFolderName,
-    getSmartName,
     collectGameCandidates,
     dedupeCandidates,
     isPlainObject,

@@ -38,7 +38,7 @@ const RT_VERSION = 16;
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export class PeResourceDecoder {
-    private buffer: Buffer;
+    private readonly buffer: Buffer;
 
     constructor(buffer: Buffer) {
         this.buffer = buffer;
@@ -116,7 +116,7 @@ export class PeResourceDecoder {
             const secOffset = sectionTableOffset + i * 40;
             if (secOffset + 40 > buf.length) break;
 
-            const name = buf.toString('utf8', secOffset, secOffset + 8).replace(/\0+$/, '');
+            const name = buf.toString('utf8', secOffset, secOffset + 8).split('\0')[0];
             const virtualSize = buf.readUInt32LE(secOffset + 8);
             const virtualAddress = buf.readUInt32LE(secOffset + 12);
             const sizeOfRawData = buf.readUInt32LE(secOffset + 16);
@@ -305,9 +305,7 @@ export class PeResourceDecoder {
 
                 const bWidth = groupData.readUInt8(entryOffset);
                 const bHeight = groupData.readUInt8(entryOffset + 1);
-                const bColorCount = groupData.readUInt8(entryOffset + 2);
-                const bReserved = groupData.readUInt8(entryOffset + 3);
-                const wPlanes = groupData.readUInt16LE(entryOffset + 4);
+                // Skip unused bytes: bColorCount (1), bReserved (1), wPlanes (2)
                 const wBitCount = groupData.readUInt16LE(entryOffset + 6);
                 const dwBytesInRes = groupData.readUInt32LE(entryOffset + 8);
                 const nID = groupData.readUInt16LE(entryOffset + 12);
@@ -418,15 +416,6 @@ export class PeResourceDecoder {
             if (versionBuffer.length < 32) return null;
 
             const metadata: PeVersionMetadata = {};
-            const keysToExtract: (keyof PeVersionMetadata)[] = [
-                'productName',
-                'fileDescription',
-                'companyName',
-                'fileVersion',
-                'productVersion',
-                'legalCopyright'
-            ];
-
             const keyNameMap: Record<string, keyof PeVersionMetadata> = {
                 ProductName: 'productName',
                 FileDescription: 'fileDescription',
@@ -476,7 +465,7 @@ export class PeResourceDecoder {
         if (valueStart + valueBytes > versionBuf.length) return null;
 
         const rawStr = versionBuf.toString('utf16le', valueStart, valueStart + valueBytes);
-        return rawStr.replace(/\0+$/, '').trim() || null;
+        return rawStr.split('\0')[0].trim() || null;
     }
 }
 

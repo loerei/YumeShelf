@@ -43,6 +43,11 @@ export function normalizeSessionJournal(raw: any, filePath: string): SessionJour
     const sessionId = String(raw?.sessionId || path.basename(filePath, path.extname(filePath))).trim();
     const startedAt = toInteger(raw?.startedAt, Date.now());
     const lastHeartbeatAt = toInteger(raw?.lastHeartbeatAt, startedAt);
+    let targetPlatform: 'windows' | 'linux' | undefined;
+    if (raw?.targetPlatform === 'linux' || raw?.targetPlatform === 'windows') {
+        targetPlatform = raw.targetPlatform;
+    }
+
     return {
         schemaVersion: toInteger(raw?.schemaVersion, SESSION_SCHEMA_VERSION),
         sessionId,
@@ -62,7 +67,7 @@ export function normalizeSessionJournal(raw: any, filePath: string): SessionJour
         runner: raw?.runner ? String(raw.runner) : undefined,
         runnerArgs: Array.isArray(raw?.runnerArgs) ? raw.runnerArgs.map(String) : undefined,
         env: typeof raw?.env === 'object' && raw.env !== null ? { ...raw.env } : undefined,
-        targetPlatform: raw?.targetPlatform === 'linux' ? 'linux' : raw?.targetPlatform === 'windows' ? 'windows' : undefined
+        targetPlatform
     };
 }
 

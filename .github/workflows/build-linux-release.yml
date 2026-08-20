@@ -82,7 +82,7 @@ jobs:
           npm run build:main
           npm run copy:assets
           npm run build:vite
-          npx electron-builder --linux
+          npx electron-builder --linux --publish never
           node scripts/organize-build-output.js
           node scripts/write-release-checksum.js
 

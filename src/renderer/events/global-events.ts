@@ -190,6 +190,12 @@ export function bindControlEvents({
             sortGames(currentSort());
         };
     }
+    if (refs.titleDisplaySelect) {
+        refs.titleDisplaySelect.onchange = async (event) => {
+            const titleDisplayMode = await settingsController.handleTitleDisplayModeChange((event.target as HTMLSelectElement).value);
+            await startupController.handleLibraryConfigChange({ titleDisplayMode });
+        };
+    }
     if (refs.maxDepthInput) {
         refs.maxDepthInput.onchange = async (event) => {
             const maxDepth = settingsController.handleMaxDepthChange((event.target as HTMLInputElement).value);

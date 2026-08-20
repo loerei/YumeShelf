@@ -23,6 +23,7 @@ export interface LibraryConfig {
     minimizeToTray: boolean;
     telemetryEnabled?: boolean;
     exposeBetaOptions?: boolean;
+    titleDisplayMode?: 'metadata' | 'legacy_folder';
 }
 
 export function isPlainObject(value: any): boolean {
@@ -50,7 +51,8 @@ export function normalizeLibraryConfigShape(config: any): LibraryConfig {
             : (base.autoLaunch === 'on' || base.autoLaunch === 'true' || base.autoLaunch === true),
         minimizeToTray: typeof base.minimizeToTray === 'boolean' ? base.minimizeToTray : false,
         telemetryEnabled: typeof base.telemetryEnabled === 'boolean' ? base.telemetryEnabled : undefined,
-        exposeBetaOptions: typeof base.exposeBetaOptions === 'boolean' ? base.exposeBetaOptions : false
+        exposeBetaOptions: typeof base.exposeBetaOptions === 'boolean' ? base.exposeBetaOptions : false,
+        titleDisplayMode: (base.titleDisplayMode === 'legacy_folder') ? 'legacy_folder' : 'metadata'
     };
 }
 

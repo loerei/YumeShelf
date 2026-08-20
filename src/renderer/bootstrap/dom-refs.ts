@@ -34,6 +34,7 @@ export interface RendererRefs {
     appUpdatesSelect: HTMLSelectElement | null;
     languagePackUpdatesSelect: HTMLSelectElement | null;
     locationDisplaySelect: HTMLSelectElement | null;
+    titleDisplaySelect: HTMLSelectElement | null;
     maxDepthInput: HTMLInputElement | null;
     maxDepthIncreaseBtn: HTMLElement | null;
     maxDepthDecreaseBtn: HTMLElement | null;
@@ -167,6 +168,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         appUpdatesSelect:        settingsContainer ? settingsContainer.querySelector('#app-updates-select') as HTMLSelectElement : null,
         languagePackUpdatesSelect: settingsContainer ? settingsContainer.querySelector('#language-pack-updates-select') as HTMLSelectElement : null,
         locationDisplaySelect:   settingsContainer ? settingsContainer.querySelector('#location-display-select') as HTMLSelectElement : null,
+        titleDisplaySelect:      settingsContainer ? settingsContainer.querySelector('#title-display-select') as HTMLSelectElement : null,
         maxDepthInput:           settingsContainer ? settingsContainer.querySelector('#max-depth-input') as HTMLInputElement : null,
         maxDepthIncreaseBtn:     settingsContainer ? settingsContainer.querySelector('#max-depth-increase-btn') : null,
         maxDepthDecreaseBtn:     settingsContainer ? settingsContainer.querySelector('#max-depth-decrease-btn') : null,

@@ -23,6 +23,9 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 ### 🛠️ For the Nerds
 
 - [devutil] Added official developer utility suite under `.devutil/` (`simulate-icon-pipeline.cjs`, `inspect-exe-icon.cjs`, `inspect-engine-icon.cjs`, and `README.md`) for end-to-end icon pipeline simulation, PE binary icon frame matrix inspection, and game engine asset discovery.
+- [core-adapters] Added zero-dependency cross-platform ZIP archive extractor (`src/main/core/zip-extractor.ts`) with End of Central Directory (EOCD) parsing and built-in Zip Slip path traversal security defenses (#42).
+- [core-adapters] Added platform-adaptive filesystem helper (`src/main/core/filesystem-adapter.ts`) supporting NTFS junctions on Windows and POSIX directory symlinks on Linux/macOS with idempotent link recreation (#42).
+- [translation] Refactored `TranslationService` to use native Node.js archive extraction and cross-platform directory symlinks, removing `powershell.exe` shell execution and hardcoded NTFS junction dependencies (#42).
 - [save-resolver] Consolidated engine detection, deterministic path discovery, and heuristic fallback scanning behind a unified `SaveFolderResolver` deep module class.
 - [save-resolver] Added `FileSystemProvider` interface (`DefaultFileSystemProvider` and `MockFileSystemProvider`) enabling virtual filesystem unit testing without real OS path dependencies.
 - [save-resolver] Standardized return DTO `ResolvedSaveDirectory` with `path`, `engine`, `confidence`, and `source` fields while preserving backward-compatible `resolveSaveFolder` export.

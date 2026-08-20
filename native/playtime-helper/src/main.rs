@@ -65,6 +65,12 @@ struct SessionJournal {
     ended_at: Option<u64>,
     #[serde(default)]
     failure_reason: Option<String>,
+    #[serde(default)]
+    runner: Option<String>,
+    #[serde(default)]
+    runner_args: Option<Vec<String>>,
+    #[serde(default)]
+    env: Option<HashMap<String, String>>,
 }
 
 fn now_ms() -> u64 {
@@ -413,11 +419,32 @@ fn job_has_processes(job_handle: HANDLE) -> Result<bool> {
     }
 }
 
-fn launch_game_process(exe_path: &str, cwd: &str) -> Result<u32> {
-    let child = Command::new(exe_path)
-        .current_dir(cwd)
+fn launch_game_process(journal: &SessionJournal) -> Result<u32> {
+    let mut command = if let Some(runner) = &journal.runner {
+        if !runner.trim().is_empty() {
+            let mut cmd = Command::new(runner);
+            if let Some(args) = &journal.runner_args {
+                cmd.args(args);
+            }
+            cmd
+        } else {
+            Command::new(&journal.exe_path)
+        }
+    } else {
+        Command::new(&journal.exe_path)
+    };
+
+    if let Some(env_vars) = &journal.env {
+        for (key, val) in env_vars {
+            command.env(key, val);
+        }
+    }
+
+    command.current_dir(&journal.cwd);
+
+    let child = command
         .spawn()
-        .with_context(|| format!("failed to spawn game executable {}", exe_path))?;
+        .with_context(|| format!("failed to spawn game executable {} (runner: {:?})", journal.exe_path, journal.runner))?;
     Ok(child.id())
 }
 
@@ -505,7 +532,7 @@ fn run_launch_mode(config: &HelperConfig) -> Result<()> {
         format!("launch mode start sessionId={} exePath={}", journal.session_id, journal.exe_path),
     );
 
-    let root_pid = match launch_game_process(&journal.exe_path, &journal.cwd) {
+    let root_pid = match launch_game_process(&journal) {
         Ok(pid) => pid,
         Err(error) => {
             mark_failed(journal, &config.journal_path, error.to_string())?;
@@ -562,7 +589,7 @@ fn run_launch_mode(config: &HelperConfig) -> Result<()> {
         format!("launch mode start sessionId={} exePath={}", journal.session_id, journal.exe_path),
     );
 
-    let root_pid = match launch_game_process(&journal.exe_path, &journal.cwd) {
+    let root_pid = match launch_game_process(&journal) {
         Ok(pid) => pid,
         Err(error) => {
             mark_failed(journal, &config.journal_path, error.to_string())?;

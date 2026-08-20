@@ -134,4 +134,13 @@ const ghCmd = `gh release create v${targetVersion} --title "v${targetVersion}" -
 
 run(ghCmd, { env: ghEnv, skipInDryRun: true });
 
+// 9. Trigger automated Linux Release Builder on GitHub Actions
+try {
+  console.log('\n🐧 Step 8: Triggering Linux release asset build on GitHub Actions...');
+  run(`gh workflow run build-linux-release.yml -f tag=v${targetVersion}`, { env: ghEnv, skipInDryRun: true });
+  console.log(`  ✓ Triggered build-linux-release workflow for tag v${targetVersion}`);
+} catch (e) {
+  console.log('  ℹ Note: Linux build workflow can also be triggered manually or upon release publication on GitHub Actions.');
+}
+
 console.log(`\n🎉 Successfully published YumeShelf v${targetVersion}!`);

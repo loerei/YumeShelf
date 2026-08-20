@@ -1,0 +1,87 @@
+name: Build & Attach Linux Release Assets
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release Tag (e.g. v1.6.0)'
+        required: true
+        default: 'v1.6.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux Packages (AppImage & Tarball)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install System Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools fuse libfuse2
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Build Native Helpers (Rust Playtime Helper & C# Save Converter)
+        run: |
+          npm run build:playtime-helper
+          npm run build:save-converter
+
+      - name: Build Frontend & Main Process
+        run: |
+          npm run build:preload
+          npm run build:main
+          npm run copy:assets
+          npm run build:vite
+
+      - name: Package Linux Application (AppImage & tar.gz)
+        run: |
+          npx electron-builder --linux
+          node scripts/organize-build-output.js
+          node scripts/write-release-checksum.js
+
+      - name: Determine Target Release Tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Linux Assets to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.get_tag.outputs.tag }}"
+          echo "Uploading Linux assets to release: $TAG"
+          gh release upload "$TAG" \
+            build_output/linux/application/YumeShelf-*.AppImage \
+            build_output/linux/application/YumeShelf-*.tar.gz \
+            build_output/linux/feed/latest-linux.yml \
+            build_output/linux/sha256/YumeShelf-*.AppImage.sha256 \
+            build_output/linux/sha256/YumeShelf-*.tar.gz.sha256 \
+            --clobber

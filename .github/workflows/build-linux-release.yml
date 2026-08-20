@@ -28,13 +28,44 @@ jobs:
         with:
           node-version: 22
 
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust Toolchain & Target Artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "native/playtime-helper -> native/playtime-helper/target"
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Cache Electron & Electron Builder Assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
 
       - name: Install System Build Dependencies
         run: |

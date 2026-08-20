@@ -1,6 +1,7 @@
-import * as path from 'node:path';
-import * as fs from 'node:fs';
+import * as path from 'path';
+import * as fs from 'fs';
 import { TitleCleaningPipeline } from '../title-pipeline';
+import { collectCandidateDirectories } from './directory-explorer';
 import { resolveRpgMakerTitle } from './rpg-maker-resolver';
 import { resolveUnityTitle } from './unity-resolver';
 import { isGenericOrEmptyTitle } from './blocklist';
@@ -77,9 +78,12 @@ export async function resolveGameTitle(context: TitleResolutionContext): Promise
         return formatWithProductCode(id, folderName) || (rawId ? `[${rawId}]` : path.basename(folderPath));
     }
 
+    // Collect dynamic candidate directory tree (climbing upwards from exePath to folderPath & exploring children)
+    const candidateDirs = await collectCandidateDirectories(folderPath, exePath, fsImpl);
+
     // 2. Try Engine Manifest Tier: RPG Maker MV/MZ
     try {
-        const rpgMakerTitle = await resolveRpgMakerTitle(folderPath, preferredLocale, fsImpl);
+        const rpgMakerTitle = await resolveRpgMakerTitle(candidateDirs, preferredLocale, fsImpl);
         if (rpgMakerTitle && !isGenericOrEmptyTitle(rpgMakerTitle)) {
             return formatWithProductCode(id, rpgMakerTitle);
         }
@@ -87,7 +91,7 @@ export async function resolveGameTitle(context: TitleResolutionContext): Promise
 
     // 3. Try Engine Manifest Tier: Unity (app.info)
     try {
-        const unityTitle = await resolveUnityTitle(folderPath, fsImpl);
+        const unityTitle = await resolveUnityTitle(candidateDirs, fsImpl);
         if (unityTitle && !isGenericOrEmptyTitle(unityTitle)) {
             return formatWithProductCode(id, unityTitle);
         }
@@ -105,5 +109,6 @@ export async function resolveGameTitle(context: TitleResolutionContext): Promise
 }
 
 export * from './blocklist';
+export * from './directory-explorer';
 export * from './rpg-maker-resolver';
 export * from './unity-resolver';

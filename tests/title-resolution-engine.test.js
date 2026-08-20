@@ -206,3 +206,22 @@ test('TDD Slice 8: displayProductCodes true prefixes product codes to title', as
 
     assert.equal(titleWithCode, '[RJ01632235] Clicker');
 });
+
+test('TDD Slice 9: Dynamic candidate tree explorer finds RPG Maker metadata in arbitrary subfolder', async () => {
+    const folderPath = 'D:/Games/H Games/[Ryuugames] RY-RJ01578063_V26.03.27';
+    const exePath = `${folderPath}/Game/Game.exe`;
+
+    const mockFs = createMockFs({
+        [`${folderPath}/Game/data/System.json`]: {
+            gameTitle: 'The Closeted, Gloomy JK Starts to Take Lewd Selfies.'
+        }
+    });
+
+    const title = await resolveGameTitle({
+        folderPath,
+        exePath,
+        fs: mockFs
+    });
+
+    assert.equal(title, 'The Closeted, Gloomy JK Starts to Take Lewd Selfies.');
+});

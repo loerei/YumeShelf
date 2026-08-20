@@ -10,48 +10,51 @@ function safeParseJson(raw: string): any {
 }
 
 export async function resolveRpgMakerTitle(
-    folderPath: string,
+    candidateDirs: string[],
     preferredLocale: string | undefined,
     fs: any
 ): Promise<string | null> {
     const candidatePaths: string[] = [];
 
-    // Localized directories based on preferredLocale
-    if (preferredLocale) {
-        const normLocale = preferredLocale.trim().toUpperCase();
-        candidatePaths.push(
-            path.join(folderPath, 'data', normLocale, 'System.json'),
-            path.join(folderPath, 'www', 'data', normLocale, 'System.json')
-        );
-        if (normLocale === 'VI') {
+    const normLocale = preferredLocale ? preferredLocale.trim().toUpperCase() : null;
+
+    for (const dir of candidateDirs) {
+        // 1. Localized directories based on preferredLocale
+        if (normLocale) {
             candidatePaths.push(
-                path.join(folderPath, 'data', 'VN', 'System.json'),
-                path.join(folderPath, 'www', 'data', 'VN', 'System.json')
+                path.join(dir, 'data', normLocale, 'System.json'),
+                path.join(dir, 'www', 'data', normLocale, 'System.json')
             );
-        } else if (normLocale === 'JA') {
-            candidatePaths.push(
-                path.join(folderPath, 'data', 'JP', 'System.json'),
-                path.join(folderPath, 'www', 'data', 'JP', 'System.json')
-            );
-        } else if (normLocale === 'ZH') {
-            candidatePaths.push(
-                path.join(folderPath, 'data', 'CN', 'System.json'),
-                path.join(folderPath, 'www', 'data', 'CN', 'System.json')
-            );
+            if (normLocale === 'VI') {
+                candidatePaths.push(
+                    path.join(dir, 'data', 'VN', 'System.json'),
+                    path.join(dir, 'www', 'data', 'VN', 'System.json')
+                );
+            } else if (normLocale === 'JA') {
+                candidatePaths.push(
+                    path.join(dir, 'data', 'JP', 'System.json'),
+                    path.join(dir, 'www', 'data', 'JP', 'System.json')
+                );
+            } else if (normLocale === 'ZH') {
+                candidatePaths.push(
+                    path.join(dir, 'data', 'CN', 'System.json'),
+                    path.join(dir, 'www', 'data', 'CN', 'System.json')
+                );
+            }
         }
+
+        // 2. English fallback
+        candidatePaths.push(
+            path.join(dir, 'data', 'EN', 'System.json'),
+            path.join(dir, 'www', 'data', 'EN', 'System.json')
+        );
+
+        // 3. Default System.json
+        candidatePaths.push(
+            path.join(dir, 'data', 'System.json'),
+            path.join(dir, 'www', 'data', 'System.json')
+        );
     }
-
-    // English fallback
-    candidatePaths.push(
-        path.join(folderPath, 'data', 'EN', 'System.json'),
-        path.join(folderPath, 'www', 'data', 'EN', 'System.json')
-    );
-
-    // Default System.json
-    candidatePaths.push(
-        path.join(folderPath, 'data', 'System.json'),
-        path.join(folderPath, 'www', 'data', 'System.json')
-    );
 
     for (const sysPath of candidatePaths) {
         try {
@@ -65,11 +68,15 @@ export async function resolveRpgMakerTitle(
         }
     }
 
-    // Fallback to package.json window.title
-    const pkgPaths = [
-        path.join(folderPath, 'package.json'),
-        path.join(folderPath, 'www', 'package.json')
-    ];
+    // Fallback to package.json window.title across candidateDirs
+    const pkgPaths: string[] = [];
+    for (const dir of candidateDirs) {
+        pkgPaths.push(
+            path.join(dir, 'package.json'),
+            path.join(dir, 'www', 'package.json')
+        );
+    }
+
     for (const pkgPath of pkgPaths) {
         try {
             const raw = await fs.readFile(pkgPath, 'utf8');

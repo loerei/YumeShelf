@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 
 ---
 
-## [1.5.13] - 2026-08-20 — released
+## [1.6.0] - working
 
 ### 🔧 Fixes & Improvements
 

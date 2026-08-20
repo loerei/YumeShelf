@@ -52,23 +52,23 @@ test('Linux Packaging: release-artifacts helper module path resolution and patte
     });
 
     t.test('correctly identifies Linux release artifact filenames', () => {
-        assert.equal(isLinuxArtifactName('YumeShelf-1.5.13.AppImage'), true);
-        assert.equal(isLinuxArtifactName('YumeShelf-1.5.13.tar.gz'), true);
-        assert.equal(isLinuxAppImageArtifactName('YumeShelf-1.5.13.AppImage'), true);
-        assert.equal(isLinuxAppImageArtifactName('YumeShelf-1.5.13.tar.gz'), false);
-        assert.equal(isLinuxTarballArtifactName('YumeShelf-1.5.13.tar.gz'), true);
-        assert.equal(isLinuxTarballArtifactName('YumeShelf-1.5.13.AppImage'), false);
+        assert.equal(isLinuxArtifactName('YumeShelf-1.6.0.AppImage'), true);
+        assert.equal(isLinuxArtifactName('YumeShelf-1.6.0.tar.gz'), true);
+        assert.equal(isLinuxAppImageArtifactName('YumeShelf-1.6.0.AppImage'), true);
+        assert.equal(isLinuxAppImageArtifactName('YumeShelf-1.6.0.tar.gz'), false);
+        assert.equal(isLinuxTarballArtifactName('YumeShelf-1.6.0.tar.gz'), true);
+        assert.equal(isLinuxTarballArtifactName('YumeShelf-1.6.0.AppImage'), false);
 
         // Negative tests
-        assert.equal(isLinuxArtifactName('YumeShelf-Setup-1.5.13.exe'), false);
+        assert.equal(isLinuxArtifactName('YumeShelf-Setup-1.6.0.exe'), false);
         assert.equal(isLinuxArtifactName('latest-linux.yml'), false);
-        assert.equal(isLinuxArtifactName('YumeShelf-1.5.13.AppImage.sha256'), false);
+        assert.equal(isLinuxArtifactName('YumeShelf-1.6.0.AppImage.sha256'), false);
     });
 
     t.test('resolves Linux AppImage and tarball paths for a given version', () => {
-        const paths = resolveLinuxArtifactPaths('1.5.13');
-        assert.ok(paths.appImage.endsWith(path.join('build_output', 'linux', 'application', 'YumeShelf-1.5.13.AppImage')));
-        assert.ok(paths.tarball.endsWith(path.join('build_output', 'linux', 'application', 'YumeShelf-1.5.13.tar.gz')));
+        const paths = resolveLinuxArtifactPaths('1.6.0');
+        assert.ok(paths.appImage.endsWith(path.join('build_output', 'linux', 'application', 'YumeShelf-1.6.0.AppImage')));
+        assert.ok(paths.tarball.endsWith(path.join('build_output', 'linux', 'application', 'YumeShelf-1.6.0.tar.gz')));
     });
 });
 
@@ -80,7 +80,7 @@ test('Linux Packaging: SHA-256 Checksum generation across multi-platform binarie
             const linuxShaDir = path.join(tempDir, 'linux', 'sha256');
             fs.mkdirSync(linuxAppDir, { recursive: true });
 
-            const fakeAppImage = path.join(linuxAppDir, 'YumeShelf-1.5.13.AppImage');
+            const fakeAppImage = path.join(linuxAppDir, 'YumeShelf-1.6.0.AppImage');
             const fakeAppImageContent = 'mock-appimage-binary-payload-for-testing';
             fs.writeFileSync(fakeAppImage, fakeAppImageContent, 'utf8');
 
@@ -88,13 +88,13 @@ test('Linux Packaging: SHA-256 Checksum generation across multi-platform binarie
 
             // Test checksum formatting
             const checksumLine = `${expectedDigest}  ${path.basename(fakeAppImage)}\n`;
-            const checksumPath = path.join(linuxShaDir, 'YumeShelf-1.5.13.AppImage.sha256');
+            const checksumPath = path.join(linuxShaDir, 'YumeShelf-1.6.0.AppImage.sha256');
             fs.mkdirSync(linuxShaDir, { recursive: true });
             fs.writeFileSync(checksumPath, checksumLine, 'utf8');
 
             assert.ok(fs.existsSync(checksumPath));
             const readContent = fs.readFileSync(checksumPath, 'utf8');
-            assert.equal(readContent, `${expectedDigest}  YumeShelf-1.5.13.AppImage\n`);
+            assert.equal(readContent, `${expectedDigest}  YumeShelf-1.6.0.AppImage\n`);
         } finally {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }

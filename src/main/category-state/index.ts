@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import {
     CATEGORY_STATE_VERSION,
     normalizeCategoryId,
@@ -53,6 +54,12 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
 
     async function saveCategoryState(nextState: CategoryState): Promise<CategoryState> {
         const normalized = normalizeCategoryState(nextState);
+        if (stateFile) {
+            const dir = path.dirname(stateFile);
+            if (typeof (fs as any)?.mkdir === 'function') {
+                await (fs as any).mkdir(dir, { recursive: true });
+            }
+        }
         await fs.writeFile(stateFile, JSON.stringify(normalized, null, 2));
         return normalized;
     }

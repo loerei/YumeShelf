@@ -88,7 +88,7 @@ return {
 ## 5. Unused Functions & Dynamic Reference Check (`S1172`, `S1481`, `S1854`)
 
 Before deleting any unused function, export, or variable:
-1. **MUST run Impact Analysis first**: Use `jcodemunch:find_references` or `gitnexus_impact` to trace callers.
+1. **MUST run Impact Analysis first**: Use `jcodemunch` find_references or symbol search tools to trace callers.
 2. **Check for dynamic string references**: Verify if the symbol matches any string literals or dynamic IPC/service event handlers (e.g. inside `ipcMain.handle`, `ipcRenderer.invoke`, or REST route definitions).
 3. **Safe Flagging**: If dynamic or exported externally, **MUST search for the issue key** in SonarQube/SonarCloud using `search_sonar_issues_in_projects` with `issueStatuses: ["OPEN"]` first, then call `change_sonar_issue_status` to flag status as `"accept"` or `"falsepositive"`.
 
@@ -174,13 +174,3 @@ function logDebug(_msg) { /* no-op debug handler */ }
 /* ✅ After */
 .app-tooltip { overflow-wrap: break-word; }
 ```
-
----
-
-## 8. Architectural & Complexity Exemption Rules (Cross-Language)
-
-| Rule Key | Name | Mandated Action | Rationale |
-| :--- | :--- | :--- | :--- |
-| `S3776` | Cognitive Complexity | **Flag `accept`** | Splitting functions solely for metric scores fragments locality and creates shallow helpers. |
-| `S2004` | Deep Function Nesting | **Flag `accept`** | Closures in drag-drop grids, search handlers, or async event loops require inline scope binding. |
-| `css:S7924` | Text Contrast | **Flag `accept`** | Visual branding and dark-mode color palettes take precedence over automated WCAG checks. |

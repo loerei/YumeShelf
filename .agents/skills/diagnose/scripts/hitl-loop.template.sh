@@ -15,7 +15,8 @@
 set -euo pipefail
 
 step() {
-  printf '\n>>> %s\n' "$1"
+  local msg="$1"
+  printf '\n>>> %s\n' "$msg"
   read -r -p "    [Enter when done] " _
 }
 

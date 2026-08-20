@@ -27,7 +27,7 @@ To integrate SonarCloud scanning into GitHub Actions:
   - Ensure the file is saved as UTF-8 **without BOM**.
 * [ ] **Write Optimized Workflow**: Create `.github/workflows/sonarcloud.yml`.
   - **Branch Trigger**: Ensure the branch trigger (e.g. `main` or `master`) matches the repository's default branch.
-  - **Static Analysis (Fast)**: Do NOT install dependencies. Only run checkout (`fetch-depth: 0`) and SonarSource scan action.
+  - **Static Analysis (Fast)**: Do NOT install dependencies. Only run checkout (`fetch-depth: 0`) and `SonarSource/sonarqube-scan-action@v5.0.0`. DO NOT use deprecated `SonarSource/sonarcloud-github-action`.
   - **Coverage Analysis**: If coverage is required, use Node caching (`cache: 'npm'`) and run builds before tests in monorepos. Use `npm install` instead of `npm ci` if there are native platform-specific binaries to avoid EBADPLATFORM errors.
 * [ ] **Deactivate Autoscan**: In SonarCloud console -> **Administration** -> **Analysis Method**, toggle OFF **Automatic Analysis**.
 * [ ] **Verify & Troubleshoot**: 

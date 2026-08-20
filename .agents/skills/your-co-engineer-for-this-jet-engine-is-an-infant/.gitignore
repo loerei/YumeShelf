@@ -1,0 +1,14 @@
+# Distributed Agent Skills & Lockfiles
+.agents/
+.claude/
+agent/
+skills-lock.json
+
+# Diagnostics & Scratch
+.scratch/
+brain/
+
+# OS & Editor metadata
+.DS_Store
+Thumbs.db
+*.log

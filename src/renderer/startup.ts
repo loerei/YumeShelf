@@ -45,33 +45,44 @@ export function createStartupController({
     }
 
     async function initApp(bootstrapData: any = null, options: any = {}): Promise<void> {
-        const loadingMode = options.loadingMode || 'boot';
-        const config = bootstrapData ? bootstrapData.config : await electronAPI.checkConfig();
-        if (!config || !config.libraryPath) {
-            bootController.hide();
+        try {
+            const loadingMode = options.loadingMode || 'boot';
+            let config = bootstrapData ? bootstrapData.config : null;
+            if (!config) {
+                try {
+                    config = await electronAPI.checkConfig();
+                } catch (e) {
+                    console.warn('[RENDERER][INIT] checkConfig fallback failed:', e);
+                }
+            }
+            if (!config || !config.libraryPath) {
+                if (refs.welcome) refs.welcome.style.display = 'flex';
+                applyUIStrings();
+                return;
+            }
+
+            if (refs.welcome) refs.welcome.style.display = 'none';
+            if (!bootstrapData && loadingMode === 'boot') {
+                bootController.show({
+                    key: 'boot_loading_library',
+                    fallbackText: 'Loading library'
+                });
+            }
+
+            const nextGames = bootstrapData ? (bootstrapData.games || []) : (await electronAPI.getGames().catch(() => []));
+            const nextCategoryTree = bootstrapData ? (bootstrapData.categoryTree || []) : (await electronAPI.getCategoryTree().catch(() => []));
+            if (typeof setCategoryTree === 'function') {
+                setCategoryTree(nextCategoryTree);
+            }
+            setAllGames(nextGames, config);
+            sortGames(getCurrentSort());
+        } catch (err) {
+            console.error('[RENDERER][INIT] Uncaught error during initApp:', err);
             if (refs.welcome) refs.welcome.style.display = 'flex';
             applyUIStrings();
-            return;
+        } finally {
+            bootController.hide();
         }
-
-        if (refs.welcome) refs.welcome.style.display = 'none';
-        if (!bootstrapData && loadingMode === 'boot') {
-            bootController.show({
-                key: 'boot_loading_library',
-                fallbackText: 'Loading library'
-            });
-        }
-
-
-
-        const nextGames = bootstrapData ? (bootstrapData.games || []) : await electronAPI.getGames();
-        const nextCategoryTree = bootstrapData ? (bootstrapData.categoryTree || []) : await electronAPI.getCategoryTree();
-        if (typeof setCategoryTree === 'function') {
-            setCategoryTree(nextCategoryTree);
-        }
-        setAllGames(nextGames, config);
-        sortGames(getCurrentSort());
-        bootController.hide();
     }
 
     async function handleRefreshLibrary(): Promise<void> {

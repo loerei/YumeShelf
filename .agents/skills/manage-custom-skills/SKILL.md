@@ -1,90 +1,53 @@
 ---
 name: manage-custom-skills
-description: >
-  Create, update, and distribute custom agent skills. Scaffolds new skill folders or updates existing ones,
-  registers them in the skill installer script, and syncs them across all project workspaces. Use when the 
-  user wants to create, edit, update, or manage custom skills.
+description: Author and distribute skills from central myskills to workspaces and IDEs. Use when creating, editing, or distributing skills.
 ---
 
 # Manage Custom Skills
 
-This skill guides the agent through building or updating custom skills, registering them with the global setup, and distributing them to all project workspaces.
+Author skills in the central `myskills/` source catalog, then distribute them to project workspaces and IDE targets.
 
----
+## Workflow
 
-## 1. Gather Requirements
+```mermaid
+flowchart TD
+    Start["Skill Request"] --> Source["1. Edit Source SKILL.md in myskills/<category>/<name>/"]
+    Source --> Distribute["2. Sync Workspaces: agents distribute"]
+    Distribute --> Audit["3. Sync Table 1 Policy: agents audit -a -p"]
+    Audit --> Git["4. Commit & Push myskills"]
+```
 
-Ask the user:
-1. What is the name of the new or existing skill? (e.g. `my-awesome-skill`)
-2. What does it do? (for the YAML description block)
-3. Under what conditions should the agent trigger it? (triggers)
-4. What instructions, guidelines, and commands should be included?
+## Core Rules
 
----
+1. **Source-First Mandate**: ALWAYS edit skills directly in `<myskills-root>/<category>/<skill-name>/SKILL.md`. NEVER edit project-local copies in `.agents/skills/` (they are overwritten on distribution unless frontmatter sets `local: true`).
+2. **Lookup Tooling**:
+   - Find source path: `agents info skill.<skill-name>` (or `agents where` for root).
+   - Read skill stdout: `agents read skill.<skill-name>`.
+3. **Distribution**: Run `agents distribute` (or `agents distribute -t .` for current repo only) to sync changes to workspaces and IDE configs (`~/.gemini`, `~/.claude`, `~/.cursor`).
+4. **Policy Audit**: Run `agents audit -a -p` after adding, renaming, or deleting skills to sync `Table 1` in `AGENTS.md`.
 
-## 2. Scaffold Custom Skill
+## Categories & Frontmatter
 
-Create a new directory inside the custom skills source repository and write the `SKILL.md` file:
-Path: `<projects-dir>/myskills/<skill-name>/SKILL.md`
+| Category | Domain Scope |
+| :--- | :--- |
+| `design/` | UI/UX, styling, frontend aesthetics, mobile/web comps |
+| `engineering/` | Architecture, TDD, debugging, domain modeling, refactoring |
+| `quality/` | Sonar remediation, code reviews, benchmark testing |
+| `productivity/` | Automation workflows, PRs, AI writing, issue triage |
+| `personal/` | Notes, writing drafts, Obsidian vault management |
 
-Ensure it contains the correct YAML frontmatter:
 ```yaml
 ---
 name: <skill-name>
-description: >
-  <One sentence on what it does>. Use when [specific triggers].
+description: <Concrete capability>. Use when [specific triggers].
 ---
 ```
 
----
+## CLI Reference
 
-## 3. Distribute
-
-Since the script dynamically reads the source directory, the new skill is automatically detected. Run the distribution script to deploy it to all projects:
-```powershell
-node <projects-dir>/distribute-skills.js --all <projects-dir>
-```
-Or to a specific project:
-```powershell
-node <projects-dir>/distribute-skills.js --target <projects-dir>/<project-folder>
-```
-
-Navigate to `<projects-dir>/myskills/`, commit the new skill, and push it to the GitHub remote repository to keep it synced:
-```powershell
-git add .
-git commit -m "Create skill: <skill-name>"
-git push
-```
-
-Confirm to the user that the skill has been created, synced locally, and pushed to GitHub.
-
----
-
-## 4. Updating & Redistributing Existing Skills
-
-When editing or updating an existing custom skill:
-1. **Apply changes to source repository**: Copy the updated files from the local workspace to the custom skills source repository directory: `<projects-dir>/myskills/<skill-name>/`
-2. **Redistribute**: Run the distribution script to sync the updates across all project workspaces:
-   ```powershell
-   node <projects-dir>/distribute-skills.js --all <projects-dir>
-   ```
-3. **Push to GitHub**: Commit the modifications or deletion, and push to GitHub:
-   ```powershell
-   git add .
-   git commit -m "Update/Delete skill: <skill-name>"
-   git push
-   ```
-
----
-
-## 5. Update Global Policy Matrix
-
-When a new custom skill is added, you MUST update the task-to-skill classification table in the Global Policy file (typically `AGENTS.md` or `GEMINI.md` at the repository/global configurations root):
-- Locate the **Task-Specific Workflows** table.
-- Categorize the new skill into one of the 5 standard categories:
-  1. **Design & Frontend UI** (styling, layout, taste, mockups)
-  2. **Engineering & Development** (testing, codebase architecture, debugging, prototyping)
-  3. **Code Quality & CI/CD** (sonar quality gates, CI logs)
-  4. **Productivity & Management** (triage, write-pr, to-issues, handoff, AI-writing)
-  5. **Content & Notes** (obsidian, drafts, writing beats)
-- Add the new skill name as a code block backtick item under the **Required Skills to Read** column for the matching category.
+| Command | Action |
+| :--- | :--- |
+| `agents distribute` | Sync all skills to all registered project workspaces and IDEs |
+| `agents distribute -t <path>` | Sync skills to a specific project directory |
+| `agents audit` | Check policy coverage without modifying files |
+| `agents audit -a -p` | Add missing skills to Table 1 and prune deleted skills from `AGENTS.md` |

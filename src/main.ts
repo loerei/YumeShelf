@@ -1,6 +1,7 @@
 import { app, ipcMain, shell, dialog, protocol, BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
+import path from 'node:path';
 
 import { createAppPaths } from './main/core/app-paths';
 import { createCategoryState } from './main/category-state';
@@ -128,6 +129,12 @@ logBootDiagnostics(app);
 attachProcessDiagnostics(app);
 
 app.whenReady().then(async () => {
+    try {
+        await fs.mkdir(path.dirname(paths.dbFile), { recursive: true });
+        await fs.mkdir(paths.userLocalesDir, { recursive: true });
+        await fs.mkdir(paths.translatorsDir, { recursive: true });
+        await fs.mkdir(paths.languagePackCacheDir, { recursive: true });
+    } catch {}
     await installHandoffService.consumeManualInstallHandoff();
     await startMainRuntime({
         app,

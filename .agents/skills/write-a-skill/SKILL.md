@@ -1,82 +1,73 @@
 ---
 name: write-a-skill
-description: Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, or build a new skill.
+description: Use when asked to create, write, or build a new skill.
 ---
 
-# Writing Skills
+# Write a Skill
 
-## Process
+Create and distribute agent skills with proper structure, progressive disclosure, and execution predictability.
 
-1. **Gather requirements**: Domain scope, specific use cases, scripts needed, reference materials.
-2. **Draft skill**: SKILL.md instructions, Mermaid decision trees for multi-branch workflows, reference files if >100 lines, utility scripts for deterministic tasks.
-3. **Review with user**: Confirm use case coverage, clarity, and detail level.
+## Directives
 
-## Skill Structure
+1. **Description Rule ("Use When Only")**: MUST use format `Use when [specific triggers]` in 10–14 words. NEVER summarize internal features (What), explain benefits (Why), or include slash commands.
+2. **Plain English**: State direct instructions; NEVER use self-important titles or marketing fluff (`orchestrate`, `robust`, `comprehensive pipeline`).
+3. **Progressive Disclosure**: Keep `SKILL.md` lean. Disclose heavy tables, checklists, or domain guides into sub-documents (`REFERENCE.md` or `<DOMAIN>.md`) per [HEURISTICS.md](HEURISTICS.md).
+4. **Mermaid Decision Trees**: Use flowcharts ONLY for workflows with 3+ branching paths or error recovery loops. Do NOT use for flat linear steps.
 
-```
-skill-name/
-├── SKILL.md           # Main instructions (required)
-├── REFERENCE.md       # Detailed docs (if needed)
-├── EXAMPLES.md        # Usage examples (if needed)
-└── scripts/           # Utility scripts (if needed)
-    └── helper.js
-```
+| Bad (Bloated Fluff) | Good (Plain English) |
+| :--- | :--- |
+| `Comprehensive Execution Architecture` | `Workflow` |
+| `Verify optimal state convergence across targets` | `Verify all tests pass` |
+| `Forensic behavioral telemetry capture on anomalies` | `Save error logs to a file on failure` |
+
+---
 
 ## SKILL.md Template
 
-````md
+```markdown
 ---
-name: skill-name
-description: Brief description of capability. Use when [specific triggers].
+name: <skill-name>
+description: Use when [specific triggers].
 ---
 
-# Skill Name
+# <Skill Title>
 
-## Quick start
+<1-sentence description of purpose and produced artifacts>.
 
-[Minimal working example]
+## Directives
 
-## Workflows
+1. **<Rule 1>**: MUST/NEVER [Actionable constraint].
 
-```mermaid
-flowchart TD
-    Start["Request / Trigger"] --> Decision{"Determine Scope"}
-    Decision -->|"Branch A"| PathA["Execute Path A"]
-    Decision -->|"Branch B"| PathB["Execute Path B"]
+---
+
+## Template / Output Format
+
+<Clean markdown template or code block with placeholders>
+
+---
+
+## Workflow
+
+1. <Step 1: Inspect/Audit>
+2. <Step 2: Execute/Draft>
+3. <Step 3: Verify & Sync via agents distribute>
 ```
 
-[Step-by-step processes with checklists for complex tasks]
+---
 
-## Advanced features
+## Subdoc References
 
-[Link to separate files: See [REFERENCE.md](REFERENCE.md)]
-````
+- **Complexity & Extraction Thresholds**: see [HEURISTICS.md](HEURISTICS.md).
+- **Domain Theory, Glossary & Failure Modes**: see [REFERENCE.md](REFERENCE.md).
 
-## Description Requirements
+---
 
-Surfaced in system prompt. Max 1024 chars, third-person, format: `<Capability>. Use when [specific triggers].`
+## Workflow
 
-- **Good**: `Extract text/tables from PDF files. Use when working with PDF files or user mentions PDFs.`
-- **Bad**: `Helps with documents.`
-
-The bad example gives your agent no way to distinguish this from other document skills.
-
-## Mermaid Decision Trees
-
-- **When**: Workflows with 3+ branching paths or complex fallback loops. Do NOT use for simple flat 1-2-3 linear steps.
-- **How**: Quote labels containing brackets/parens (`Node["Label (Details)"]`). Keep flowcharts under 25-30 lines.
-
-## File Splitting & Scripts
-
-- **Scripts**: Add when operation is deterministic (validation, formatting), same code would be generated repeatedly, or errors need explicit handling.
-- **File Split**: Move content out of SKILL.md when line count exceeds 100, content has distinct domains (finance vs sales schemas), or advanced features are rarely needed.
-
-## Review Checklist
-
-- [ ] Description includes explicit triggers ("Use when...")
-- [ ] SKILL.md strictly under 100 lines
-- [ ] Mermaid decision tree used for workflows with 3+ branches
-- [ ] No time-sensitive info
-- [ ] Consistent terminology
-- [ ] Concrete examples included
-- [ ] References one level deep
+1. **Gather Requirements**: Identify domain scope, core use cases, and deterministic tool/script needs.
+2. **Draft Skill**: Write `SKILL.md` following Directives and Template. Evaluate subdoc extraction per [HEURISTICS.md](HEURISTICS.md).
+3. **Present Plan**: Review draft with user and incorporate feedback.
+4. **Distribute & Audit**:
+   - Write files to `productivity/<skill-name>/`.
+   - Run `agents distribute` to sync all registered workspaces and IDE configs.
+   - Run `agents audit -a -p` to verify Table 1 coverage in `AGENTS.md`.

@@ -1,66 +1,54 @@
 ---
 name: review-upstream
-description: Sync and review custom skill updates from upstream repositories. Use when the user requests to check for skill updates, sync custom skills, review upstream skills, or runs /review-upstream.
+description: Sync, compare, and merge custom skill updates from upstream repositories. Use when checking for skill updates or running /review-upstream.
 ---
 
 # Review Upstream Skills
 
-Sync, compare, and merge custom skill updates from external repositories.
+Fetch, diff, and reconcile custom skill updates from upstream source repositories into `myskills/`.
 
-## Workflows
+## Workflow
 
-### 1. Run Sync Script
-Run the sync command to fetch upstream skills:
-```powershell
-node sync-upstream.js --all
+```mermaid
+flowchart TD
+    Start["Trigger: /review-upstream"] --> Fetch["1. Fetch: node sync-upstream.js --all"]
+    Fetch --> Triage{"2. Triage Skills"}
+    
+    Triage -->|"New Skill"| AskNew["Ask user: Add to official catalog?"]
+    Triage -->|"Modified Skill"| DiffCheck["Compare local vs upstream diff & recommend action"]
+    
+    AskNew -->|"Approved"| ApplyAdd["node sync-upstream.js --apply <name> --action add --category <cat>"]
+    
+    DiffCheck --> Choice{"User Decision"}
+    Choice -->|"Overwrite"| ApplyOverwrite["node sync-upstream.js --apply <name> --action overwrite"]
+    Choice -->|"Keep Local"| Skip["Skip apply"]
+    Choice -->|"Combine"| ManualMerge["Manually edit local SKILL.md"]
+    
+    ApplyAdd --> Cleanup["3. Clean pending: node sync-upstream.js --clear"]
+    ApplyOverwrite --> Cleanup
+    Skip --> Cleanup
+    ManualMerge --> Cleanup
+    
+    Cleanup --> Sync["4. Sync: agents audit -a -p && agents distribute"]
+    Sync --> Git["5. Commit & Push myskills"]
 ```
 
-### 2. Review New Skills
-For each new skill found at upstream:
-1. Explain what the skill does (read the description in its yaml frontmatter).
-2. Ask the user: "Do you want to add this new skill to the official repository?"
+## CLI Reference
 
-### 3. Review Modified Skills
-For each modified skill, perform this self-reflection before talking to the user:
-1. **Self-Reflection (Internal Thought)**:
-   - Identify where the two versions differ.
-   - What part of the local (old) version is an extension compared to the upstream (new) version?
-   - What part of the upstream (new) version is an extension compared to the local (old) version?
-   - Do they complement each other?
-     - **No** -> Decide which version is better.
-     - **Yes** -> Draft a combined 3rd version.
-2. **Present to User**:
-   - Explain what the skill does.
-   - Summarize the key differences between the local and upstream versions.
-   - State your recommendation and reasoning.
-3. **Prompt User**: Ask the user to choose:
-   - **a. Keep old version** (local)
-   - **b. Use upstream version** (overwrite)
-   - **c. Combine into a new version** (merge changes)
+| Action | Command |
+| :--- | :--- |
+| **Fetch all upstream** | `node sync-upstream.js --all` |
+| **Apply new skill** | `node sync-upstream.js --apply <skill_name> --action add --category <category>` |
+| **Overwrite local skill** | `node sync-upstream.js --apply <skill_name> --action overwrite` |
+| **Clear pending queue** | `node sync-upstream.js --clear` |
+| **Audit & Distribute** | `agents audit -a -p && agents distribute` |
 
-### 4. Deploy, Distribute, and Clean Up
-After gathering decisions, apply them, distribute, and clean up the workspace:
-1. Run the apply actions using the script:
-   - To add a new skill:
-     ```powershell
-     node sync-upstream.js --apply <skill_name> --action add --category <category>
-     ```
-   - To overwrite a modified skill:
-     ```powershell
-     node sync-upstream.js --apply <skill_name> --action overwrite
-     ```
-   - If combining, edit the local file directly, then proceed to cleanup.
-2. After processing all skills, clean up the entire `pending/` directory:
-   ```powershell
-   node sync-upstream.js --clear
-   ```
-3. Sync the updates to all workspaces:
-   ```powershell
-   node distribute-skills.js --all D:\Projects
-   ```
-4. Commit and push the updates:
-   ```powershell
-   git add .
-   git commit -m "Sync upstream: update skills"
-   git push
-   ```
+## Triage Rules for Modified Skills
+
+For each modified skill, report to the user:
+1. **Summary of differences**: What upstream added vs. what local customized.
+2. **Recommendation**: State clearly whether to overwrite, keep local, or merge.
+3. **Options**:
+   - `a. Keep local` (reject upstream changes)
+   - `b. Overwrite` (accept upstream version)
+   - `c. Merge` (manually combine complementary improvements)

@@ -72,7 +72,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/yumeshelf_icon_highres_4096.png"
+      "icon": "assets/yumeshelf_icon_highres_4096.png",
+      "timeStampServer": "http://timestamp.digicert.com"
     },
     "linux": {
       "target": [

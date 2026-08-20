@@ -24,10 +24,11 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [icon-pipeline] Added support for nested subfolder icon discovery (`icon/icon.*`, `icon/cover.*`, `www/icon/icon.*`), enabling games built with NW.js / RPG Maker MV & MZ to automatically resolve their custom game icons directly in Branch A (`local-image`).
 - [ipc] Restored missing startup and app lifecycle IPC handlers (`bootstrap-app`, `get-language-state`, `open-external-url`, `log-app-update-debug`, and update download/install handlers) in `AppIpcController`.
 - [lifecycle] Reordered `startMainRuntime` sequence to register all IPC handlers before initializing the main BrowserWindow, eliminating startup race conditions.
+- [linux-compat] Fixed first-launch ENOENT exception on Linux where `~/.config/YumeShelf/` directory did not exist prior to database initialization, preventing startup bootstrap failure and UI hang.
 
 ### 🛠️ For the Nerds
 
-- [devutil] Added official developer utility suite under `.devutil/` (`simulate-icon-pipeline.cjs`, `inspect-exe-icon.cjs`, `inspect-engine-icon.cjs`, and `README.md`) for end-to-end icon pipeline simulation, PE binary icon frame matrix inspection, and game engine asset discovery.
+- [devutil] Added official developer utility suite under `.devutil/` (`simulate-icon-pipeline.cjs`, `simulate-startup.cjs`, `inspect-exe-icon.cjs`, `inspect-engine-icon.cjs`, and `README.md`) for end-to-end icon pipeline simulation, cold-start bootstrap testing, PE binary icon frame matrix inspection, and game engine asset discovery.
 - [core-adapters] Added zero-dependency cross-platform ZIP archive extractor (`src/main/core/zip-extractor.ts`) with End of Central Directory (EOCD) parsing and built-in Zip Slip path traversal security defenses (#42).
 - [core-adapters] Added platform-adaptive filesystem helper (`src/main/core/filesystem-adapter.ts`) supporting NTFS junctions on Windows and POSIX directory symlinks on Linux/macOS with idempotent link recreation (#42).
 - [playtime-helper] Adapted Rust `playtime-helper` for cross-platform compilation (ELF on Linux, `.exe` on Windows) with conditional `windows-sys` dependency scoping (#44).

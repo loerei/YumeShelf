@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import * as scanner from './scanner';
 import * as continuity from './continuity';
 import * as config from './config';
@@ -70,6 +71,14 @@ export function createLibraryState(options: LibraryContext) {
     const saveDB = typeof (options as any).saveDB === 'function'
         ? (options as any).saveDB
         : async (db: any) => {
+            if (options.dbFilePath) {
+                const dir = path.dirname(options.dbFilePath);
+                if (typeof options.fs?.mkdir === 'function') {
+                    await options.fs.mkdir(dir, { recursive: true });
+                } else if (typeof options.fsSync?.mkdirSync === 'function') {
+                    options.fsSync.mkdirSync(dir, { recursive: true });
+                }
+            }
             await options.fs.writeFile(options.dbFilePath, JSON.stringify(db, null, 2));
         };
 

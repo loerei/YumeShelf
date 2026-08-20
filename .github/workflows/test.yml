@@ -47,7 +47,7 @@ jobs:
             ${{ runner.os }}-npm-
 
       - name: Install Dependencies
-        run: npm install --ignore-scripts
+        run: npm install
 
       - name: Run Typecheck
         run: npm run typecheck

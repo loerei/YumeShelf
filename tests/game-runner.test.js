@@ -240,7 +240,7 @@ test('Game Runner Launch Resolver: Resolves parameter matrix across platforms an
         const launch = await resolveGameLaunch(game, {}, {}, [], winEnv);
         assert.equal(launch.runnerMode, 'native');
         assert.equal(launch.targetPlatform, 'windows');
-        assert.equal(launch.command, path.resolve('C:\\Games\\Action\\game.exe'));
+        assert.equal(launch.command, path.win32.resolve('C:\\Games\\Action\\game.exe'));
     });
 });
 

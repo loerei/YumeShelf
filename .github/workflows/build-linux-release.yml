@@ -23,16 +23,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
 
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -48,19 +42,19 @@ jobs:
           sudo apt-get install -y libarchive-tools fuse libfuse2
 
       - name: Install Node Dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm install
 
       - name: Build Native Helpers (Rust Playtime Helper & C# Save Converter)
         run: |
-          pnpm run build:playtime-helper
-          pnpm run build:save-converter
+          npm run build:playtime-helper
+          npm run build:save-converter
 
       - name: Build Frontend & Main Process
         run: |
-          pnpm run build:preload
-          pnpm run build:main
-          pnpm run copy:assets
-          pnpm run build:vite
+          npm run build:preload
+          npm run build:main
+          npm run copy:assets
+          npm run build:vite
 
       - name: Package Linux Application (AppImage & tar.gz)
         run: |

@@ -18,8 +18,8 @@ const {
     resolveLinuxArtifactPaths
 } = require('../scripts/release-artifacts');
 
-test('Linux Packaging: package.json build targets and scripts configuration', (t) => {
-    t.test('package.json contains valid electron-builder linux configuration', () => {
+test('Linux Packaging: package.json build targets and scripts configuration', async (t) => {
+    await t.test('package.json contains valid electron-builder linux configuration', () => {
         assert.ok(pkg.build, 'build section must exist');
         assert.ok(pkg.build.linux, 'linux build section must exist');
         assert.deepEqual(pkg.build.linux.target, ['AppImage', 'tar.gz']);
@@ -34,7 +34,7 @@ test('Linux Packaging: package.json build targets and scripts configuration', (t
         assert.ok(helperResource, 'playtime-helper ELF extraResource must be present for Linux');
     });
 
-    t.test('package.json contains build:linux and build:all scripts', () => {
+    await t.test('package.json contains build:linux and build:all scripts', () => {
         assert.ok(pkg.scripts['build:linux'], 'build:linux script must exist');
         assert.ok(pkg.scripts['build:linux'].includes('electron-builder --linux'));
         assert.ok(pkg.scripts['build:all'], 'build:all script must exist');
@@ -42,8 +42,8 @@ test('Linux Packaging: package.json build targets and scripts configuration', (t
     });
 });
 
-test('Linux Packaging: release-artifacts helper module path resolution and pattern matching', (t) => {
-    t.test('resolves structured linux output directories', () => {
+test('Linux Packaging: release-artifacts helper module path resolution and pattern matching', async (t) => {
+    await t.test('resolves structured linux output directories', () => {
         const root = getBuildOutputDir();
         assert.equal(getLinuxOutputDir(root), path.join(root, 'linux'));
         assert.equal(getLinuxApplicationOutputDir(root), path.join(root, 'linux', 'application'));
@@ -51,7 +51,7 @@ test('Linux Packaging: release-artifacts helper module path resolution and patte
         assert.equal(getLinuxFeedOutputDir(root), path.join(root, 'linux', 'feed'));
     });
 
-    t.test('correctly identifies Linux release artifact filenames', () => {
+    await t.test('correctly identifies Linux release artifact filenames', () => {
         assert.equal(isLinuxArtifactName('YumeShelf-1.6.0.AppImage'), true);
         assert.equal(isLinuxArtifactName('YumeShelf-1.6.0.tar.gz'), true);
         assert.equal(isLinuxAppImageArtifactName('YumeShelf-1.6.0.AppImage'), true);
@@ -65,15 +65,15 @@ test('Linux Packaging: release-artifacts helper module path resolution and patte
         assert.equal(isLinuxArtifactName('YumeShelf-1.6.0.AppImage.sha256'), false);
     });
 
-    t.test('resolves Linux AppImage and tarball paths for a given version', () => {
+    await t.test('resolves Linux AppImage and tarball paths for a given version', () => {
         const paths = resolveLinuxArtifactPaths('1.6.0');
         assert.ok(paths.appImage.endsWith(path.join('build_output', 'linux', 'application', 'YumeShelf-1.6.0.AppImage')));
         assert.ok(paths.tarball.endsWith(path.join('build_output', 'linux', 'application', 'YumeShelf-1.6.0.tar.gz')));
     });
 });
 
-test('Linux Packaging: SHA-256 Checksum generation across multi-platform binaries', (t) => {
-    t.test('calculates accurate SHA-256 and writes formatted checksum files for Linux and Windows binaries', () => {
+test('Linux Packaging: SHA-256 Checksum generation across multi-platform binaries', async (t) => {
+    await t.test('calculates accurate SHA-256 and writes formatted checksum files for Linux and Windows binaries', () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yumeshelf-test-pkg-'));
         try {
             const linuxAppDir = path.join(tempDir, 'linux', 'application');

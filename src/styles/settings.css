@@ -77,23 +77,16 @@
     gap: 10px;
 }
 
-.setting-field-group #lang-select {
-    width: 196px;
-    min-width: 196px;
-}
-
-.setting-control-zone #theme-select,
-.setting-control-zone #location-display-select,
-.setting-control-zone #app-updates-select,
-.setting-control-zone #language-pack-updates-select,
-.setting-control-zone #auto-launch-select,
-.setting-control-zone #minimize-to-tray-select,
-.setting-control-zone #telemetry-select,
+/* Standardized Common Dimensions for all Settings Controls */
+.setting-field-group select,
+.setting-control-zone select,
 .setting-control-zone .max-depth-stepper,
 .wide-setting-btn {
     width: 196px;
     min-width: 196px;
+    max-width: 196px;
     margin-left: auto;
+    box-sizing: border-box;
 }
 
 .secondary-btn {

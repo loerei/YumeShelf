@@ -29,4 +29,9 @@ export interface FileSystemProvider {
     dirname(p: string): string;
     basename(p: string): string;
     join(...paths: string[]): string;
+    getHomeDir(): string;
+    getXdgConfigHome(): string;
+    getXdgDataHome(): string;
+    getWinePrefixRoots(exeDir?: string): Promise<string[]>;
+    getWineAppDataPaths(prefix: string, type: 'Roaming' | 'Local' | 'LocalLow'): Promise<string[]>;
 }

@@ -25,6 +25,8 @@ async function build() {
             'ModernSaveConverter.dll',
             'ModernSaveConverter.deps.json',
             'ModernSaveConverter.runtimeconfig.json',
+            'ModernSaveConverter.exe',
+            'ModernSaveConverter',
             'ICSharpCode.Decompiler.dll',
             'System.Collections.Immutable.dll',
             'System.Reflection.Metadata.dll'
@@ -37,9 +39,12 @@ async function build() {
             
             if (fs.existsSync(srcFile)) {
                 fs.copyFileSync(srcFile, destFile);
+                if (process.platform !== 'win32') {
+                    try {
+                        fs.chmodSync(destFile, 0o755);
+                    } catch {}
+                }
                 console.log(`- Copied ${file}`);
-            } else {
-                console.warn(`- Warning: Could not find build artifact ${file}`);
             }
         }
         

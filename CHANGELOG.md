@@ -39,6 +39,9 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [continuity] Updated `getExecutableStem` in `continuity.ts` and `game-annotations.ts` to strip Linux extensions, ensuring stable continuity signatures across platforms and moves (#43).
 - [title-resolver] Added generic Linux script and binary names (`game.x86_64`, `start.sh`, `run.sh`, `launch.sh`, `apprun`) to `GENERIC_TITLE_BLOCKLIST` (#43).
 - [translation] Refactored `TranslationService` to use native Node.js archive extraction and cross-platform directory symlinks, removing `powershell.exe` shell execution and hardcoded NTFS junction dependencies (#42).
+- [save-resolver] Expanded `SaveFolderResolver` and `FileSystemProvider` to support Linux XDG directories (`$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `~/.renpy`) and multi-source Wine/Proton prefix AppData paths with dynamic user traversal (#45).
+- [save-resolver] Added cross-platform save discovery for Ren'Py, Unity, Unreal, and Godot engines across Linux native and Wine/Proton prefix environments (#45).
+- [save-editor] Adapted `unity-mono-bin.ts` to locate and execute self-contained native `ModernSaveConverter` binaries, refactored subprocess invocations to `execFileSync` with explicit argument arrays, and added platform-adaptive Python dispatcher (`python3`/`python`) with `app.asar.unpacked` path resolution (#45).
 - [save-resolver] Consolidated engine detection, deterministic path discovery, and heuristic fallback scanning behind a unified `SaveFolderResolver` deep module class.
 - [save-resolver] Added `FileSystemProvider` interface (`DefaultFileSystemProvider` and `MockFileSystemProvider`) enabling virtual filesystem unit testing without real OS path dependencies.
 - [save-resolver] Standardized return DTO `ResolvedSaveDirectory` with `path`, `engine`, `confidence`, and `source` fields while preserving backward-compatible `resolveSaveFolder` export.

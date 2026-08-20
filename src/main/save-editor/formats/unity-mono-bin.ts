@@ -1,7 +1,8 @@
 import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 class UnityMonoBinFormat {
     match(fileName: string): boolean {
@@ -35,10 +36,10 @@ class UnityMonoBinFormat {
         if (assemblyPath) return assemblyPath;
 
         console.log(`[SAVE-EDITOR-UNITY] Assembly-CSharp.dll not found in ${paths.exeDir}. Searching library db fallback...`);
-        
+
         // Search other games in library_db.json
         try {
-            const appDataDir = process.env.APPDATA || '';
+            const appDataDir = process.env.APPDATA || path.join(process.env.HOME || '', '.config');
             const dbPath = path.join(appDataDir, 'yumeshelf', 'library_db.json');
             const dbStr = await fs.readFile(dbPath, 'utf8');
             const db = JSON.parse(dbStr);
@@ -54,7 +55,7 @@ class UnityMonoBinFormat {
         } catch (err) {
             console.error('[SAVE-EDITOR-UNITY] Fallback assembly search in DB failed:', err);
         }
-        
+
         // If still not found, search the parent VN folder of YumeShelf
         try {
             const vnDir = path.resolve(__dirname, '..', '..', '..', 'YumeShelf', 'VN');
@@ -70,28 +71,40 @@ class UnityMonoBinFormat {
         throw new Error(`Could not locate Assembly-CSharp.dll under: ${paths.exeDir} or any other game folders. Please make sure Sisters Connect or another Unity Hikari Sky game is installed/scanned.`);
     }
 
-    getConverterDllPath(): string {
-        const candidate = path.resolve(__dirname, '..', 'bin', 'ModernSaveConverter.dll');
-        if (candidate.includes('app.asar')) {
-            return candidate.replace('app.asar', 'app.asar.unpacked');
+    getConverterExecutionConfig(): { executable: string; baseArgs: string[] } {
+        const binDir = path.resolve(__dirname, '..', 'bin');
+        const unpackedBinDir = binDir.includes('app.asar') ? binDir.replace('app.asar', 'app.asar.unpacked') : binDir;
+
+        const nativeExeName = process.platform === 'win32' ? 'ModernSaveConverter.exe' : 'ModernSaveConverter';
+        const candidateNativePaths = [
+            path.join(unpackedBinDir, nativeExeName),
+            path.join(unpackedBinDir, process.platform === 'win32' ? 'win-x64' : 'linux-x64', nativeExeName)
+        ];
+
+        for (const candidate of candidateNativePaths) {
+            if (fsSync.existsSync(candidate)) {
+                return { executable: candidate, baseArgs: [] };
+            }
         }
-        return candidate;
+
+        // Fallback to dotnet <dll>
+        const dllPath = path.join(unpackedBinDir, 'ModernSaveConverter.dll');
+        return { executable: 'dotnet', baseArgs: [dllPath] };
     }
 
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         const assemblyPath = await this.getAssemblyPath(paths);
+        const { executable, baseArgs } = this.getConverterExecutionConfig();
 
-        const converterDll = this.getConverterDllPath();
         const tempIn = path.join(os.tmpdir(), `yumeshelf_dec_${Date.now()}_in.bin`);
         const tempOut = path.join(os.tmpdir(), `yumeshelf_dec_${Date.now()}_out.json`);
 
         try {
             await fs.writeFile(tempIn, rawData);
-            
-            // Execute the compiled ModernSaveConverter DLL using dotnet CLI
-            const cmd = `dotnet "${converterDll}" to-json "${assemblyPath}" "${tempIn}" "${tempOut}"`;
-            console.log(`[SAVE-EDITOR-UNITY] Running decompress command: ${cmd}`);
-            execSync(cmd, { windowsHide: true });
+
+            const args = [...baseArgs, 'to-json', assemblyPath, tempIn, tempOut];
+            console.log(`[SAVE-EDITOR-UNITY] Running decompress command: ${executable} ${args.join(' ')}`);
+            execFileSync(executable, args, { windowsHide: true });
 
             const jsonStr = await fs.readFile(tempOut, 'utf8');
             return JSON.parse(jsonStr.replace(/^\uFEFF/, ''));
@@ -104,9 +117,9 @@ class UnityMonoBinFormat {
 
     async encode(jsonData: any, paths: any, fileName: string): Promise<Buffer> {
         const assemblyPath = await this.getAssemblyPath(paths);
+        const { executable, baseArgs } = this.getConverterExecutionConfig();
 
         const originalBin = path.join(paths.saveDir, fileName);
-        const converterDll = this.getConverterDllPath();
         const tempBin = path.join(os.tmpdir(), `yumeshelf_enc_${Date.now()}_out.bin`);
         const tempJson = path.join(os.tmpdir(), `yumeshelf_enc_${Date.now()}_in.json`);
 
@@ -115,9 +128,9 @@ class UnityMonoBinFormat {
             await fs.copyFile(originalBin, tempBin);
             await fs.writeFile(tempJson, JSON.stringify(jsonData, null, 2), 'utf8');
 
-            const cmd = `dotnet "${converterDll}" to-bin "${assemblyPath}" "${tempBin}" "${tempJson}"`;
-            console.log(`[SAVE-EDITOR-UNITY] Running compress command: ${cmd}`);
-            execSync(cmd, { windowsHide: true });
+            const args = [...baseArgs, 'to-bin', assemblyPath, tempBin, tempJson];
+            console.log(`[SAVE-EDITOR-UNITY] Running compress command: ${executable} ${args.join(' ')}`);
+            execFileSync(executable, args, { windowsHide: true });
 
             const encodedBuffer = await fs.readFile(tempBin);
             return encodedBuffer;

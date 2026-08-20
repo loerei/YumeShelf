@@ -37,7 +37,8 @@ export function getExeStem(exeDir: string): string {
 
 export function getExeStemFromPath(exePath: string): string {
     const baseName = path.basename(exePath || '');
-    let stem = baseName.replace(/\.exe$/i, '');
+    let stem = baseName.replace(/\.(exe|x86_64|x86|appimage|sh|bin)$/i, '');
+    stem = stem.replace(/-(linux|win64|win32)-shipping$/i, '');
     stem = stem.replace(/\bv?\d+(?:\.\d+)*\b/gi, ' ').replace(/\bpc\b/gi, ' ').trim();
     return stem;
 }

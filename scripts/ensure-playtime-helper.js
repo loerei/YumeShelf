@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const repoRoot = path.resolve(__dirname, '..');
-const HELPER_EXE_NAME = 'playtime-helper.exe';
+const HELPER_EXE_NAME = process.platform === 'win32' ? 'playtime-helper.exe' : 'playtime-helper';
 const helperProjectDir = path.join(repoRoot, 'native', 'playtime-helper');
 const helperReleasePath = path.join(helperProjectDir, 'target', 'release', HELPER_EXE_NAME);
 

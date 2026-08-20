@@ -5,19 +5,25 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::mem::{size_of, zeroed};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[cfg(windows)]
+use std::mem::{size_of, zeroed};
+#[cfg(windows)]
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
+#[cfg(windows)]
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
+#[cfg(windows)]
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, QueryInformationJobObject, JobObjectBasicProcessIdList,
     JOBOBJECT_BASIC_PROCESS_ID_LIST,
 };
+#[cfg(windows)]
 use windows_sys::Win32::System::Threading::{
     OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_QUOTA, PROCESS_TERMINATE,
 };
@@ -158,6 +164,28 @@ fn update_db_finalize(db_path: &Path, game_key: &str, accrued_ms: u64, ended_at:
     Ok(())
 }
 
+/// Pure parser for `/proc/[pid]/stat` line to extract (pid, ppid).
+/// Handles process comm names with spaces or nested parentheses by splitting at the last `)`.
+pub fn parse_proc_stat_line(line: &str) -> Option<(u32, u32)> {
+    let open_paren = line.find('(')?;
+    let close_paren = line.rfind(')')?;
+    if close_paren <= open_paren {
+        return None;
+    }
+
+    let pid_str = line[..open_paren].trim();
+    let pid: u32 = pid_str.parse().ok()?;
+
+    let rest = line[close_paren + 1..].trim();
+    let mut tokens = rest.split_whitespace();
+    let _state = tokens.next()?;
+    let ppid_str = tokens.next()?;
+    let ppid: u32 = ppid_str.parse().ok()?;
+
+    Some((pid, ppid))
+}
+
+#[cfg(windows)]
 fn list_process_relations() -> Result<Vec<(u32, u32)>> {
     unsafe {
         let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -178,6 +206,41 @@ fn list_process_relations() -> Result<Vec<(u32, u32)>> {
         CloseHandle(snapshot);
         Ok(relations)
     }
+}
+
+#[cfg(target_os = "linux")]
+fn list_process_relations() -> Result<Vec<(u32, u32)>> {
+    let mut relations = Vec::new();
+    let proc_dir = match fs::read_dir("/proc") {
+        Ok(dir) => dir,
+        Err(err) => return Err(anyhow!("failed to read /proc: {}", err)),
+    };
+
+    for entry in proc_dir.flatten() {
+        let file_name = entry.file_name();
+        let name_str = match file_name.to_str() {
+            Some(s) => s,
+            None => continue,
+        };
+
+        if !name_str.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+
+        let stat_path = entry.path().join("stat");
+        if let Ok(content) = fs::read_to_string(&stat_path) {
+            if let Some((pid, ppid)) = parse_proc_stat_line(&content) {
+                relations.push((pid, ppid));
+            }
+        }
+    }
+
+    Ok(relations)
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn list_process_relations() -> Result<Vec<(u32, u32)>> {
+    Ok(Vec::new())
 }
 
 fn pid_tree_has_live_members(root_pid: u32) -> Result<bool> {
@@ -211,6 +274,7 @@ fn pid_tree_has_live_members(root_pid: u32) -> Result<bool> {
     Ok(false)
 }
 
+#[cfg(windows)]
 fn get_pid_tree_members(root_pid: u32) -> Result<HashSet<u32>> {
     let mut members = HashSet::new();
     if root_pid == 0 {
@@ -243,6 +307,7 @@ fn get_pid_tree_members(root_pid: u32) -> Result<HashSet<u32>> {
     Ok(members)
 }
 
+#[cfg(windows)]
 fn bring_game_to_foreground_async(root_pid: u32) {
     thread::spawn(move || {
         struct EnumData<'a> {
@@ -286,6 +351,12 @@ fn bring_game_to_foreground_async(root_pid: u32) {
     });
 }
 
+#[cfg(not(windows))]
+fn bring_game_to_foreground_async(_root_pid: u32) {
+    // No-op on non-Windows platforms
+}
+
+#[cfg(windows)]
 fn open_process_for_job(pid: u32) -> Result<HANDLE> {
     unsafe {
         let handle = OpenProcess(
@@ -300,6 +371,7 @@ fn open_process_for_job(pid: u32) -> Result<HANDLE> {
     }
 }
 
+#[cfg(windows)]
 fn create_job_object() -> Result<HANDLE> {
     unsafe {
         let handle = CreateJobObjectW(std::ptr::null(), std::ptr::null());
@@ -310,6 +382,7 @@ fn create_job_object() -> Result<HANDLE> {
     }
 }
 
+#[cfg(windows)]
 fn assign_root_to_job(job_handle: HANDLE, process_handle: HANDLE, pid: u32) -> Result<()> {
     unsafe {
         if AssignProcessToJobObject(job_handle, process_handle) == 0 {
@@ -319,6 +392,7 @@ fn assign_root_to_job(job_handle: HANDLE, process_handle: HANDLE, pid: u32) -> R
     Ok(())
 }
 
+#[cfg(windows)]
 fn job_has_processes(job_handle: HANDLE) -> Result<bool> {
     unsafe {
         let extra_capacity = 1024usize * size_of::<usize>();
@@ -418,6 +492,7 @@ fn finalize_session(mut journal: SessionJournal, journal_path: &Path, db_path: &
     Ok(())
 }
 
+#[cfg(windows)]
 fn run_launch_mode(config: &HelperConfig) -> Result<()> {
     let mut journal = read_journal(&config.journal_path)?;
     journal.schema_version = SESSION_SCHEMA_VERSION;
@@ -474,6 +549,46 @@ fn run_launch_mode(config: &HelperConfig) -> Result<()> {
     finalize_session(monitored, &config.journal_path, &config.db_path, &config.log_path)
 }
 
+#[cfg(not(windows))]
+fn run_launch_mode(config: &HelperConfig) -> Result<()> {
+    let mut journal = read_journal(&config.journal_path)?;
+    journal.schema_version = SESSION_SCHEMA_VERSION;
+    journal.helper_pid = std::process::id();
+    journal.mode = "launch".to_string();
+    journal.status = "launching".to_string();
+    write_journal(&config.journal_path, &journal)?;
+    append_log(
+        &config.log_path,
+        format!("launch mode start sessionId={} exePath={}", journal.session_id, journal.exe_path),
+    );
+
+    let root_pid = match launch_game_process(&journal.exe_path, &journal.cwd) {
+        Ok(pid) => pid,
+        Err(error) => {
+            mark_failed(journal, &config.journal_path, error.to_string())?;
+            return Err(error);
+        }
+    };
+
+    bring_game_to_foreground_async(root_pid);
+
+    journal.root_pid = root_pid;
+    journal.status = "running".to_string();
+    journal.last_heartbeat_at = now_ms();
+    journal.accrued_ms = journal.last_heartbeat_at.saturating_sub(journal.started_at);
+    write_journal(&config.journal_path, &journal)?;
+    append_log(
+        &config.log_path,
+        format!("launch mode running sessionId={} rootPid={}", journal.session_id, root_pid),
+    );
+
+    let monitored = heartbeat_until_exit(journal, &config.journal_path, &config.log_path, || {
+        pid_tree_has_live_members(root_pid)
+    })?;
+
+    finalize_session(monitored, &config.journal_path, &config.db_path, &config.log_path)
+}
+
 fn run_attach_mode(config: &HelperConfig) -> Result<()> {
     let mut journal = read_journal(&config.journal_path)?;
     journal.schema_version = SESSION_SCHEMA_VERSION;
@@ -520,5 +635,36 @@ fn main() -> Result<()> {
     match config.mode {
         HelperMode::Launch => run_launch_mode(&config),
         HelperMode::Attach => run_attach_mode(&config),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_proc_stat_standard_line() {
+        let line = "1234 (game.x86_64) S 1000 1234 1234 0 -1 4194304 100 0 0 0 10 5 0 0 20 0 1 0 1000";
+        assert_eq!(parse_proc_stat_line(line), Some((1234, 1000)));
+    }
+
+    #[test]
+    fn test_parse_proc_stat_with_spaces_in_comm() {
+        let line = "5678 (My Cool Game) R 1234 5678 1234 0 -1";
+        assert_eq!(parse_proc_stat_line(line), Some((5678, 1234)));
+    }
+
+    #[test]
+    fn test_parse_proc_stat_with_nested_parentheses_in_comm() {
+        let line = "9999 (steam_app (x86_64)) S 1 9999 1 0 -1";
+        assert_eq!(parse_proc_stat_line(line), Some((9999, 1)));
+    }
+
+    #[test]
+    fn test_parse_proc_stat_malformed_lines() {
+        assert_eq!(parse_proc_stat_line(""), None);
+        assert_eq!(parse_proc_stat_line("invalid content"), None);
+        assert_eq!(parse_proc_stat_line("1234 no_parens S 1"), None);
+        assert_eq!(parse_proc_stat_line("abc (comm) S 1"), None);
     }
 }

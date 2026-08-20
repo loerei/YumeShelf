@@ -1,7 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-export const HELPER_EXE_NAME = 'playtime-helper.exe';
+export function getHelperExeName(platform: NodeJS.Platform = process.platform): string {
+    return platform === 'win32' ? 'playtime-helper.exe' : 'playtime-helper';
+}
+
+export const HELPER_EXE_NAME = getHelperExeName();
 
 export function getRepoRoot(): string {
     return path.resolve(__dirname, '..', '..');
@@ -11,28 +15,33 @@ export function getNativeHelperProjectDir(): string {
     return path.join(getRepoRoot(), 'native', 'playtime-helper');
 }
 
-export function getNativeHelperReleasePath(): string {
-    return path.join(getNativeHelperProjectDir(), 'target', 'release', HELPER_EXE_NAME);
+export function getNativeHelperReleasePath(platform: NodeJS.Platform = process.platform): string {
+    return path.join(getNativeHelperProjectDir(), 'target', 'release', getHelperExeName(platform));
 }
 
-export function getPackagedHelperRelativePath(): string {
-    return path.join('native', 'playtime-helper', HELPER_EXE_NAME);
+export function getPackagedHelperRelativePath(platform: NodeJS.Platform = process.platform): string {
+    return path.join('native', 'playtime-helper', getHelperExeName(platform));
 }
 
-export function resolvePackagedHelperPath(resourcesPath: string): string {
-    return path.join(resourcesPath, getPackagedHelperRelativePath());
+export function resolvePackagedHelperPath(resourcesPath: string, platform: NodeJS.Platform = process.platform): string {
+    return path.join(resourcesPath, getPackagedHelperRelativePath(platform));
 }
 
 export interface ResolvePlaytimeHelperOptions {
     app?: { isPackaged: boolean };
     resourcesPath?: string;
+    platform?: NodeJS.Platform;
 }
 
-export function resolvePlaytimeHelperPath({ app, resourcesPath = process.resourcesPath }: ResolvePlaytimeHelperOptions = {}): string {
+export function resolvePlaytimeHelperPath({
+    app,
+    resourcesPath = process.resourcesPath,
+    platform = process.platform
+}: ResolvePlaytimeHelperOptions = {}): string {
     if (app?.isPackaged) {
-        return resolvePackagedHelperPath(resourcesPath);
+        return resolvePackagedHelperPath(resourcesPath, platform);
     }
-    return getNativeHelperReleasePath();
+    return getNativeHelperReleasePath(platform);
 }
 
 export function assertPlaytimeHelperExists(helperPath: string): string {

@@ -33,7 +33,7 @@
     "typecheck": "tsc --noEmit",
     "test:vitest": "npx vitest run",
     "test:node": "node --test \"tests/*.test.js\"",
-    "test": "npm run test:vitest && npm run test:node",
+    "test": "npm run build:main && npm run test:vitest && npm run test:node",
     "build:preload": "tsup src/preload.ts --out-dir dist --format cjs --external electron",
     "build:ts": "tsup src/main.js --out-dir dist --format cjs"
   },

@@ -1,6 +1,12 @@
 const GENERIC_TITLE_BLOCKLIST = new Set([
     'game',
     'game.exe',
+    'game.x86_64',
+    'game.sh',
+    'start.sh',
+    'run.sh',
+    'launch.sh',
+    'apprun',
     'nwjs',
     'nw.js',
     'unity',

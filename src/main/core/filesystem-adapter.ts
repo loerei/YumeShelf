@@ -42,21 +42,27 @@ export async function createDirectorySymlink(existingDirPath: string, linkPath: 
     }
 }
 
+const EXECUTABLE_EXTENSIONS = new Set(['.exe', '.bat', '.cmd', '.x86_64', '.x86', '.appimage', '.sh']);
+
 /**
  * Checks if a given file path is executable according to platform standards:
- * - On Windows: checks for executable file extensions (.exe, .bat, .cmd).
- * - On Linux/macOS: checks for POSIX executable permissions (X_OK and mode bitmask 0o111).
+ * - On Windows: checks for executable file extensions (.exe, .bat, .cmd, .x86_64, .appimage, .sh).
+ * - On Linux/macOS: checks for executable file extensions and POSIX executable permissions (X_OK and mode bitmask 0o111).
  */
-export async function isExecutable(filePath: string): Promise<boolean> {
+export async function isExecutable(filePath: string, targetPlatform: NodeJS.Platform = process.platform): Promise<boolean> {
     try {
         const stats = await fs.stat(filePath);
         if (!stats.isFile()) {
             return false;
         }
 
-        if (process.platform === 'win32') {
-            const ext = path.extname(filePath).toLowerCase();
-            return ['.exe', '.bat', '.cmd'].includes(ext);
+        const ext = path.extname(filePath).toLowerCase();
+        if (EXECUTABLE_EXTENSIONS.has(ext)) {
+            return true;
+        }
+
+        if (targetPlatform === 'win32') {
+            return false;
         }
 
         const hasPosixExecBit = (stats.mode & 0o111) !== 0;

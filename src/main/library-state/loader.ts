@@ -90,6 +90,7 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
         nextGames[gameKey] = {
             dateAdded: existingRecord?.dateAdded || stats.birthtimeMs,
             exePath: candidate.exePath,
+            platform: candidate.platform || (candidate.exePath.toLowerCase().endsWith('.exe') ? 'windows' : 'linux'),
             favorite: existingRecord?.favorite || false,
             folderName,
             folderPath: candidate.folderPath,

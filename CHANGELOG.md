@@ -25,6 +25,11 @@ All notable changes to YumeShelf are documented here. Entries are written increm
 - [devutil] Added official developer utility suite under `.devutil/` (`simulate-icon-pipeline.cjs`, `inspect-exe-icon.cjs`, `inspect-engine-icon.cjs`, and `README.md`) for end-to-end icon pipeline simulation, PE binary icon frame matrix inspection, and game engine asset discovery.
 - [core-adapters] Added zero-dependency cross-platform ZIP archive extractor (`src/main/core/zip-extractor.ts`) with End of Central Directory (EOCD) parsing and built-in Zip Slip path traversal security defenses (#42).
 - [core-adapters] Added platform-adaptive filesystem helper (`src/main/core/filesystem-adapter.ts`) supporting NTFS junctions on Windows and POSIX directory symlinks on Linux/macOS with idempotent link recreation (#42).
+- [scanner] Implemented cross-platform executable discovery (`src/main/library-state/scanner.ts`) recognizing Linux native binaries (`.x86_64`, `.x86`, `.AppImage`, `.sh`, and POSIX executable mode) alongside Windows `.exe` files (#43).
+- [scanner] Implemented 5-tier composite prioritization in `pickPreferredExecutable` that dynamically prioritizes host-native binaries on Linux and Windows while maintaining seamless cross-platform fallbacks (#43).
+- [scanner] Expanded wrapper directory promotion for Linux package layouts (`linux/`, `linux64/`, `x86_64/`) and preserved `platform` metadata across promotion and loader cycles (#43).
+- [continuity] Updated `getExecutableStem` in `continuity.ts` and `game-annotations.ts` to strip Linux extensions, ensuring stable continuity signatures across platforms and moves (#43).
+- [title-resolver] Added generic Linux script and binary names (`game.x86_64`, `start.sh`, `run.sh`, `launch.sh`, `apprun`) to `GENERIC_TITLE_BLOCKLIST` (#43).
 - [translation] Refactored `TranslationService` to use native Node.js archive extraction and cross-platform directory symlinks, removing `powershell.exe` shell execution and hardcoded NTFS junction dependencies (#42).
 - [save-resolver] Consolidated engine detection, deterministic path discovery, and heuristic fallback scanning behind a unified `SaveFolderResolver` deep module class.
 - [save-resolver] Added `FileSystemProvider` interface (`DefaultFileSystemProvider` and `MockFileSystemProvider`) enabling virtual filesystem unit testing without real OS path dependencies.

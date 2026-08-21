@@ -22,6 +22,14 @@
     border-radius: 8px;
     margin-bottom: 0;
     line-height: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
+    outline: none;
+    font: inherit;
+    color: inherit;
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .yume-mascot-widget.hidden {

@@ -8,6 +8,8 @@ import metalPipeSound from '../../assets/metal-pipe.mp3';
 export interface MascotController {
     init(): void;
     destroy(): void;
+    show(): void;
+    hide(): void;
     setVisible(visible: boolean): void;
     setScale(scalePercent: number | string): void;
     setSound(soundKey: string): void;
@@ -36,6 +38,8 @@ export function createMascotWidget({
         return {
             init: () => {},
             destroy: () => {},
+            show: () => {},
+            hide: () => {},
             setVisible: () => {},
             setScale: () => {},
             setSound: () => {},
@@ -109,8 +113,10 @@ export function createMascotWidget({
 
         // Retrigger 0.5s bonk squash animation smoothly
         widgetEl.classList.remove('bonk-animating');
-        void widgetEl.offsetWidth; // Trigger DOM reflow to restart keyframe animation
-        widgetEl.classList.add('bonk-animating');
+        const _reflow = widgetEl.offsetWidth; // Trigger DOM reflow cleanly without void operator
+        if (_reflow >= 0) {
+            widgetEl.classList.add('bonk-animating');
+        }
 
         if (animEndTimer) {
             clearTimeout(animEndTimer);
@@ -142,11 +148,19 @@ export function createMascotWidget({
         }
     }
 
+    function show() {
+        widgetEl.classList.remove('hidden');
+    }
+
+    function hide() {
+        widgetEl.classList.add('hidden');
+    }
+
     function setVisible(visible: boolean) {
         if (visible) {
-            widgetEl.classList.remove('hidden');
+            show();
         } else {
-            widgetEl.classList.add('hidden');
+            hide();
         }
     }
 
@@ -193,6 +207,8 @@ export function createMascotWidget({
             widgetEl.removeEventListener('click', handleClick);
             widgetEl.removeEventListener('keydown', handleKeyDown);
         },
+        show,
+        hide,
         setVisible,
         setScale,
         setSound,

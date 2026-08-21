@@ -7,7 +7,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.0] - 2026-08-21 — released
 
 ### What Changed
-- Added Yume-chan so I will bump this to 2.0.0 HAHAHAAHAHAHAHAAHAHAHAHAAHAH
+- Added Yume-chan so I'm bumping this to 2.0.0 lololololololol
 - You can bonk her, better don't take that for granted
 
 ### For the Nerds

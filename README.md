@@ -1,9 +1,6 @@
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/yumeshelf_wordmark_refined_icon_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/yumeshelf_wordmark_refined_icon.svg">
-    <img alt="YumeShelf" src="assets/yumeshelf_wordmark_refined_icon.svg" width="600">
-  </picture>
+  <img src="assets/yumeshelf_icon_highres_4096.png" alt="YumeShelf" width="180" height="180">
+  <h1>YumeShelf</h1>
   <p><b>A minimalist game library and launcher for your personal collection.</b></p>
 
   <p>

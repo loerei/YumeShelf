@@ -9,8 +9,6 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### What Changed
 - Added Yume-chan so I will bump this to 2.0.0 HAHAHAAHAHAHAHAAHAHAHAHAAHAH
 - You can bonk her, better don't take that for granted
-- Added interactive mascot widget in the bottom-right corner with responsive click reactions, squash-and-stretch bonk physics animation, and auto-recovery.
-- Added Settings page options: "Show Yume-chan", "Yume-chan scale" (25% - 100%), "Bonk Sound" (Squeaky, Metal pipe, None), and "Bonk Volume (Uhh... be careful)" slider.
 
 ### For the Nerds
 - [mascot] Created `src/renderer/mascot-widget.ts` managing character states (`smug`, `bonked`, `bonkedTooMuch`), audio cancellation/restart logic, squash-and-stretch CSS animation, and real-time preloading.

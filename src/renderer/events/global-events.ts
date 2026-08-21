@@ -183,6 +183,26 @@ export function bindControlEvents({
             sortGames(currentSort());
         };
     }
+    if (refs.mascotShowSelect) {
+        refs.mascotShowSelect.onchange = (event) => {
+            settingsController.handleMascotShowChange((event.target as HTMLSelectElement).value);
+        };
+    }
+    if (refs.mascotScaleSelect) {
+        refs.mascotScaleSelect.onchange = (event) => {
+            settingsController.handleMascotScaleChange((event.target as HTMLSelectElement).value);
+        };
+    }
+    if (refs.mascotSoundSelect) {
+        refs.mascotSoundSelect.onchange = (event) => {
+            settingsController.handleMascotSoundChange((event.target as HTMLSelectElement).value);
+        };
+    }
+    if (refs.mascotVolumeSlider) {
+        refs.mascotVolumeSlider.oninput = (event) => {
+            settingsController.handleMascotVolumeChange((event.target as HTMLInputElement).value);
+        };
+    }
     if (refs.locationDisplaySelect) {
         refs.locationDisplaySelect.onchange = (event) => {
             settingsController.handleLocationDisplayModeChange((event.target as HTMLSelectElement).value);

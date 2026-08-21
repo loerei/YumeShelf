@@ -15,6 +15,7 @@ The issue tracker and triage label vocabulary should have been provided to you �
 ### 1. Gather context
 
 Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
+- **Context Fetching Helper**: Run `node <skill-dir>/scripts/fetch-issue.js <issue-number-or-url>` to pull the complete issue body and all comments into `.scratch/issue_<number>_details.json` and `.md` without CLI line truncation.
 
 ### 2. Explore the codebase (optional)
 
@@ -61,6 +62,7 @@ Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock
 
 - **Local files** → write one file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below — one ticket per file, never a single combined file.
 - **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues. Apply the `ready-for-agent` triage label unless instructed otherwise — the tickets are agent-grabbable by construction.
+  - **Publishing Helper**: Use `node <skill-dir>/scripts/publish-ticket.js <ticket-file.md>` to create ticket issues, or `--comment-on <parent-issue>` to post summary graphs without shell backtick escaping or UTF-8 mojibake issues.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 

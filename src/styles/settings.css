@@ -81,12 +81,53 @@
 .setting-field-group select,
 .setting-control-zone select,
 .setting-control-zone .max-depth-stepper,
+.setting-control-zone .volume-slider-container,
 .wide-setting-btn {
     width: 196px;
     min-width: 196px;
     max-width: 196px;
     margin-left: auto;
     box-sizing: border-box;
+}
+
+.volume-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.volume-slider-container input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-color);
+    outline: none;
+    cursor: pointer;
+}
+
+.volume-slider-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.volume-slider-container input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.volume-slider-container .volume-value-label {
+    min-width: 36px;
+    text-align: right;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-sub);
 }
 
 .secondary-btn {

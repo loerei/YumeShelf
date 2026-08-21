@@ -13,6 +13,7 @@ function clampMaxDepth(value: number | string | null | undefined): number {
 export interface SettingsControllerOptions {
     onOpen?: () => void;
     container: HTMLElement;
+    mascotWidget?: any;
 }
 
 export interface SettingsController {
@@ -33,6 +34,10 @@ export interface SettingsController {
     handleAutoLaunchChange: (nextValue: string) => Promise<string>;
     handleMinimizeToTrayChange: (nextValue: string) => Promise<boolean>;
     handleExposeBetaChange: (nextValue: string) => Promise<boolean>;
+    handleMascotShowChange: (nextValue: string) => void;
+    handleMascotScaleChange: (nextValue: string) => void;
+    handleMascotSoundChange: (nextValue: string) => void;
+    handleMascotVolumeChange: (nextValue: number | string) => void;
     initializeSettingsUI: (initialLibraryConfig?: any) => void;
     isSettingsOpen: () => boolean;
     openSettings: () => Promise<void>;
@@ -40,7 +45,8 @@ export interface SettingsController {
 
 export function createSettingsController({
     onOpen,
-    container
+    container,
+    mascotWidget
 }: SettingsControllerOptions): SettingsController {
     // Controller owns its DOM scope – querySelector within container only.
     const settingsOverlay       = container;
@@ -57,6 +63,11 @@ export function createSettingsController({
     const minimizeToTraySelect  = container.querySelector('#minimize-to-tray-select') as HTMLSelectElement | null;
     const telemetrySelect       = container.querySelector('#telemetry-select') as HTMLSelectElement | null;
     const exposeBetaSelect      = container.querySelector('#expose-beta-select') as HTMLSelectElement | null;
+    const mascotShowSelect      = container.querySelector('#mascot-show-select') as HTMLSelectElement | null;
+    const mascotScaleSelect     = container.querySelector('#mascot-scale-select') as HTMLSelectElement | null;
+    const mascotSoundSelect     = container.querySelector('#mascot-sound-select') as HTMLSelectElement | null;
+    const mascotVolumeSlider    = container.querySelector('#mascot-volume-slider') as HTMLInputElement | null;
+    const mascotVolumeValue     = container.querySelector('#mascot-volume-value') as HTMLElement | null;
     const libraryPathsContainer  = container.querySelector('#library-paths-container') as HTMLElement | null;
     const btnAddLibraryPath      = container.querySelector('#btn-add-library-path') as HTMLButtonElement | null;
 
@@ -71,6 +82,10 @@ export function createSettingsController({
     let currentMinimizeToTray = false;
     let currentTelemetry = 'off';
     let currentExposeBeta = false;
+    let currentMascotShow = localStorage.getItem('yumeshelf_mascot_show') || 'on';
+    let currentMascotScale = localStorage.getItem('yumeshelf_mascot_scale') || '100';
+    let currentMascotSound = localStorage.getItem('yumeshelf_mascot_sound') || 'squeaker';
+    let currentMascotVolume = localStorage.getItem('yumeshelf_mascot_volume') ?? '20';
 
     async function openSettings(): Promise<void> {
         if (typeof onOpen === 'function') {
@@ -120,6 +135,46 @@ export function createSettingsController({
         if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
         if (telemetrySelect) telemetrySelect.value = currentTelemetry;
         if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
+        if (mascotShowSelect) mascotShowSelect.value = currentMascotShow;
+        if (mascotScaleSelect) mascotScaleSelect.value = currentMascotScale;
+        if (mascotSoundSelect) mascotSoundSelect.value = currentMascotSound;
+        if (mascotVolumeSlider) mascotVolumeSlider.value = String(currentMascotVolume);
+        if (mascotVolumeValue) mascotVolumeValue.textContent = `${currentMascotVolume}%`;
+    }
+
+    function handleMascotShowChange(nextValue: string): void {
+        currentMascotShow = nextValue;
+        localStorage.setItem('yumeshelf_mascot_show', nextValue);
+        if (mascotWidget?.setVisible) {
+            mascotWidget.setVisible(nextValue === 'on');
+        }
+    }
+
+    function handleMascotScaleChange(nextValue: string): void {
+        currentMascotScale = nextValue;
+        localStorage.setItem('yumeshelf_mascot_scale', nextValue);
+        if (mascotWidget?.setScale) {
+            mascotWidget.setScale(nextValue);
+        }
+    }
+
+    function handleMascotSoundChange(nextValue: string): void {
+        currentMascotSound = nextValue;
+        localStorage.setItem('yumeshelf_mascot_sound', nextValue);
+        if (mascotWidget?.setSound) {
+            mascotWidget.setSound(nextValue);
+        }
+    }
+
+    function handleMascotVolumeChange(nextValue: number | string): void {
+        currentMascotVolume = String(nextValue);
+        localStorage.setItem('yumeshelf_mascot_volume', String(nextValue));
+        if (mascotVolumeValue) {
+            mascotVolumeValue.textContent = `${nextValue}%`;
+        }
+        if (mascotWidget?.setVolume) {
+            mascotWidget.setVolume(nextValue);
+        }
     }
 
     function handleThemeChange(nextTheme: string): void {
@@ -326,6 +381,10 @@ export function createSettingsController({
         handleAutoLaunchChange,
         handleMinimizeToTrayChange,
         handleExposeBetaChange,
+        handleMascotShowChange,
+        handleMascotScaleChange,
+        handleMascotSoundChange,
+        handleMascotVolumeChange,
         initializeSettingsUI,
         isSettingsOpen,
         openSettings

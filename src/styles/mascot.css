@@ -1,0 +1,81 @@
+/* Interactive Yume Mascot Widget */
+.update-notification-bottom-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.yume-mascot-widget {
+    --mascot-scale: 1;
+    position: relative;
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: center;
+    cursor: pointer;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+    transform-origin: bottom center;
+    transition: filter 0.2s ease, transform 0.15s ease;
+    border-radius: 8px;
+    margin-bottom: 0;
+    line-height: 0;
+}
+
+.yume-mascot-widget.hidden {
+    display: none !important;
+}
+
+.yume-mascot-widget:hover {
+    filter: brightness(1.08) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.4));
+}
+
+.yume-mascot-widget:active {
+    transform: translateY(2px);
+}
+
+.yume-mascot-img {
+    height: calc(clamp(200px, 32vh, 340px) * var(--mascot-scale, 1));
+    width: auto;
+    max-width: min(40vw, calc(360px * var(--mascot-scale, 1)));
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+    transform-origin: bottom center;
+}
+
+/* Bonk squash-and-stretch animation (~0.5s duration) */
+.yume-mascot-widget.bonk-animating .yume-mascot-img {
+    animation: yume-bonk-squash 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes yume-bonk-squash {
+    0% {
+        transform: translateY(0) scale(1, 1);
+    }
+    20% {
+        transform: translateY(18px) scale(1.15, 0.82);
+    }
+    45% {
+        transform: translateY(-10px) scale(0.95, 1.07);
+    }
+    70% {
+        transform: translateY(4px) scale(1.02, 0.98);
+    }
+    85% {
+        transform: translateY(-1.5px) scale(0.99, 1.01);
+    }
+    100% {
+        transform: translateY(0) scale(1, 1);
+    }
+}
+
+@media (max-width: 900px) {
+    .update-notification-bottom-row {
+        width: 100%;
+        justify-content: space-between;
+    }
+}

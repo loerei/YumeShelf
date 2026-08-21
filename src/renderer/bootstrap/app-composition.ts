@@ -18,6 +18,7 @@ import { createStartupController } from '../startup';
 import { createTooltipController } from '../tooltips';
 import { createUpdateNotificationFeature } from '../update-notification-feature';
 import { createUITextController } from '../ui-text';
+import { createMascotWidget } from '../mascot-widget';
 
 export function createRendererComposition({
     refs,
@@ -105,11 +106,18 @@ export function createRendererComposition({
         sortGames: () => libraryRuntime.sortGames(state.getCurrentSort())
     });
 
+    const mascotWidget = createMascotWidget({
+        widgetEl: refs.mascotWidget,
+        imgEl: refs.mascotImg
+    });
+    mascotWidget.init();
+
     const settingsController = createSettingsController({
         onOpen: () => {
             tooltipController.hide();
         },
-        container: refs.containers.settings
+        container: refs.containers.settings,
+        mascotWidget
     });
 
     let languagePackController = null;
@@ -378,6 +386,7 @@ export function createRendererComposition({
         languagePackController,
         libraryRuntime,
         localeController,
+        mascotWidget,
         searchController,
         settingsController,
         startupController,

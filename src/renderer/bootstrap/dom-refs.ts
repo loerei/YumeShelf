@@ -7,6 +7,8 @@ export interface RendererRefs {
     langSelect: HTMLSelectElement | null;
     sortMenu: HTMLElement | null;
     sortBtn: HTMLElement | null;
+    mascotWidget: HTMLElement | null;
+    mascotImg: HTMLImageElement | null;
 
     // === Boot refs ===
     loading: HTMLElement | null;
@@ -50,6 +52,11 @@ export interface RendererRefs {
     minimizeToTraySelect: HTMLSelectElement | null;
     telemetrySelect: HTMLSelectElement | null;
     exposeBetaSelect: HTMLSelectElement | null;
+    mascotShowSelect: HTMLSelectElement | null;
+    mascotScaleSelect: HTMLSelectElement | null;
+    mascotSoundSelect: HTMLSelectElement | null;
+    mascotVolumeSlider: HTMLInputElement | null;
+    mascotVolumeValue: HTMLElement | null;
     buttons: {
         setupDefault: HTMLElement | null;
         chooseCustom: HTMLElement | null;
@@ -137,6 +144,8 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         langSelect: documentRef.getElementById('lang-select') as HTMLSelectElement,
         sortMenu: documentRef.getElementById('sort-menu'),
         sortBtn: documentRef.getElementById('sort-btn'),
+        mascotWidget: documentRef.getElementById('yume-mascot-widget'),
+        mascotImg: documentRef.getElementById('yume-mascot-img') as HTMLImageElement | null,
 
         // === Boot refs ===
         loading: documentRef.getElementById('loading'),
@@ -185,6 +194,11 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         minimizeToTraySelect:    settingsContainer ? settingsContainer.querySelector('#minimize-to-tray-select') as HTMLSelectElement : null,
         telemetrySelect:         settingsContainer ? settingsContainer.querySelector('#telemetry-select') as HTMLSelectElement : null,
         exposeBetaSelect:        settingsContainer ? settingsContainer.querySelector('#expose-beta-select') as HTMLSelectElement : null,
+        mascotShowSelect:        settingsContainer ? settingsContainer.querySelector('#mascot-show-select') as HTMLSelectElement : null,
+        mascotScaleSelect:       settingsContainer ? settingsContainer.querySelector('#mascot-scale-select') as HTMLSelectElement : null,
+        mascotSoundSelect:       settingsContainer ? settingsContainer.querySelector('#mascot-sound-select') as HTMLSelectElement : null,
+        mascotVolumeSlider:      settingsContainer ? settingsContainer.querySelector('#mascot-volume-slider') as HTMLInputElement : null,
+        mascotVolumeValue:       settingsContainer ? settingsContainer.querySelector('#mascot-volume-value') : null,
 
         // === Button refs ===
         buttons: {

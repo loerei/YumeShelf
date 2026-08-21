@@ -4,6 +4,23 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.0] - working
+
+### What Changed
+- Added Yume-chan so I will bump this to 2.0.0 HAHAHAAHAHAHAHAAHAHAHAHAAHAH
+- You can bonk her, better don't take that for granted
+- Added interactive mascot widget in the bottom-right corner with responsive click reactions, squash-and-stretch bonk physics animation, and auto-recovery.
+- Added Settings page options: "Show Yume-chan", "Yume-chan scale" (25% - 100%), "Bonk Sound" (Squeaky, Metal pipe, None), and "Bonk Volume (Uhh... be careful)" slider.
+
+### For the Nerds
+- [mascot] Created `src/renderer/mascot-widget.ts` managing character states (`smug`, `bonked`, `bonkedTooMuch`), audio cancellation/restart logic, squash-and-stretch CSS animation, and real-time preloading.
+- [styling] Added `src/styles/mascot.css` with responsive `clamp()` sizing, bottom-dock alignment, and CSS `--mascot-scale` control.
+- [audio] Integrated bundled audio playback (`squeaker.mp3`, `metal-pipe.mp3`) with instant interruption on rapid clicks.
+- [settings] Extended settings controller, DOM references, and event bindings to support mascot visibility, scaling, sound selection, and volume controls.
+- [i18n] Localized all new mascot and bonk settings across English, Japanese (Katakana: ユメちゃん), and Simplified Chinese dictionaries.
+
+---
+
 ## [1.6.0] - 2026-08-20
 
 ### What Changed

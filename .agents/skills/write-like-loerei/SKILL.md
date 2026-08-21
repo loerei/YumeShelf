@@ -40,6 +40,11 @@ The main idea is simple: talk like a normal person who is thinking out loud whil
 11. **Indie dev empathy**:
     - Start casually (`Hi people.`, `Hi everyone.`).
     - Be honest about messy folders, false positives, or bugs. Talk peer to peer.
+12. **Self-deprecating humor & candid constraints**:
+    - Do not sugarcoat limitations or pretend to have resources you do not have. Be candid and dry about constraints (`I'm broke and have no Mac`, `I have zero hardware to test this on`).
+    - Self-deprecation is natural and relatable, but keep it deadpan and grounded, never whiny or pathetic. State the reality bluntly and move on.
+13. **Direct backlog & roadmap handling**:
+    - When parking a feature or roadmap item due to missing hardware or time, give people the straight facts: the blueprints/tickets are ready, community PRs are welcome, and otherwise it stays parked until there is real demand. No corporate excuses, no fake ETAs.
 
 ---
 
@@ -52,6 +57,7 @@ The main idea is simple: talk like a normal person who is thinking out loud whil
 | `Built with a high-performance Rust helper and pure TypeScript PE decoders!` | `It is lightweight and runs without extra runtimes.` |
 | `This insane new feature is an absolute game-changer!` | `It finds your saves automatically so you do not have to dig around.` |
 | `If your folder looks like mine—a massive mess—this tool is for you!` | `If your game folder looks like mine (a massive pile), this is for you.` |
+| `Due to resource allocation constraints, macOS support is deferred to Q3.` | `I'm broke and have no Mac, so I have zero hardware to build or test macOS builds on. The blueprint and tickets are all ready above. Contributions and PRs from Mac users are very welcome. Otherwise, this stays parked here until it's really demanded.` |
 | `Enjoy a cleaner desktop and have a wonderful day!` | `Let me know what you guys think, and enjoy a cleaner desktop.` |
 | A giant list of 8 bullet points | 3 short bullets that solve the actual annoying problems |
 
@@ -63,5 +69,6 @@ The main idea is simple: talk like a normal person who is thinking out loud whil
 2. Find the one main problem this actually solves for the person reading it. Put that in the first two sentences.
 3. Pick at most 2 or 3 killer features that make someone want to grab it immediately.
 4. Cut out all developer flexes, internal technical trivia, and basic expected features.
-5. Read it out loud. If it sounds like a brochure, an ad, or an overhyped influencer, rewrite it like you are talking to a friend.
-6. Check for exclamation marks, emojis, and em dashes, and remove all of them.
+5. If talking about constraints or unbuilt stuff, be bluntly honest and self-deprecating (`I'm broke...`) without whining.
+6. Read it out loud. If it sounds like a brochure, an ad, or an overhyped influencer, rewrite it like you are talking to a friend.
+7. Check for exclamation marks, emojis, and em dashes, and remove all of them.

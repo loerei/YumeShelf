@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      argparse:
+        specifier: ^2.0.1
+        version: 2.0.1
       builder-util-runtime:
         specifier: ^9.2.9
         version: 9.7.0(supports-color@5.5.0)
+      debug:
+        specifier: ^4.4.0
+        version: 4.4.3(supports-color@5.5.0)
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -23,12 +29,39 @@ importers:
       fs-extra:
         specifier: ^10.1.0
         version: 10.1.0
+      graceful-fs:
+        specifier: ^4.2.11
+        version: 4.2.11
       js-yaml:
         specifier: ^5.2.1
         version: 5.2.1
+      jsonfile:
+        specifier: ^6.2.1
+        version: 6.2.1
       lazy-val:
         specifier: ^1.0.5
         version: 1.0.5
+      lodash.escaperegexp:
+        specifier: ^4.1.2
+        version: 4.1.2
+      lodash.isequal:
+        specifier: ^4.5.0
+        version: 4.5.0
+      ms:
+        specifier: ^2.1.3
+        version: 2.1.3
+      sax:
+        specifier: ^1.4.1
+        version: 1.6.0
+      semver:
+        specifier: ^7.7.4
+        version: 7.8.5
+      tiny-typed-emitter:
+        specifier: ^2.1.0
+        version: 2.1.0
+      universalify:
+        specifier: ^2.0.1
+        version: 2.0.1
     devDependencies:
       '@types/dotenv':
         specifier: ^6.1.1

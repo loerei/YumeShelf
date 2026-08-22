@@ -129,8 +129,8 @@ export async function resolveGameLaunch(
         const wineBin = runnerConfig?.customRunnerPath || wineRunner?.path;
         const wineExists = wineBin ? env.existsSync(wineBin) : (env.existsSync('/usr/bin/wine') || env.existsSync('/usr/local/bin/wine'));
         if (!wineExists) {
-            const protonRunner = detectedRunners.find((r) => r.mode === 'proton');
-            if (protonRunner) {
+            const hasProtonRunner = detectedRunners.some((r) => r.mode === 'proton');
+            if (hasProtonRunner) {
                 mode = 'proton';
             } else if (detectedRunners.length === 0 || !detectedRunners.some(r => r.mode !== 'native')) {
                 throw new Error('No Windows compatibility runner (Wine, Steam Proton, Bottles, or Lutris) was found on this Linux system. Please install Wine or Steam Proton to launch Windows games.');

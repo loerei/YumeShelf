@@ -212,15 +212,11 @@ class RpgWolfSavFormat {
         console.log(`[WOLF-SAV] decrypted payload length: ${decrypted.length}`);
 
         // Read Game Title if header format is present
-        let pos = 0;
         let gameTitle = 'WOLF RPG Game';
         if (decrypted.length >= 3) {
-            const magic = decrypted.readUInt8(pos);
-            const titleLen = decrypted.readUInt16LE(pos + 1);
-            if (titleLen > 0 && titleLen < 256 && pos + 3 + titleLen <= decrypted.length) {
-                pos += 3;
-                gameTitle = decrypted.subarray(pos, pos + titleLen).toString('utf8').replace(/\0+$/, '');
-                pos += titleLen;
+            const titleLen = decrypted.readUInt16LE(1);
+            if (titleLen > 0 && titleLen < 256 && 3 + titleLen <= decrypted.length) {
+                gameTitle = decrypted.subarray(3, 3 + titleLen).toString('utf8').replace(/\0+$/, '');
             }
         }
         console.log(`[WOLF-SAV] detected gameTitle: "${gameTitle}"`);
@@ -447,7 +443,7 @@ class RpgWolfSavFormat {
                 const currentMtime = stat.mtimeMs;
                 const cached = metadataCache.get(paths.exeDir);
 
-                if (cached && cached.dbFile === dbFile && cached.mtime === currentMtime) {
+                if (cached?.dbFile === dbFile && cached.mtime === currentMtime) {
                     console.log(`[WOLF-SAV] metadata cache hit for: ${paths.exeDir} (${Object.keys(cached.customNames).length} custom names)`);
                     metadata.variables = { ...cached.customNames };
                     return metadata;

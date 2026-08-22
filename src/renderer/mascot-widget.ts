@@ -41,6 +41,38 @@ const DEFAULT_BONK_QUOTES = [
     '???'
 ];
 
+function getNextShuffledIndex(storageKey: string, totalCount: number): number {
+    if (totalCount <= 1) return 0;
+    let deck: number[] = [];
+    try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.every(n => typeof n === 'number' && n >= 0 && n < totalCount)) {
+                deck = parsed;
+            }
+        }
+    } catch {
+        deck = [];
+    }
+
+    if (deck.length === 0) {
+        deck = Array.from({ length: totalCount }, (_, i) => i);
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+    }
+
+    const nextIndex = deck.pop()!;
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(deck));
+    } catch {
+        // Fallback safe
+    }
+    return nextIndex;
+}
+
 export function createMascotWidget({
     widgetEl,
     imgEl,
@@ -138,38 +170,6 @@ export function createMascotWidget({
         }
     }
 
-    function getNextShuffledIndex(storageKey: string, totalCount: number): number {
-        if (totalCount <= 1) return 0;
-        let deck: number[] = [];
-        try {
-            const raw = localStorage.getItem(storageKey);
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed) && parsed.every(n => typeof n === 'number' && n >= 0 && n < totalCount)) {
-                    deck = parsed;
-                }
-            }
-        } catch {
-            deck = [];
-        }
-
-        if (deck.length === 0) {
-            deck = Array.from({ length: totalCount }, (_, i) => i);
-            for (let i = deck.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [deck[i], deck[j]] = [deck[j], deck[i]];
-            }
-        }
-
-        const nextIndex = deck.pop()!;
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(deck));
-        } catch {
-            // Fallback safe
-        }
-        return nextIndex;
-    }
-
     function getRandomBonkedQuote(): string {
         const d = typeof getStrings === 'function' ? getStrings() : {};
         const pool = Array.isArray(d?.mascot_bonk_quotes) && d.mascot_bonk_quotes.length > 0 ? d.mascot_bonk_quotes : DEFAULT_BONK_QUOTES;
@@ -219,8 +219,8 @@ export function createMascotWidget({
         const savedY = localStorage.getItem('yumeshelf_mascot_y');
 
         if (savedX !== null && savedY !== null) {
-            const parsedX = parseFloat(savedX);
-            const parsedY = parseFloat(savedY);
+            const parsedX = Number.parseFloat(savedX);
+            const parsedY = Number.parseFloat(savedY);
             if (Number.isFinite(parsedX) && Number.isFinite(parsedY)) {
                 clampAndApplyPosition(parsedX, parsedY, false);
                 return;
@@ -428,7 +428,7 @@ export function createMascotWidget({
         }
 
         // Increment persistent bonk counter in localStorage
-        const prevCount = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+        const prevCount = Number.parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
         localStorage.setItem('yumeshelf_mascot_bonk_count', String(prevCount + 1));
 
         // Retrigger 0.5s bonk squash animation smoothly
@@ -541,7 +541,7 @@ export function createMascotWidget({
         contextMenuEl.style.top = `${top}px`;
 
         // Update persistent bonked counter text
-        const bonkCount = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+        const bonkCount = Number.parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
         const counterEl = contextMenuEl.querySelector('#mascot-menu-counter');
         if (counterEl) {
             const strings = typeof getStrings === 'function' ? getStrings() : null;

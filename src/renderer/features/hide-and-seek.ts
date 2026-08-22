@@ -82,6 +82,10 @@ export function getNextShuffledIndex(storageKey: string, totalCount: number): nu
     return nextIndex;
 }
 
+export function isHideAndSeekEnabled(): boolean {
+    return localStorage.getItem('yumeshelf_hide_and_seek') === 'yeaaa';
+}
+
 export interface HideAndSeekControllerOptions {
     mascotWidget: any;
     getStrings: () => any;
@@ -166,12 +170,8 @@ export function createHideAndSeekController({
     // Initialize initial quote
     currentQuote = getRandomIdleQuote();
 
-    function isEnabled(): boolean {
-        return localStorage.getItem('yumeshelf_hide_and_seek') === 'yeaaa';
-    }
-
     function isCardActive(): boolean {
-        return isEnabled() && !isDismissed;
+        return isHideAndSeekEnabled() && !isDismissed;
     }
 
     function setSetting(enabled: boolean) {
@@ -242,7 +242,7 @@ export function createHideAndSeekController({
 
     function getFormattedBonkStatus(): string {
         const d = typeof getStrings === 'function' ? getStrings() : {};
-        const count = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+        const count = Number.parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
         if (count === 0) {
             return d.never_bonked || 'Never bonked';
         }
@@ -316,7 +316,7 @@ export function createHideAndSeekController({
             mascotWidget?.spawnBonkImpact?.(event.clientX, event.clientY);
 
             // Increment persistent counter
-            const prev = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+            const prev = Number.parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
             localStorage.setItem('yumeshelf_mascot_bonk_count', String(prev + 1));
 
             // Quote & image update

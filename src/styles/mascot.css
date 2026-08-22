@@ -16,12 +16,12 @@
     transition: filter 0.2s ease, transform 0.15s ease;
     border-radius: 8px;
     margin-bottom: 0;
+    font: inherit;
     line-height: 0;
     border: none;
     background: transparent;
     padding: 0;
     outline: none;
-    font: inherit;
     color: inherit;
     -webkit-appearance: none;
     appearance: none;

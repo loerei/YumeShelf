@@ -64,8 +64,6 @@ export function createSettingsController({
     const titleDisplaySelect    = container.querySelector('#title-display-select') as HTMLSelectElement | null;
     const displayCodesSelect    = container.querySelector('#display-codes-select') as HTMLSelectElement | null;
     const maxDepthInput         = container.querySelector('#max-depth-input') as HTMLInputElement | null;
-    const maxDepthDecreaseBtn   = container.querySelector('#max-depth-decrease-btn') as HTMLButtonElement | null;
-    const maxDepthIncreaseBtn   = container.querySelector('#max-depth-increase-btn') as HTMLButtonElement | null;
     const autoLaunchSelect      = container.querySelector('#auto-launch-select') as HTMLSelectElement | null;
     const minimizeToTraySelect  = container.querySelector('#minimize-to-tray-select') as HTMLSelectElement | null;
     const telemetrySelect       = container.querySelector('#telemetry-select') as HTMLSelectElement | null;

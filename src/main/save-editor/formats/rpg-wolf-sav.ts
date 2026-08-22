@@ -345,7 +345,7 @@ class RpgWolfSavFormat {
 
     async encode(jsonData: any): Promise<Buffer> {
         console.log(`[WOLF-SAV] encode called for file: ${jsonData?.fileName}`);
-        if (!jsonData || !jsonData.rawBase64 || !jsonData._decryptedBase64) {
+        if (!jsonData?.rawBase64 || !jsonData?._decryptedBase64) {
             throw new Error('Invalid RPG/Wolf .sav inspection payload: missing raw or decrypted binary base64');
         }
 

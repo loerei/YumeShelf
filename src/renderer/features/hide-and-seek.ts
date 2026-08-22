@@ -198,12 +198,10 @@ export function createHideAndSeekController({
         if (!show) {
             clearCardTimers();
             mascotWidget?.hide?.();
+        } else if (isHideAndSeekEnabled() && !isDismissed) {
+            mascotWidget?.hide?.();
         } else {
-            if (isHideAndSeekEnabled() && !isDismissed) {
-                mascotWidget?.hide?.();
-            } else {
-                mascotWidget?.show?.();
-            }
+            mascotWidget?.show?.();
         }
         if (typeof onRerenderRequested === 'function') {
             onRerenderRequested();

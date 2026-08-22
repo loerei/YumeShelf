@@ -5,6 +5,7 @@ import yumeBonkedTooMuch from '../../assets/yume_bonkedtoomuch.png';
 import bonkEffectImg from '../../assets/BONK.png';
 import squeakerSound from '../../assets/squeaker.mp3';
 import metalPipeSound from '../../assets/metal-pipe.mp3';
+import { getNextShuffledIndex } from './features/hide-and-seek';
 
 export interface MascotController {
     init(): void;
@@ -40,38 +41,6 @@ const DEFAULT_BONK_QUOTES = [
     '@@',
     '???'
 ];
-
-function getNextShuffledIndex(storageKey: string, totalCount: number): number {
-    if (totalCount <= 1) return 0;
-    let deck: number[] = [];
-    try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.every(n => typeof n === 'number' && n >= 0 && n < totalCount)) {
-                deck = parsed;
-            }
-        }
-    } catch {
-        deck = [];
-    }
-
-    if (deck.length === 0) {
-        deck = Array.from({ length: totalCount }, (_, i) => i);
-        for (let i = deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [deck[i], deck[j]] = [deck[j], deck[i]];
-        }
-    }
-
-    const nextIndex = deck.pop()!;
-    try {
-        localStorage.setItem(storageKey, JSON.stringify(deck));
-    } catch {
-        // Fallback safe
-    }
-    return nextIndex;
-}
 
 export function createMascotWidget({
     widgetEl,

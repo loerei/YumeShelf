@@ -4,6 +4,18 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.5] - working
+
+### What Changed
+- Refactored internal code quality smells and eliminated duplicate mascot shuffle logic.
+
+### For the Nerds
+- [renderer] Resolved `typescript:S6660` lonely `if` statement in `onMascotShowChange` inside `hide-and-seek.ts`.
+- [save-editor] Resolved `typescript:S6582` optional chaining recommendation in `rpg-wolf-sav.ts`.
+- [renderer] Eliminated duplicate `getNextShuffledIndex` in `mascot-widget.ts` by importing from `hide-and-seek.ts`.
+
+---
+
 ## [2.0.4] - 2026-08-22 — released
 
 ### What Changed

@@ -4,6 +4,18 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.4] - working
+
+### What Changed
+- Added proper Japanese, Chinese, and Vietnamese translations for the Hide and Seek options in settings, and cleaned up the redundant English labels.
+- Sped up the release pipeline builds on GitHub Actions by switching dependency installation to pnpm with frozen lockfiles.
+
+### For the Nerds
+- [i18n] Localized Hide and Seek dropdown options across Japanese (うん / いやです), Chinese (好啊 / 不玩了), and Vietnamese (Chơi luôn / Thôi sủi), and dropped redundant `(Hide And Seek?)` suffix.
+- [ci] Migrated release workflow to `pnpm/action-setup@v4` with automated pnpm store caching on `actions/setup-node@v4` and `--frozen-lockfile` installs.
+
+---
+
 ## [2.0.3] - 2026-08-22 — released
 
 ### What Changed

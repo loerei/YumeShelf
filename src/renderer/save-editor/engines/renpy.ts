@@ -114,7 +114,7 @@ export class RenpyEngine {
 
         if (typeof prop === 'string' && prop.startsWith('prefix_')) {
             const prefix = prop.substring(7);
-            const prefixPattern = new RegExp(`^store\\.${prefix}_`);
+            const prefixPattern = new RegExp(String.raw`^store\.${prefix}_`);
             return new Proxy(obj, {
                 get(target, key) {
                     if (key === 'toJSON' || typeof key === 'symbol') return target[key];

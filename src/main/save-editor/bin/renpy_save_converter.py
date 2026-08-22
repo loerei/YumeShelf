@@ -189,9 +189,7 @@ def patch_log_stream(log_data, modified_vars):
 
     changed = {}
     for k, v in modified_vars.items():
-        if k in orig_vars and orig_vars[k] != v:
-            changed[k] = v
-        elif k not in orig_vars:
+        if k not in orig_vars or orig_vars[k] != v:
             changed[k] = v
 
     if not changed:
@@ -200,7 +198,7 @@ def patch_log_stream(log_data, modified_vars):
 
     # Walk and collect all frame descriptors in the stream (Pickle Protocol 4 / 5)
     pos = 0
-    if log_data.startswith(b'\x80\x05') or log_data.startswith(b'\x80\x04'):
+    if log_data.startswith((b'\x80\x05', b'\x80\x04')):
         pos = 2
 
     frames = []

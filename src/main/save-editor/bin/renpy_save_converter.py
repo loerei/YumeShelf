@@ -189,7 +189,7 @@ def patch_log_stream(log_data, modified_vars):
 
     changed = {}
     for k, v in modified_vars.items():
-        if k not in orig_vars or orig_vars[k] != v:
+        if k not in orig_vars or serialize_val(orig_vars[k]) != v:
             changed[k] = v
 
     if not changed:
@@ -231,12 +231,16 @@ def patch_log_stream(log_data, modified_vars):
 
     replacements = []
     for key, new_val in changed.items():
-        if key in entries:
-            start, end, old_op, old_arg = entries[key]
-            encoded = encode_pickle_value(new_val, old_op_name=old_op)
-            if encoded is not None:
-                replacements.append((start, end, encoded))
-                print(f"Surgical patch on {key}: {orig_vars.get(key, old_arg)} -> {new_val} (opcode: {encoded.hex()})")
+        if key not in entries:
+            print(f"Error: Cannot patch variable '{key}' as it does not exist in the original save stream.", file=sys.stderr)
+            sys.exit(1)
+        start, end, old_op, old_arg = entries[key]
+        encoded = encode_pickle_value(new_val, old_op_name=old_op)
+        if encoded is None:
+            print(f"Error: Cannot encode modified value for '{key}' of type {type(new_val).__name__} into pickle opcodes.", file=sys.stderr)
+            sys.exit(1)
+        replacements.append((start, end, encoded))
+        print(f"Surgical patch on {key}: {orig_vars.get(key, old_arg)} -> {new_val} (opcode: {encoded.hex()})")
 
     # Map delta changes to corresponding frames
     for start, end, new_bytes in replacements:
@@ -328,6 +332,7 @@ def to_save(original_save_path, json_in_path, output_save_path):
         
     with zipfile.ZipFile(original_save_path, 'r') as z:
         orig_log_data = z.read('log')
+        orig_has_signatures = 'signatures' in z.namelist()
         
     with open(json_in_path, 'r', encoding='utf-8') as f:
         modified_vars = json.load(f)
@@ -335,18 +340,21 @@ def to_save(original_save_path, json_in_path, output_save_path):
     new_log_data = patch_log_stream(orig_log_data, modified_vars)
     new_signatures = sign_log_data(new_log_data)
     
+    if orig_has_signatures and new_signatures is None:
+        print("Error: Original save is token-signed, but failed to re-sign modified log data. Ensure Ren'Py token keys and signing libraries are available.", file=sys.stderr)
+        sys.exit(1)
+
     with zipfile.ZipFile(original_save_path, 'r') as z_in:
         with zipfile.ZipFile(output_save_path, 'w', zipfile.ZIP_DEFLATED) as z_out:
-            has_signatures_written = False
             for item in z_in.infolist():
                 if item.filename == 'log':
                     z_out.writestr('log', new_log_data)
-                elif item.filename == 'signatures' and new_signatures is not None:
-                    z_out.writestr('signatures', new_signatures)
-                    has_signatures_written = True
+                elif item.filename == 'signatures':
+                    # Skip original signatures to avoid leaking stale signatures
+                    pass
                 else:
                     z_out.writestr(item.filename, z_in.read(item.filename))
-            if new_signatures is not None and not has_signatures_written:
+            if new_signatures is not None:
                 z_out.writestr('signatures', new_signatures)
             
     print(f"Successfully generated updated save file at {output_save_path}")

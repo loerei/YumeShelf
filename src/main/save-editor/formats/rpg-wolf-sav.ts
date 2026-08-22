@@ -211,23 +211,43 @@ class RpgWolfSavFormat {
         const decrypted = this._crypt(payload, seeds);
         console.log(`[WOLF-SAV] decrypted payload length: ${decrypted.length}`);
 
-        // Read Game Title
+        // Read Game Title if header format is present
         let pos = 0;
-        const magic = decrypted.readUInt8(pos++);
-        const titleLen = decrypted.readUInt16LE(pos); pos += 2;
-        const gameTitle = decrypted.subarray(pos, pos + titleLen).toString('utf8').replace(/\0+$/, '');
-        pos += titleLen;
-        console.log(`[WOLF-SAV] detected gameTitle: "${gameTitle}", magic: 0x${magic.toString(16)}`);
+        let gameTitle = 'WOLF RPG Game';
+        if (decrypted.length >= 3) {
+            const magic = decrypted.readUInt8(pos);
+            const titleLen = decrypted.readUInt16LE(pos + 1);
+            if (titleLen > 0 && titleLen < 256 && pos + 3 + titleLen <= decrypted.length) {
+                pos += 3;
+                gameTitle = decrypted.subarray(pos, pos + titleLen).toString('utf8').replace(/\0+$/, '');
+                pos += titleLen;
+            }
+        }
+        console.log(`[WOLF-SAV] detected gameTitle: "${gameTitle}"`);
 
         // 1. Locate System Variables Block (Tag 10 / aux_n14)
         let sysVarOffset = -1;
         let sysVarCount = 0;
-        for (let i = pos; i < decrypted.length - 8; i++) {
+        for (let i = 0; i < decrypted.length - 8; i++) {
             if (decrypted.readInt32LE(i) === 10) {
                 const count = decrypted.readInt32LE(i + 4);
                 if (count >= 50 && count <= 5000 && (count % 10 === 0 || count === 502 || count === 800)) {
                     if (i + 8 + count * 4 <= decrypted.length) {
                         sysVarOffset = i + 8;
+                        sysVarCount = count;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fallback: search for flat variable array without Tag 10
+        if (sysVarOffset === -1) {
+            for (let i = 0; i < decrypted.length - 4; i++) {
+                const count = decrypted.readInt32LE(i);
+                if (count >= 50 && count <= 5000 && count % 10 === 0) {
+                    if (i + 4 + count * 4 <= decrypted.length) {
+                        sysVarOffset = i + 4;
                         sysVarCount = count;
                         break;
                     }

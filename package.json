@@ -122,9 +122,12 @@
     "web-tree-sitter": "^0.20.8"
   },
   "dependencies": {
+    "builder-util-runtime": "^9.2.9",
     "dotenv": "^17.4.2",
     "electron-updater": "^6.8.3",
     "extract-file-icon": "^0.3.2",
-    "js-yaml": "^5.2.1"
+    "fs-extra": "^10.1.0",
+    "js-yaml": "^5.2.1",
+    "lazy-val": "^1.0.5"
   }
 }

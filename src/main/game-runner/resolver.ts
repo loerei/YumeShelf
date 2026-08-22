@@ -112,7 +112,7 @@ export async function resolveGameLaunch(
     const pathApi = env.platform === 'win32' ? path.win32 : path.posix;
     const targetPath = pathApi.resolve(game.exePath);
     const cwd = pathApi.dirname(targetPath);
-    const mode = determineRunnerMode(game, runnerConfig, globalSettings, detectedRunners, env);
+    let mode = determineRunnerMode(game, runnerConfig, globalSettings, detectedRunners, env);
     const customArgs = Array.isArray(runnerConfig?.customArgs) ? [...runnerConfig.customArgs] : [];
     const customEnv = runnerConfig?.customEnv ? { ...runnerConfig.customEnv } : {};
 
@@ -122,6 +122,21 @@ export async function resolveGameLaunch(
         isLinuxExecutable(game.exePath) ||
         (!game.exePath.toLowerCase().endsWith('.exe') && env.platform === 'linux');
     const targetPlatform: 'windows' | 'linux' = isTargetLinux ? 'linux' : 'windows';
+
+    // On Linux running Windows game: If wine mode chosen but no wine binary exists, auto-fallback to proton if available
+    if (env.platform === 'linux' && targetPlatform === 'windows' && mode === 'wine') {
+        const wineRunner = detectedRunners.find((r) => r.mode === 'wine');
+        const wineBin = runnerConfig?.customRunnerPath || wineRunner?.path;
+        const wineExists = wineBin ? env.existsSync(wineBin) : (env.existsSync('/usr/bin/wine') || env.existsSync('/usr/local/bin/wine'));
+        if (!wineExists) {
+            const hasProtonRunner = detectedRunners.some((r) => r.mode === 'proton');
+            if (hasProtonRunner) {
+                mode = 'proton';
+            } else if (detectedRunners.length === 0 || !detectedRunners.some(r => r.mode !== 'native')) {
+                throw new Error('No Windows compatibility runner (Wine, Steam Proton, Bottles, or Lutris) was found on this Linux system. Please install Wine or Steam Proton to launch Windows games.');
+            }
+        }
+    }
 
     switch (mode) {
         case 'native': {

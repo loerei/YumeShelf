@@ -7,13 +7,27 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.1] - working
 
 ### What Changed
-- You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
-- Made the bonking more IMPACTFUL.
-- Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
+- Scanning messy folders (like your Downloads or Desktop) actually finds every game separately now instead of grouping them all into one giant weird entry.
+- Fixed Wolf RPG save editing. It properly opens and saves files across any Wolf RPG game now, and doesn't freeze the app when opening saves with tens of thousands of variables.
+- Better Linux gaming support (SteamOS, Bazzite). It detects Steam Proton, Bottles, and Lutris if you don't have Wine installed, and no longer crashes on startup.
+- Fixed playtime tracking so games that fail to launch don't keep counting phantom hours.
+- You can drag Yume-chan anywhere on your screen, and she might disguise herself as a game card in your library until you bonk her enough to go away.
 
 ### For the Nerds
+- [scanner] Implemented unified sibling-disjointness resolution in `scanner.ts`. Container folders with multiple child games branch cleanly, while games with top-level launchers (like Bakin engine or Unreal Engine games) prioritize the game root launcher over internal runtime sub-binaries.
+- [scanner] Filtered out helper and installer binaries (`prereq`, `redist`, `patcher`, `updater`, `createdump`, `gameupdate`) from candidate discovery.
+- [save-editor] Fixed `sanitizeSaveData` in `SaveDataEngine` (`engine.ts`) to preserve format inspection tokens (`$type`), restoring Wolf RPG LCG-XOR save encoding and contract test coverage.
+- [save-editor] Refactored `RpgWolfSavFormat` (`rpg-wolf-sav.ts`) from a static 800-variable heuristic into a generic dual-strategy deserializer: detects 401-byte segmented database table matrices anchored by `save/system.sav\0` as well as Tag 10 system variables (`aux_n14`) with dynamic lengths and full round-trip checksum recalculation.
+- [save-editor] Added in-memory `metadataCache` with `mtime` validation to eliminate duplicate `SysDatabase.dat` parsing, and shifted fallback label formatting to on-demand rendering in `content.ts` to reduce IPC payload size by 99%.
+- [deps] Added automated dynamic AST and transitive dependency tree crawler (`verify:deps`) to prevent missing runtime modules in production `.asar` bundles.
+- [deps] Bundled missing runtime dependencies (`fs-extra`, `universalify`, `graceful-fs`, `jsonfile`, `sax`, `lazy-val`) for pnpm compatibility in Linux AppImage builds.
+- [renderer] Fixed `ReferenceError: isEnabled is not defined` crash in `hide-and-seek.ts`.
+- [game-runner] Added multi-source runner detection in `detector.ts` for Steam Proton (standard, Flatpak, GE-Proton), Bottles Flatpak (`~/.var/app/com.usebottles.bottles`), Lutris, Heroic, and UMU.
+- [game-runner] Added automatic Proton fallback in `resolver.ts` when running Windows `.exe` games on immutable Linux systems without `/usr/bin/wine`.
+- [playtime] Added stale session heartbeat expiry in `journal.ts` (`isActiveJournal`) to eliminate ghost playtime accumulation from aborted launches.
+- [title-resolver] Added case-insensitive manifest exploration in `rpg-maker-resolver.ts` for Linux ext4/btrfs filesystems.
 - [mascot] Added dragging physics so you can move Yume-chan around anywhere on your screen. Her position and total bonk count save to local storage, and her expression reacts while dragging.
-- [mascot] Added the comic bonk particle with a bit of math (exponential decay, random rotation between -45 and 45 degrees, and variable opacity).
+- [mascot] Added the comic bonk particle with exponential decay, random rotation, and variable opacity.
 - [mascot] Built a two-stage cooldown state machine for her recovery so spamming clicks extends the timer instead of breaking the animation.
 - [hide-and-seek] Added the hide-and-seek minigame controller (`hide-and-seek.ts`). It injects a fake disguise card into your library grid with a random click threshold (5 to 10 bonks), then sends her back to the dock once she is chased away.
 - [hide-and-seek] Quotes on the disguise card rotate smoothly every 10 seconds and pause immediately if you click her.

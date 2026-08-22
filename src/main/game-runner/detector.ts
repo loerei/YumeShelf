@@ -133,20 +133,50 @@ export async function detectInstalledRunners(env: RunnerDetectorEnv = defaultDet
         }
     }
 
-    // 4. Bottles & Lutris Runners
-    const bottlesRunnersDir = pathApi.join(home, '.local', 'share', 'bottles', 'runners');
-    if (env.existsSync(bottlesRunnersDir)) {
-        for (const entry of env.readdirSync(bottlesRunnersDir)) {
-            const wineBin = pathApi.join(bottlesRunnersDir, entry, 'bin', 'wine');
-            if (env.existsSync(wineBin) && !seenWinePaths.has(wineBin)) {
-                seenWinePaths.add(wineBin);
-                runners.push({
-                    id: `bottles-${entry.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`,
-                    name: `Bottles Runner (${entry})`,
-                    mode: 'wine',
-                    path: wineBin,
-                    version: entry
-                });
+    // 4. Bottles, Lutris & Heroic Runners Detection
+    const runnerDirs = [
+        pathApi.join(home, '.local', 'share', 'bottles', 'runners'),
+        pathApi.join(home, '.var', 'app', 'com.usebottles.bottles', 'data', 'bottles', 'runners'),
+        pathApi.join(home, '.local', 'share', 'lutris', 'runners', 'wine'),
+        pathApi.join(home, '.var', 'app', 'net.lutris.Lutris', 'data', 'lutris', 'runners', 'wine'),
+        pathApi.join(home, '.config', 'heroic', 'tools', 'wine'),
+        pathApi.join(home, '.config', 'heroic', 'tools', 'proton'),
+        pathApi.join(home, '.var', 'app', 'com.heroicgameslauncher.hgl', 'config', 'heroic', 'tools', 'wine'),
+        pathApi.join(home, '.var', 'app', 'com.heroicgameslauncher.hgl', 'config', 'heroic', 'tools', 'proton')
+    ];
+
+    for (const runnersDir of runnerDirs) {
+        if (!env.existsSync(runnersDir)) continue;
+        for (const entry of env.readdirSync(runnersDir)) {
+            const wineBinCandidates = [
+                pathApi.join(runnersDir, entry, 'bin', 'wine'),
+                pathApi.join(runnersDir, entry, 'bin', 'wine64'),
+                pathApi.join(runnersDir, entry, 'proton')
+            ];
+            for (const bin of wineBinCandidates) {
+                if (env.existsSync(bin) && !seenWinePaths.has(bin) && !seenProtonPaths.has(bin)) {
+                    const isProton = bin.endsWith('proton');
+                    if (isProton) {
+                        seenProtonPaths.add(bin);
+                        runners.push({
+                            id: `custom-proton-${entry.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`,
+                            name: `Custom Proton (${entry})`,
+                            mode: 'proton',
+                            path: bin,
+                            version: entry
+                        });
+                    } else {
+                        seenWinePaths.add(bin);
+                        runners.push({
+                            id: `custom-wine-${entry.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`,
+                            name: `Wine Runner (${entry})`,
+                            mode: 'wine',
+                            path: bin,
+                            version: entry
+                        });
+                    }
+                    break;
+                }
             }
         }
     }

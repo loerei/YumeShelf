@@ -164,6 +164,8 @@ export function buildMetadata(): string[] {
     return variables;
 }
 
+const metadataCache = new Map<string, { dbFile: string | null; mtime: number; customNames: Record<number, string> }>();
+
 class RpgWolfSavFormat {
     match(fileName: string): boolean {
         const normalized = fileName.toLowerCase();
@@ -205,70 +207,192 @@ class RpgWolfSavFormat {
         console.log(`[WOLF-SAV] decode header: ${header.toString('hex')}`);
         console.log(`[WOLF-SAV] decode seeds: ${JSON.stringify(seeds)}`);
         
-        // Decrypt payload
+        // Decrypt payload with 3-seed LCG stream cipher
         const decrypted = this._crypt(payload, seeds);
         console.log(`[WOLF-SAV] decrypted payload length: ${decrypted.length}`);
-        
-        // Search for the global variable array length (usually 800)
-        // In Little Endian: 800 = 0x0320 -> [0x20, 0x03, 0x00, 0x00]
-        let varArrayOffset = -1;
-        for (let i = 0; i < decrypted.length - 4; i++) {
-            if (decrypted.readInt32LE(i) === 800) {
-                varArrayOffset = i + 4; // Start of the array elements
-                break;
+
+        // Read Game Title if header format is present
+        let gameTitle = 'WOLF RPG Game';
+        if (decrypted.length >= 3) {
+            const titleLen = decrypted.readUInt16LE(1);
+            if (titleLen > 0 && titleLen < 256 && 3 + titleLen <= decrypted.length) {
+                gameTitle = decrypted.subarray(3, 3 + titleLen).toString('utf8').split('\0')[0].trim() || 'WOLF RPG Game';
             }
         }
-        console.log(`[WOLF-SAV] varArrayOffset found at: ${varArrayOffset}`);
-        
-        const variables: Record<number, number> = {};
-        if (varArrayOffset !== -1) {
-            for (let i = 0; i < 800; i++) {
-                if (varArrayOffset + i * 4 + 4 > decrypted.length) break;
-                variables[i] = decrypted.readInt32LE(varArrayOffset + i * 4);
+        console.log(`[WOLF-SAV] detected gameTitle: "${gameTitle}"`);
+
+        // 1. Locate System Variables Block (Tag 10 / aux_n14)
+        let sysVarOffset = -1;
+        let sysVarCount = 0;
+        for (let i = 0; i < decrypted.length - 8; i++) {
+            if (decrypted.readInt32LE(i) === 10) {
+                const count = decrypted.readInt32LE(i + 4);
+                if (count >= 50 && count <= 5000 && (count % 10 === 0 || count === 502 || count === 800)) {
+                    if (i + 8 + count * 4 <= decrypted.length) {
+                        sysVarOffset = i + 8;
+                        sysVarCount = count;
+                        break;
+                    }
+                }
             }
         }
-        console.log(`[WOLF-SAV] decode finished. variables[7] (Gold) = ${variables[7]}`);
+
+        // Fallback: search for flat variable array without Tag 10
+        if (sysVarOffset === -1) {
+            for (let i = 0; i < decrypted.length - 4; i++) {
+                const count = decrypted.readInt32LE(i);
+                if (count >= 50 && count <= 5000 && count % 10 === 0) {
+                    if (i + 4 + count * 4 <= decrypted.length) {
+                        sysVarOffset = i + 4;
+                        sysVarCount = count;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. Locate Database Table Matrix (n: after "save/system.sav\0")
+        let matrixOffset = -1;
+        let numTables = 0;
+        const sysSavRegex = /save\/system\.sav\0/gi;
+        const decLatin1 = decrypted.toString('latin1');
+        let match: RegExpExecArray | null;
+        while ((match = sysSavRegex.exec(decLatin1)) !== null) {
+            const afterStr = match.index + match[0].length;
+            if (afterStr + 8 <= decrypted.length) {
+                const tCount = decrypted.readInt32LE(afterStr);
+                const firstMarker = decrypted.readUInt8(afterStr + 4);
+                if (tCount >= 10 && tCount <= 2000 && firstMarker === 100) {
+                    matrixOffset = afterStr + 5;
+                    numTables = tCount;
+                    break;
+                }
+            }
+        }
+
+        console.log(`[WOLF-SAV] sysVarOffset: ${sysVarOffset} (count: ${sysVarCount}), matrixOffset: ${matrixOffset} (numTables: ${numTables})`);
+        
+        const variables: Record<string, number> = {};
+        const tables: Record<number, Record<number, number>> = {};
+        const aux_n14: Record<string, Record<number, number>> = {};
+
+        // Case A: Game has Database Table Matrix (e.g. 吸血鬼○○日記)
+        if (matrixOffset !== -1) {
+            // Extract System Variables (aux_n14)
+            if (sysVarOffset !== -1) {
+                const aux0: Record<number, number> = {};
+                for (let v = 0; v < sysVarCount; v++) {
+                    const off = sysVarOffset + v * 4;
+                    const val = decrypted.readInt32LE(off);
+                    if (val !== 0) aux0[v] = val;
+                    variables[`sys_${v}`] = val;
+                }
+                aux_n14['0'] = aux0;
+            }
+
+            // Extract Table Matrix (n)
+            for (let t = 0; t < numTables; t++) {
+                const tVars: Record<number, number> = {};
+                let hasNonZero = false;
+                const tableStart = matrixOffset + t * 401;
+                for (let v = 0; v < 100; v++) {
+                    const off = tableStart + v * 4;
+                    if (off + 4 > decrypted.length) break;
+                    const val = decrypted.readInt32LE(off);
+                    variables[`${t * 100 + v}`] = val;
+                    if (val !== 0) {
+                        tVars[v] = val;
+                        hasNonZero = true;
+                    }
+                }
+                if (hasNonZero) {
+                    tables[t] = tVars;
+                }
+            }
+        } 
+        // Case B: Game has Flat System Variables only (e.g. Sister Monochrome Fantasy)
+        else if (sysVarOffset !== -1) {
+            for (let v = 0; v < sysVarCount; v++) {
+                const off = sysVarOffset + v * 4;
+                const val = decrypted.readInt32LE(off);
+                variables[`${v}`] = val;
+            }
+        }
+        
+        console.log(`[WOLF-SAV] decode finished. Total variables extracted: ${Object.keys(variables).length}, active tables: ${Object.keys(tables).length}`);
 
         return {
             $type: 'RpgWolfSavBinaryInspection',
             fileName,
+            gameTitle,
             format: 'rpg-wolf-sav',
             variables: variables,
+            tables: tables,
+            aux_n14: aux_n14,
             switches: {},
             items: {},
             weapons: {},
             armors: {},
-            rawBase64: rawData.toString('base64'), // Store original just in case
+            rawBase64: rawData.toString('base64'),
             _decryptedBase64: decrypted.toString('base64'),
-            _varArrayOffset: varArrayOffset,
+            _sysVarOffset: sysVarOffset,
+            _sysVarCount: sysVarCount,
+            _matrixOffset: matrixOffset,
+            _numTables: numTables,
             canSemanticEdit: true
         };
     }
 
     async encode(jsonData: any): Promise<Buffer> {
-        console.log(`[WOLF-SAV] encode called for file: ${jsonData.fileName}`);
-        if (jsonData?.$type !== 'RpgWolfSavBinaryInspection') {
-            throw new Error('Invalid RPG/Wolf .sav inspection payload');
+        console.log(`[WOLF-SAV] encode called for file: ${jsonData?.fileName}`);
+        if (!jsonData || !jsonData.rawBase64 || !jsonData._decryptedBase64) {
+            throw new Error('Invalid RPG/Wolf .sav inspection payload: missing raw or decrypted binary base64');
         }
 
-        const rawData = Buffer.from(jsonData.rawBase64 || '', 'base64');
+        const rawData = Buffer.from(jsonData.rawBase64, 'base64');
+        if (rawData.length < 20) {
+            throw new Error('Invalid RPG/Wolf .sav binary data: header must be at least 20 bytes');
+        }
         const header = rawData.subarray(0, 20);
         const seeds = [header[0], header[3], header[9]];
         
         const decrypted = Buffer.from(jsonData._decryptedBase64 || '', 'base64');
-        const varArrayOffset = jsonData._varArrayOffset;
+        const sysVarOffset = jsonData._sysVarOffset ?? -1;
+        const matrixOffset = jsonData._matrixOffset ?? -1;
+
         console.log(`[WOLF-SAV] encode seeds: ${JSON.stringify(seeds)}`);
-        console.log(`[WOLF-SAV] encode varArrayOffset: ${varArrayOffset}`);
+        console.log(`[WOLF-SAV] encode sysVarOffset: ${sysVarOffset}, matrixOffset: ${matrixOffset}`);
         
-        if (varArrayOffset !== -1 && jsonData.variables) {
+        if (jsonData.variables) {
             console.log(`[WOLF-SAV] encode writing variables...`);
-            console.log(`[WOLF-SAV] variables[7] value to write: ${jsonData.variables[7]}`);
             for (const [key, value] of Object.entries(jsonData.variables)) {
-                const index = Number.parseInt(key, 10);
-                if (!Number.isNaN(index) && index < 800) {
-                    const offset = varArrayOffset + index * 4;
-                    if (offset + 4 <= decrypted.length) {
-                        decrypted.writeInt32LE(Number.parseInt(value as string, 10), offset);
+                const intVal = Number.parseInt(value as string, 10);
+                if (Number.isNaN(intVal)) continue;
+
+                if (key.startsWith('sys_') && sysVarOffset !== -1) {
+                    const idx = Number.parseInt(key.replace('sys_', ''), 10);
+                    if (!Number.isNaN(idx)) {
+                        const offset = sysVarOffset + idx * 4;
+                        if (offset + 4 <= decrypted.length) {
+                            decrypted.writeInt32LE(intVal, offset);
+                        }
+                    }
+                } else {
+                    const idx = Number.parseInt(key, 10);
+                    if (!Number.isNaN(idx)) {
+                        if (matrixOffset !== -1) {
+                            const t = Math.floor(idx / 100);
+                            const v = idx % 100;
+                            const offset = matrixOffset + t * 401 + v * 4;
+                            if (offset + 4 <= decrypted.length) {
+                                decrypted.writeInt32LE(intVal, offset);
+                            }
+                        } else if (sysVarOffset !== -1) {
+                            const offset = sysVarOffset + idx * 4;
+                            if (offset + 4 <= decrypted.length) {
+                                decrypted.writeInt32LE(intVal, offset);
+                            }
+                        }
                     }
                 }
             }
@@ -296,28 +420,39 @@ class RpgWolfSavFormat {
 
     async metadata(jsonData: any, paths: any, fileName: string): Promise<any> {
         const metadata: any = {
-            variables: [],
-            switches: [],
+            variables: {},
+            switches: {},
             items: {},
             weapons: {},
             armors: {},
-            gameTitle: 'WOLF RPG Game'
+            gameTitle: jsonData?.gameTitle || 'WOLF RPG Game'
         };
 
         if (!paths?.exeDir) return metadata;
         
         try {
             const dataDir = path.join(paths.exeDir, 'Data', 'BasicData');
-            let dbFile: string | null = path.join(dataDir, 'SysDatabase.project');
             
             async function exists(p: string) { try { await fs.access(p); return true; } catch { return false; } }
 
+            let dbFile: string | null = path.join(dataDir, 'SysDatabase.project');
             if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDataBase.project');
             if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDatabase.dat');
             if (!(await exists(dbFile))) dbFile = path.join(dataDir, 'SysDataBase.dat');
             if (!(await exists(dbFile))) dbFile = null;
 
             if (dbFile) {
+                const stat = await fs.stat(dbFile);
+                const currentMtime = stat.mtimeMs;
+                const cached = metadataCache.get(paths.exeDir);
+
+                if (cached?.dbFile === dbFile && cached.mtime === currentMtime) {
+                    console.log(`[WOLF-SAV] metadata cache hit for: ${paths.exeDir} (${Object.keys(cached.customNames).length} custom names)`);
+                    metadata.variables = { ...cached.customNames };
+                    return metadata;
+                }
+
+                console.log(`[WOLF-SAV] extracting fresh metadata from: ${dbFile}`);
                 const buffer = await fs.readFile(dbFile);
                 
                 // Robust heuristic string extraction
@@ -340,27 +475,28 @@ class RpgWolfSavFormat {
                 }
 
                 // Look for '通常変数名' (Normal Variable Names)
+                const customNames: Record<number, string> = {};
                 const markerIndex = strings.findIndex(s => s.includes('通常変数名'));
                 if (markerIndex !== -1) {
                     for (let i = 0; i < 800; i++) {
                         if (markerIndex + 1 + i < strings.length) {
                             let name = strings[markerIndex + 1 + i];
                             if (name && !name.includes('<なし>') && !name.includes('<変化なし>')) {
-                                metadata.variables[i] = name.replaceAll('\0', '').trim();
+                                customNames[i] = name.replaceAll('\0', '').trim();
                             }
                         }
                     }
                 }
+
+                metadataCache.set(paths.exeDir, {
+                    dbFile,
+                    mtime: currentMtime,
+                    customNames
+                });
+                metadata.variables = { ...customNames };
             }
         } catch (e) {
             console.warn('[SAVE-EDITOR] Failed to parse WOLF RPG SysDatabase:', e);
-        }
-
-        // Generate fallbacks for any missing variables, since Wolf allows 800 normally
-        for (let i = 0; i < 800; i++) {
-            if (!metadata.variables[i]) {
-                metadata.variables[i] = `Variable #${i}`;
-            }
         }
 
         return metadata;

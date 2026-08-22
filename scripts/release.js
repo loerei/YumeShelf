@@ -62,7 +62,7 @@ run('node scripts/sync-release-metadata.js');
 
 // 4. Build production installer package
 console.log('\n🛠️ Step 3: Building production package (electron-builder)...');
-run('npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell && npm run copy:assets && npm run build:vite && npx electron-builder --win && npm run organize:build-output');
+run('npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell && npm run copy:assets && npm run build:vite && npm run verify:deps && npx electron-builder --win && npm run organize:build-output');
 
 // 5. Generate checksum
 console.log('\n🔑 Step 4: Generating release SHA-256 checksum...');

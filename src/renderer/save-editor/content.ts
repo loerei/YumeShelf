@@ -332,6 +332,19 @@ export function renderInventory(context, target, key, metaSource, grid, original
  * @param {string} type
  * @param {boolean} [onlyPinned]
  */
+function formatEntryDisplayName(id, metaName, type) {
+    if (metaName) return metaName;
+    const isSysVar = typeof id === 'string' && id.startsWith('sys_');
+    const numId = isSysVar ? Number(id.replace('sys_', '')) : Number(id);
+    if (isSysVar) {
+        return `[System] Var #${numId}`;
+    }
+    if (!Number.isNaN(numId) && numId >= 100) {
+        return `[Table ${Math.floor(numId / 100)}] Var #${numId % 100}`;
+    }
+    return type === 'variables' ? `Variable #${id}` : `ID #${id}`;
+}
+
 export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeric, originalData, type, onlyPinned = false) {
     const { state, engine, translator } = context;
     const raw = engine.extractData(data);
@@ -344,7 +357,7 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
         const pinId = type + ":" + id;
         if (onlyPinned && !state.pinnedVariables?.has(pinId)) return;
 
-        const name = metaSource[id] || `ID #${id}`;
+        const name = formatEntryDisplayName(id, metaSource[id], type);
         const translated = translator.translationCache[name];
         
         const isNamed = metaSource[id] && metaSource[id].trim() !== '';

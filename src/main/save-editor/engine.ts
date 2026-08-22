@@ -115,7 +115,6 @@ export class SaveDataEngine {
         if (!data || typeof data !== 'object') return data;
         const clean = { ...data };
         delete clean._userMappings;
-        delete clean.$type;
         return clean;
     }
 

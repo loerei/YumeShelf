@@ -148,3 +148,52 @@ test('Pure JSON Save Format Contract - Plain JSON parsing and round-trip', async
     const parsedSecond = JSON.parse(secondEncoded.toString('utf8'));
     assert.deepEqual(parsedSecond, testPayload, 'JSON round-trip must preserve exact payload');
 });
+
+test('SaveDataEngine - End-to-end writeSave with sanitizeSaveData preserves format inspection tokens', async () => {
+    const { SaveDataEngine } = require('../dist/main/save-editor/engine');
+    const strategy = formats['rpg-wolf-sav'];
+
+    // Mock save binary in a temp folder
+    const seeds = [0x12, 0x56, 0x78];
+    const header = Buffer.alloc(20);
+    header[0] = seeds[0];
+    header[3] = seeds[1];
+    header[9] = seeds[2];
+
+    const decryptedPayload = Buffer.alloc(4 + 800 * 4);
+    decryptedPayload.writeInt32LE(800, 0);
+    decryptedPayload.writeInt32LE(777, 4 + 7 * 4); // Gold = 777
+
+    const encrypted = strategy._crypt(decryptedPayload, seeds);
+    const mockSaveBuffer = Buffer.concat([header, encrypted]);
+
+    const os = require('node:os');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yumeshelf_wolf_contract_'));
+    const saveFilePath = path.join(tempDir, 'SaveData01.sav');
+    fs.writeFileSync(saveFilePath, mockSaveBuffer);
+
+    const mockConfig = {
+        async getGamePaths() {
+            return { exeDir: tempDir, saveDir: tempDir, dataDir: tempDir, langDataDir: null };
+        },
+        async loadMetadata() { return {}; }
+    };
+
+    const engine = new SaveDataEngine(mockConfig, [strategy]);
+
+    // 1. Load save via engine
+    const { data: loadedData } = await engine.loadSave('mockGame', 'SaveData01.sav');
+    assert.equal(loadedData.variables[7], 777);
+
+    // 2. Modify gold & save via engine.writeSave (exercising sanitizeSaveData)
+    loadedData.variables[7] = 888888;
+    const writeResult = await engine.writeSave('mockGame', 'SaveData01.sav', loadedData);
+    assert.equal(writeResult.ok, true);
+
+    // 3. Reload and verify mutated value
+    const { data: reloadedData } = await engine.loadSave('mockGame', 'SaveData01.sav');
+    assert.equal(reloadedData.variables[7], 888888);
+
+    // Clean up
+    fs.rmSync(tempDir, { recursive: true, force: true });
+});

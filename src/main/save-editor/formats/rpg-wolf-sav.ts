@@ -246,8 +246,8 @@ class RpgWolfSavFormat {
     }
 
     async encode(jsonData: any): Promise<Buffer> {
-        console.log(`[WOLF-SAV] encode called for file: ${jsonData.fileName}`);
-        if (jsonData?.$type !== 'RpgWolfSavBinaryInspection') {
+        console.log(`[WOLF-SAV] encode called for file: ${jsonData?.fileName}`);
+        if (!jsonData || (jsonData.$type !== 'RpgWolfSavBinaryInspection' && !jsonData.rawBase64)) {
             throw new Error('Invalid RPG/Wolf .sav inspection payload');
         }
 

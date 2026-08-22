@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-22T11:54:43.320Z",
+  "generatedAt": "2026-08-22T11:56:18.796Z",
   "packs": [
     {
       "code": "vi",
@@ -21,7 +21,7 @@
         "southeast asia"
       ],
       "downloadUrl": "https://raw.githubusercontent.com/loerei/YumeShelf/main/language-packs/packs/vi.json",
-      "sha256": "dca46d72976aea1ba284dd1114ef944d1dca33671bc9baba01569ad718630ab7"
+      "sha256": "a913490851f7598fe491f7bf0f0d1f5ab852f5b426bd30deab4a9fc9437001f5"
     }
   ]
 }

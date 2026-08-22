@@ -216,7 +216,7 @@ class RpgWolfSavFormat {
         if (decrypted.length >= 3) {
             const titleLen = decrypted.readUInt16LE(1);
             if (titleLen > 0 && titleLen < 256 && 3 + titleLen <= decrypted.length) {
-                gameTitle = decrypted.subarray(3, 3 + titleLen).toString('utf8').replace(/\0+$/, '');
+                gameTitle = decrypted.subarray(3, 3 + titleLen).toString('utf8').split('\0')[0].trim() || 'WOLF RPG Game';
             }
         }
         console.log(`[WOLF-SAV] detected gameTitle: "${gameTitle}"`);

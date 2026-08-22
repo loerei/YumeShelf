@@ -4,6 +4,19 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.1] - working
+
+### What Changed
+- You can now drag Yume-chan around
+
+### For the Nerds
+- [mascot] Added pointer-based drag & drop physics with live expression reaction (`yume_bonked.png`), viewport boundary clamping, and coordinate persistence across sessions.
+- [context-menu] Implemented right-click quick settings popover with position reset, sound selection, scale slider, and volume control.
+- [settings] Modernized scale settings to range slider (25% - 100%) with bidirectional sync between settings modal and context menu.
+- [i18n] Synchronized new mascot strings across Vietnamese, Japanese, Simplified Chinese, and sample templates.
+
+---
+
 ## [2.0.0] - 2026-08-21 — released
 
 ### What Changed

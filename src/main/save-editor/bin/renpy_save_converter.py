@@ -147,13 +147,17 @@ def to_json(save_path, json_out_path):
         
     print(f"Successfully converted {save_path} to JSON at {json_out_path}")
 
-def encode_pickle_value(val):
+def encode_pickle_value(val, old_op_name=None):
     if val is None:
         return b'\x4e'  # NONE
     elif isinstance(val, bool):
         return b'\x88' if val else b'\x89'  # NEWTRUE / NEWFALSE
     elif isinstance(val, int):
-        if 0 <= val <= 255:
+        if old_op_name == 'BININT2' and 0 <= val <= 65535:
+            return b'\x4d' + val.to_bytes(2, 'little')
+        elif old_op_name == 'BININT' and -2147483648 <= val <= 2147483647:
+            return b'\x4a' + val.to_bytes(4, 'little', signed=True)
+        elif 0 <= val <= 255:
             return b'\x4b' + bytes([val])  # BININT1
         elif 0 <= val <= 65535:
             return b'\x4d' + val.to_bytes(2, 'little')  # BININT2
@@ -194,9 +198,26 @@ def patch_log_stream(log_data, modified_vars):
         print("No store variables changed.")
         return log_data
 
+    # Walk and collect all frame descriptors in the stream (Pickle Protocol 4 / 5)
+    pos = 0
+    if log_data.startswith(b'\x80\x05') or log_data.startswith(b'\x80\x04'):
+        pos = 2
+
+    frames = []
+    while pos < len(log_data) and log_data[pos] == 0x95:
+        frame_len = int.from_bytes(log_data[pos+1:pos+9], 'little')
+        frames.append({
+            'header_pos': pos,
+            'length': frame_len,
+            'payload_start': pos + 9,
+            'payload_end': pos + 9 + frame_len,
+            'delta': 0
+        })
+        pos = pos + 9 + frame_len
+
     ops = list(pickletools.genops(log_data))
     entries = {}
-    for i, (op, arg, pos) in enumerate(ops):
+    for i, (op, arg, pos_op) in enumerate(ops):
         if isinstance(arg, str) and (arg.startswith('store.') or arg in changed):
             val_idx = i + 1
             while val_idx < len(ops) and ops[val_idx][0].name == 'MEMOIZE':
@@ -214,16 +235,34 @@ def patch_log_stream(log_data, modified_vars):
     for key, new_val in changed.items():
         if key in entries:
             start, end, old_op, old_arg = entries[key]
-            encoded = encode_pickle_value(new_val)
+            encoded = encode_pickle_value(new_val, old_op_name=old_op)
             if encoded is not None:
                 replacements.append((start, end, encoded))
                 print(f"Surgical patch on {key}: {orig_vars.get(key, old_arg)} -> {new_val} (opcode: {encoded.hex()})")
+
+    # Map delta changes to corresponding frames
+    for start, end, new_bytes in replacements:
+        delta = len(new_bytes) - (end - start)
+        for f in frames:
+            if f['payload_start'] <= start <= f['payload_end']:
+                f['delta'] += delta
+                break
 
     # Sort replacements by start pos descending to ensure upstream offsets remain valid
     replacements.sort(key=lambda x: x[0], reverse=True)
     buf = bytearray(log_data)
     for start, end, new_bytes in replacements:
         buf[start:end] = new_bytes
+
+    # Apply Frame Length Compensation across all frames
+    if frames:
+        cum_delta = 0
+        for f in frames:
+            current_header_pos = f['header_pos'] + cum_delta
+            new_frame_len = f['length'] + f['delta']
+            buf[current_header_pos + 1 : current_header_pos + 9] = new_frame_len.to_bytes(8, 'little')
+            cum_delta += f['delta']
+
     return bytes(buf)
 
 def get_renpy_token_path():

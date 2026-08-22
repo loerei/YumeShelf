@@ -58,6 +58,10 @@ export function createMascotWidget({
     let secondaryRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
     let animEndTimer: ReturnType<typeof setTimeout> | null = null;
     let currentStreak = 0;
+    let currentMascotState: 'smug' | 'bonked' | 'bonkedTooMuch' = 'smug';
+    let stage2EndTime = 0;
+    let accumulatedCooldownMs = 3000;
+    let rapidClicksDuringCooldown: number[] = [];
     let currentSoundKey = 'squeaker';
     let currentVolume = 20;
     let currentScale = 100;
@@ -109,10 +113,20 @@ export function createMascotWidget({
     }
 
     function setMascotState(state: 'smug' | 'bonked' | 'bonkedTooMuch') {
+        currentMascotState = state;
         const nextSrc = IMAGES[state];
         if (imgEl && imgEl.getAttribute('src') !== nextSrc) {
             imgEl.src = nextSrc;
         }
+    }
+
+    function resetToSmug() {
+        clearRecoveryTimers();
+        currentStreak = 0;
+        stage2EndTime = 0;
+        accumulatedCooldownMs = 3000;
+        rapidClicksDuringCooldown = [];
+        setMascotState('smug');
     }
 
     function clampAndApplyPosition(x: number, y: number, save = true) {
@@ -258,35 +272,87 @@ export function createMascotWidget({
     }
 
     function triggerBonk(clickX?: number, clickY?: number) {
-        clearRecoveryTimers();
-        currentStreak += 1;
+        const now = performance.now();
 
-        if (currentStreak >= 3) {
-            // Stage 1: Entered/stay in bonkedTooMuch state
-            setMascotState('bonkedTooMuch');
+        if (currentMascotState === 'bonked' && stage2EndTime > now) {
+            // Case 1: In Stage 2 cooldown (bonked state counting down to smug)
+            currentStreak += 1;
+            const remainingMs = Math.max(0, stage2EndTime - now);
+            accumulatedCooldownMs = Math.min(10000, remainingMs + 1000);
 
-            // After 3.0s of continuous inactivity: transition bonkedTooMuch -> bonked
+            // Track rapid burst in sliding 1200ms window
+            rapidClicksDuringCooldown = rapidClicksDuringCooldown.filter(t => now - t < 1200);
+            rapidClicksDuringCooldown.push(now);
+
+            if (rapidClicksDuringCooldown.length >= 3) {
+                // Burst of >= 3 clicks: re-trigger bonkedTooMuch and restart Stage 1
+                clearRecoveryTimers();
+                setMascotState('bonkedTooMuch');
+
+                recoveryTimer = setTimeout(() => {
+                    setMascotState('bonked');
+                    const stage2Start = performance.now();
+                    stage2EndTime = stage2Start + accumulatedCooldownMs;
+
+                    secondaryRecoveryTimer = setTimeout(() => {
+                        resetToSmug();
+                    }, accumulatedCooldownMs);
+                }, 3000);
+            } else {
+                // 1 or 2 clicks: stay in bonked, apply incrementally increased remaining time
+                stage2EndTime = now + accumulatedCooldownMs;
+                if (secondaryRecoveryTimer) {
+                    clearTimeout(secondaryRecoveryTimer);
+                }
+                secondaryRecoveryTimer = setTimeout(() => {
+                    resetToSmug();
+                }, accumulatedCooldownMs);
+            }
+        } else if (currentMascotState === 'bonkedTooMuch') {
+            // Case 2: In Stage 1 (bonkedTooMuch active)
+            clearRecoveryTimers();
+            currentStreak += 1;
+            accumulatedCooldownMs = Math.min(10000, accumulatedCooldownMs + 1000);
+
             recoveryTimer = setTimeout(() => {
                 setMascotState('bonked');
-
-                // Stage 2: Linear recovery duration from bonked -> smug based on streak (3s - 10s)
-                // Option A: 1s per additional click beyond 3
-                const extraClicks = Math.max(0, currentStreak - 3);
-                const tSmugMs = Math.min(10000, 3000 + extraClicks * 1000);
+                const stage2Start = performance.now();
+                stage2EndTime = stage2Start + accumulatedCooldownMs;
 
                 secondaryRecoveryTimer = setTimeout(() => {
-                    currentStreak = 0;
-                    setMascotState('smug');
-                }, tSmugMs);
+                    resetToSmug();
+                }, accumulatedCooldownMs);
             }, 3000);
         } else {
-            // Normal 1-2 clicks: bonked state, recovers to smug after 3.0s
-            setMascotState('bonked');
+            // Case 3: Starting fresh from smug or after full recovery
+            clearRecoveryTimers();
+            currentStreak += 1;
+            rapidClicksDuringCooldown = [now];
 
-            recoveryTimer = setTimeout(() => {
-                currentStreak = 0;
-                setMascotState('smug');
-            }, 3000);
+            if (currentStreak >= 3) {
+                // Burst of >= 3 clicks directly from smug
+                setMascotState('bonkedTooMuch');
+                accumulatedCooldownMs = Math.min(10000, 3000 + (currentStreak - 3) * 1000);
+
+                recoveryTimer = setTimeout(() => {
+                    setMascotState('bonked');
+                    const stage2Start = performance.now();
+                    stage2EndTime = stage2Start + accumulatedCooldownMs;
+
+                    secondaryRecoveryTimer = setTimeout(() => {
+                        resetToSmug();
+                    }, accumulatedCooldownMs);
+                }, 3000);
+            } else {
+                // Normal 1-2 clicks from smug: bonked state, recovers to smug after 3.0s
+                setMascotState('bonked');
+                accumulatedCooldownMs = 3000;
+                stage2EndTime = now + 3000;
+
+                recoveryTimer = setTimeout(() => {
+                    resetToSmug();
+                }, 3000);
+            }
         }
 
         // Play bonk audio (interrupts current playing sound and restarts cleanly)

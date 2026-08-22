@@ -9,127 +9,42 @@ const CARD_IMAGES = {
     bonkedTooMuch: bonkedTooMuchFaceImg
 };
 
-const TITLES = {
-    en: [
-        'Yume-chan',
-        'Prestigious Yume-chan',
-        'Admired Yume-chan',
-        'Yume-sama',
-        'Your Highness',
-        'Yume-chama',
-        '?????',
-        'Maou-chama',
-        'Hahahahahha'
-    ],
-    ja: [
-        'ユメちゃん',
-        '名誉あるユメちゃん',
-        '憧れのユメちゃん',
-        'ユメ様',
-        '姫様',
-        'ユメちゃま',
-        '?????',
-        '魔王様',
-        'ハハハハハハ'
-    ],
-    zh: [
-        '小优梅',
-        '尊贵的小优梅',
-        '受人憧憬的小优梅',
-        '优梅大人',
-        '殿下',
-        '优梅大小姐',
-        '?????',
-        '魔王大人',
-        '哈哈哈哈哈哈'
-    ]
-};
+const DEFAULT_TITLES = [
+    'Yume-chan',
+    'Prestigious Yume-chan',
+    'Admired Yume-chan',
+    'Yume-sama',
+    'Your Highness',
+    'Yume-chama',
+    '?????',
+    'Maou-chama',
+    'Hahahahahha'
+];
 
-const IDLE_QUOTES = {
-    en: [
-        'Zaako~',
-        'Zaako!',
-        'Oiiiiiiii',
-        'Want some snacks?',
-        'You know how a lot of laughing turns into grass?',
-        'Stay Young Beautiful And Unique',
-        'Why am I talking to a fish?',
-        'Teto is 31yo',
-        'CUWAYO!',
-        'Cuwayo~ cuwayo~'
-    ],
-    ja: [
-        'ざぁ〜こ♡',
-        'ざぁ〜こ！',
-        'おーい！',
-        'おやつ食べる？',
-        '草生えるって知ってる？',
-        '若く美しく個性的であれ',
-        'なんで魚と喋ってるの？',
-        'テトは31歳だよ',
-        'クワヨ！',
-        'クワヨ〜 クワヨ〜'
-    ],
-    zh: [
-        '杂鱼~',
-        '杂鱼！',
-        '喂————！',
-        '想吃零食吗？',
-        '你知道大笑会变成大草原吗？',
-        '保持年轻、美丽且独一无二',
-        '我为什么在和一条鱼说话？',
-        '重音Teto已经31岁了哦',
-        '可爱哟！',
-        '可爱哟~ 可爱哟~'
-    ]
-};
+const DEFAULT_IDLE_QUOTES = [
+    'Zaako~',
+    'Zaako!',
+    'Oiiiiiiii',
+    'Want some snacks?',
+    'You know how a lot of laughing turns into grass?',
+    'Stay Young Beautiful And Unique',
+    'Why am I talking to a fish?',
+    'Teto is 31yo',
+    'CUWAYO!',
+    'Cuwayo~ cuwayo~'
+];
 
-const BONKED_QUOTES = {
-    en: [
-        'OIIIIIIII!!!',
-        'Ugh!',
-        'Poor me :(',
-        'Gah-',
-        'My braincells!',
-        'You can do better than cyberbullying me :(',
-        'Bold of you!',
-        '@@',
-        '???'
-    ],
-    ja: [
-        'おーい！！！',
-        'うっ！',
-        'かわいそうな私… (´；ω；｀)',
-        'ぐはっ',
-        '私の脳細胞が！',
-        'ネットいじめ以外にすることないの？ :(',
-        'いい度胸ね！',
-        '@@',
-        '???'
-    ],
-    zh: [
-        '喂！！！',
-        '呃！',
-        '可怜的我 :(',
-        '咕呃——',
-        '我的脑细胞！',
-        '除了网络霸凌我你就没别的事做了吗 :(',
-        '胆子挺大嘛！',
-        '@@',
-        '???'
-    ],
-    vi: [
-        'OIIIIIIII!!!',
-        'Ugh!',
-        'Tội nghiệp tui :(',
-        'Gah-',
-        'Tế bào não của tui!',
-        'Bộ bạn không có gì ngoài bắt nạt mạng hả :(',
-        'Gan dạ đấy!',
-        '@@',
-        '???'
-    ]
-};
+const DEFAULT_BONK_QUOTES = [
+    'OIIIIIIII!!!',
+    'Ugh!',
+    'Poor me :(',
+    'Gah-',
+    'My braincells!',
+    'You can do better than cyberbullying me :(',
+    'Bold of you!',
+    '@@',
+    '???'
+];
 
 export const MASCOT_CARD_KEY = 'yumeshelf_mascot_card';
 
@@ -186,7 +101,7 @@ export function createHideAndSeekController({
     // Session state
     const threshold = Math.floor(Math.random() * 6) + 5; // 5..10 clicks
     const isStarred = Math.random() < 0.5;
-    const titleIndex = getNextShuffledIndex('yumeshelf_deck_card_titles', TITLES.en.length);
+    const titleIndex = getNextShuffledIndex('yumeshelf_deck_card_titles', DEFAULT_TITLES.length);
     let randomIndexPosition: number | null = null;
     let isDismissed = false;
 
@@ -227,29 +142,22 @@ export function createHideAndSeekController({
         }
     }
 
-    function getCurrentLangKey(): 'en' | 'ja' | 'zh' {
-        const lang = (typeof getLanguage === 'function' ? getLanguage() : '') || localStorage.getItem('yumeshelf_lang') || localStorage.getItem('yumeshelf_language') || 'en';
-        if (lang.startsWith('ja')) return 'ja';
-        if (lang.startsWith('zh')) return 'zh';
-        return 'en';
-    }
-
     function getCardTitle(): string {
-        const lang = getCurrentLangKey();
-        const pool = TITLES[lang] || TITLES.en;
+        const d = typeof getStrings === 'function' ? getStrings() : {};
+        const pool = Array.isArray(d?.mascot_card_titles) && d.mascot_card_titles.length > 0 ? d.mascot_card_titles : DEFAULT_TITLES;
         return pool[titleIndex % pool.length] || 'Yume-chan';
     }
 
     function getRandomIdleQuote(): string {
-        const lang = getCurrentLangKey();
-        const pool = IDLE_QUOTES[lang] || IDLE_QUOTES.en;
+        const d = typeof getStrings === 'function' ? getStrings() : {};
+        const pool = Array.isArray(d?.mascot_card_idle_quotes) && d.mascot_card_idle_quotes.length > 0 ? d.mascot_card_idle_quotes : DEFAULT_IDLE_QUOTES;
         const index = getNextShuffledIndex('yumeshelf_deck_card_idle_quotes', pool.length);
         return pool[index % pool.length] || 'Zaako~';
     }
 
     function getRandomBonkedQuote(): string {
-        const lang = getCurrentLangKey();
-        const pool = BONKED_QUOTES[lang] || BONKED_QUOTES.en;
+        const d = typeof getStrings === 'function' ? getStrings() : {};
+        const pool = Array.isArray(d?.mascot_bonk_quotes) && d.mascot_bonk_quotes.length > 0 ? d.mascot_bonk_quotes : DEFAULT_BONK_QUOTES;
         const index = getNextShuffledIndex('yumeshelf_deck_bonked_quotes', pool.length);
         return pool[index % pool.length] || 'OIIIIIIII!!!';
     }

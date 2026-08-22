@@ -15,6 +15,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Yume-chan's disguise card idle quote now rotates smoothly every 10 seconds.
 
 ### For the Nerds
+- [i18n] Decoupled mascot card titles, idle quotes, and bonked quotes from TypeScript codebase into centralized i18n JSON resource files across English, Japanese, Simplified Chinese, Vietnamese, and sample pack templates.
 - [hide-and-seek] Added 10-second smooth idle quote rotation interval with immediate bonk interruption and automatic post-recovery restart in `src/renderer/features/hide-and-seek.ts`.
 - [shuffle-bag] Implemented persistent Fisher-Yates shuffle bags (`getNextShuffledIndex`) for card titles, idle quotes, and bonked quotes, guaranteeing non-repeating draw cycles across app sessions with full language independence.
 - [search] Added `setTemporaryPlaceholder` and `clearTemporaryPlaceholder` in `src/renderer/search.ts` with rotation pausing during reactive bonk quotes.

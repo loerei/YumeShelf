@@ -261,6 +261,40 @@
     "telemetry_modal_title": "Help Us Improve YumeShelf",
     "telemetry_modal_desc": "Would you like to share anonymous diagnostic data and save-game heuristic logs? This helps us optimize file-format support, detect issues, and build better refactoring protections.",
     "telemetry_modal_btn_opt_in": "Share Anonymous Data",
-    "telemetry_modal_btn_opt_out": "Keep Private"
+    "telemetry_modal_btn_opt_out": "Keep Private",
+    "mascot_card_titles": [
+      "Yume-chan",
+      "Prestigious Yume-chan",
+      "Admired Yume-chan",
+      "Yume-sama",
+      "Your Highness",
+      "Yume-chama",
+      "?????",
+      "Maou-chama",
+      "Hahahahahha"
+    ],
+    "mascot_card_idle_quotes": [
+      "Zaako~",
+      "Zaako!",
+      "Oiiiiiiii",
+      "Want some snacks?",
+      "You know how a lot of laughing turns into grass?",
+      "Stay Young Beautiful And Unique",
+      "Why am I talking to a fish?",
+      "Teto is 31yo",
+      "CUWAYO!",
+      "Cuwayo~ cuwayo~"
+    ],
+    "mascot_bonk_quotes": [
+      "OIIIIIIII!!!",
+      "Ugh!",
+      "Poor me :(",
+      "Gah-",
+      "My braincells!",
+      "You can do better than cyberbullying me :(",
+      "Bold of you!",
+      "@@",
+      "???"
+    ]
   }
 }

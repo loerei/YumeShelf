@@ -4,6 +4,18 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.2] - 2026-08-22 — released
+
+### What Changed
+- Fixed a dumb bug where Yume-chan got pinned down in the bottom-right corner whenever an update popup showed up. You can drag and bonk her around freely now even with a notification on your screen.
+- Moved the update notification popup back to where it used to be (with some breathing room from the screen edge).
+
+### For the Nerds
+- [mascot] Bumped Yume-chan widget z-index (1650) above update notifications so pointer events and dragging never get swallowed by active notification cards.
+- [notifications] Reverted `.update-notification-host` offset to 28px bottom/right and removed bottom margins to match v1.6.0.
+
+---
+
 ## [2.0.1] - 2026-08-22 — released
 
 ### What Changed

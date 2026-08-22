@@ -4,7 +4,7 @@
     position: fixed;
     bottom: 0;
     right: 20px;
-    z-index: 1590;
+    z-index: 1650;
     display: inline-flex;
     align-items: flex-end;
     justify-content: center;
@@ -197,7 +197,7 @@
 /* Bonk Hit Impact Effect Particle */
 .bonk-impact-particle {
     position: fixed;
-    z-index: 1595;
+    z-index: 1655;
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;

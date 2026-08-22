@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.0.1] - working
+## [2.0.1] - 2026-08-22 — released
 
 ### What Changed
 - Scanning messy folders (like your Downloads or Desktop) actually finds every game separately now instead of grouping them all into one giant weird entry.

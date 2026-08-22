@@ -10,23 +10,17 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
 - Made the bonking more IMPACTFUL.
 - Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
-- Bonking Yume-chan now temporarily replaces the search bar placeholder text with her reactive bonk quotes.
-- Upgraded titles and quote picker to a non-repeating loop shuffle bag (like a music player with shuffle and loop enabled).
-- Yume-chan's disguise card idle quote now rotates smoothly every 10 seconds.
 
 ### For the Nerds
-- [i18n] Decoupled mascot card titles, idle quotes, and bonked quotes from TypeScript codebase into centralized i18n JSON resource files across English, Japanese, Simplified Chinese, Vietnamese, and sample pack templates.
-- [hide-and-seek] Added 10-second smooth idle quote rotation interval with immediate bonk interruption and automatic post-recovery restart in `src/renderer/features/hide-and-seek.ts`.
-- [shuffle-bag] Implemented persistent Fisher-Yates shuffle bags (`getNextShuffledIndex`) for card titles, idle quotes, and bonked quotes, guaranteeing non-repeating draw cycles across app sessions with full language independence.
-- [search] Added `setTemporaryPlaceholder` and `clearTemporaryPlaceholder` in `src/renderer/search.ts` with rotation pausing during reactive bonk quotes.
-- [mascot] Wired `onBonk` and `onRecoverSmug` callbacks to pipe randomized localized bonk quotes into the search bar placeholder with automatic restoration on full recovery.
-- [hide-and-seek] Implemented `src/renderer/features/hide-and-seek.ts` minigame controller with dynamic library card injection, session-based threshold generation (5-10 clicks), localized quote banks (EN, JA, ZH, VI), animated dismissal, and recovery handoff to mascot dock.
-- [mascot] Added pointer-based drag & drop physics with live expression reaction (`yume_bonked.png`), viewport boundary clamping, coordinate persistence, and persistent bonk counter.
-- [mascot] Integrated math-driven comic impact particle (`BONK.png`) with exponential decay curve, random rotation ([-45°, +45°]), and peak opacity variation.
-- [mascot] Implemented 2-stage dynamic streak recovery state machine with cumulative remaining cooldown extension.
-- [context-menu] Implemented right-click quick settings popover with position reset, live bonk counter, sound selection, scale slider, and volume control.
-- [settings] Added "Hide And Seek?" setting with 0-game suppression, live view sync, and range slider scaling (25% - 100%).
-- [i18n] Synchronized new strings and standardized Chinese mascot name as 小优梅 across English, Japanese, Simplified Chinese, and sample templates.
+- [mascot] Added dragging physics so you can move Yume-chan around anywhere on your screen. Her position and total bonk count save to local storage, and her expression reacts while dragging.
+- [mascot] Added the comic bonk particle with a bit of math (exponential decay, random rotation between -45 and 45 degrees, and variable opacity).
+- [mascot] Built a two-stage cooldown state machine for her recovery so spamming clicks extends the timer instead of breaking the animation.
+- [hide-and-seek] Added the hide-and-seek minigame controller (`hide-and-seek.ts`). It injects a fake disguise card into your library grid with a random click threshold (5 to 10 bonks), then sends her back to the dock once she is chased away.
+- [hide-and-seek] Quotes on the disguise card rotate smoothly every 10 seconds and pause immediately if you click her.
+- [shuffle-bag] Added persistent Fisher-Yates shuffle bags (`getNextShuffledIndex`) for card titles and quotes. Works like a music playlist with shuffle and loop turned on so you never get duplicates until the full list is played through.
+- [search] Wired mascot callbacks into the search bar (`search.ts`) so bonking her temporarily displays her quotes in the placeholder, then goes back to normal once she recovers.
+- [context-menu] Added a right-click menu on the mascot for quick adjustments (reset position, sound pickers, volume, scale slider, and bonk counter).
+- [i18n] Did a full cleanup across the codebase to pull all hardcoded UI strings, card actions, filters, and save editor labels into proper JSON language packs (EN, JA, ZH, VI).
 
 ---
 

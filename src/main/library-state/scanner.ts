@@ -8,7 +8,7 @@ export const MAX_LIBRARY_MAX_DEPTH = 12;
 const EXECUTABLE_BLACKLIST = [
     'crashhandler', 'crashpad', 'notification', 'unins', 'updater', 
     'ffmpeg', 'dnspy', 'gifski', 'nircmd', 'unitycrash', 'createdump',
-    'gameupdate', 'patch', 'patcher',
+    'gameupdate', 'patch', 'patcher', 'prereq', 'redist',
     'config.sh', 'setup.sh', 'install.sh', 'uninstall.sh', 'configure.sh'
 ];
 const WRAPPER_DIRECTORY_NAMES = new Set([
@@ -241,19 +241,8 @@ export async function collectGameCandidates(
         nestedCandidates = nestedGroups.flat();
     }
 
-    // 2. If child directories contain game candidates, return all of them (or promote single wrapper directory)
-    if (nestedCandidates.length > 0) {
-        if (!isRoot && nestedCandidates.length === 1 && shouldPromoteWrapperDirectory(currentPath, nestedCandidates[0].folderPath, libraryPath)) {
-            return [{
-                folderPath: currentPath,
-                exePath: nestedCandidates[0].exePath,
-                platform: nestedCandidates[0].platform
-            }];
-        }
-        return nestedCandidates;
-    }
-
-    // 3. If NO child games were found, check if this directory is a leaf game folder with an executable
+    // 2. Check direct executables in the current directory
+    let directCandidate: CandidateGame | null = null;
     if (!isRoot) {
         const recognizedList = await Promise.all(
             entries.map(async (entry) => {
@@ -264,8 +253,46 @@ export async function collectGameCandidates(
         const executableEntries = recognizedList.filter((e): e is ExecutableCandidate => e !== null);
         if (executableEntries.length > 0) {
             const preferred = pickPreferredExecutable(currentPath, executableEntries, targetPlatform);
-            return preferred ? [{ folderPath: currentPath, exePath: preferred.exePath, platform: preferred.platform }] : [];
+            if (preferred) {
+                directCandidate = {
+                    folderPath: currentPath,
+                    exePath: preferred.exePath,
+                    platform: preferred.platform
+                };
+            }
         }
+    }
+
+    // 3. Resolution Matrix:
+    // Case A: Multiple independent game subtrees (N >= 2)
+    // -> Current directory is a Container / Category folder!
+    // -> Return all child games (ignoring any loose parent installer/tool).
+    if (nestedCandidates.length >= 2) {
+        return nestedCandidates;
+    }
+
+    // Case B: Exactly 1 child candidate (N = 1)
+    if (nestedCandidates.length === 1) {
+        // If current directory HAS its own top-level executable (e.g. Acmesia/akumesia.exe),
+        // the top-level launcher in the game root ALWAYS takes precedence over sub-engine binaries in data/!
+        if (directCandidate) {
+            return [directCandidate];
+        }
+        // If current directory has NO executable, promote wrapper (e.g. Game/bin -> Game)
+        if (!isRoot && shouldPromoteWrapperDirectory(currentPath, nestedCandidates[0].folderPath, libraryPath, targetPlatform)) {
+            return [{
+                folderPath: currentPath,
+                exePath: nestedCandidates[0].exePath,
+                platform: nestedCandidates[0].platform
+            }];
+        }
+        return nestedCandidates;
+    }
+
+    // Case C: No child games (N = 0)
+    // -> If current directory has an executable, it is a leaf game!
+    if (directCandidate) {
+        return [directCandidate];
     }
 
     return [];

@@ -283,14 +283,14 @@ export function createMascotWidget({
             widgetEl.classList.remove('bonk-animating');
         }, 500);
 
-        // Auto-recovery back to smug after 1.4s of inactivity
+        // Auto-recovery back to smug after 5.0s of inactivity
         if (recoveryTimer) {
             clearTimeout(recoveryTimer);
         }
         recoveryTimer = setTimeout(() => {
             recentClicks = [];
             setMascotState('smug');
-        }, 1400);
+        }, 5000);
     }
 
     function onPointerDown(event: PointerEvent) {

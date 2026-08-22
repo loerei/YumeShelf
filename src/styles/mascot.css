@@ -161,6 +161,11 @@
     cursor: pointer;
 }
 
+.mascot-menu-row select option {
+    background: var(--menu-bg);
+    color: var(--text-main);
+}
+
 .mascot-menu-row .volume-slider-container {
     width: 125px;
     min-width: 125px;

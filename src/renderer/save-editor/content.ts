@@ -344,7 +344,9 @@ export function renderBitset(context, data, metaSource, grid, onUpdate, isNumeri
         const pinId = type + ":" + id;
         if (onlyPinned && !state.pinnedVariables?.has(pinId)) return;
 
-        const name = metaSource[id] || `ID #${id}`;
+        const isSysVar = typeof id === 'string' && id.startsWith('sys_');
+        const numId = isSysVar ? Number(id.replace('sys_', '')) : Number(id);
+        const name = metaSource[id] || (isSysVar ? `[System] Var #${numId}` : (!Number.isNaN(numId) && numId >= 100 ? `[Table ${Math.floor(numId / 100)}] Var #${numId % 100}` : (type === 'variables' ? `Variable #${id}` : `ID #${id}`)));
         const translated = translator.translationCache[name];
         
         const isNamed = metaSource[id] && metaSource[id].trim() !== '';

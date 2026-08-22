@@ -9,12 +9,11 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### What Changed
 - Fixed the "More languages..." button in settings doing nothing when clicked.
 - Added proper Japanese, Chinese, and Vietnamese translations for the Hide and Seek options in settings, and cleaned up the redundant English labels.
-- Sped up the release pipeline builds on GitHub Actions by switching dependency installation to pnpm with frozen lockfiles.
 
 ### For the Nerds
 - [settings] Fixed DOM query target for `#more-languages-btn` in `dom-refs.ts` to query `settingsContainer` instead of `languagePackContainer`, reconnecting the modal trigger and dynamic localization.
 - [i18n] Localized Hide and Seek dropdown options across Japanese (うん / いやです), Chinese (好啊 / 不玩了), and Vietnamese (Chơi luôn / Thôi sủi), and dropped redundant `(Hide And Seek?)` suffix.
-- [ci] Migrated release workflow to `pnpm/action-setup@v4` with automated pnpm store caching on `actions/setup-node@v4` and `--frozen-lockfile` installs.
+- [ci] Migrated release workflow to `pnpm/action-setup@v4` with automated pnpm store caching on `actions/setup-node@v4` and `--frozen-lockfile` installs, speeding up dependency installation on GitHub Actions.
 
 ---
 

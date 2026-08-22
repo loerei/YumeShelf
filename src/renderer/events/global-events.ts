@@ -188,19 +188,52 @@ export function bindControlEvents({
             settingsController.handleMascotShowChange((event.target as HTMLSelectElement).value);
         };
     }
-    if (refs.mascotScaleSelect) {
-        refs.mascotScaleSelect.onchange = (event) => {
-            settingsController.handleMascotScaleChange((event.target as HTMLSelectElement).value);
+    if (refs.mascotScaleSlider) {
+        refs.mascotScaleSlider.oninput = (event) => {
+            const val = (event.target as HTMLInputElement).value;
+            settingsController.handleMascotScaleChange(val);
+            if (refs.mascotMenuScaleSlider) refs.mascotMenuScaleSlider.value = val;
+            if (refs.mascotMenuScaleValue) refs.mascotMenuScaleValue.textContent = `${val}%`;
         };
     }
     if (refs.mascotSoundSelect) {
         refs.mascotSoundSelect.onchange = (event) => {
-            settingsController.handleMascotSoundChange((event.target as HTMLSelectElement).value);
+            const val = (event.target as HTMLSelectElement).value;
+            settingsController.handleMascotSoundChange(val);
+            if (refs.mascotMenuSoundSelect) refs.mascotMenuSoundSelect.value = val;
         };
     }
     if (refs.mascotVolumeSlider) {
         refs.mascotVolumeSlider.oninput = (event) => {
-            settingsController.handleMascotVolumeChange((event.target as HTMLInputElement).value);
+            const val = (event.target as HTMLInputElement).value;
+            settingsController.handleMascotVolumeChange(val);
+            if (refs.mascotMenuVolumeSlider) refs.mascotMenuVolumeSlider.value = val;
+            if (refs.mascotMenuVolumeValue) refs.mascotMenuVolumeValue.textContent = `${val}%`;
+        };
+    }
+    if (refs.mascotMenuSoundSelect) {
+        refs.mascotMenuSoundSelect.onchange = (event) => {
+            const val = (event.target as HTMLSelectElement).value;
+            settingsController.handleMascotSoundChange(val);
+            if (refs.mascotSoundSelect) refs.mascotSoundSelect.value = val;
+        };
+    }
+    if (refs.mascotMenuScaleSlider) {
+        refs.mascotMenuScaleSlider.oninput = (event) => {
+            const val = (event.target as HTMLInputElement).value;
+            settingsController.handleMascotScaleChange(val);
+            if (refs.mascotScaleSlider) refs.mascotScaleSlider.value = val;
+            if (refs.mascotScaleValue) refs.mascotScaleValue.textContent = `${val}%`;
+            if (refs.mascotMenuScaleValue) refs.mascotMenuScaleValue.textContent = `${val}%`;
+        };
+    }
+    if (refs.mascotMenuVolumeSlider) {
+        refs.mascotMenuVolumeSlider.oninput = (event) => {
+            const val = (event.target as HTMLInputElement).value;
+            settingsController.handleMascotVolumeChange(val);
+            if (refs.mascotVolumeSlider) refs.mascotVolumeSlider.value = val;
+            if (refs.mascotVolumeValue) refs.mascotVolumeValue.textContent = `${val}%`;
+            if (refs.mascotMenuVolumeValue) refs.mascotMenuVolumeValue.textContent = `${val}%`;
         };
     }
     if (refs.locationDisplaySelect) {

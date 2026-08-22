@@ -108,7 +108,8 @@ export function createRendererComposition({
 
     const mascotWidget = createMascotWidget({
         widgetEl: refs.mascotWidget,
-        imgEl: refs.mascotImg
+        imgEl: refs.mascotImg,
+        contextMenuEl: refs.mascotContextMenu
     });
     mascotWidget.init();
 

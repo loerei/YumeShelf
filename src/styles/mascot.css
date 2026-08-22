@@ -1,22 +1,17 @@
 /* Interactive Yume Mascot Widget */
-.update-notification-bottom-row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-end;
-    gap: 12px;
-    pointer-events: none;
-}
-
 .yume-mascot-widget {
     --mascot-scale: 1;
-    position: relative;
+    position: fixed;
+    bottom: 0;
+    right: 20px;
+    z-index: 1590;
     display: inline-flex;
     align-items: flex-end;
     justify-content: center;
-    cursor: pointer;
-    pointer-events: auto;
+    cursor: grab;
     user-select: none;
     -webkit-user-drag: none;
+    touch-action: none;
     transform-origin: bottom center;
     transition: filter 0.2s ease, transform 0.15s ease;
     border-radius: 8px;
@@ -32,15 +27,21 @@
     appearance: none;
 }
 
+.yume-mascot-widget.is-dragging {
+    cursor: grabbing !important;
+    transition: none !important;
+    transform: none !important;
+}
+
 .yume-mascot-widget.hidden {
     display: none !important;
 }
 
-.yume-mascot-widget:hover {
+.yume-mascot-widget:hover:not(.is-dragging) {
     filter: brightness(1.08) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.4));
 }
 
-.yume-mascot-widget:active {
+.yume-mascot-widget:active:not(.is-dragging) {
     transform: translateY(2px);
 }
 
@@ -81,9 +82,92 @@
     }
 }
 
-@media (max-width: 900px) {
-    .update-notification-bottom-row {
-        width: 100%;
-        justify-content: space-between;
-    }
+/* Mascot Quick Context Menu Popover */
+.mascot-context-menu {
+    position: fixed;
+    z-index: 2100;
+    min-width: 250px;
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.mascot-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.mascot-menu-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-main);
+}
+
+.mascot-menu-reset-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mascot-menu-reset-btn:hover {
+    color: var(--text-main);
+    border-color: var(--text-sub);
+    background: var(--hover-bg);
+}
+
+.mascot-menu-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: -2px 0 2px;
+}
+
+.mascot-menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.mascot-menu-row label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-sub);
+    white-space: nowrap;
+}
+
+.mascot-menu-row select {
+    width: 125px;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    background: var(--input-bg, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    outline: none;
+    cursor: pointer;
+}
+
+.mascot-menu-row .volume-slider-container {
+    width: 125px;
+    min-width: 125px;
+    max-width: 125px;
+}
+
+.mascot-menu-row .volume-value-label {
+    min-width: 32px;
+    font-size: 12px;
 }

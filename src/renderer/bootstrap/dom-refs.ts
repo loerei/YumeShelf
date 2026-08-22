@@ -53,10 +53,18 @@ export interface RendererRefs {
     telemetrySelect: HTMLSelectElement | null;
     exposeBetaSelect: HTMLSelectElement | null;
     mascotShowSelect: HTMLSelectElement | null;
-    mascotScaleSelect: HTMLSelectElement | null;
+    mascotScaleSlider: HTMLInputElement | null;
+    mascotScaleValue: HTMLElement | null;
     mascotSoundSelect: HTMLSelectElement | null;
     mascotVolumeSlider: HTMLInputElement | null;
     mascotVolumeValue: HTMLElement | null;
+    mascotContextMenu: HTMLElement | null;
+    mascotMenuResetBtn: HTMLElement | null;
+    mascotMenuSoundSelect: HTMLSelectElement | null;
+    mascotMenuScaleSlider: HTMLInputElement | null;
+    mascotMenuScaleValue: HTMLElement | null;
+    mascotMenuVolumeSlider: HTMLInputElement | null;
+    mascotMenuVolumeValue: HTMLElement | null;
     buttons: {
         setupDefault: HTMLElement | null;
         chooseCustom: HTMLElement | null;
@@ -195,10 +203,18 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         telemetrySelect:         settingsContainer ? settingsContainer.querySelector('#telemetry-select') as HTMLSelectElement : null,
         exposeBetaSelect:        settingsContainer ? settingsContainer.querySelector('#expose-beta-select') as HTMLSelectElement : null,
         mascotShowSelect:        settingsContainer ? settingsContainer.querySelector('#mascot-show-select') as HTMLSelectElement : null,
-        mascotScaleSelect:       settingsContainer ? settingsContainer.querySelector('#mascot-scale-select') as HTMLSelectElement : null,
+        mascotScaleSlider:       settingsContainer ? settingsContainer.querySelector('#mascot-scale-slider') as HTMLInputElement : null,
+        mascotScaleValue:        settingsContainer ? settingsContainer.querySelector('#mascot-scale-value') : null,
         mascotSoundSelect:       settingsContainer ? settingsContainer.querySelector('#mascot-sound-select') as HTMLSelectElement : null,
         mascotVolumeSlider:      settingsContainer ? settingsContainer.querySelector('#mascot-volume-slider') as HTMLInputElement : null,
         mascotVolumeValue:       settingsContainer ? settingsContainer.querySelector('#mascot-volume-value') : null,
+        mascotContextMenu:       documentRef.getElementById('mascot-context-menu'),
+        mascotMenuResetBtn:      documentRef.getElementById('mascot-menu-reset-btn'),
+        mascotMenuSoundSelect:   documentRef.getElementById('mascot-menu-sound-select') as HTMLSelectElement | null,
+        mascotMenuScaleSlider:   documentRef.getElementById('mascot-menu-scale-slider') as HTMLInputElement | null,
+        mascotMenuScaleValue:    documentRef.getElementById('mascot-menu-scale-value'),
+        mascotMenuVolumeSlider:  documentRef.getElementById('mascot-menu-volume-slider') as HTMLInputElement | null,
+        mascotMenuVolumeValue:   documentRef.getElementById('mascot-menu-volume-value'),
 
         // === Button refs ===
         buttons: {

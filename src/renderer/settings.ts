@@ -64,7 +64,8 @@ export function createSettingsController({
     const telemetrySelect       = container.querySelector('#telemetry-select') as HTMLSelectElement | null;
     const exposeBetaSelect      = container.querySelector('#expose-beta-select') as HTMLSelectElement | null;
     const mascotShowSelect      = container.querySelector('#mascot-show-select') as HTMLSelectElement | null;
-    const mascotScaleSelect     = container.querySelector('#mascot-scale-select') as HTMLSelectElement | null;
+    const mascotScaleSlider     = container.querySelector('#mascot-scale-slider') as HTMLInputElement | null;
+    const mascotScaleValue      = container.querySelector('#mascot-scale-value') as HTMLElement | null;
     const mascotSoundSelect     = container.querySelector('#mascot-sound-select') as HTMLSelectElement | null;
     const mascotVolumeSlider    = container.querySelector('#mascot-volume-slider') as HTMLInputElement | null;
     const mascotVolumeValue     = container.querySelector('#mascot-volume-value') as HTMLElement | null;
@@ -136,7 +137,8 @@ export function createSettingsController({
         if (telemetrySelect) telemetrySelect.value = currentTelemetry;
         if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
         if (mascotShowSelect) mascotShowSelect.value = currentMascotShow;
-        if (mascotScaleSelect) mascotScaleSelect.value = currentMascotScale;
+        if (mascotScaleSlider) mascotScaleSlider.value = String(currentMascotScale);
+        if (mascotScaleValue) mascotScaleValue.textContent = `${currentMascotScale}%`;
         if (mascotSoundSelect) mascotSoundSelect.value = currentMascotSound;
         if (mascotVolumeSlider) mascotVolumeSlider.value = String(currentMascotVolume);
         if (mascotVolumeValue) mascotVolumeValue.textContent = `${currentMascotVolume}%`;
@@ -150,9 +152,12 @@ export function createSettingsController({
         }
     }
 
-    function handleMascotScaleChange(nextValue: string): void {
-        currentMascotScale = nextValue;
-        localStorage.setItem('yumeshelf_mascot_scale', nextValue);
+    function handleMascotScaleChange(nextValue: string | number): void {
+        currentMascotScale = String(nextValue);
+        localStorage.setItem('yumeshelf_mascot_scale', String(nextValue));
+        if (mascotScaleValue) {
+            mascotScaleValue.textContent = `${nextValue}%`;
+        }
         if (mascotWidget?.setScale) {
             mascotWidget.setScale(nextValue);
         }

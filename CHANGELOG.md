@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.0.4] - working
+## [2.0.4] - 2026-08-22 — released
 
 ### What Changed
 - Fixed the "More languages..." button in settings doing nothing when clicked.

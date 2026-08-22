@@ -4,6 +4,7 @@ import zipfile
 import pickle
 import io
 import json
+import base64
 from types import ModuleType
 
 def get_or_create_class(module_path, class_name):
@@ -20,75 +21,144 @@ def get_or_create_class(module_path, class_name):
             
     module = sys.modules[module_path]
     
-    if not hasattr(module, class_name):
-        name_lower = class_name.lower()
-        if 'list' in name_lower:
-            base = list
-        elif 'dict' in name_lower:
-            base = dict
-        elif 'set' in name_lower:
-            base = set
-        else:
-            base = object
+    if hasattr(module, class_name):
+        return getattr(module, class_name)
 
-        class DynamicMock(base):
-            def __init__(self, *args, **kwargs):
+    name_lower = class_name.lower()
+    if 'list' in name_lower or class_name == 'RevertableList':
+        base = list
+    elif 'dict' in name_lower or class_name == 'RevertableDict':
+        base = dict
+    elif 'set' in name_lower or class_name == 'RevertableSet':
+        base = set
+    else:
+        base = object
+
+    class DynamicMock(base):
+        def __new__(cls, *args, **kwargs):
+            return super().__new__(cls)
+
+        def __init__(self, *args, **kwargs):
+            if base is list:
+                list.__init__(self, *args, **kwargs)
+            elif base is dict:
+                dict.__init__(self, *args, **kwargs)
+            elif base is set:
+                set.__init__(self, *args, **kwargs)
+            else:
+                object.__init__(self)
+                
+        def __setstate__(self, state):
+            if isinstance(state, dict):
+                self.__dict__.update(state)
+                if base is dict:
+                    self.update(state)
+            elif isinstance(state, tuple):
+                for item in state:
+                    if isinstance(item, dict):
+                        self.__dict__.update(item)
+                        if base is dict:
+                            self.update(item)
+                    elif isinstance(item, list) and base is list:
+                        self.extend(item)
+            elif isinstance(state, list):
                 if base is list:
-                    list.__init__(self, *args, **kwargs)
-                elif base is dict:
-                    dict.__init__(self, *args, **kwargs)
-                elif base is set:
-                    set.__init__(self, *args, **kwargs)
-                else:
-                    object.__init__(self)
-                    
-            def __setstate__(self, state):
-                if isinstance(state, dict):
+                    self.extend(state)
+            else:
+                try:
                     self.__dict__.update(state)
-                    if base is dict:
-                        self.update(state)
-                elif isinstance(state, list):
-                    if base is list:
-                        self.extend(state)
-                elif isinstance(state, tuple):
-                    for item in state:
-                        if isinstance(item, dict):
-                            self.__dict__.update(item)
-                            if base is dict:
-                                self.update(item)
-                        elif isinstance(item, list) and base is list:
-                            self.extend(item)
-                else:
-                    try:
-                        self.__dict__.update(state)
-                    except Exception:
-                        pass
-                    
-            def __getstate__(self):
-                if base is list:
-                    return (self.__dict__, list(self))
-                elif base is dict:
-                    return self.__dict__
-                return self.__dict__
+                except Exception:
+                    pass
                 
-            def __repr__(self):
-                dict_part = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
-                if base is list:
-                    return f"<MockList {class_name} list={list(self)} dict={dict_part}>"
-                elif base is dict:
-                    return f"<MockDict {class_name} dict={dict(self)} extra={dict_part}>"
-                return f"<MockObject {class_name} dict={dict_part}>"
-                
-        DynamicMock.__name__ = class_name
-        DynamicMock.__qualname__ = class_name
-        DynamicMock.__module__ = module_path
-        setattr(module, class_name, DynamicMock)
+        def __getstate__(self):
+            if base is dict:
+                return dict(self)
+            elif base is list:
+                return (self.__dict__, list(self))
+            return self.__dict__
+
+        def __reduce_ex__(self, proto):
+            if base is list:
+                return (self.__class__, (), self.__dict__, iter(self), None)
+            elif base is dict:
+                return (self.__class__, (), self.__dict__, None, iter(self.items()))
+            elif base is set:
+                return (self.__class__, (), self.__dict__, None, None)
+            return (self.__class__, (), self.__dict__)
+            
+        def __repr__(self):
+            dict_part = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+            if base is list:
+                return f"<MockList {class_name} list={list(self)} dict={dict_part}>"
+            elif base is dict:
+                return f"<MockDict {class_name} dict={dict(self)} extra={dict_part}>"
+            return f"<MockObject {class_name} dict={dict_part}>"
+            
+    DynamicMock.__name__ = class_name
+    DynamicMock.__qualname__ = class_name
+    DynamicMock.__module__ = module_path
+    setattr(module, class_name, DynamicMock)
         
     return getattr(module, class_name)
 
 class SafeUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         return get_or_create_class(module, name)
+
+def get_renpy_token_path():
+    if sys.platform == 'win32':
+        appdata = os.environ.get('APPDATA', '')
+        if appdata:
+            return os.path.join(appdata, 'RenPy', 'tokens', 'security_keys.txt')
+    elif sys.platform == 'darwin':
+        return os.path.expanduser('~/Library/RenPy/tokens/security_keys.txt')
+    else:
+        return os.path.expanduser('~/.renpy/tokens/security_keys.txt')
+    return None
+
+def sign_log_data(log_data):
+    token_path = get_renpy_token_path()
+    if not token_path or not os.path.exists(token_path):
+        return None
+
+    priv_b64, pub_b64 = None, None
+    try:
+        with open(token_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) == 3 and parts[0] == 'signing-key':
+                    priv_b64, pub_b64 = parts[1], parts[2]
+                    break
+    except Exception as e:
+        print(f"[WARN] Failed to read security_keys.txt: {e}", file=sys.stderr)
+        return None
+
+    if not priv_b64 or not pub_b64:
+        return None
+
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+
+        priv_der = base64.b64decode(priv_b64)
+        priv_key = serialization.load_der_private_key(priv_der, password=None)
+        der_sig = priv_key.sign(log_data, ec.ECDSA(hashes.SHA1()))
+        r, s = decode_dss_signature(der_sig)
+        raw_sig = r.to_bytes(32, 'big') + s.to_bytes(32, 'big')
+        sig_b64 = base64.b64encode(raw_sig).decode('ascii')
+        return f"signature {pub_b64} {sig_b64}\n".encode('utf-8')
+    except Exception as e:
+        try:
+            import ecdsa
+            priv_der = base64.b64decode(priv_b64)
+            sk = ecdsa.SigningKey.from_der(priv_der)
+            sig_raw = sk.sign(log_data)
+            sig_b64 = base64.b64encode(sig_raw).decode('ascii')
+            return f"signature {pub_b64} {sig_b64}\n".encode('utf-8')
+        except Exception as e2:
+            print(f"[WARN] Failed to sign save data: {e} / {e2}", file=sys.stderr)
+            return None
 
 TYPE_KEY = "$type"
 
@@ -212,15 +282,24 @@ def to_save(original_save_path, json_in_path, output_save_path):
             el0[k] = deserialize_val(v)
             
     out_io = io.BytesIO()
-    pickle.dump(save_state, out_io, protocol=2)
+    pickle.dump(save_state, out_io, protocol=pickle.HIGHEST_PROTOCOL)
     new_log_data = out_io.getvalue()
+    
+    new_signatures = sign_log_data(new_log_data)
     
     with zipfile.ZipFile(original_save_path, 'r') as z_in:
         with zipfile.ZipFile(output_save_path, 'w', zipfile.ZIP_DEFLATED) as z_out:
+            has_signatures_written = False
             for item in z_in.infolist():
-                if item.filename != 'log':
+                if item.filename == 'log':
+                    z_out.writestr('log', new_log_data)
+                elif item.filename == 'signatures' and new_signatures is not None:
+                    z_out.writestr('signatures', new_signatures)
+                    has_signatures_written = True
+                else:
                     z_out.writestr(item.filename, z_in.read(item.filename))
-            z_out.writestr('log', new_log_data)
+            if new_signatures is not None and not has_signatures_written:
+                z_out.writestr('signatures', new_signatures)
             
     print(f"Successfully generated updated save file at {output_save_path}")
 

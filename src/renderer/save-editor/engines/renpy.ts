@@ -112,6 +112,27 @@ export class RenpyEngine {
             });
         }
 
+        if (typeof prop === 'string' && prop.startsWith('prefix_')) {
+            const prefix = prop.substring(7);
+            const prefixPattern = new RegExp(`^store\\.${prefix}_`);
+            return new Proxy(obj, {
+                get(target, key) {
+                    if (key === 'toJSON' || typeof key === 'symbol') return target[key];
+                    return target[key];
+                },
+                set(target, key, value) {
+                    target[key] = value;
+                    return true;
+                },
+                ownKeys(target) {
+                    return Object.keys(target).filter(k => prefixPattern.test(k));
+                },
+                getOwnPropertyDescriptor(target, key) {
+                    return { enumerable: true, configurable: true, writable: true };
+                }
+            });
+        }
+
         return null;
     }
 
@@ -124,7 +145,17 @@ export class RenpyEngine {
     findGold(root, _party) {
         if (!root) return null;
         // Search for typical currency keys in the store
-        const currencyKeys = ['store.money', 'store.cash', 'store.gold', 'store.savings_account'];
+        const currencyKeys = [
+            'store.money',
+            'store.cash',
+            'store.gold',
+            'store.yen',
+            'store.coins',
+            'store.points',
+            'store.savings_account',
+            'store.wallet',
+            'store.credits'
+        ];
         for (const key of currencyKeys) {
             if (root[key] !== undefined) {
                 return { obj: root, key, val: root[key] };
@@ -141,4 +172,3 @@ export class RenpyEngine {
         return obj || null;
     }
 }
-

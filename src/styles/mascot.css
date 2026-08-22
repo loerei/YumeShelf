@@ -104,12 +104,27 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+}
+
+.mascot-menu-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .mascot-menu-title {
     font-weight: 700;
     font-size: 14px;
     color: var(--text-main);
+    line-height: 1.2;
+}
+
+.mascot-menu-counter {
+    font-size: 11px;
+    color: var(--text-sub);
+    font-weight: 500;
+    line-height: 1.2;
 }
 
 .mascot-menu-reset-btn {

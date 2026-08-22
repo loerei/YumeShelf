@@ -7,11 +7,11 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.1] - working
 
 ### What Changed
-- You can now drag Yume-chan around
+- You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
 
 ### For the Nerds
-- [mascot] Added pointer-based drag & drop physics with live expression reaction (`yume_bonked.png`), viewport boundary clamping, and coordinate persistence across sessions.
-- [context-menu] Implemented right-click quick settings popover with position reset, sound selection, scale slider, and volume control.
+- [mascot] Added pointer-based drag & drop physics with live expression reaction (`yume_bonked.png`), viewport boundary clamping, coordinate persistence, and persistent bonk counter.
+- [context-menu] Implemented right-click quick settings popover with position reset, live bonk counter, sound selection, scale slider, and volume control.
 - [settings] Modernized scale settings to range slider (25% - 100%) with bidirectional sync between settings modal and context menu.
 - [i18n] Synchronized new mascot strings across Vietnamese, Japanese, Simplified Chinese, and sample templates.
 

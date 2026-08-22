@@ -248,6 +248,8 @@
     "sound_none": "Không có",
     "mascot_volume_label": "Bonk Volume (Uhh... cẩn thận đấy)",
     "mascot_menu_reset_position": "Đặt lại vị trí ban đầu",
+    "mascot_menu_bonked_count": "Đã bị bonk {count} lần",
+    "mascot_menu_bonked_count_one": "Đã bị bonk 1 lần",
     "mascot_menu_sound": "Bonk Sound",
     "mascot_menu_scale": "Kích thước",
     "mascot_menu_volume": "Âm lượng",

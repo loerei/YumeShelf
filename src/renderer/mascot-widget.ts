@@ -31,11 +31,13 @@ const SOUNDS = {
 export function createMascotWidget({
     widgetEl,
     imgEl,
-    contextMenuEl
+    contextMenuEl,
+    getStrings
 }: {
     widgetEl: HTMLElement | null;
     imgEl: HTMLImageElement | null;
     contextMenuEl?: HTMLElement | null;
+    getStrings?: () => any;
 }): MascotController {
     if (!widgetEl || !imgEl) {
         return {
@@ -193,6 +195,10 @@ export function createMascotWidget({
         // Play bonk audio (interrupts current playing sound and restarts cleanly)
         playBonkSound();
 
+        // Increment persistent bonk counter in localStorage
+        const prevCount = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+        localStorage.setItem('yumeshelf_mascot_bonk_count', String(prevCount + 1));
+
         // Retrigger 0.5s bonk squash animation smoothly
         widgetEl.classList.remove('bonk-animating');
         const _reflow = widgetEl.offsetWidth; // Trigger DOM reflow cleanly without void operator
@@ -309,6 +315,22 @@ export function createMascotWidget({
 
         contextMenuEl.style.left = `${left}px`;
         contextMenuEl.style.top = `${top}px`;
+
+        // Update persistent bonked counter text
+        const bonkCount = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+        const counterEl = contextMenuEl.querySelector('#mascot-menu-counter');
+        if (counterEl) {
+            const strings = typeof getStrings === 'function' ? getStrings() : null;
+            let template = strings?.mascot_menu_bonked_count;
+            if (bonkCount === 1 && strings?.mascot_menu_bonked_count_one) {
+                template = strings.mascot_menu_bonked_count_one;
+            }
+            if (template) {
+                counterEl.textContent = template.replace('{count}', String(bonkCount));
+            } else {
+                counterEl.textContent = `Bonked ${bonkCount} times`;
+            }
+        }
 
         // Sync context menu inputs with current states
         const soundSelect = contextMenuEl.querySelector('#mascot-menu-sound-select') as HTMLSelectElement | null;

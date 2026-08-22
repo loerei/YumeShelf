@@ -244,6 +244,8 @@
     "sound_none": "None",
     "mascot_volume_label": "Bonk Volume (Uhh... be careful)",
     "mascot_menu_reset_position": "Reset Position",
+    "mascot_menu_bonked_count": "Bonked {count} times",
+    "mascot_menu_bonked_count_one": "Bonked 1 time",
     "mascot_menu_sound": "Bonk Sound",
     "mascot_menu_scale": "Scale",
     "mascot_menu_volume": "Volume",

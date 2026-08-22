@@ -244,6 +244,8 @@
     "sound_none": "なし",
     "mascot_volume_label": "Bonk Volume (うっ…気をつけて)",
     "mascot_menu_reset_position": "位置をリセット",
+    "mascot_menu_bonked_count": "{count} 回叩かれました",
+    "mascot_menu_bonked_count_one": "1 回叩かれました",
     "mascot_menu_sound": "Bonk Sound",
     "mascot_menu_scale": "スケール",
     "mascot_menu_volume": "音量",

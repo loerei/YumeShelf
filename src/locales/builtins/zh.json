@@ -245,6 +245,8 @@
     "sound_none": "无",
     "mascot_volume_label": "Bonk 音量",
     "mascot_menu_reset_position": "重置位置",
+    "mascot_menu_bonked_count": "已被敲击 {count} 次",
+    "mascot_menu_bonked_count_one": "已被敲击 1 次",
     "mascot_menu_sound": "Bonk 音效",
     "mascot_menu_scale": "缩放",
     "mascot_menu_volume": "音量",

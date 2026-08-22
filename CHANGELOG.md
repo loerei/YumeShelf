@@ -7,22 +7,27 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.1] - working
 
 ### What Changed
-- Fixed game scanning so pointing to a messy folder (like Downloads) finds all your games instead of treating the whole folder as one game.
-- Better Linux gaming support (Bazzite, SteamOS): automatically detects Steam Proton, Bottles, and Lutris if system Wine is missing.
+- Fixed game scanning so pointing to a messy folder (like Downloads) finds all your games instead of treating the whole folder as one game, while still picking the right launcher in games with deep subfolders.
+- Fixed Wolf RPG save editing so saving changes actually writes to your file again instead of throwing an inspection payload error.
+- Better Linux gaming support (Bazzite, SteamOS): automatically detects Steam Proton, Bottles, and Lutris if system Wine is missing, and fixed startup crashes on Linux.
 - Fixed playtime tracking so failed launches don't leave phantom "Playing" timers running.
 - You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
-- Made the bonking more IMPACTFUL.
+- Made the bonking more impactful.
 - Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
 
 ### For the Nerds
-- [scanner] Fixed root library recursion blocker in `scanner.ts` where loose executables at the library root halted traversal into child directories.
-- [scanner] Fixed POSIX path normalization to preserve forward slashes and prevent Windows backslash leakage on Linux.
+- [scanner] Implemented unified sibling-disjointness resolution in `scanner.ts`. Container folders with multiple child games branch cleanly, while games with top-level launchers (like Bakin engine or Unreal Engine games) prioritize the game root launcher over internal runtime sub-binaries.
+- [scanner] Filtered out helper and installer binaries (`prereq`, `redist`, `patcher`, `updater`, `createdump`, `gameupdate`) from candidate discovery.
+- [save-editor] Fixed `sanitizeSaveData` in `SaveDataEngine` (`engine.ts`) to preserve format inspection tokens (`$type`), restoring Wolf RPG LCG-XOR save encoding and contract test coverage.
+- [deps] Added automated dynamic AST and transitive dependency tree crawler (`verify:deps`) to prevent missing runtime modules in production `.asar` bundles.
+- [deps] Bundled missing runtime dependencies (`fs-extra`, `universalify`, `graceful-fs`, `jsonfile`, `sax`, `lazy-val`) for pnpm compatibility in Linux AppImage builds.
+- [renderer] Fixed `ReferenceError: isEnabled is not defined` crash in `hide-and-seek.ts`.
 - [game-runner] Added multi-source runner detection in `detector.ts` for Steam Proton (standard, Flatpak, GE-Proton), Bottles Flatpak (`~/.var/app/com.usebottles.bottles`), Lutris, Heroic, and UMU.
 - [game-runner] Added automatic Proton fallback in `resolver.ts` when running Windows `.exe` games on immutable Linux systems without `/usr/bin/wine`.
 - [playtime] Added stale session heartbeat expiry in `journal.ts` (`isActiveJournal`) to eliminate ghost playtime accumulation from aborted launches.
 - [title-resolver] Added case-insensitive manifest exploration in `rpg-maker-resolver.ts` for Linux ext4/btrfs filesystems.
 - [mascot] Added dragging physics so you can move Yume-chan around anywhere on your screen. Her position and total bonk count save to local storage, and her expression reacts while dragging.
-- [mascot] Added the comic bonk particle with a bit of math (exponential decay, random rotation between -45 and 45 degrees, and variable opacity).
+- [mascot] Added the comic bonk particle with exponential decay, random rotation, and variable opacity.
 - [mascot] Built a two-stage cooldown state machine for her recovery so spamming clicks extends the timer instead of breaking the animation.
 - [hide-and-seek] Added the hide-and-seek minigame controller (`hide-and-seek.ts`). It injects a fake disguise card into your library grid with a random click threshold (5 to 10 bonks), then sends her back to the dock once she is chased away.
 - [hide-and-seek] Quotes on the disguise card rotate smoothly every 10 seconds and pause immediately if you click her.

@@ -193,3 +193,15 @@
     min-width: 32px;
     font-size: 12px;
 }
+
+/* Bonk Hit Impact Effect Particle */
+.bonk-impact-particle {
+    position: fixed;
+    z-index: 1595;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    transform: translate(-50%, -50%);
+    will-change: transform, opacity;
+}
+

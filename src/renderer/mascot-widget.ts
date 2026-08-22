@@ -2,6 +2,7 @@
 import yumeSmug from '../../assets/yume_smug.png';
 import yumeBonked from '../../assets/yume_bonked.png';
 import yumeBonkedTooMuch from '../../assets/yume_bonkedtoomuch.png';
+import bonkEffectImg from '../../assets/BONK.png';
 import squeakerSound from '../../assets/squeaker.mp3';
 import metalPipeSound from '../../assets/metal-pipe.mp3';
 
@@ -74,7 +75,7 @@ export function createMascotWidget({
     let elemStartY = 0;
 
     // Preload images into memory for instant zero-latency swap
-    Object.values(IMAGES).forEach((src) => {
+    [...Object.values(IMAGES), bonkEffectImg].forEach((src) => {
         const preloader = new Image();
         preloader.src = src;
     });
@@ -178,7 +179,73 @@ export function createMascotWidget({
         }
     }
 
-    function triggerBonk() {
+    function spawnBonkImpact(clickX?: number, clickY?: number) {
+        const rect = widgetEl.getBoundingClientRect();
+
+        let cx = clickX;
+        let cy = clickY;
+
+        if (typeof cx !== 'number' || typeof cy !== 'number') {
+            // Default to top-center area of mascot head
+            cx = rect.left + rect.width / 2;
+            cy = rect.top + rect.height * 0.28;
+        }
+
+        const particle = document.createElement('img');
+        particle.src = bonkEffectImg;
+        particle.alt = 'Bonk Impact';
+        particle.className = 'bonk-impact-particle';
+
+        // Base size scaled proportionally to mascot rendered size (~38% of mascot height)
+        const renderedHeight = rect.height || 260;
+        const baseSize = Math.max(65, Math.min(140, renderedHeight * 0.38));
+        particle.style.width = `${baseSize}px`;
+        particle.style.left = `${cx}px`;
+        particle.style.top = `${cy}px`;
+
+        // Random rotation from -45deg to +45deg
+        const rotationDeg = (Math.random() * 90) - 45;
+        // Random peak opacity from 0.75 to 1.0
+        const maxOpacity = 0.75 + Math.random() * 0.25;
+
+        // Mathematical curve parameters: f(t) = (t / tp)^n * exp(n * (1 - t / tp))
+        const tp = 0.12; // Peak position at ~12% duration (~45ms)
+        const n = 2.5;   // Slope power controlling rapid rise and smooth exponential tail
+        const duration = 380; // Total duration in ms
+        const startTime = performance.now();
+
+        particle.style.opacity = '0';
+        particle.style.transform = `translate(-50%, -50%) rotate(${rotationDeg}deg) scale(0.6)`;
+        document.body.appendChild(particle);
+
+        function animateFrame(now: number) {
+            const elapsed = now - startTime;
+            const t = Math.min(1, Math.max(0, elapsed / duration));
+
+            if (t <= 0) {
+                particle.style.opacity = '0';
+                particle.style.transform = `translate(-50%, -50%) rotate(${rotationDeg}deg) scale(0.6)`;
+            } else {
+                // Apply the user's mathematical curve formula
+                const curve = Math.pow(t / tp, n) * Math.exp(n * (1.0 - t / tp));
+                const currentOpacity = Math.max(0, Math.min(1, curve * maxOpacity));
+                const currentScale = 0.7 + 0.35 * Math.min(1.2, curve);
+
+                particle.style.opacity = String(currentOpacity);
+                particle.style.transform = `translate(-50%, -50%) rotate(${rotationDeg}deg) scale(${currentScale})`;
+            }
+
+            if (t < 1) {
+                requestAnimationFrame(animateFrame);
+            } else {
+                particle.remove();
+            }
+        }
+
+        requestAnimationFrame(animateFrame);
+    }
+
+    function triggerBonk(clickX?: number, clickY?: number) {
         const now = performance.now();
 
         // Retain clicks within the last 1200ms
@@ -194,6 +261,9 @@ export function createMascotWidget({
 
         // Play bonk audio (interrupts current playing sound and restarts cleanly)
         playBonkSound();
+
+        // Spawn mathematical curve BONK impact effect particle
+        spawnBonkImpact(clickX, clickY);
 
         // Increment persistent bonk counter in localStorage
         const prevCount = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
@@ -282,8 +352,8 @@ export function createMascotWidget({
             // Restore smug face on drop
             setMascotState('smug');
         } else {
-            // Click without drag -> Bonk!
-            triggerBonk();
+            // Click without drag -> Bonk at click location!
+            triggerBonk(event.clientX, event.clientY);
         }
     }
 

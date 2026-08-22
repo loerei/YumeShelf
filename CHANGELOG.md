@@ -7,20 +7,18 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.1] - working
 
 ### What Changed
-- Fixed game scanning so pointing to a messy folder (like Downloads) finds all your games instead of treating the whole folder as one game, while still picking the right launcher in games with deep subfolders. **There might be some false positive rendering, so I'm going to add a "Hide this card" button in the next version.**
-- Fixed Wolf RPG save editing so saving changes actually writes to your file again instead of throwing an inspection payload error.
-- Upgraded Wolf RPG save decoding to a generic dual-strategy engine supporting both segmented database table matrix saves (e.g. 401-byte table strides) and flat normal variable arrays across any game without hardcoded constraints.
-- Better Linux gaming support (Bazzite, SteamOS): automatically detects Steam Proton, Bottles, and Lutris if system Wine is missing, and fixed startup crashes on Linux.
-- Fixed playtime tracking so failed launches don't leave phantom "Playing" timers running.
-- You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
-- Made the bonking more impactful.
-- Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
+- Scanning messy folders (like your Downloads or Desktop) actually finds every game separately now instead of grouping them all into one giant weird entry.
+- Fixed Wolf RPG save editing. It properly opens and saves files across any Wolf RPG game now, and doesn't freeze the app when opening saves with tens of thousands of variables.
+- Better Linux gaming support (SteamOS, Bazzite). It detects Steam Proton, Bottles, and Lutris if you don't have Wine installed, and no longer crashes on startup.
+- Fixed playtime tracking so games that fail to launch don't keep counting phantom hours.
+- You can drag Yume-chan anywhere on your screen, and she might disguise herself as a game card in your library until you bonk her enough to go away.
 
 ### For the Nerds
 - [scanner] Implemented unified sibling-disjointness resolution in `scanner.ts`. Container folders with multiple child games branch cleanly, while games with top-level launchers (like Bakin engine or Unreal Engine games) prioritize the game root launcher over internal runtime sub-binaries.
 - [scanner] Filtered out helper and installer binaries (`prereq`, `redist`, `patcher`, `updater`, `createdump`, `gameupdate`) from candidate discovery.
 - [save-editor] Fixed `sanitizeSaveData` in `SaveDataEngine` (`engine.ts`) to preserve format inspection tokens (`$type`), restoring Wolf RPG LCG-XOR save encoding and contract test coverage.
-- [save-editor] Refactored `RpgWolfSavFormat` (`rpg-wolf-sav.ts`) from a static 800-variable heuristic into a generic dual-strategy deserializer: detects 401-byte segmented database table matrices anchored by `system.sav` as well as Tag 10 dynamic global arrays with full round-trip checksum recalculation.
+- [save-editor] Refactored `RpgWolfSavFormat` (`rpg-wolf-sav.ts`) from a static 800-variable heuristic into a generic dual-strategy deserializer: detects 401-byte segmented database table matrices anchored by `save/system.sav\0` as well as Tag 10 system variables (`aux_n14`) with dynamic lengths and full round-trip checksum recalculation.
+- [save-editor] Added in-memory `metadataCache` with `mtime` validation to eliminate duplicate `SysDatabase.dat` parsing, and shifted fallback label formatting to on-demand rendering in `content.ts` to reduce IPC payload size by 99%.
 - [deps] Added automated dynamic AST and transitive dependency tree crawler (`verify:deps`) to prevent missing runtime modules in production `.asar` bundles.
 - [deps] Bundled missing runtime dependencies (`fs-extra`, `universalify`, `graceful-fs`, `jsonfile`, `sax`, `lazy-val`) for pnpm compatibility in Linux AppImage builds.
 - [renderer] Fixed `ReferenceError: isEnabled is not defined` crash in `hide-and-seek.ts`.

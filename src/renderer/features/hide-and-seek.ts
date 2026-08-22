@@ -31,7 +31,8 @@ const DEFAULT_IDLE_QUOTES = [
     'Why am I talking to a fish?',
     'Teto is 31yo',
     'CUWAYO!',
-    'Cuwayo~ cuwayo~'
+    'Cuwayo~ cuwayo~',
+    'Sakanaaaaa~'
 ];
 
 const DEFAULT_BONK_QUOTES = [

@@ -2,6 +2,8 @@ import sys
 import os
 import zipfile
 import pickle
+import pickletools
+import struct
 import io
 import json
 import base64
@@ -76,15 +78,6 @@ def get_or_create_class(module_path, class_name):
             elif base is list:
                 return (self.__dict__, list(self))
             return self.__dict__
-
-        def __reduce_ex__(self, proto):
-            if base is list:
-                return (self.__class__, (), self.__dict__, iter(self), None)
-            elif base is dict:
-                return (self.__class__, (), self.__dict__, None, iter(self.items()))
-            elif base is set:
-                return (self.__class__, (), self.__dict__, None, None)
-            return (self.__class__, (), self.__dict__)
             
         def __repr__(self):
             dict_part = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
@@ -104,6 +97,134 @@ def get_or_create_class(module_path, class_name):
 class SafeUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         return get_or_create_class(module, name)
+
+TYPE_KEY = "$type"
+
+def serialize_val(val):
+    if val is None:
+        return None
+    elif isinstance(val, (bool, int, float, str)):
+        return val
+    elif isinstance(val, list):
+        return [serialize_val(x) for x in val]
+    elif isinstance(val, dict):
+        return {k: serialize_val(v) for k, v in val.items() if isinstance(k, str)}
+    elif isinstance(val, set):
+        return {
+            TYPE_KEY: "set",
+            "values": [serialize_val(x) for x in val]
+        }
+    elif hasattr(val, '__dict__'):
+        class_name = type(val).__name__
+        module_name = type(val).__module__
+        return {
+            TYPE_KEY: "object",
+            "$class": f"{module_name}.{class_name}",
+            "fields": {k: serialize_val(v) for k, v in val.__dict__.items() if not k.startswith('_')}
+        }
+    else:
+        return repr(val)
+
+def to_json(save_path, json_out_path):
+    if not os.path.exists(save_path):
+        print(f"Error: Save file {save_path} does not exist", file=sys.stderr)
+        sys.exit(1)
+        
+    with zipfile.ZipFile(save_path, 'r') as z:
+        log_data = z.read('log')
+        
+    unpickler = SafeUnpickler(io.BytesIO(log_data))
+    save_state = unpickler.load()
+    
+    el0 = save_state[0] if isinstance(save_state, (tuple, list)) and len(save_state) > 0 else {}
+    variables = {}
+    for k, v in el0.items():
+        if isinstance(k, str) and k.startswith('store.'):
+            variables[k] = serialize_val(v)
+            
+    with open(json_out_path, 'w', encoding='utf-8') as f:
+        json.dump(variables, f, indent=2, ensure_ascii=False)
+        
+    print(f"Successfully converted {save_path} to JSON at {json_out_path}")
+
+def encode_pickle_value(val):
+    if val is None:
+        return b'\x4e'  # NONE
+    elif isinstance(val, bool):
+        return b'\x88' if val else b'\x89'  # NEWTRUE / NEWFALSE
+    elif isinstance(val, int):
+        if 0 <= val <= 255:
+            return b'\x4b' + bytes([val])  # BININT1
+        elif 0 <= val <= 65535:
+            return b'\x4d' + val.to_bytes(2, 'little')  # BININT2
+        elif -2147483648 <= val <= 2147483647:
+            return b'\x4a' + val.to_bytes(4, 'little', signed=True)  # BININT
+        else:
+            raw = val.to_bytes((val.bit_length() + 7) // 8, 'little', signed=True)
+            return b'\x8a' + bytes([len(raw)]) + raw  # LONG1
+    elif isinstance(val, float):
+        return b'\x47' + struct.pack('>d', val)  # BINFLOAT
+    elif isinstance(val, str):
+        utf8 = val.encode('utf-8')
+        if len(utf8) <= 255:
+            return b'\x8c' + bytes([len(utf8)]) + utf8  # SHORT_BINUNICODE
+        elif len(utf8) <= 4294967295:
+            return b'\x8d' + len(utf8).to_bytes(4, 'little') + utf8  # BINUNICODE
+        else:
+            return b'\x8e' + len(utf8).to_bytes(8, 'little') + utf8  # BINUNICODE8
+    return None
+
+def patch_log_stream(log_data, modified_vars):
+    try:
+        unpickler = SafeUnpickler(io.BytesIO(log_data))
+        save_state = unpickler.load()
+        orig_vars = save_state[0] if isinstance(save_state, (tuple, list)) and len(save_state) > 0 else {}
+    except Exception as e:
+        print(f"[WARN] Failed to unpickle original state for diff detection: {e}", file=sys.stderr)
+        orig_vars = {}
+
+    changed = {}
+    for k, v in modified_vars.items():
+        if k in orig_vars and orig_vars[k] != v:
+            changed[k] = v
+        elif k not in orig_vars:
+            changed[k] = v
+
+    if not changed:
+        print("No store variables changed.")
+        return log_data
+
+    ops = list(pickletools.genops(log_data))
+    entries = {}
+    for i, (op, arg, pos) in enumerate(ops):
+        if isinstance(arg, str) and (arg.startswith('store.') or arg in changed):
+            val_idx = i + 1
+            while val_idx < len(ops) and ops[val_idx][0].name == 'MEMOIZE':
+                val_idx += 1
+            if val_idx < len(ops):
+                val_op, val_arg, val_pos = ops[val_idx]
+                next_idx = val_idx + 1
+                if next_idx < len(ops):
+                    next_pos = ops[next_idx][2]
+                else:
+                    next_pos = len(log_data)
+                entries[arg] = (val_pos, next_pos, val_op.name, val_arg)
+
+    replacements = []
+    for key, new_val in changed.items():
+        if key in entries:
+            start, end, old_op, old_arg = entries[key]
+            encoded = encode_pickle_value(new_val)
+            if encoded is not None:
+                replacements.append((start, end, encoded))
+                print(f"Surgical patch on {key}: {orig_vars.get(key, old_arg)} -> {new_val} (opcode: {encoded.hex()})")
+
+    # Sort replacements by start pos descending to ensure upstream offsets remain valid
+    replacements.sort(key=lambda x: x[0], reverse=True)
+    buf = bytearray(log_data)
+    for start, end, new_bytes in replacements:
+        buf[start:end] = new_bytes
+    return bytes(buf)
 
 def get_renpy_token_path():
     if sys.platform == 'win32':
@@ -160,103 +281,6 @@ def sign_log_data(log_data):
             print(f"[WARN] Failed to sign save data: {e} / {e2}", file=sys.stderr)
             return None
 
-TYPE_KEY = "$type"
-
-def serialize_val(val):
-    if val is None:
-        return None
-    elif isinstance(val, (bool, int, float, str)):
-        return val
-    elif isinstance(val, list):
-        return [serialize_val(x) for x in val]
-    elif isinstance(val, dict):
-        return {k: serialize_val(v) for k, v in val.items() if isinstance(k, str)}
-    elif isinstance(val, set):
-        return {
-            TYPE_KEY: "set",
-            "values": [serialize_val(x) for x in val]
-        }
-    elif hasattr(val, '__dict__'):
-        class_name = type(val).__name__
-        module_name = type(val).__module__
-        return {
-            TYPE_KEY: "object",
-            "$class": f"{module_name}.{class_name}",
-            "fields": {k: serialize_val(v) for k, v in val.__dict__.items() if not k.startswith('_')}
-        }
-    else:
-        return repr(val)
-
-def deserialize_val(json_val, original_val=None):
-    if json_val is None:
-        return None
-    elif isinstance(json_val, (bool, int, float, str)):
-        return json_val
-    elif isinstance(json_val, list):
-        if isinstance(original_val, list):
-            original_val.clear()
-            for idx, x in enumerate(json_val):
-                original_val.append(deserialize_val(x))
-            return original_val
-        else:
-            return [deserialize_val(x) for x in json_val]
-    elif isinstance(json_val, dict):
-        if json_val.get(TYPE_KEY) == "set":
-            vals = json_val.get("values", [])
-            if isinstance(original_val, set):
-                original_val.clear()
-                for x in vals:
-                    original_val.add(deserialize_val(x))
-                return original_val
-            else:
-                return {deserialize_val(x) for x in vals}
-        elif json_val.get(TYPE_KEY) == "object":
-            class_path = json_val.get("$class")
-            fields = json_val.get("fields", {})
-            if original_val is not None:
-                for k, v in fields.items():
-                    orig_field = getattr(original_val, k, None)
-                    setattr(original_val, k, deserialize_val(v, orig_field))
-                return original_val
-            else:
-                module_path, class_name = class_path.rsplit('.', 1)
-                klass = get_or_create_class(module_path, class_name)
-                obj = klass()
-                for k, v in fields.items():
-                    setattr(obj, k, deserialize_val(v))
-                return obj
-        else:
-            if isinstance(original_val, dict):
-                original_val.clear()
-                for k, v in json_val.items():
-                    original_val[k] = deserialize_val(v)
-                return original_val
-            else:
-                return {k: deserialize_val(v) for k, v in json_val.items()}
-    return json_val
-
-def to_json(save_path, json_out_path):
-    if not os.path.exists(save_path):
-        print(f"Error: Save file {save_path} does not exist", file=sys.stderr)
-        sys.exit(1)
-        
-    with zipfile.ZipFile(save_path, 'r') as z:
-        log_data = z.read('log')
-        
-    unpickler = SafeUnpickler(io.BytesIO(log_data))
-    save_state = unpickler.load()
-    
-    el0 = save_state[0]
-    variables = {}
-    for k, v in el0.items():
-        if isinstance(k, str) and k.startswith('store.'):
-            variables[k] = serialize_val(v)
-            
-    with open(json_out_path, 'w', encoding='utf-8') as f:
-        json.dump(variables, f, indent=2, ensure_ascii=False)
-        
-    print(f"Successfully converted {save_path} to JSON at {json_out_path}")
-
 def to_save(original_save_path, json_in_path, output_save_path):
     if not os.path.exists(original_save_path):
         print(f"Error: Original save file {original_save_path} does not exist", file=sys.stderr)
@@ -266,25 +290,12 @@ def to_save(original_save_path, json_in_path, output_save_path):
         sys.exit(1)
         
     with zipfile.ZipFile(original_save_path, 'r') as z:
-        log_data = z.read('log')
+        orig_log_data = z.read('log')
         
-    unpickler = SafeUnpickler(io.BytesIO(log_data))
-    save_state = unpickler.load()
-    el0 = save_state[0]
-    
     with open(json_in_path, 'r', encoding='utf-8') as f:
         modified_vars = json.load(f)
         
-    for k, v in modified_vars.items():
-        if k in el0:
-            el0[k] = deserialize_val(v, el0[k])
-        else:
-            el0[k] = deserialize_val(v)
-            
-    out_io = io.BytesIO()
-    pickle.dump(save_state, out_io, protocol=pickle.HIGHEST_PROTOCOL)
-    new_log_data = out_io.getvalue()
-    
+    new_log_data = patch_log_stream(orig_log_data, modified_vars)
     new_signatures = sign_log_data(new_log_data)
     
     with zipfile.ZipFile(original_save_path, 'r') as z_in:

@@ -139,7 +139,7 @@ export function createHideAndSeekController({
     const threshold = Math.floor(Math.random() * 6) + 5; // 5..10 clicks
     const isStarred = Math.random() < 0.5;
     const titleIndex = Math.floor(Math.random() * 9);
-    let randomIndexPosition = 0;
+    let randomIndexPosition: number | null = null;
     let isDismissed = false;
 
     let currentStreak = 0;
@@ -152,7 +152,7 @@ export function createHideAndSeekController({
     let cardAnimTimer: ReturnType<typeof setTimeout> | null = null;
 
     function getCurrentLangKey(): 'en' | 'ja' | 'zh' {
-        const lang = (typeof getLanguage === 'function' ? getLanguage() : '') || localStorage.getItem('yumeshelf_language') || 'en';
+        const lang = (typeof getLanguage === 'function' ? getLanguage() : '') || localStorage.getItem('yumeshelf_lang') || localStorage.getItem('yumeshelf_language') || 'en';
         if (lang.startsWith('ja')) return 'ja';
         if (lang.startsWith('zh')) return 'zh';
         return 'en';
@@ -243,7 +243,7 @@ export function createHideAndSeekController({
         }
 
         // Clamp random insertion index into range [0, items.length]
-        if (randomIndexPosition > items.length || randomIndexPosition === 0) {
+        if (randomIndexPosition === null || randomIndexPosition > items.length) {
             randomIndexPosition = Math.floor(Math.random() * (items.length + 1));
         }
 

@@ -14,6 +14,8 @@ export interface SettingsControllerOptions {
     onOpen?: () => void;
     container: HTMLElement;
     mascotWidget?: any;
+    hideAndSeekController?: any;
+    getAllGames?: () => any[];
 }
 
 export interface SettingsController {
@@ -35,6 +37,7 @@ export interface SettingsController {
     handleMinimizeToTrayChange: (nextValue: string) => Promise<boolean>;
     handleExposeBetaChange: (nextValue: string) => Promise<boolean>;
     handleMascotShowChange: (nextValue: string) => void;
+    handleHideAndSeekChange: (nextValue: string) => void;
     handleMascotScaleChange: (nextValue: string) => void;
     handleMascotSoundChange: (nextValue: string) => void;
     handleMascotVolumeChange: (nextValue: number | string) => void;
@@ -46,7 +49,9 @@ export interface SettingsController {
 export function createSettingsController({
     onOpen,
     container,
-    mascotWidget
+    mascotWidget,
+    hideAndSeekController,
+    getAllGames
 }: SettingsControllerOptions): SettingsController {
     // Controller owns its DOM scope – querySelector within container only.
     const settingsOverlay       = container;
@@ -64,6 +69,7 @@ export function createSettingsController({
     const telemetrySelect       = container.querySelector('#telemetry-select') as HTMLSelectElement | null;
     const exposeBetaSelect      = container.querySelector('#expose-beta-select') as HTMLSelectElement | null;
     const mascotShowSelect      = container.querySelector('#mascot-show-select') as HTMLSelectElement | null;
+    const hideAndSeekSelect     = container.querySelector('#hide-and-seek-select') as HTMLSelectElement | null;
     const mascotScaleSlider     = container.querySelector('#mascot-scale-slider') as HTMLInputElement | null;
     const mascotScaleValue      = container.querySelector('#mascot-scale-value') as HTMLElement | null;
     const mascotSoundSelect     = container.querySelector('#mascot-sound-select') as HTMLSelectElement | null;
@@ -78,6 +84,7 @@ export function createSettingsController({
     let currentLocationDisplayMode = localStorage.getItem('yumeshelf_location_display_mode') || DEFAULT_LOCATION_DISPLAY_MODE;
     let currentTitleDisplayMode = localStorage.getItem('yumeshelf_title_display_mode') || DEFAULT_TITLE_DISPLAY_MODE;
     let currentDisplayProductCodes = localStorage.getItem('yumeshelf_display_product_codes') === 'true';
+    let currentHideAndSeek = localStorage.getItem('yumeshelf_hide_and_seek') || 'out';
     let currentMaxDepth = DEFAULT_MAX_DEPTH;
     let currentAutoLaunch = 'off';
     let currentMinimizeToTray = false;
@@ -86,7 +93,7 @@ export function createSettingsController({
     let currentMascotShow = localStorage.getItem('yumeshelf_mascot_show') || 'on';
     let currentMascotScale = localStorage.getItem('yumeshelf_mascot_scale') || '100';
     let currentMascotSound = localStorage.getItem('yumeshelf_mascot_sound') || 'squeaker';
-    let currentMascotVolume = localStorage.getItem('yumeshelf_mascot_volume') ?? '20';
+    let currentMascotVolume = localStorage.getItem('yumeshelf_mascot_volume') || '20';
 
     async function openSettings(): Promise<void> {
         if (typeof onOpen === 'function') {
@@ -112,6 +119,20 @@ export function createSettingsController({
         } catch (error) {
             console.error('[SETTINGS] Failed to sync config on open:', error);
         }
+
+        const games = typeof getAllGames === 'function' ? getAllGames() : [];
+        if (hideAndSeekSelect) {
+            if (!games || games.length === 0) {
+                hideAndSeekSelect.disabled = true;
+                hideAndSeekSelect.style.opacity = '0.5';
+                hideAndSeekSelect.style.cursor = 'not-allowed';
+            } else {
+                hideAndSeekSelect.disabled = false;
+                hideAndSeekSelect.style.opacity = '1';
+                hideAndSeekSelect.style.cursor = 'pointer';
+            }
+        }
+
         settingsOverlay.style.display = 'flex';
     }
 
@@ -137,6 +158,7 @@ export function createSettingsController({
         if (telemetrySelect) telemetrySelect.value = currentTelemetry;
         if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
         if (mascotShowSelect) mascotShowSelect.value = currentMascotShow;
+        if (hideAndSeekSelect) hideAndSeekSelect.value = currentHideAndSeek;
         if (mascotScaleSlider) mascotScaleSlider.value = String(currentMascotScale);
         if (mascotScaleValue) mascotScaleValue.textContent = `${currentMascotScale}%`;
         if (mascotSoundSelect) mascotSoundSelect.value = currentMascotSound;
@@ -149,6 +171,15 @@ export function createSettingsController({
         localStorage.setItem('yumeshelf_mascot_show', nextValue);
         if (mascotWidget?.setVisible) {
             mascotWidget.setVisible(nextValue === 'on');
+        }
+    }
+
+    function handleHideAndSeekChange(nextValue: string): void {
+        currentHideAndSeek = nextValue;
+        if (hideAndSeekController?.setSetting) {
+            hideAndSeekController.setSetting(nextValue === 'yeaaa');
+        } else {
+            localStorage.setItem('yumeshelf_hide_and_seek', nextValue);
         }
     }
 
@@ -267,76 +298,42 @@ export function createSettingsController({
     }
 
     function applyLibraryConfig(libraryConfig: any = null): void {
-        currentMaxDepth = clampMaxDepth(libraryConfig?.maxDepth);
+        const config = libraryConfig || {};
+        currentMaxDepth = clampMaxDepth(config.maxDepth);
+        currentAutoLaunch = config.autoLaunch || 'off';
+        currentMinimizeToTray = !!config.minimizeToTray;
+        currentTelemetry = config.telemetry || 'off';
+        currentExposeBeta = !!config.exposeBetaOptions;
+
         if (maxDepthInput) maxDepthInput.value = String(currentMaxDepth);
-        if (maxDepthDecreaseBtn) maxDepthDecreaseBtn.disabled = currentMaxDepth <= MIN_MAX_DEPTH;
-        if (maxDepthIncreaseBtn) maxDepthIncreaseBtn.disabled = currentMaxDepth >= MAX_MAX_DEPTH;
+        if (autoLaunchSelect) autoLaunchSelect.value = currentAutoLaunch;
+        if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
+        if (telemetrySelect) telemetrySelect.value = currentTelemetry;
+        if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
 
-        let paths: string[];
-        if (Array.isArray(libraryConfig?.libraryPaths)) {
-            paths = libraryConfig.libraryPaths;
-        } else if (libraryConfig?.libraryPath) {
-            paths = [libraryConfig.libraryPath];
-        } else {
-            paths = [];
-        }
-        renderLibraryPaths(paths);
-
-        if (libraryConfig) {
-            if (libraryConfig.autoLaunch === 'minimized') {
-                currentAutoLaunch = 'minimized';
-            } else if (libraryConfig.autoLaunch === true || libraryConfig.autoLaunch === 'on') {
-                currentAutoLaunch = 'on';
-            } else {
-                currentAutoLaunch = 'off';
-            }
-            currentMinimizeToTray = !!libraryConfig.minimizeToTray;
-            if (autoLaunchSelect) autoLaunchSelect.value = currentAutoLaunch;
-            if (minimizeToTraySelect) minimizeToTraySelect.value = currentMinimizeToTray ? 'on' : 'off';
-            
-            currentTelemetry = libraryConfig.telemetryEnabled ? 'on' : 'off';
-            if (telemetrySelect) telemetrySelect.value = currentTelemetry;
-
-            currentExposeBeta = !!libraryConfig.exposeBetaOptions;
-            if (exposeBetaSelect) exposeBetaSelect.value = currentExposeBeta ? 'on' : 'off';
-
-            if (libraryConfig.titleDisplayMode) {
-                currentTitleDisplayMode = libraryConfig.titleDisplayMode === 'legacy_folder' ? 'legacy_folder' : 'metadata';
-                localStorage.setItem('yumeshelf_title_display_mode', currentTitleDisplayMode);
-                if (titleDisplaySelect) titleDisplaySelect.value = currentTitleDisplayMode;
-            }
-
-            if (typeof libraryConfig.displayProductCodes === 'boolean') {
-                currentDisplayProductCodes = libraryConfig.displayProductCodes;
-                localStorage.setItem('yumeshelf_display_product_codes', String(currentDisplayProductCodes));
-                if (displayCodesSelect) displayCodesSelect.value = currentDisplayProductCodes ? 'on' : 'off';
-            }
+        if (config.libraryPaths) {
+            renderLibraryPaths(config.libraryPaths);
         }
     }
 
     function handleMaxDepthChange(nextValue: number | string): number {
-        currentMaxDepth = clampMaxDepth(nextValue);
-        applyLibraryConfig({
-            maxDepth: currentMaxDepth,
-            autoLaunch: currentAutoLaunch,
-            minimizeToTray: currentMinimizeToTray,
-            telemetryEnabled: currentTelemetry === 'on',
-            exposeBetaOptions: currentExposeBeta,
-            titleDisplayMode: currentTitleDisplayMode,
-            displayProductCodes: currentDisplayProductCodes
-        });
-        return currentMaxDepth;
+        const clamped = clampMaxDepth(nextValue);
+        currentMaxDepth = clamped;
+        if (maxDepthInput) maxDepthInput.value = String(clamped);
+        return clamped;
     }
 
     function handleMaxDepthStep(delta: number): number {
-        return handleMaxDepthChange(currentMaxDepth + delta);
+        const next = currentMaxDepth + delta;
+        return handleMaxDepthChange(next);
     }
 
     async function handleAutoLaunchChange(nextValue: string): Promise<string> {
         currentAutoLaunch = nextValue;
-        await (window as any).electronAPI.setAutoLaunch(nextValue);
-        await (window as any).electronAPI.updateLibraryConfig({ autoLaunch: nextValue });
-        return nextValue;
+        const actualState = await (window as any).electronAPI.setAutoLaunch(nextValue);
+        currentAutoLaunch = actualState;
+        if (autoLaunchSelect) autoLaunchSelect.value = actualState;
+        return actualState;
     }
 
     async function handleMinimizeToTrayChange(nextValue: string): Promise<boolean> {
@@ -387,6 +384,7 @@ export function createSettingsController({
         handleMinimizeToTrayChange,
         handleExposeBetaChange,
         handleMascotShowChange,
+        handleHideAndSeekChange,
         handleMascotScaleChange,
         handleMascotSoundChange,
         handleMascotVolumeChange,

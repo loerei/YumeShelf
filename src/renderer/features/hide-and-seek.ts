@@ -133,6 +133,39 @@ const BONKED_QUOTES = {
 
 export const MASCOT_CARD_KEY = 'yumeshelf_mascot_card';
 
+export function getNextShuffledIndex(storageKey: string, totalCount: number): number {
+    if (totalCount <= 1) return 0;
+    let deck: number[] = [];
+    try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.every(n => typeof n === 'number' && n >= 0 && n < totalCount)) {
+                deck = parsed;
+            }
+        }
+    } catch {
+        deck = [];
+    }
+
+    if (deck.length === 0) {
+        deck = Array.from({ length: totalCount }, (_, i) => i);
+        // Fisher-Yates shuffle
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+    }
+
+    const nextIndex = deck.pop()!;
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(deck));
+    } catch {
+        // Fallback safe
+    }
+    return nextIndex;
+}
+
 export interface HideAndSeekControllerOptions {
     mascotWidget: any;
     getStrings: () => any;
@@ -153,7 +186,7 @@ export function createHideAndSeekController({
     // Session state
     const threshold = Math.floor(Math.random() * 6) + 5; // 5..10 clicks
     const isStarred = Math.random() < 0.5;
-    const titleIndex = Math.floor(Math.random() * 9);
+    const titleIndex = getNextShuffledIndex('yumeshelf_deck_card_titles', TITLES.en.length);
     let randomIndexPosition: number | null = null;
     let isDismissed = false;
 
@@ -182,13 +215,15 @@ export function createHideAndSeekController({
     function getRandomIdleQuote(): string {
         const lang = getCurrentLangKey();
         const pool = IDLE_QUOTES[lang] || IDLE_QUOTES.en;
-        return pool[Math.floor(Math.random() * pool.length)] || 'Zaako~';
+        const index = getNextShuffledIndex('yumeshelf_deck_card_idle_quotes', pool.length);
+        return pool[index % pool.length] || 'Zaako~';
     }
 
     function getRandomBonkedQuote(): string {
         const lang = getCurrentLangKey();
         const pool = BONKED_QUOTES[lang] || BONKED_QUOTES.en;
-        return pool[Math.floor(Math.random() * pool.length)] || 'OIIIIIIII!!!';
+        const index = getNextShuffledIndex('yumeshelf_deck_bonked_quotes', pool.length);
+        return pool[index % pool.length] || 'OIIIIIIII!!!';
     }
 
     // Initialize initial quote

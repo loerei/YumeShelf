@@ -4,6 +4,18 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.3] - 2026-08-22 — released
+
+### What Changed
+- Fixed the broken icons in the save editor.
+- Fixed Hide and Seek keeping a fake disguise card in your library even after hiding Yume-chan, and fixed both the floating mascot and the card showing up at the same time when turning her back on.
+
+### For the Nerds
+- [save-editor] Fixed incomplete SVG paths and missing linecap/linejoin attributes in `createSVGIcon` across popout, reload, translate, and empty state controls.
+- [hide-and-seek] Bound Hide and Seek activation directly to master `yumeshelf_mascot_show` setting, preventing orphan disguise cards and syncing floating widget visibility when toggling mascot visibility.
+
+---
+
 ## [2.0.2] - 2026-08-22 — released
 
 ### What Changed

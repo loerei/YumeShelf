@@ -82,6 +82,10 @@ export function getNextShuffledIndex(storageKey: string, totalCount: number): nu
     return nextIndex;
 }
 
+export function isMascotShown(): boolean {
+    return localStorage.getItem('yumeshelf_mascot_show') !== 'off';
+}
+
 export function isHideAndSeekEnabled(): boolean {
     return localStorage.getItem('yumeshelf_hide_and_seek') === 'yeaaa';
 }
@@ -171,18 +175,33 @@ export function createHideAndSeekController({
     currentQuote = getRandomIdleQuote();
 
     function isCardActive(): boolean {
-        return isHideAndSeekEnabled() && !isDismissed;
+        return isMascotShown() && isHideAndSeekEnabled() && !isDismissed;
     }
 
     function setSetting(enabled: boolean) {
         localStorage.setItem('yumeshelf_hide_and_seek', enabled ? 'yeaaa' : 'out');
-        if (enabled) {
-            if (!isDismissed) {
-                mascotWidget?.hide?.();
+        if (isMascotShown()) {
+            if (enabled) {
+                if (!isDismissed) {
+                    mascotWidget?.hide?.();
+                }
+            } else {
+                mascotWidget?.show?.();
             }
+        }
+        if (typeof onRerenderRequested === 'function') {
+            onRerenderRequested();
+        }
+    }
+
+    function onMascotShowChange(show: boolean) {
+        if (!show) {
+            clearCardTimers();
+            mascotWidget?.hide?.();
         } else {
-            const showPref = localStorage.getItem('yumeshelf_mascot_show') !== 'off';
-            if (showPref) {
+            if (isHideAndSeekEnabled() && !isDismissed) {
+                mascotWidget?.hide?.();
+            } else {
                 mascotWidget?.show?.();
             }
         }
@@ -418,6 +437,7 @@ export function createHideAndSeekController({
         injectCardIntoItems,
         createMascotCardElement,
         setSetting,
+        onMascotShowChange,
         destroy: () => {
             clearCardTimers();
             if (cardAnimTimer) clearTimeout(cardAnimTimer);

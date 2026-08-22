@@ -120,18 +120,7 @@ export function createSettingsController({
             console.error('[SETTINGS] Failed to sync config on open:', error);
         }
 
-        const games = typeof getAllGames === 'function' ? getAllGames() : [];
-        if (hideAndSeekSelect) {
-            if (!games || games.length === 0) {
-                hideAndSeekSelect.disabled = true;
-                hideAndSeekSelect.style.opacity = '0.5';
-                hideAndSeekSelect.style.cursor = 'not-allowed';
-            } else {
-                hideAndSeekSelect.disabled = false;
-                hideAndSeekSelect.style.opacity = '1';
-                hideAndSeekSelect.style.cursor = 'pointer';
-            }
-        }
+        syncMascotSettingsControls();
 
         settingsOverlay.style.display = 'flex';
     }
@@ -164,12 +153,48 @@ export function createSettingsController({
         if (mascotSoundSelect) mascotSoundSelect.value = currentMascotSound;
         if (mascotVolumeSlider) mascotVolumeSlider.value = String(currentMascotVolume);
         if (mascotVolumeValue) mascotVolumeValue.textContent = `${currentMascotVolume}%`;
+        syncMascotSettingsControls();
+    }
+
+    function syncMascotSettingsControls(): void {
+        const isShow = currentMascotShow === 'on';
+        const games = typeof getAllGames === 'function' ? getAllGames() : [];
+        const hasGames = games && games.length > 0;
+
+        if (hideAndSeekSelect) {
+            if (!isShow || !hasGames) {
+                hideAndSeekSelect.disabled = true;
+                hideAndSeekSelect.style.opacity = '0.5';
+                hideAndSeekSelect.style.cursor = 'not-allowed';
+            } else {
+                hideAndSeekSelect.disabled = false;
+                hideAndSeekSelect.style.opacity = '1';
+                hideAndSeekSelect.style.cursor = 'pointer';
+            }
+        }
+
+        const mascotControls = [
+            mascotScaleSlider,
+            mascotSoundSelect,
+            mascotVolumeSlider
+        ];
+
+        mascotControls.forEach((control) => {
+            if (control) {
+                control.disabled = !isShow;
+                control.style.opacity = isShow ? '1' : '0.5';
+                control.style.cursor = isShow ? 'pointer' : 'not-allowed';
+            }
+        });
     }
 
     function handleMascotShowChange(nextValue: string): void {
         currentMascotShow = nextValue;
         localStorage.setItem('yumeshelf_mascot_show', nextValue);
-        if (mascotWidget?.setVisible) {
+        syncMascotSettingsControls();
+        if (hideAndSeekController?.onMascotShowChange) {
+            hideAndSeekController.onMascotShowChange(nextValue === 'on');
+        } else if (mascotWidget?.setVisible) {
             mascotWidget.setVisible(nextValue === 'on');
         }
     }

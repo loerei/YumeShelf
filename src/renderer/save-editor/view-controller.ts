@@ -31,6 +31,8 @@ function createSVGIcon(pathD: string, width = 16, height = 16, viewBox = '0 0 24
     svg.setAttribute('fill', 'none');
     svg.setAttribute('stroke', 'currentColor');
     svg.setAttribute('stroke-width', String(strokeWidth));
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
     svg.setAttribute('width', String(width));
     svg.setAttribute('height', String(height));
 
@@ -97,7 +99,7 @@ export class SaveEditorViewController {
             popoutBtn.title = 'Open in separate window';
             popoutBtn.dataset.i18nTitle = 'save_editor_popout_title';
             popoutBtn.style.cssText = 'background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;';
-            popoutBtn.appendChild(createSVGIcon('M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', 18, 18, '0 0 24 24', 2.2));
+            popoutBtn.appendChild(createSVGIcon('M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3', 18, 18, '0 0 24 24', 2.2));
             headerActions.appendChild(popoutBtn);
         }
 
@@ -159,13 +161,13 @@ export class SaveEditorViewController {
         refreshBtn.className = 'refresh-save-btn';
         refreshBtn.title = 'Reload from disk';
         refreshBtn.dataset.i18nTitle = 'save_editor_reload_title';
-        refreshBtn.appendChild(createSVGIcon('M23 4v6h-6M1 20v-6h6', 16, 16));
+        refreshBtn.appendChild(createSVGIcon('M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15', 16, 16));
 
         const translateBtn = document.createElement('button');
         translateBtn.className = 'translate-btn';
         translateBtn.title = 'Translate to app language';
         translateBtn.dataset.i18nTitle = 'save_editor_translate_title';
-        translateBtn.appendChild(createSVGIcon('M5 8l6 6', 16, 16));
+        translateBtn.appendChild(createSVGIcon('M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1m14 20-5-10-5 10M14 18h6', 16, 16));
         const translateSpan = document.createElement('span');
         translateSpan.dataset.i18n = 'save_editor_translate';
         translateSpan.textContent = 'Translate';
@@ -210,7 +212,7 @@ export class SaveEditorViewController {
         content.className = 'save-editor-content';
         const emptyState = document.createElement('div');
         emptyState.className = 'empty-state';
-        emptyState.appendChild(createSVGIcon('M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z', 48, 48, '0 0 24 24', 1.5));
+        emptyState.appendChild(createSVGIcon('M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8', 48, 48, '0 0 24 24', 1.5));
         const selectTitle = document.createElement('p');
         selectTitle.dataset.i18n = 'save_editor_select_title';
         selectTitle.textContent = 'Select a save file to start editing';

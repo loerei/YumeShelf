@@ -163,7 +163,7 @@ export function renderTabContent(context) {
                 <line x1="21" y1="3" x2="14" y2="10"></line>
                 <line x1="3" y1="21" x2="10" y2="14"></line>
             </svg>
-            <span>Expand All</span>
+            <span data-i18n="save_editor_expand_all">Expand All</span>
         `;
         expandAllBtn.onclick = () => {
             content.querySelectorAll('.save-section').forEach(sec => {
@@ -180,7 +180,7 @@ export function renderTabContent(context) {
                 <line x1="14" y1="10" x2="21" y2="3"></line>
                 <line x1="10" y1="14" x2="3" y2="21"></line>
             </svg>
-            <span>Collapse All</span>
+            <span data-i18n="save_editor_collapse_all">Collapse All</span>
         `;
         collapseAllBtn.onclick = () => {
             content.querySelectorAll('.save-section').forEach(sec => {
@@ -225,8 +225,10 @@ export function renderTabContent(context) {
         if (!hasAnyData) {
             // Remove controls if there is no data at all
             controls.remove();
-            const msg = engine.searchOptions.query ? 'No results found' : 'No data found';
-            content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+            const d = (window as any).currentUIStrings || {};
+            const key = engine.searchOptions.query ? 'save_editor_no_results' : 'save_editor_no_data';
+            const msg = d[key] || (engine.searchOptions.query ? 'No results found' : 'No data found');
+            content.innerHTML = `<div class="empty-state"><p data-i18n="${key}">${msg}</p></div>`;
         } else {
             translator.applyTranslations(content);
             translator.applyCachedLabels(content);
@@ -238,8 +240,10 @@ export function renderTabContent(context) {
         renderSingleCategory(state.activeTab, grid);
         
         if (grid.children.length === 0) {
-            const msg = engine.searchOptions.query ? 'No results found' : 'No data found in this category';
-            content.innerHTML = `<div class="empty-state"><p>${msg}</p></div>`;
+            const d = (window as any).currentUIStrings || {};
+            const key = engine.searchOptions.query ? 'save_editor_no_results' : 'save_editor_no_data_in_category';
+            const msg = d[key] || (engine.searchOptions.query ? 'No results found' : 'No data found in this category');
+            content.innerHTML = `<div class="empty-state"><p data-i18n="${key}">${msg}</p></div>`;
         } else {
             content.appendChild(grid);
             translator.applyTranslations(content);

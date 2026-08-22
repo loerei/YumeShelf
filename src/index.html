@@ -51,37 +51,37 @@
 
         <div class="controls">
             <div class="category-filter-container" id="category-filter-container" style="display: none;">
-                <button class="category-filter-btn" id="category-filter-btn" title="All categories" type="button">
+                <button class="category-filter-btn" id="category-filter-btn" title="All categories" type="button" data-i18n-title="category_filter_all">
                     <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M4 6h16"></path>
                         <path d="M7 12h10"></path>
                         <path d="M10 18h4"></path>
                     </svg>
-                    <span class="category-filter-label" id="category-filter-label">All categories</span>
+                    <span class="category-filter-label" id="category-filter-label" data-i18n="category_filter_all">All categories</span>
                 </button>
                 <div class="sort-menu category-filter-menu" id="category-filter-menu"></div>
             </div>
-            <button class="header-icon-btn refresh-library-btn" id="refresh-library-btn" title="Refresh Library" type="button" aria-label="Refresh Library">
+            <button class="header-icon-btn refresh-library-btn" id="refresh-library-btn" title="Refresh Library" type="button" aria-label="Refresh Library" data-i18n-title="refresh_library">
                 <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
                     <path d="M21 3v6h-6"></path>
                 </svg>
             </button>
             <div class="sort-container">
-                <div class="sort-btn header-icon-btn" id="sort-btn" title="Sort Games">
+                <div class="sort-btn header-icon-btn" id="sort-btn" title="Sort Games" data-i18n-title="sort_games">
                     <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="4" y1="6" x2="20" y2="6"></line>
                         <line x1="7" y1="12" x2="17" y2="12"></line>
                         <line x1="10" y1="18" x2="14" y2="18"></line>
                     </svg>
-                    <span id="sort-active-label">Mới tải về</span>
+                    <span id="sort-active-label" data-i18n="sort_date">Newest</span>
                     <span class="sort-caret">▾</span>
                 </div>
                 <div class="sort-menu" id="sort-menu">
-                    <div class="sort-item" data-sort="date" id="ui-sort-date" data-i18n="sort_date">Mới tải về</div>
-                    <div class="sort-item" data-sort="played" id="ui-sort-played" data-i18n="sort_played">Chơi gần nhất</div>
-                    <div class="sort-item" data-sort="az" id="ui-sort-az" data-i18n="sort_az">Tên A-Z</div>
-                    <div class="sort-item" data-sort="custom" id="ui-sort-custom" data-i18n="sort_custom">Tùy chỉnh</div>
+                    <div class="sort-item" data-sort="date" id="ui-sort-date" data-i18n="sort_date">Newest</div>
+                    <div class="sort-item" data-sort="played" id="ui-sort-played" data-i18n="sort_played">Recently Played</div>
+                    <div class="sort-item" data-sort="az" id="ui-sort-az" data-i18n="sort_az">Name A-Z</div>
+                    <div class="sort-item" data-sort="custom" id="ui-sort-custom" data-i18n="sort_custom">Custom Order</div>
                 </div>
             </div>
             
@@ -159,7 +159,7 @@
                 <div class="setting-item setting-item-paths">
                     <div class="setting-paths-header">
                         <span id="ui-path-label" class="setting-label" data-i18n="path">Library Paths</span>
-                        <button class="small-btn text-btn" id="btn-add-library-path" type="button">+ Add Path</button>
+                        <button class="small-btn text-btn" id="btn-add-library-path" type="button" data-i18n="btn_add_path">+ Add Path</button>
                     </div>
                     <div class="library-paths-list" id="library-paths-container"></div>
                 </div>

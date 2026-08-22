@@ -52,10 +52,11 @@ export class SaveEditorViewController {
         this.translator = new Translator((window as any).electronAPI);
     }
 
-    private createFilterLabel(i18nKey: string, text: string, className: string, checked = false, title = '', hide = false): HTMLLabelElement {
+    private createFilterLabel(i18nKey: string, text: string, className: string, checked = false, title = '', hide = false, titleI18nKey = ''): HTMLLabelElement {
         const label = document.createElement('label');
         label.className = `save-editor-filter-check ${hide ? 'switch-filters-only' : ''}`.trim();
         if (title) label.title = title;
+        if (titleI18nKey) label.dataset.i18nTitle = titleI18nKey;
         if (hide) label.style.display = 'none';
 
         const input = document.createElement('input');
@@ -74,7 +75,7 @@ export class SaveEditorViewController {
 
     private buildOverlayDOM(isStandalone: boolean): HTMLElement {
         const overlay = document.createElement('div');
-        overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`;
+        overlay.className = `save-editor-overlay ${isStandalone ? 'standalone' : ''}`.trim();
 
         const panel = document.createElement('div');
         panel.className = 'save-editor-panel';
@@ -83,8 +84,8 @@ export class SaveEditorViewController {
         const header = document.createElement('div');
         header.className = 'save-editor-header';
 
-        const title = document.createElement('h2');
-        title.dataset.i18n = 'action_save_editor';
+        const title = document.createElement('div');
+        title.className = 'save-editor-title';
         title.textContent = 'Save Editor';
 
         const headerActions = document.createElement('div');
@@ -94,6 +95,7 @@ export class SaveEditorViewController {
             const popoutBtn = document.createElement('button');
             popoutBtn.className = 'save-editor-popout';
             popoutBtn.title = 'Open in separate window';
+            popoutBtn.dataset.i18nTitle = 'save_editor_popout_title';
             popoutBtn.style.cssText = 'background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;';
             popoutBtn.appendChild(createSVGIcon('M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', 18, 18, '0 0 24 24', 2.2));
             headerActions.appendChild(popoutBtn);
@@ -156,11 +158,13 @@ export class SaveEditorViewController {
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'refresh-save-btn';
         refreshBtn.title = 'Reload from disk';
+        refreshBtn.dataset.i18nTitle = 'save_editor_reload_title';
         refreshBtn.appendChild(createSVGIcon('M23 4v6h-6M1 20v-6h6', 16, 16));
 
         const translateBtn = document.createElement('button');
         translateBtn.className = 'translate-btn';
         translateBtn.title = 'Translate to app language';
+        translateBtn.dataset.i18nTitle = 'save_editor_translate_title';
         translateBtn.appendChild(createSVGIcon('M5 8l6 6', 16, 16));
         const translateSpan = document.createElement('span');
         translateSpan.dataset.i18n = 'save_editor_translate';
@@ -176,25 +180,25 @@ export class SaveEditorViewController {
 
         const filters = document.createElement('div');
         filters.className = 'save-editor-filters';
-        filters.appendChild(this.createFilterLabel('save_editor_show_empty', 'Show empty', 'show-empty-check', false, 'Show all variables, including those with zero or no value'));
-        filters.appendChild(this.createFilterLabel('save_editor_show_important', 'Show important', 'show-important-check', true, 'Always show important variables, even if they have zero or no value'));
-        filters.appendChild(this.createFilterLabel('save_editor_exact', 'Exact', 'exact-match-check', false, 'Only show entries where the value matches your search exactly'));
+        filters.appendChild(this.createFilterLabel('save_editor_show_empty', 'Show empty', 'show-empty-check', false, 'Show all variables, including those with zero or no value', false, 'save_editor_show_empty'));
+        filters.appendChild(this.createFilterLabel('save_editor_show_important', 'Show important', 'show-important-check', true, 'Always show important variables, even if they have zero or no value', false, 'save_editor_show_important'));
+        filters.appendChild(this.createFilterLabel('save_editor_exact', 'Exact', 'exact-match-check', false, 'Only show entries where the value matches your search exactly', false, 'save_editor_exact'));
 
         const divider1 = document.createElement('div');
         divider1.className = 'filter-divider';
         filters.appendChild(divider1);
 
-        filters.appendChild(this.createFilterLabel('save_editor_search_name', 'Name', 'search-name-check', true, 'Search in names'));
-        filters.appendChild(this.createFilterLabel('save_editor_search_value', 'Value', 'search-value-check', true, 'Search in values'));
-        filters.appendChild(this.createFilterLabel('save_editor_search_index', 'Index', 'search-index-check', false, 'Search in index (ID)'));
+        filters.appendChild(this.createFilterLabel('save_editor_search_name', 'Name', 'search-name-check', true, 'Search in names', false, 'save_editor_search_name'));
+        filters.appendChild(this.createFilterLabel('save_editor_search_value', 'Value', 'search-value-check', true, 'Search in values', false, 'save_editor_search_value'));
+        filters.appendChild(this.createFilterLabel('save_editor_search_index', 'Index', 'search-index-check', false, 'Search in index (ID)', false, 'save_editor_search_index'));
 
         const divider2 = document.createElement('div');
         divider2.className = 'filter-divider switch-filters-only';
         divider2.style.display = 'none';
         filters.appendChild(divider2);
 
-        filters.appendChild(this.createFilterLabel('save_editor_true_only', 'True only', 'switch-true-check', false, 'Only show switches that are ON', true));
-        filters.appendChild(this.createFilterLabel('save_editor_false_only', 'False only', 'switch-false-check', false, 'Only show switches that are OFF', true));
+        filters.appendChild(this.createFilterLabel('save_editor_true_only', 'True only', 'switch-true-check', false, 'Only show switches that are ON', true, 'save_editor_true_only'));
+        filters.appendChild(this.createFilterLabel('save_editor_false_only', 'False only', 'switch-false-check', false, 'Only show switches that are OFF', true, 'save_editor_false_only'));
 
         actions.appendChild(topBar);
         actions.appendChild(filters);
@@ -478,9 +482,10 @@ export class SaveEditorViewController {
 
         saveBtn.onclick = async () => {
             if (!this.activeControllerState) return;
+            const d = (window as any).currentUIStrings || {};
             saveBtn.disabled = true;
             const originalText = saveBtn.textContent;
-            saveBtn.textContent = 'Saving...';
+            saveBtn.textContent = d.save_editor_saving || 'Saving...';
             try {
                 await (window as any).electronAPI.writeSaveData({
                     gameKey,
@@ -491,10 +496,10 @@ export class SaveEditorViewController {
                 this.activeControllerState.originalSnapshot = structuredClone(this.activeControllerState.currentSaveData);
                 renderTabContent();
 
-                saveBtn.textContent = 'Saved!';
+                saveBtn.textContent = d.save_editor_saved || 'Saved!';
                 setTimeout(() => { saveBtn.textContent = originalText; }, 2000);
             } catch (err: any) {
-                alert('Failed to save: ' + err.message);
+                alert((d.save_editor_save_failed || 'Failed to save: ') + err.message);
                 saveBtn.textContent = originalText;
             } finally {
                 saveBtn.disabled = false;

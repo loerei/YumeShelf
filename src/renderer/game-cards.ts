@@ -45,11 +45,11 @@ export function createGameCardFactory({
             <div class="dropdown-menu">
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
-                <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>Open Save Folder</span></div>
+                <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>${d.action_save_folder || 'Open Save Folder'}</span></div>
                 <div class="dropdown-item action-save-editor">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor}</span></div>
-                <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span></div>
-                <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('save-editor')}<span>Pre-Translate Game</span></div>
-                <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span></div>
+                <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_live_translate || 'Live Translation'}</span></div>
+                <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('save-editor')}<span>${d.action_pre_translate || 'Pre-Translate Game'}</span></div>
+                <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_background_run || 'Run in Background'}</span></div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
                 </div>
             <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
@@ -162,7 +162,7 @@ export function createGameCardFactory({
             } else {
                 const item = card.querySelector('.action-save-folder');
                 const originalText = item.querySelector('span').textContent;
-                item.querySelector('span').textContent = 'No save folder found';
+                item.querySelector('span').textContent = d.no_save_folder_found || 'No save folder found';
                 item.style.opacity = '0.5';
                 setTimeout(() => {
                     item.querySelector('span').textContent = originalText;
@@ -185,7 +185,7 @@ export function createGameCardFactory({
             const nextRunInBackground = await electronAPI.toggleRunInBackground(gameKey);
             game.runInBackground = nextRunInBackground;
             const item = card.querySelector('.action-background-run');
-            item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>Run in Background</span>`;
+            item.innerHTML = `${getDropdownActionIcon(nextRunInBackground ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_background_run || 'Run in Background'}</span>`;
         };
         card.querySelector('.action-live-translate').onclick = async (event) => {
             event.stopPropagation();
@@ -193,7 +193,7 @@ export function createGameCardFactory({
             game.autoTranslate = nextAutoTranslate;
             const item = card.querySelector('.action-live-translate');
             if (item) {
-                item.innerHTML = `${getDropdownActionIcon(nextAutoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>Live Translation</span>`;
+                item.innerHTML = `${getDropdownActionIcon(nextAutoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_live_translate || 'Live Translation'}</span>`;
             }
         };
         card.querySelector('.action-pre-translate').onclick = async (event) => {

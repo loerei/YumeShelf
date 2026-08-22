@@ -125,6 +125,7 @@ export function createRendererComposition({
         getCategoryTree: () => state.getCategoryTree(),
         getVisibleGames,
         container: refs.containers.categoryFilter,
+        getStrings: () => getStrings(),
         setActiveCategoryId: (value) => {
             state.setActiveCategoryId(value);
         },
@@ -138,7 +139,8 @@ export function createRendererComposition({
         container: refs.containers.settings,
         mascotWidget,
         hideAndSeekController,
-        getAllGames: () => state.getAllGames()
+        getAllGames: () => state.getAllGames(),
+        getStrings: () => getStrings()
     });
 
     let languagePackController = null;

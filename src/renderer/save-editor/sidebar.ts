@@ -108,7 +108,8 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                 }
             }
         } catch {
-            sidebar.innerHTML = `<div class="error">Failed to list saves</div>`;
+            const d = state.d || {};
+            sidebar.innerHTML = `<div class="error" data-i18n="save_editor_failed_list_saves">${d.save_editor_failed_list_saves || 'Failed to list saves'}</div>`;
         }
     }
 
@@ -140,7 +141,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
             saveBtn.style.display = 'block';
         } catch (err) {
             // @ts-ignore
-            content.innerHTML = `<div class="error">Failed to load save: ${escapeHtml(err.message)}</div>`;
+            content.innerHTML = `<div class="error">${d.save_editor_failed_load_save || 'Failed to load save: '}${escapeHtml(err.message)}</div>`;
         }
     }
 

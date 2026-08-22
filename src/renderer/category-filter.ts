@@ -21,6 +21,7 @@ export function createCategoryFilterController({
     getCategoryTree,
     getVisibleGames,
     container,
+    getStrings,
     setActiveCategoryId,
     sortGames
 }) {
@@ -52,9 +53,11 @@ export function createCategoryFilterController({
     }
 
     function updateTriggerLabel() {
+        const d = typeof getStrings === 'function' ? getStrings() : {};
+        const allText = d.category_filter_all || 'All categories';
         const activeCategory = getActiveCategory();
-        categoryFilterLabel.innerText = activeCategory ? activeCategory.label : 'All categories';
-        categoryFilterBtn.title = activeCategory ? `Category: ${activeCategory.trailLabel}` : 'All categories';
+        categoryFilterLabel.innerText = activeCategory ? activeCategory.label : allText;
+        categoryFilterBtn.title = activeCategory ? `${activeCategory.trailLabel}` : allText;
     }
 
     function hideMenu() {
@@ -64,12 +67,14 @@ export function createCategoryFilterController({
     function renderMenu() {
         syncActiveCategory();
         const flattened = getFlattenedCategories();
+        const d = typeof getStrings === 'function' ? getStrings() : {};
+        const allText = d.category_filter_all || 'All categories';
         categoryFilterMenu.innerHTML = '';
 
         const allItem = document.createElement('div');
         allItem.className = 'sort-item category-filter-item';
         allItem.dataset.categoryId = CATEGORY_FILTER_ALL_VALUE;
-        allItem.innerText = 'All categories';
+        allItem.innerText = allText;
         if (!getActiveCategoryId()) {
             allItem.classList.add('active');
         }
@@ -121,13 +126,18 @@ export function createCategoryFilterController({
     }
 
     function getFilteredEmptyState() {
+        const d = typeof getStrings === 'function' ? getStrings() : {};
         const activeCategory = getActiveCategory();
+        let desc = d.category_empty_desc || 'No games match this category yet.';
+        if (activeCategory) {
+            desc = d.category_empty_desc_matched
+                ? d.category_empty_desc_matched.replace('{name}', activeCategory.trailLabel)
+                : `No games match "${activeCategory.trailLabel}" yet.`;
+        }
         return {
-            actionLabel: 'Clear filter',
-            description: activeCategory
-                ? `No games match "${activeCategory.trailLabel}" yet.`
-                : 'No games match this category yet.',
-            title: 'No games in this category'
+            actionLabel: d.category_clear_filter || 'Clear filter',
+            description: desc,
+            title: d.category_empty_title || 'No games in this category'
         };
     }
 

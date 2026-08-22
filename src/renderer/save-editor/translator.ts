@@ -153,6 +153,18 @@ export class Translator {
                 }
             }
         }
+
+        // Handle titles / tooltips
+        const titles = container.querySelectorAll('[data-i18n-title]');
+        for (const el of titles) {
+            const key = /** @type {HTMLElement} */ (el).dataset.i18nTitle;
+            if (key) {
+                const translation = strings[key];
+                if (translation && translation !== key) {
+                    /** @type {HTMLElement} */ (el).title = translation;
+                }
+            }
+        }
     }
 
     /**

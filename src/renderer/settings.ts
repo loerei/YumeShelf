@@ -16,6 +16,7 @@ export interface SettingsControllerOptions {
     mascotWidget?: any;
     hideAndSeekController?: any;
     getAllGames?: () => any[];
+    getStrings?: () => any;
 }
 
 export interface SettingsController {
@@ -51,7 +52,8 @@ export function createSettingsController({
     container,
     mascotWidget,
     hideAndSeekController,
-    getAllGames
+    getAllGames,
+    getStrings
 }: SettingsControllerOptions): SettingsController {
     // Controller owns its DOM scope – querySelector within container only.
     const settingsOverlay       = container;
@@ -258,6 +260,9 @@ export function createSettingsController({
         libraryPathsContainer.innerHTML = '';
         const paths = Array.isArray(libraryPaths) && libraryPaths.length > 0 ? libraryPaths : [];
         const canRemove = paths.length > 1;
+        const d = typeof getStrings === 'function' ? getStrings() : {};
+        const changeText = d.change || 'Change';
+        const removeText = d.btn_remove || 'Remove';
 
         for (const p of paths) {
             const entry = document.createElement('div');
@@ -272,8 +277,8 @@ export function createSettingsController({
                 </span>
                 <span class="library-path-link" title="${p}">${p}</span>
                 <div class="library-path-actions">
-                    <button class="library-path-action-btn change-btn" type="button">Change</button>
-                    <button class="library-path-action-btn remove-btn" type="button" ${canRemove ? '' : 'disabled'}>Remove</button>
+                    <button class="library-path-action-btn change-btn" type="button">${changeText}</button>
+                    <button class="library-path-action-btn remove-btn" type="button" ${canRemove ? '' : 'disabled'}>${removeText}</button>
                 </div>
             `;
 

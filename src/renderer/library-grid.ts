@@ -7,6 +7,7 @@ export function createLibraryGridController({
     getAllGames,
     getFilteredEmptyState,
     getStrings,
+    hideAndSeekController,
     onAfterRender,
     onClearFilter,
     onEmptyAction,
@@ -122,13 +123,23 @@ export function createLibraryGridController({
         }
 
         refs.quickFolder.style.display = 'flex';
-        const { items } = buildLibraryViewItems(visibleGames, type);
+        let { items } = buildLibraryViewItems(visibleGames, type);
+        if (hideAndSeekController?.isCardActive()) {
+            items = hideAndSeekController.injectCardIntoItems(items);
+        }
         const favorites = items.filter((item) => item.favorite);
         const nonFavorites = items.filter((item) => !item.favorite);
 
         const itemOptions = { draggable: !activeCategoryId };
-        favorites.forEach((item) => refs.favGrid.appendChild(createLibraryItem(item, itemOptions)));
-        nonFavorites.forEach((item) => refs.unfavGrid.appendChild(createLibraryItem(item, itemOptions)));
+        const renderItem = (item) => {
+            if (item.isMascotCard && hideAndSeekController?.createMascotCardElement) {
+                return hideAndSeekController.createMascotCardElement(item);
+            }
+            return createLibraryItem(item, itemOptions);
+        };
+
+        favorites.forEach((item) => refs.favGrid.appendChild(renderItem(item)));
+        nonFavorites.forEach((item) => refs.unfavGrid.appendChild(renderItem(item)));
         refs.separator.style.display = (favorites.length > 0 && nonFavorites.length > 0) ? 'flex' : 'none';
 
         onAfterRender();

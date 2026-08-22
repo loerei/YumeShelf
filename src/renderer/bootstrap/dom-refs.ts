@@ -53,6 +53,7 @@ export interface RendererRefs {
     telemetrySelect: HTMLSelectElement | null;
     exposeBetaSelect: HTMLSelectElement | null;
     mascotShowSelect: HTMLSelectElement | null;
+    hideAndSeekSelect: HTMLSelectElement | null;
     mascotScaleSlider: HTMLInputElement | null;
     mascotScaleValue: HTMLElement | null;
     mascotSoundSelect: HTMLSelectElement | null;
@@ -203,6 +204,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         telemetrySelect:         settingsContainer ? settingsContainer.querySelector('#telemetry-select') as HTMLSelectElement : null,
         exposeBetaSelect:        settingsContainer ? settingsContainer.querySelector('#expose-beta-select') as HTMLSelectElement : null,
         mascotShowSelect:        settingsContainer ? settingsContainer.querySelector('#mascot-show-select') as HTMLSelectElement : null,
+        hideAndSeekSelect:       settingsContainer ? settingsContainer.querySelector('#hide-and-seek-select') as HTMLSelectElement : null,
         mascotScaleSlider:       settingsContainer ? settingsContainer.querySelector('#mascot-scale-slider') as HTMLInputElement : null,
         mascotScaleValue:        settingsContainer ? settingsContainer.querySelector('#mascot-scale-value') : null,
         mascotSoundSelect:       settingsContainer ? settingsContainer.querySelector('#mascot-sound-select') as HTMLSelectElement : null,

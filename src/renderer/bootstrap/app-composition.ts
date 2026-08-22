@@ -19,6 +19,7 @@ import { createTooltipController } from '../tooltips';
 import { createUpdateNotificationFeature } from '../update-notification-feature';
 import { createUITextController } from '../ui-text';
 import { createMascotWidget } from '../mascot-widget';
+import { createHideAndSeekController } from '../features/hide-and-seek';
 
 export function createRendererComposition({
     refs,
@@ -77,6 +78,22 @@ export function createRendererComposition({
     // --- Container-based Controllers ---
     // Each controller receives its root container element and queries its own internal DOM.
 
+    const mascotWidget = createMascotWidget({
+        widgetEl: refs.mascotWidget,
+        imgEl: refs.mascotImg,
+        contextMenuEl: refs.mascotContextMenu,
+        getStrings: () => getStrings()
+    });
+    mascotWidget.init();
+
+    const hideAndSeekController = createHideAndSeekController({
+        mascotWidget,
+        getStrings: () => getStrings(),
+        getLanguage: () => localStorage.getItem('yumeshelf_language') || 'en',
+        onRerenderRequested: () => libraryRuntime.sortGames(state.getCurrentSort())
+    });
+    hideAndSeekController.init();
+
     const searchController = createSearchController({
         attachTooltip: (element, getContent) => {
             tooltipController.attachTooltip(element, getContent);
@@ -89,6 +106,7 @@ export function createRendererComposition({
         getPlaceholderIndex: () => localeController.getPlaceholderIndex(),
         getPlaceholders: () => localeController.getPlaceholders(),
         getStrings: () => getStrings(),
+        hideAndSeekController,
         container: refs.containers.search,
         setDraggedGameFolder: (value) => {
             state.setDraggedGameFolder(value);
@@ -106,20 +124,14 @@ export function createRendererComposition({
         sortGames: () => libraryRuntime.sortGames(state.getCurrentSort())
     });
 
-    const mascotWidget = createMascotWidget({
-        widgetEl: refs.mascotWidget,
-        imgEl: refs.mascotImg,
-        contextMenuEl: refs.mascotContextMenu,
-        getStrings: () => getStrings()
-    });
-    mascotWidget.init();
-
     const settingsController = createSettingsController({
         onOpen: () => {
             tooltipController.hide();
         },
         container: refs.containers.settings,
-        mascotWidget
+        mascotWidget,
+        hideAndSeekController,
+        getAllGames: () => state.getAllGames()
     });
 
     let languagePackController = null;
@@ -286,6 +298,7 @@ export function createRendererComposition({
         getActiveCategoryId: () => state.getActiveCategoryId(),
         getFilteredEmptyState: () => categoryFilterController.getFilteredEmptyState(),
         getStrings: () => getStrings(),
+        hideAndSeekController,
         onAfterRender: () => applyUIStrings(),
         onClearFilter: () => categoryFilterController.clearFilter(),
         onEmptyAction: () => startupController.handleQuickFolderOpen(),

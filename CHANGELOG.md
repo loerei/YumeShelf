@@ -9,13 +9,16 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### What Changed
 - You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
 - Made the bonking more IMPACTFUL.
+- Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
 
 ### For the Nerds
+- [hide-and-seek] Implemented `src/renderer/features/hide-and-seek.ts` minigame controller with dynamic library card injection, session-based threshold generation (5-10 clicks), localized quote banks (EN, JA, ZH), animated dismissal, and recovery handoff to mascot dock.
 - [mascot] Added pointer-based drag & drop physics with live expression reaction (`yume_bonked.png`), viewport boundary clamping, coordinate persistence, and persistent bonk counter.
 - [mascot] Integrated math-driven comic impact particle (`BONK.png`) with exponential decay curve, random rotation ([-45°, +45°]), and peak opacity variation.
+- [mascot] Implemented 2-stage dynamic streak recovery state machine with cumulative remaining cooldown extension.
 - [context-menu] Implemented right-click quick settings popover with position reset, live bonk counter, sound selection, scale slider, and volume control.
-- [settings] Modernized scale settings to range slider (25% - 100%) with bidirectional sync between settings modal and context menu.
-- [i18n] Synchronized new mascot strings across Vietnamese, Japanese, Simplified Chinese, and sample templates.
+- [settings] Added "Hide And Seek?" setting with 0-game suppression, live view sync, and range slider scaling (25% - 100%).
+- [i18n] Synchronized new strings and standardized Chinese mascot name as 小优梅 across English, Japanese, Simplified Chinese, and sample templates.
 
 ---
 

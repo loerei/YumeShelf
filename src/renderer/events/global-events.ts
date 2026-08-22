@@ -188,6 +188,11 @@ export function bindControlEvents({
             settingsController.handleMascotShowChange((event.target as HTMLSelectElement).value);
         };
     }
+    if (refs.hideAndSeekSelect) {
+        refs.hideAndSeekSelect.onchange = (event) => {
+            settingsController.handleHideAndSeekChange((event.target as HTMLSelectElement).value);
+        };
+    }
     if (refs.mascotScaleSlider) {
         refs.mascotScaleSlider.oninput = (event) => {
             const val = (event.target as HTMLInputElement).value;

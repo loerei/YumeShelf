@@ -565,6 +565,25 @@ export function createMascotWidget({
         currentVolume = Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 20;
     }
 
+    function returnFromHideAndSeek(streak: number, accumulatedMs: number) {
+        const isShow = localStorage.getItem('yumeshelf_mascot_show') !== 'off';
+        if (isShow) {
+            show();
+        }
+        clearRecoveryTimers();
+        currentStreak = streak;
+        accumulatedCooldownMs = Math.min(10000, Math.max(3000, accumulatedMs));
+
+        // Mascot appears in 'bonked' state (recovering from bonkedTooMuch)
+        setMascotState('bonked');
+        const stage2Start = performance.now();
+        stage2EndTime = stage2Start + accumulatedCooldownMs;
+
+        secondaryRecoveryTimer = setTimeout(() => {
+            resetToSmug();
+        }, accumulatedCooldownMs);
+    }
+
     return {
         init: () => {
             // Set initial state from localStorage
@@ -626,6 +645,9 @@ export function createMascotWidget({
         setScale,
         setSound,
         setVolume,
-        resetPosition
+        resetPosition,
+        playBonkSound,
+        spawnBonkImpact,
+        returnFromHideAndSeek
     };
 }

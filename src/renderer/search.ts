@@ -12,6 +12,7 @@ export function createSearchController({
     getPlaceholderIndex,
     getPlaceholders,
     getStrings,
+    hideAndSeekController,
     container,
     setDraggedGameFolder
 }) {
@@ -47,7 +48,35 @@ export function createSearchController({
         });
 
         searchDropdown.innerHTML = '';
-        if (filtered.length === 0) {
+
+        // Inject Mascot card in search if active and matches query
+        if (hideAndSeekController?.isCardActive()) {
+            const mascotTitle = hideAndSeekController.getCardTitle();
+            if (mascotTitle.toLowerCase().includes(query.toLowerCase())) {
+                const mascotSearchItem = document.createElement('div');
+                mascotSearchItem.className = 'search-item mascot-search-item';
+                mascotSearchItem.innerHTML = `
+                    <div class="search-item-info">
+                        <div class="search-item-icon">✨</div>
+                        <div class="search-item-title-container">
+                            <div class="search-item-title">${highlightMatch(mascotTitle, query)}</div>
+                        </div>
+                    </div>
+                `;
+                mascotSearchItem.onclick = () => {
+                    const card = document.querySelector('.mascot-game-card');
+                    if (card) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        card.classList.add('bonk-animating');
+                        setTimeout(() => card.classList.remove('bonk-animating'), 500);
+                    }
+                    hideSearchDropdown();
+                };
+                searchDropdown.appendChild(mascotSearchItem);
+            }
+        }
+
+        if (filtered.length === 0 && searchDropdown.children.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'search-item empty-search';
             empty.innerText = getStrings().no_results;

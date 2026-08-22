@@ -97,6 +97,7 @@
     flex-direction: column;
     gap: 12px;
     animation: fadeIn 0.15s ease-out;
+    color-scheme: inherit;
 }
 
 .mascot-menu-header {
@@ -157,12 +158,13 @@
     background: var(--input-bg, rgba(255, 255, 255, 0.06));
     border: 1px solid var(--border-color);
     color: var(--text-main);
+    color-scheme: inherit;
     outline: none;
     cursor: pointer;
 }
 
 .mascot-menu-row select option {
-    background: var(--menu-bg);
+    background-color: var(--menu-bg);
     color: var(--text-main);
 }
 

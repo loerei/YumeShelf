@@ -242,7 +242,7 @@
     "mascot_sound_label": "敲击音效 (Bonk sound)",
     "sound_squeaker": "Squeaky (吱吱声)",
     "sound_metal_pipe": "Metal pipe (铁管声)",
-    "sound_none": "无 (None)",
+    "sound_none": "无",
     "mascot_volume_label": "Bonk 音量",
     "mascot_menu_reset_position": "重置位置",
     "mascot_menu_sound": "Bonk 音效",

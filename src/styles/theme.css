@@ -1,5 +1,6 @@
 /* THEME VARIABLES SYSTEM */
 :root {
+    color-scheme: dark;
     /* Default Dark (Yume) */
     --bg-color: #121212;
     --card-bg: #1e1e1e;
@@ -26,6 +27,7 @@
 }
 
 body.light-theme {
+    color-scheme: light;
     --bg-color: #f5f5f5;
     --card-bg: #ffffff;
     --hover-bg: #efefef;
@@ -52,6 +54,7 @@ body.light-theme {
 
 @media (prefers-color-scheme: light) {
     body.system-theme {
+        color-scheme: light;
         --bg-color: #f5f5f5;
         --card-bg: #ffffff;
         --hover-bg: #efefef;

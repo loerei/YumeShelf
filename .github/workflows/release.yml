@@ -1,0 +1,243 @@
+name: Parallel Release Pipeline (Windows & Linux)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release Tag (e.g. v2.0.2)'
+        required: true
+        default: 'v2.0.2'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Package
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\npm-cache
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust Toolchain & Target Artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "native/playtime-helper -> native/playtime-helper/target"
+
+      - name: Cache Electron & Electron Builder Assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build and Package Windows Release
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm run ensure:playtime-helper
+          npm run build:preload
+          npm run build:main
+          npm run ensure:installer-shell
+          npm run copy:assets
+          npm run build:vite
+          npm run verify:deps
+          npx electron-builder --win --publish never
+          node scripts/organize-build-output.js
+          node scripts/write-release-checksum.js
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-assets
+          path: |
+            build_output/nsis/application/YumeShelf-Setup-*.exe
+            build_output/nsis/feed/latest.yml
+            build_output/nsis/blockmap/YumeShelf-Setup-*.exe.blockmap
+            build_output/nsis/sha256/YumeShelf-Setup-*.exe.sha256
+          retention-days: 1
+
+  build-linux:
+    name: Build Linux Packages (AppImage & Tarball)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust Toolchain & Target Artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "native/playtime-helper -> native/playtime-helper/target"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Cache Electron & Electron Builder Assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install System Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools fuse libfuse2
+
+      - name: Install Node Dependencies
+        run: npm install
+
+      - name: Build and Package Linux Release
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm run ensure:playtime-helper
+          npm run build:preload
+          npm run build:main
+          npm run copy:assets
+          npm run build:vite
+          npm run verify:deps
+          npx electron-builder --linux --publish never
+          node scripts/organize-build-output.js
+          node scripts/write-release-checksum.js
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-assets
+          path: |
+            build_output/linux/application/YumeShelf-*.AppImage
+            build_output/linux/application/YumeShelf-*.tar.gz
+            build_output/linux/feed/latest-linux.yml
+            build_output/linux/sha256/YumeShelf-*.AppImage.sha256
+            build_output/linux/sha256/YumeShelf-*.tar.gz.sha256
+          retention-days: 1
+
+  publish-release:
+    name: Consolidate & Publish GitHub Release
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Determine Target Release Tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Processing release for tag $TAG (version $VERSION)"
+
+      - name: Compile Release Notes
+        run: |
+          VERSION="${{ steps.get_tag.outputs.version }}"
+          node scripts/compile-release-notes.js --release "$VERSION"
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-release-assets
+          path: dist-release/windows
+
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-release-assets
+          path: dist-release/linux
+
+      - name: Create or Update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.get_tag.outputs.tag }}"
+          VERSION="${{ steps.get_tag.outputs.version }}"
+          NOTES_FILE="docs/changelogs/compiled.release-notes.${VERSION}.md"
+
+          echo "Publishing GitHub Release $TAG with compiled notes from $NOTES_FILE..."
+          
+          # Find all release assets across windows and linux download directories
+          ASSETS=( $(find dist-release -type f) )
+          echo "Discovered ${#ASSETS[@]} release asset files to attach."
+
+          # Check if release already exists
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists. Updating release notes and uploading assets..."
+            gh release edit "$TAG" --title "$TAG" --notes-file "$NOTES_FILE"
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            echo "Creating new GitHub Release $TAG..."
+            gh release create "$TAG" --title "$TAG" --notes-file "$NOTES_FILE" "${ASSETS[@]}"
+          fi
+
+          echo "🎉 Successfully published multi-platform release $TAG!"

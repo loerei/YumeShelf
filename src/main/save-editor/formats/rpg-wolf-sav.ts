@@ -345,11 +345,14 @@ class RpgWolfSavFormat {
 
     async encode(jsonData: any): Promise<Buffer> {
         console.log(`[WOLF-SAV] encode called for file: ${jsonData?.fileName}`);
-        if (!jsonData || (jsonData.$type !== 'RpgWolfSavBinaryInspection' && !jsonData.rawBase64)) {
-            throw new Error('Invalid RPG/Wolf .sav inspection payload');
+        if (!jsonData || !jsonData.rawBase64 || !jsonData._decryptedBase64) {
+            throw new Error('Invalid RPG/Wolf .sav inspection payload: missing raw or decrypted binary base64');
         }
 
-        const rawData = Buffer.from(jsonData.rawBase64 || '', 'base64');
+        const rawData = Buffer.from(jsonData.rawBase64, 'base64');
+        if (rawData.length < 20) {
+            throw new Error('Invalid RPG/Wolf .sav binary data: header must be at least 20 bytes');
+        }
         const header = rawData.subarray(0, 20);
         const seeds = [header[0], header[3], header[9]];
         

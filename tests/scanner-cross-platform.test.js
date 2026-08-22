@@ -80,6 +80,12 @@ test('isRecognizedExecutable correctly identifies Linux and Windows executables'
     const posixEntry = { name: 'posix_game', isFile: () => true };
     const textEntry = { name: 'readme.txt', isFile: () => true };
     const configShEntry = { name: 'config.sh', isFile: () => true };
+    const patchworkEntry = { name: 'Patchwork.exe', isFile: () => true };
+    const redistributionEntry = { name: 'Redistribution.exe', isFile: () => true };
+    const patchToolEntry = { name: 'patch.exe', isFile: () => true };
+    const patchVersionEntry = { name: 'patch_v1.0.exe', isFile: () => true };
+    const redistToolEntry = { name: 'redist.exe', isFile: () => true };
+    const vcredistEntry = { name: 'vcredist_x64.exe', isFile: () => true };
 
     // On Linux target
     assert.deepEqual(await isRecognizedExecutable(exeEntry, '/game', mockFs, 'linux'), { isExecutable: true, platform: 'windows' });
@@ -89,6 +95,12 @@ test('isRecognizedExecutable correctly identifies Linux and Windows executables'
     assert.deepEqual(await isRecognizedExecutable(posixEntry, '/game', mockFs, 'linux'), { isExecutable: true, platform: 'linux' });
     assert.deepEqual(await isRecognizedExecutable(textEntry, '/game', mockFs, 'linux'), { isExecutable: false, platform: 'windows' });
     assert.deepEqual(await isRecognizedExecutable(configShEntry, '/game', mockFs, 'linux'), { isExecutable: false, platform: 'windows' });
+    assert.deepEqual(await isRecognizedExecutable(patchworkEntry, '/game', mockFs, 'linux'), { isExecutable: true, platform: 'windows' });
+    assert.deepEqual(await isRecognizedExecutable(redistributionEntry, '/game', mockFs, 'linux'), { isExecutable: true, platform: 'windows' });
+    assert.deepEqual(await isRecognizedExecutable(patchToolEntry, '/game', mockFs, 'linux'), { isExecutable: false, platform: 'windows' });
+    assert.deepEqual(await isRecognizedExecutable(patchVersionEntry, '/game', mockFs, 'linux'), { isExecutable: false, platform: 'windows' });
+    assert.deepEqual(await isRecognizedExecutable(redistToolEntry, '/game', mockFs, 'linux'), { isExecutable: false, platform: 'windows' });
+    assert.deepEqual(await isRecognizedExecutable(vcredistEntry, '/game', mockFs, 'linux'), { isExecutable: false, platform: 'windows' });
 
     // On Windows target
     assert.deepEqual(await isRecognizedExecutable(exeEntry, 'C:\\game', mockFs, 'win32'), { isExecutable: true, platform: 'windows' });

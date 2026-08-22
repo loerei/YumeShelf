@@ -5,12 +5,34 @@ export const DEFAULT_LIBRARY_MAX_DEPTH = 5;
 export const MIN_LIBRARY_MAX_DEPTH = 0;
 export const MAX_LIBRARY_MAX_DEPTH = 12;
 
-const EXECUTABLE_BLACKLIST = [
+const EXECUTABLE_SUBSTRING_BLACKLIST = [
     'crashhandler', 'crashpad', 'notification', 'unins', 'updater', 
     'ffmpeg', 'dnspy', 'gifski', 'nircmd', 'unitycrash', 'createdump',
-    'gameupdate', 'patch', 'patcher', 'prereq', 'redist',
-    'config.sh', 'setup.sh', 'install.sh', 'uninstall.sh', 'configure.sh'
+    'gameupdate'
 ];
+
+const EXECUTABLE_STEM_BLACKLIST = new Set([
+    'patch', 'patcher', 'prereq', 'redist', 'vcredist', 'dxsetup', 'directx', 
+    'config', 'setup', 'install', 'uninstall', 'configure', 'dxwebsetup'
+]);
+
+export function isBlacklistedExecutableName(name: string): boolean {
+    if (name.startsWith('.')) return true;
+    if (EXECUTABLE_SUBSTRING_BLACKLIST.some(token => name.includes(token))) {
+        return true;
+    }
+    const ext = path.extname(name);
+    const stem = ext ? name.slice(0, -ext.length) : name;
+    if (EXECUTABLE_STEM_BLACKLIST.has(stem)) {
+        return true;
+    }
+    return (
+        stem.startsWith('patch_') || stem.startsWith('patch-') || stem.startsWith('patch.') ||
+        stem.endsWith('_patch') || stem.endsWith('-patch') ||
+        stem.startsWith('redist_') || stem.startsWith('redist-') ||
+        stem.startsWith('vcredist') || stem.startsWith('prereq')
+    );
+}
 const WRAPPER_DIRECTORY_NAMES = new Set([
     'app', 'bin', 'binaries', 'data', 'game', 'release', 'runtime', 
     'win64', 'windows', 'x64', 'x86', 'linux', 'linux64', 'x86_64'
@@ -106,7 +128,7 @@ export async function isRecognizedExecutable(
     if (!entry.isFile()) return { isExecutable: false, platform: 'windows' };
 
     const name = entry.name.toLowerCase();
-    if (name.startsWith('.') || EXECUTABLE_BLACKLIST.some(token => name.includes(token))) {
+    if (isBlacklistedExecutableName(name)) {
         return { isExecutable: false, platform: 'windows' };
     }
 

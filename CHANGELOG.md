@@ -7,12 +7,14 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.5] - working
 
 ### What Changed
-- Refactored internal code quality smells and eliminated duplicate mascot shuffle logic.
+- Ren'Py save editing works on modern Ren'Py 8 games now. Edited saves load cleanly in-game instead of crashing with missing argument or corrupted token errors.
+- Grouped variable tabs (like character stats and relationship flags) and extra currency types (yen, coins, wallet) now show up properly in Ren'Py saves.
 
 ### For the Nerds
-- [renderer] Resolved `typescript:S6660` lonely `if` statement in `onMascotShowChange` inside `hide-and-seek.ts`.
-- [save-editor] Resolved `typescript:S6582` optional chaining recommendation in `rpg-wolf-sav.ts`.
-- [renderer] Eliminated duplicate `getNextShuffledIndex` in `mascot-widget.ts` by importing from `hide-and-seek.ts`.
+- [save-editor] Implemented byte-level Surgical Stream Patcher in `renpy_save_converter.py` to mutate `store.*` variable slices directly in the raw pickle stream, preserving downstream Cython compiled classes (`StyleCore`, `Displayable`, `RollbackLog`) without full-graph re-serialization.
+- [save-editor] Added Pickle Protocol 5 Frame Length Compensation to dynamically recalculate and patch 8-byte frame length headers when variable byte widths change, eliminating stream desynchronization and memo index errors.
+- [save-editor] Added automated ECDSA NIST P-256 token re-signing over modified `log` payloads using SHA-1 digest and system token keys from `%APPDATA%\RenPy\tokens\security_keys.txt`.
+- [save-editor] Fixed dynamic `prefix_*` proxy routing in `RenpyEngine` and broadened currency identifier detection.
 
 ---
 

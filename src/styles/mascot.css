@@ -247,3 +247,7 @@
     user-select: none;
 }
 
+.game-card.mascot-game-card .mascot-card-quote {
+    transition: opacity 0.2s ease;
+}
+

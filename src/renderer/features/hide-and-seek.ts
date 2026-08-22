@@ -198,6 +198,34 @@ export function createHideAndSeekController({
     let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
     let secondaryRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
     let cardAnimTimer: ReturnType<typeof setTimeout> | null = null;
+    let idleRotateTimer: ReturnType<typeof setInterval> | null = null;
+    let activeCardQuoteEl: HTMLElement | null = null;
+
+    function startIdleRotation(quoteEl?: HTMLElement | null) {
+        if (quoteEl) {
+            activeCardQuoteEl = quoteEl;
+        }
+        stopIdleRotation();
+        idleRotateTimer = setInterval(() => {
+            if (cardMascotState === 'smug' && !isDismissed && activeCardQuoteEl) {
+                currentQuote = getRandomIdleQuote();
+                activeCardQuoteEl.style.opacity = '0';
+                setTimeout(() => {
+                    if (cardMascotState === 'smug' && activeCardQuoteEl) {
+                        activeCardQuoteEl.textContent = currentQuote;
+                        activeCardQuoteEl.style.opacity = '1';
+                    }
+                }, 200);
+            }
+        }, 10000);
+    }
+
+    function stopIdleRotation() {
+        if (idleRotateTimer) {
+            clearInterval(idleRotateTimer);
+            idleRotateTimer = null;
+        }
+    }
 
     function getCurrentLangKey(): 'en' | 'ja' | 'zh' {
         const lang = (typeof getLanguage === 'function' ? getLanguage() : '') || localStorage.getItem('yumeshelf_lang') || localStorage.getItem('yumeshelf_language') || 'en';
@@ -255,6 +283,7 @@ export function createHideAndSeekController({
     }
 
     function clearCardTimers() {
+        stopIdleRotation();
         if (dismissTimer) {
             clearTimeout(dismissTimer);
             dismissTimer = null;
@@ -441,6 +470,7 @@ export function createHideAndSeekController({
                         currentQuote = getRandomIdleQuote();
                         if (iconImg) iconImg.src = CARD_IMAGES.smug;
                         if (quoteEl) quoteEl.textContent = currentQuote;
+                        startIdleRotation(quoteEl);
                         if (typeof onRecoverSmug === 'function') {
                             onRecoverSmug();
                         }
@@ -448,6 +478,9 @@ export function createHideAndSeekController({
                 }, 3000);
             }
         };
+
+        // Start idle quote rotation
+        startIdleRotation(quoteEl);
 
         card.addEventListener('click', handleCardBonk);
         card.addEventListener('dblclick', handleCardBonk);

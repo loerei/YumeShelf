@@ -12,8 +12,10 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
 - Bonking Yume-chan now temporarily replaces the search bar placeholder text with her reactive bonk quotes.
 - Upgraded titles and quote picker to a non-repeating loop shuffle bag (like a music player with shuffle and loop enabled).
+- Yume-chan's disguise card idle quote now rotates smoothly every 10 seconds.
 
 ### For the Nerds
+- [hide-and-seek] Added 10-second smooth idle quote rotation interval with immediate bonk interruption and automatic post-recovery restart in `src/renderer/features/hide-and-seek.ts`.
 - [shuffle-bag] Implemented persistent Fisher-Yates shuffle bags (`getNextShuffledIndex`) for card titles, idle quotes, and bonked quotes, guaranteeing non-repeating draw cycles across app sessions with full language independence.
 - [search] Added `setTemporaryPlaceholder` and `clearTemporaryPlaceholder` in `src/renderer/search.ts` with rotation pausing during reactive bonk quotes.
 - [mascot] Wired `onBonk` and `onRecoverSmug` callbacks to pipe randomized localized bonk quotes into the search bar placeholder with automatic restoration on full recovery.

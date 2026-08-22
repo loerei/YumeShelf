@@ -55,8 +55,9 @@ export function createMascotWidget({
     }
 
     let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+    let secondaryRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
     let animEndTimer: ReturnType<typeof setTimeout> | null = null;
-    let recentClicks: number[] = [];
+    let currentStreak = 0;
     let currentSoundKey = 'squeaker';
     let currentVolume = 20;
     let currentScale = 100;
@@ -245,18 +246,47 @@ export function createMascotWidget({
         requestAnimationFrame(animateFrame);
     }
 
+    function clearRecoveryTimers() {
+        if (recoveryTimer) {
+            clearTimeout(recoveryTimer);
+            recoveryTimer = null;
+        }
+        if (secondaryRecoveryTimer) {
+            clearTimeout(secondaryRecoveryTimer);
+            secondaryRecoveryTimer = null;
+        }
+    }
+
     function triggerBonk(clickX?: number, clickY?: number) {
-        const now = performance.now();
+        clearRecoveryTimers();
+        currentStreak += 1;
 
-        // Retain clicks within the last 1200ms
-        recentClicks = recentClicks.filter((time) => now - time < 1200);
-        recentClicks.push(now);
-
-        // Rapid click detection: 3+ clicks in the sliding window
-        if (recentClicks.length >= 3) {
+        if (currentStreak >= 3) {
+            // Stage 1: Entered/stay in bonkedTooMuch state
             setMascotState('bonkedTooMuch');
+
+            // After 3.0s of continuous inactivity: transition bonkedTooMuch -> bonked
+            recoveryTimer = setTimeout(() => {
+                setMascotState('bonked');
+
+                // Stage 2: Linear recovery duration from bonked -> smug based on streak (3s - 10s)
+                // Option A: 1s per additional click beyond 3
+                const extraClicks = Math.max(0, currentStreak - 3);
+                const tSmugMs = Math.min(10000, 3000 + extraClicks * 1000);
+
+                secondaryRecoveryTimer = setTimeout(() => {
+                    currentStreak = 0;
+                    setMascotState('smug');
+                }, tSmugMs);
+            }, 3000);
         } else {
+            // Normal 1-2 clicks: bonked state, recovers to smug after 3.0s
             setMascotState('bonked');
+
+            recoveryTimer = setTimeout(() => {
+                currentStreak = 0;
+                setMascotState('smug');
+            }, 3000);
         }
 
         // Play bonk audio (interrupts current playing sound and restarts cleanly)
@@ -282,15 +312,6 @@ export function createMascotWidget({
         animEndTimer = setTimeout(() => {
             widgetEl.classList.remove('bonk-animating');
         }, 500);
-
-        // Auto-recovery back to smug after 3.0s of inactivity
-        if (recoveryTimer) {
-            clearTimeout(recoveryTimer);
-        }
-        recoveryTimer = setTimeout(() => {
-            recentClicks = [];
-            setMascotState('smug');
-        }, 3000);
     }
 
     function onPointerDown(event: PointerEvent) {
@@ -320,7 +341,7 @@ export function createMascotWidget({
             isDragging = true;
             widgetEl.classList.add('is-dragging');
             setMascotState('bonked'); // Expressive bonked face while being dragged
-            if (recoveryTimer) clearTimeout(recoveryTimer);
+            clearRecoveryTimers();
         }
 
         if (isDragging) {
@@ -349,7 +370,8 @@ export function createMascotWidget({
                 clampAndApplyPosition(posX, posY, true);
             }
 
-            // Restore smug face on drop
+            // Restore smug face on drop and reset streak
+            currentStreak = 0;
             setMascotState('smug');
         } else {
             // Click without drag -> Bonk at click location!
@@ -515,7 +537,7 @@ export function createMascotWidget({
             }
         },
         destroy: () => {
-            if (recoveryTimer) clearTimeout(recoveryTimer);
+            clearRecoveryTimers();
             if (animEndTimer) clearTimeout(animEndTimer);
             if (activeAudio) {
                 try {

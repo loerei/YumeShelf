@@ -229,11 +229,11 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
             telemetryOptOut: telemetryModal ? telemetryModal.querySelector('#telemetry-opt-out-btn') : null
         },
 
-        moreLanguagesBtn: languagePackContainer ? languagePackContainer.querySelector('#more-languages-btn') : null,
+        moreLanguagesBtn: settingsContainer ? settingsContainer.querySelector('#more-languages-btn') : null,
 
         // === Static i18n text node refs ===
         uiTextRefs: {
-            moreLanguagesBtn: languagePackContainer ? languagePackContainer.querySelector('#more-languages-btn') : null,
+            moreLanguagesBtn: settingsContainer ? settingsContainer.querySelector('#more-languages-btn') : null,
             searchInput: searchContainer ? searchContainer.querySelector('#search-input') as HTMLInputElement : null,
             searchPlaceholder: searchContainer ? searchContainer.querySelector('#search-placeholder') : null,
             sortMenu: documentRef.getElementById('sort-menu'),

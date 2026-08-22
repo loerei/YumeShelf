@@ -175,3 +175,33 @@ test('collectGameCandidates discovers both Linux and Windows games in a mixed li
     assert.equal(platformsByKey['Game Two'], 'windows');
     assert.equal(platformsByKey['Game Three'], 'linux');
 });
+
+test('collectGameCandidates deeply discovers all nested games inside category folders with loose executables', async () => {
+    const tempDir = await makeTempDir();
+
+    // Loose file in root
+    await writeStubFile(path.join(tempDir, 'installer.exe'));
+
+    // Category Folder (e.g. "RPG Collection") with loose helper tool
+    const categoryDir = path.join(tempDir, 'RPG Collection');
+    await writeStubFile(path.join(categoryDir, 'patcher.exe'));
+
+    // Nested Game 1
+    const game1Dir = path.join(categoryDir, 'Epic Quest 1');
+    await writeStubFile(path.join(game1Dir, 'Game.exe'));
+
+    // Nested Game 2 (with internal Data folder that must not be treated as a game)
+    const game2Dir = path.join(categoryDir, 'Epic Quest 2');
+    await writeStubFile(path.join(game2Dir, 'EpicQuest2.exe'));
+    await writeStubFile(path.join(game2Dir, 'Data', 'System.json'));
+
+    // Nested Game 3
+    const game3Dir = path.join(categoryDir, 'Epic Quest 3');
+    await writeStubFile(path.join(game3Dir, 'Launch.x86_64'));
+
+    const candidates = await collectGameCandidates(fs, tempDir, tempDir, 0, 5, 'linux');
+
+    assert.equal(candidates.length, 3, 'Must find all 3 nested games without being swallowed by category folder patcher.exe');
+    const folderNames = candidates.map(c => path.basename(c.folderPath)).sort();
+    assert.deepEqual(folderNames, ['Epic Quest 1', 'Epic Quest 2', 'Epic Quest 3']);
+});

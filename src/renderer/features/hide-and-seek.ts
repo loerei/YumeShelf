@@ -411,7 +411,7 @@ export function createHideAndSeekController({
                 mascotWidget?.hide?.();
             }
         },
-        isEnabled,
+        isEnabled: isHideAndSeekEnabled,
         isCardActive,
         isDismissed: () => isDismissed,
         getCardTitle,

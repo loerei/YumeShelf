@@ -71,8 +71,29 @@ export function normalizeSessionJournal(raw: any, filePath: string): SessionJour
     };
 }
 
-export function isActiveJournal(journal: SessionJournal): boolean {
-    return ACTIVE_SESSION_STATUSES.has(journal.status);
+export const STALE_LAUNCHING_THRESHOLD_MS = 60000;
+export const STALE_RUNNING_HEARTBEAT_THRESHOLD_MS = 30000;
+
+export function isActiveJournal(journal: SessionJournal, now = Date.now()): boolean {
+    if (!ACTIVE_SESSION_STATUSES.has(journal.status)) return false;
+
+    // A session stuck in 'launching' for > 60s without transitioning is dead/failed
+    if (journal.status === 'launching') {
+        const age = now - (journal.startedAt || now);
+        if (age > STALE_LAUNCHING_THRESHOLD_MS) {
+            return false;
+        }
+    }
+
+    // A session in 'running' that has not received a heartbeat in > 30s is dead
+    if (journal.status === 'running' && journal.lastHeartbeatAt) {
+        const heartbeatAge = now - journal.lastHeartbeatAt;
+        if (heartbeatAge > STALE_RUNNING_HEARTBEAT_THRESHOLD_MS) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 export function isTransientSessionReadError(error: any): boolean {
@@ -123,9 +144,9 @@ export async function removeSessionJournal(filePath: string): Promise<void> {
     }
 }
 
-export function aggregateActiveGameState(journals: SessionJournal[]): Map<string, ActiveGameState> {
+export function aggregateActiveGameState(journals: SessionJournal[], now = Date.now()): Map<string, ActiveGameState> {
     const stateByGameKey = new Map<string, ActiveGameState>();
-    journals.filter(isActiveJournal).forEach((journal) => {
+    journals.filter((j) => isActiveJournal(j, now)).forEach((journal) => {
         if (!journal.gameKey) return;
         const current = stateByGameKey.get(journal.gameKey) || {
             active: false,

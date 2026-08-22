@@ -7,7 +7,8 @@ export const MAX_LIBRARY_MAX_DEPTH = 12;
 
 const EXECUTABLE_BLACKLIST = [
     'crashhandler', 'crashpad', 'notification', 'unins', 'updater', 
-    'ffmpeg', 'dnspy', 'gifski', 'nircmd', 'unitycrash',
+    'ffmpeg', 'dnspy', 'gifski', 'nircmd', 'unitycrash', 'createdump',
+    'gameupdate', 'patch', 'patcher',
     'config.sh', 'setup.sh', 'install.sh', 'uninstall.sh', 'configure.sh'
 ];
 const WRAPPER_DIRECTORY_NAMES = new Set([
@@ -58,8 +59,13 @@ export function normalizeLibraryConfigShape(config: any): LibraryConfig {
     };
 }
 
-export function normalizePathForComparison(targetPath: string): string {
-    return path.resolve(String(targetPath || '')).replace(/[\\/]+/g, '\\').toLowerCase();
+export function normalizePathForComparison(targetPath: string, targetPlatform: NodeJS.Platform = process.platform): string {
+    const raw = String(targetPath || '').trim();
+    if (!raw) return '';
+    if (targetPlatform === 'win32') {
+        return path.win32.resolve(raw).replace(/[\\/]+/g, '\\').toLowerCase();
+    }
+    return path.posix.resolve(raw).replace(/[\\/]+/g, '/').toLowerCase();
 }
 
 export function normalizeRelativeGameKey(relativePath: string): string {
@@ -140,7 +146,9 @@ export function pickPreferredExecutable(
             lower.startsWith('config.') || lower.startsWith('setup.') ||
             lower.startsWith('setting.') || lower.startsWith('settings.') ||
             lower.startsWith('configure.') || lower.startsWith('install.') ||
-            lower.startsWith('uninstall.')
+            lower.startsWith('uninstall.') || lower.startsWith('patch.') ||
+            lower.startsWith('patcher.') || lower.startsWith('update.') ||
+            lower.startsWith('updater.') || lower.startsWith('gameupdate')
         );
     };
 
@@ -194,9 +202,10 @@ export function isDescendantPath(parentPath: string, childPath: string): boolean
     return !!relative && !relative.startsWith('..') && !path.isAbsolute(relative);
 }
 
-export function shouldPromoteWrapperDirectory(currentPath: string, childFolderPath: string, libraryPath: string): boolean {
-    if (normalizePathForComparison(currentPath) === normalizePathForComparison(libraryPath)) return false;
-    return WRAPPER_DIRECTORY_NAMES.has(getLeafFolderName(childFolderPath).toLowerCase());
+export function shouldPromoteWrapperDirectory(currentPath: string, childFolderPath: string, libraryPath: string, targetPlatform: NodeJS.Platform = process.platform): boolean {
+    if (normalizePathForComparison(currentPath, targetPlatform) === normalizePathForComparison(libraryPath, targetPlatform)) return false;
+    const childLeaf = getLeafFolderName(childFolderPath).toLowerCase();
+    return WRAPPER_DIRECTORY_NAMES.has(childLeaf);
 }
 
 export interface CandidateGame {
@@ -220,44 +229,52 @@ export async function collectGameCandidates(
         return [];
     }
 
-    const recognizedList = await Promise.all(
-        entries.map(async (entry) => {
-            const rec = await isRecognizedExecutable(entry, currentPath, fs, targetPlatform);
-            return rec.isExecutable ? { name: entry.name, platform: rec.platform } : null;
-        })
-    );
-    const executableEntries = recognizedList.filter((e): e is ExecutableCandidate => e !== null);
+    const isRoot = depth === 0 || normalizePathForComparison(currentPath, targetPlatform) === normalizePathForComparison(libraryPath, targetPlatform);
 
-    if (executableEntries.length > 0) {
-        const preferred = pickPreferredExecutable(currentPath, executableEntries, targetPlatform);
-        return preferred ? [{ folderPath: currentPath, exePath: preferred.exePath, platform: preferred.platform }] : [];
+    // 1. Recurse into child directories first up to maxDepth
+    let nestedCandidates: CandidateGame[] = [];
+    if (depth < maxDepth) {
+        const childDirectories = entries.filter((entry) => entry.isDirectory());
+        const nestedGroups = await Promise.all(
+            childDirectories.map((entry) => collectGameCandidates(fs, libraryPath, path.join(currentPath, entry.name), depth + 1, maxDepth, targetPlatform))
+        );
+        nestedCandidates = nestedGroups.flat();
     }
 
-    if (depth >= maxDepth) {
-        return [];
+    // 2. If child directories contain game candidates, return all of them (or promote single wrapper directory)
+    if (nestedCandidates.length > 0) {
+        if (!isRoot && nestedCandidates.length === 1 && shouldPromoteWrapperDirectory(currentPath, nestedCandidates[0].folderPath, libraryPath)) {
+            return [{
+                folderPath: currentPath,
+                exePath: nestedCandidates[0].exePath,
+                platform: nestedCandidates[0].platform
+            }];
+        }
+        return nestedCandidates;
     }
 
-    const childDirectories = entries.filter((entry) => entry.isDirectory());
-    const nestedGroups = await Promise.all(
-        childDirectories.map((entry) => collectGameCandidates(fs, libraryPath, path.join(currentPath, entry.name), depth + 1, maxDepth, targetPlatform))
-    );
-    const nestedCandidates = nestedGroups.flat();
-
-    if (nestedCandidates.length === 1 && shouldPromoteWrapperDirectory(currentPath, nestedCandidates[0].folderPath, libraryPath)) {
-        return [{
-            folderPath: currentPath,
-            exePath: nestedCandidates[0].exePath,
-            platform: nestedCandidates[0].platform
-        }];
+    // 3. If NO child games were found, check if this directory is a leaf game folder with an executable
+    if (!isRoot) {
+        const recognizedList = await Promise.all(
+            entries.map(async (entry) => {
+                const rec = await isRecognizedExecutable(entry, currentPath, fs, targetPlatform);
+                return rec.isExecutable ? { name: entry.name, platform: rec.platform } : null;
+            })
+        );
+        const executableEntries = recognizedList.filter((e): e is ExecutableCandidate => e !== null);
+        if (executableEntries.length > 0) {
+            const preferred = pickPreferredExecutable(currentPath, executableEntries, targetPlatform);
+            return preferred ? [{ folderPath: currentPath, exePath: preferred.exePath, platform: preferred.platform }] : [];
+        }
     }
 
-    return nestedCandidates;
+    return [];
 }
 
-export function dedupeCandidates(candidates: CandidateGame[]): CandidateGame[] {
+export function dedupeCandidates(candidates: CandidateGame[], targetPlatform: NodeJS.Platform = process.platform): CandidateGame[] {
     const unique = new Map<string, CandidateGame>();
     for (const candidate of candidates) {
-        unique.set(normalizePathForComparison(candidate.folderPath), candidate);
+        unique.set(normalizePathForComparison(candidate.folderPath, targetPlatform), candidate);
     }
     return [...unique.values()];
 }

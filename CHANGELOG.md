@@ -7,11 +7,20 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.1] - working
 
 ### What Changed
+- Fixed game scanning so pointing to a messy folder (like Downloads) finds all your games instead of treating the whole folder as one game.
+- Better Linux gaming support (Bazzite, SteamOS): automatically detects Steam Proton, Bottles, and Lutris if system Wine is missing.
+- Fixed playtime tracking so failed launches don't leave phantom "Playing" timers running.
 - You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
 - Made the bonking more IMPACTFUL.
 - Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
 
 ### For the Nerds
+- [scanner] Fixed root library recursion blocker in `scanner.ts` where loose executables at the library root halted traversal into child directories.
+- [scanner] Fixed POSIX path normalization to preserve forward slashes and prevent Windows backslash leakage on Linux.
+- [game-runner] Added multi-source runner detection in `detector.ts` for Steam Proton (standard, Flatpak, GE-Proton), Bottles Flatpak (`~/.var/app/com.usebottles.bottles`), Lutris, Heroic, and UMU.
+- [game-runner] Added automatic Proton fallback in `resolver.ts` when running Windows `.exe` games on immutable Linux systems without `/usr/bin/wine`.
+- [playtime] Added stale session heartbeat expiry in `journal.ts` (`isActiveJournal`) to eliminate ghost playtime accumulation from aborted launches.
+- [title-resolver] Added case-insensitive manifest exploration in `rpg-maker-resolver.ts` for Linux ext4/btrfs filesystems.
 - [mascot] Added dragging physics so you can move Yume-chan around anywhere on your screen. Her position and total bonk count save to local storage, and her expression reacts while dragging.
 - [mascot] Added the comic bonk particle with a bit of math (exponential decay, random rotation between -45 and 45 degrees, and variable opacity).
 - [mascot] Built a two-stage cooldown state machine for her recovery so spamming clicks extends the timer instead of breaking the animation.

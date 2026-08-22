@@ -43,12 +43,20 @@ export async function resolveRpgMakerTitle(
             }
         }
 
-        // 2. English fallback and default System.json
+        // 2. English fallback and default System.json (both upper/lower cases for Linux ext4/btrfs)
         candidatePaths.push(
             path.join(dir, 'data', 'EN', 'System.json'),
+            path.join(dir, 'data', 'en', 'system.json'),
             path.join(dir, 'www', 'data', 'EN', 'System.json'),
+            path.join(dir, 'www', 'data', 'en', 'system.json'),
             path.join(dir, 'data', 'System.json'),
-            path.join(dir, 'www', 'data', 'System.json')
+            path.join(dir, 'data', 'system.json'),
+            path.join(dir, 'Data', 'System.json'),
+            path.join(dir, 'Data', 'system.json'),
+            path.join(dir, 'www', 'data', 'System.json'),
+            path.join(dir, 'www', 'data', 'system.json'),
+            path.join(dir, 'www', 'Data', 'System.json'),
+            path.join(dir, 'www', 'Data', 'system.json')
         );
     }
 

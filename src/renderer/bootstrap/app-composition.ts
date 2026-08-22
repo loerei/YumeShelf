@@ -78,23 +78,30 @@ export function createRendererComposition({
     // --- Container-based Controllers ---
     // Each controller receives its root container element and queries its own internal DOM.
 
+    let searchController = null;
+
     const mascotWidget = createMascotWidget({
         widgetEl: refs.mascotWidget,
         imgEl: refs.mascotImg,
         contextMenuEl: refs.mascotContextMenu,
-        getStrings: () => getStrings()
+        getStrings: () => getStrings(),
+        getLanguage: () => localStorage.getItem('yumeshelf_lang') || localStorage.getItem('yumeshelf_language') || 'en',
+        onBonk: (quote) => searchController?.setTemporaryPlaceholder(quote),
+        onRecoverSmug: () => searchController?.clearTemporaryPlaceholder()
     });
     mascotWidget.init();
 
     const hideAndSeekController = createHideAndSeekController({
         mascotWidget,
         getStrings: () => getStrings(),
-        getLanguage: () => localStorage.getItem('yumeshelf_language') || 'en',
+        getLanguage: () => localStorage.getItem('yumeshelf_lang') || localStorage.getItem('yumeshelf_language') || 'en',
+        onBonk: (quote) => searchController?.setTemporaryPlaceholder(quote),
+        onRecoverSmug: () => searchController?.clearTemporaryPlaceholder(),
         onRerenderRequested: () => libraryRuntime.sortGames(state.getCurrentSort())
     });
     hideAndSeekController.init();
 
-    const searchController = createSearchController({
+    searchController = createSearchController({
         attachTooltip: (element, getContent) => {
             tooltipController.attachTooltip(element, getContent);
         },

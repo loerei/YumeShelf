@@ -29,16 +29,69 @@ const SOUNDS = {
     'metal-pipe': metalPipeSound
 };
 
+const BONKED_QUOTES = {
+    en: [
+        'OIIIIIIII!!!',
+        'Ugh!',
+        'Poor me :(',
+        'Gah-',
+        'My braincells!',
+        'You can do better than cyberbullying me :(',
+        'Bold of you!',
+        '@@',
+        '???'
+    ],
+    ja: [
+        'おーい！！！',
+        'うっ！',
+        'かわいそうな私… (´；ω；｀)',
+        'ぐはっ',
+        '私の脳細胞が！',
+        'ネットいじめ以外にすることないの？ :(',
+        'いい度胸ね！',
+        '@@',
+        '???'
+    ],
+    zh: [
+        '喂！！！',
+        '呃！',
+        '可怜的我 :(',
+        '咕呃——',
+        '我的脑细胞！',
+        '除了网络霸凌我你就没别的事做了吗 :(',
+        '胆子挺大嘛！',
+        '@@',
+        '???'
+    ],
+    vi: [
+        'OIIIIIIII!!!',
+        'Ugh!',
+        'Tội nghiệp tui :(',
+        'Gah-',
+        'Tế bào não của tui!',
+        'Bộ bạn không có gì ngoài bắt nạt mạng hả :(',
+        'Gan dạ đấy!',
+        '@@',
+        '???'
+    ]
+};
+
 export function createMascotWidget({
     widgetEl,
     imgEl,
     contextMenuEl,
-    getStrings
+    getStrings,
+    getLanguage,
+    onBonk,
+    onRecoverSmug
 }: {
     widgetEl: HTMLElement | null;
     imgEl: HTMLImageElement | null;
     contextMenuEl?: HTMLElement | null;
     getStrings?: () => any;
+    getLanguage?: () => string;
+    onBonk?: (quote: string) => void;
+    onRecoverSmug?: () => void;
 }): MascotController {
     if (!widgetEl || !imgEl) {
         return {
@@ -120,6 +173,16 @@ export function createMascotWidget({
         }
     }
 
+    function getRandomBonkedQuote(): string {
+        const lang = (typeof getLanguage === 'function' ? getLanguage() : '') || localStorage.getItem('yumeshelf_lang') || localStorage.getItem('yumeshelf_language') || 'en';
+        let key = 'en';
+        if (lang.startsWith('ja')) key = 'ja';
+        else if (lang.startsWith('zh')) key = 'zh';
+        else if (lang.startsWith('vi')) key = 'vi';
+        const pool = BONKED_QUOTES[key] || BONKED_QUOTES.en;
+        return pool[Math.floor(Math.random() * pool.length)] || 'OIIIIIIII!!!';
+    }
+
     function resetToSmug() {
         clearRecoveryTimers();
         currentStreak = 0;
@@ -127,6 +190,9 @@ export function createMascotWidget({
         accumulatedCooldownMs = 3000;
         rapidClicksDuringCooldown = [];
         setMascotState('smug');
+        if (typeof onRecoverSmug === 'function') {
+            onRecoverSmug();
+        }
     }
 
     function clampAndApplyPosition(x: number, y: number, save = true) {
@@ -360,6 +426,12 @@ export function createMascotWidget({
 
         // Spawn mathematical curve BONK impact effect particle
         spawnBonkImpact(clickX, clickY);
+
+        // Notify search controller / UI of random bonk quote
+        const quote = getRandomBonkedQuote();
+        if (typeof onBonk === 'function') {
+            onBonk(quote);
+        }
 
         // Increment persistent bonk counter in localStorage
         const prevCount = parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);

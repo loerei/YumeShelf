@@ -117,6 +117,17 @@ const BONKED_QUOTES = {
         '胆子挺大嘛！',
         '@@',
         '???'
+    ],
+    vi: [
+        'OIIIIIIII!!!',
+        'Ugh!',
+        'Tội nghiệp tui :(',
+        'Gah-',
+        'Tế bào não của tui!',
+        'Bộ bạn không có gì ngoài bắt nạt mạng hả :(',
+        'Gan dạ đấy!',
+        '@@',
+        '???'
     ]
 };
 
@@ -126,6 +137,8 @@ export interface HideAndSeekControllerOptions {
     mascotWidget: any;
     getStrings: () => any;
     getLanguage?: () => string;
+    onBonk?: (quote: string) => void;
+    onRecoverSmug?: () => void;
     onRerenderRequested?: () => void;
 }
 
@@ -133,6 +146,8 @@ export function createHideAndSeekController({
     mascotWidget,
     getStrings,
     getLanguage,
+    onBonk,
+    onRecoverSmug,
     onRerenderRequested
 }: HideAndSeekControllerOptions) {
     // Session state
@@ -333,6 +348,9 @@ export function createHideAndSeekController({
 
             // Quote & image update
             currentQuote = getRandomBonkedQuote();
+            if (typeof onBonk === 'function') {
+                onBonk(currentQuote);
+            }
             cardMascotState = currentStreak >= 3 ? 'bonkedTooMuch' : 'bonked';
             if (iconImg) {
                 iconImg.src = CARD_IMAGES[cardMascotState];
@@ -367,6 +385,9 @@ export function createHideAndSeekController({
                         isDismissed = true;
                         document.removeEventListener('click', closeMenuHandler);
                         mascotWidget?.returnFromHideAndSeek?.(currentStreak, accumulatedCooldownMs);
+                        if (typeof onRecoverSmug === 'function') {
+                            onRecoverSmug();
+                        }
                         if (typeof onRerenderRequested === 'function') {
                             onRerenderRequested();
                         }
@@ -385,6 +406,9 @@ export function createHideAndSeekController({
                         currentQuote = getRandomIdleQuote();
                         if (iconImg) iconImg.src = CARD_IMAGES.smug;
                         if (quoteEl) quoteEl.textContent = currentQuote;
+                        if (typeof onRecoverSmug === 'function') {
+                            onRecoverSmug();
+                        }
                     }, accumulatedCooldownMs);
                 }, 3000);
             }

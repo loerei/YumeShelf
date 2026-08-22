@@ -177,10 +177,32 @@ export function createSearchController({
         searchDropdown.classList.add('show');
     }
 
+    let overridePlaceholder: string | null = null;
+
+    function setTemporaryPlaceholder(text: string) {
+        overridePlaceholder = text;
+        if (!searchInput.value.trim() && searchPlaceholder) {
+            searchPlaceholder.innerText = text;
+            searchPlaceholder.style.opacity = '0.75';
+            searchPlaceholder.style.display = 'block';
+        }
+    }
+
+    function clearTemporaryPlaceholder() {
+        overridePlaceholder = null;
+        if (!searchInput.value.trim() && searchPlaceholder) {
+            const placeholders = getPlaceholders();
+            searchPlaceholder.innerText = placeholders[getPlaceholderIndex()];
+            searchPlaceholder.style.opacity = '0.5';
+            searchPlaceholder.style.display = 'block';
+        }
+    }
+
     function rotatePlaceholder() {
-        if (searchInput.value.trim()) return;
+        if (searchInput.value.trim() || overridePlaceholder) return;
         searchPlaceholder.style.opacity = '0';
         setTimeout(() => {
+            if (overridePlaceholder) return;
             advancePlaceholderIndex();
             const placeholders = getPlaceholders();
             searchPlaceholder.innerText = placeholders[getPlaceholderIndex()];
@@ -191,6 +213,8 @@ export function createSearchController({
     return {
         hideSearchDropdown,
         rotatePlaceholder,
-        updateSearch
+        updateSearch,
+        setTemporaryPlaceholder,
+        clearTemporaryPlaceholder
     };
 }

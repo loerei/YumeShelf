@@ -10,9 +10,12 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - You can now drag Yume-chan around, and see how many times you've bonked her in the right-click menu.
 - Made the bonking more IMPACTFUL.
 - Added "Hide And Seek?" mode: Yume-chan can disguise herself as a game card in your library until you bonk her enough to chase her back to her spot.
+- Bonking Yume-chan now temporarily replaces the search bar placeholder text with her reactive bonk quotes.
 
 ### For the Nerds
-- [hide-and-seek] Implemented `src/renderer/features/hide-and-seek.ts` minigame controller with dynamic library card injection, session-based threshold generation (5-10 clicks), localized quote banks (EN, JA, ZH), animated dismissal, and recovery handoff to mascot dock.
+- [search] Added `setTemporaryPlaceholder` and `clearTemporaryPlaceholder` in `src/renderer/search.ts` with rotation pausing during reactive bonk quotes.
+- [mascot] Wired `onBonk` and `onRecoverSmug` callbacks to pipe randomized localized bonk quotes into the search bar placeholder with automatic restoration on full recovery.
+- [hide-and-seek] Implemented `src/renderer/features/hide-and-seek.ts` minigame controller with dynamic library card injection, session-based threshold generation (5-10 clicks), localized quote banks (EN, JA, ZH, VI), animated dismissal, and recovery handoff to mascot dock.
 - [mascot] Added pointer-based drag & drop physics with live expression reaction (`yume_bonked.png`), viewport boundary clamping, coordinate persistence, and persistent bonk counter.
 - [mascot] Integrated math-driven comic impact particle (`BONK.png`) with exponential decay curve, random rotation ([-45°, +45°]), and peak opacity variation.
 - [mascot] Implemented 2-stage dynamic streak recovery state machine with cumulative remaining cooldown extension.

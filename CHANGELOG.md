@@ -7,7 +7,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.0.1] - working
 
 ### What Changed
-- Fixed game scanning so pointing to a messy folder (like Downloads) finds all your games instead of treating the whole folder as one game, while still picking the right launcher in games with deep subfolders.
+- Fixed game scanning so pointing to a messy folder (like Downloads) finds all your games instead of treating the whole folder as one game, while still picking the right launcher in games with deep subfolders. **There might be some false positive rendering, so I'm going to add a "Hide this card" button in the next version.**
 - Fixed Wolf RPG save editing so saving changes actually writes to your file again instead of throwing an inspection payload error.
 - Better Linux gaming support (Bazzite, SteamOS): automatically detects Steam Proton, Bottles, and Lutris if system Wine is missing, and fixed startup crashes on Linux.
 - Fixed playtime tracking so failed launches don't leave phantom "Playing" timers running.

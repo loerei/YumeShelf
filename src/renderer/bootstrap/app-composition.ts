@@ -15,6 +15,7 @@ import { createSearchController } from '../search';
 import { createSettingsController } from '../settings';
 import { createStackCardFactory } from '../stack-cards';
 import { createStartupController } from '../startup';
+import { createQuickFolderController } from '../quick-folder';
 import { createTooltipController } from '../tooltips';
 import { createUpdateNotificationFeature } from '../update-notification-feature';
 import { createUITextController } from '../ui-text';
@@ -314,7 +315,7 @@ export function createRendererComposition({
         refs: {
             emptyContainer: refs.emptyContainer,
             favGrid: refs.favGrid,
-            quickFolder: refs.quickFolder,
+            quickFolder: refs.quickFolderContainer || refs.quickFolder,
             separator: refs.separator,
             unfavGrid: refs.unfavGrid
         },
@@ -331,6 +332,12 @@ export function createRendererComposition({
         createCard: (game, options) => gameCardFactory.createCard(game, options),
         createStackCard: (stack, options) => stackCardFactory.createStackCard(stack, options),
         getVisibleGames
+    });
+
+    const quickFolderController = createQuickFolderController({
+        container: refs.quickFolderContainer,
+        electronAPI,
+        getLibraryConfig: () => state.getCurrentLibraryConfig()
     });
 
     const startupController = createStartupController({
@@ -411,6 +418,7 @@ export function createRendererComposition({
         libraryRuntime,
         localeController,
         mascotWidget,
+        quickFolderController,
         searchController,
         settingsController,
         startupController,

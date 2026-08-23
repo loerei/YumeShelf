@@ -266,3 +266,99 @@ test('scan ignores Config.exe if there is another executable', async () => {
     assert.equal(games.length, 1);
     assert.equal(games[0].exePath, path.join(gameFolderPath, 'MyGameExecutable.exe'));
 });
+
+test('Smart Cache: warm scan preserves cached titles without re-resolving when config is unchanged', async () => {
+    const rootPath = await makeTempDir();
+    const gameFolderPath = path.join(rootPath, 'RJ01234567_Game');
+    await writeExe(path.join(gameFolderPath, 'Game.exe'));
+
+    const { db, state } = createLibraryHarness(rootPath, {
+        config: {
+            libraryPath: rootPath,
+            maxDepth: 5,
+            titleDisplayMode: 'metadata',
+            displayProductCodes: false
+        },
+        titleResolutionConfig: {
+            titleDisplayMode: 'metadata',
+            displayProductCodes: false,
+            preferredLocale: undefined
+        },
+        games: {
+            RJ01234567_Game: {
+                name: 'Cached Title From Prior Scan',
+                customName: false,
+                exePath: path.join(gameFolderPath, 'Game.exe'),
+                folderPath: gameFolderPath,
+                dateAdded: 1000
+            }
+        }
+    });
+
+    const games = await state.loadGamesForConfig({
+        libraryPath: rootPath,
+        maxDepth: 5,
+        titleDisplayMode: 'metadata',
+        displayProductCodes: false
+    });
+
+    assert.equal(games.length, 1);
+    assert.equal(games[0].name, 'Cached Title From Prior Scan');
+    assert.equal(db.read().titleResolutionConfig.titleDisplayMode, 'metadata');
+});
+
+test('Smart Cache: invalidation triggers re-resolution when title config changes while preserving customName', async () => {
+    const rootPath = await makeTempDir();
+    const autoGameFolder = path.join(rootPath, 'RJ01234567_AutoGame');
+    const customGameFolder = path.join(rootPath, 'RJ01999999_CustomGame');
+    await writeExe(path.join(autoGameFolder, 'Game.exe'));
+    await writeExe(path.join(customGameFolder, 'Game.exe'));
+
+    const { state } = createLibraryHarness(rootPath, {
+        config: {
+            libraryPath: rootPath,
+            maxDepth: 5,
+            titleDisplayMode: 'metadata',
+            displayProductCodes: false
+        },
+        titleResolutionConfig: {
+            titleDisplayMode: 'metadata',
+            displayProductCodes: false,
+            preferredLocale: undefined
+        },
+        games: {
+            RJ01234567_AutoGame: {
+                name: 'Auto Game Old Title',
+                customName: false,
+                exePath: path.join(autoGameFolder, 'Game.exe'),
+                folderPath: autoGameFolder,
+                dateAdded: 1000
+            },
+            RJ01999999_CustomGame: {
+                name: 'My Special User Renamed Game',
+                customName: true,
+                exePath: path.join(customGameFolder, 'Game.exe'),
+                folderPath: customGameFolder,
+                dateAdded: 2000
+            }
+        }
+    });
+
+    // Load with displayProductCodes: true (changed setting)
+    const games = await state.loadGamesForConfig({
+        libraryPath: rootPath,
+        maxDepth: 5,
+        titleDisplayMode: 'metadata',
+        displayProductCodes: true
+    });
+
+    assert.equal(games.length, 2);
+    const autoGame = games.find(g => g.folderName === 'RJ01234567_AutoGame');
+    const customGame = games.find(g => g.folderName === 'RJ01999999_CustomGame');
+
+    // Auto game should be re-resolved with product code prefix
+    assert.ok(autoGame.name.includes('RJ01234567'));
+    // Custom renamed game must NEVER be overwritten
+    assert.equal(customGame.name, 'My Special User Renamed Game');
+    assert.equal(customGame.customName, true);
+});

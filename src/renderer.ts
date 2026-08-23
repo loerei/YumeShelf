@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         localeController: composition.localeController,
         languagePackController: composition.languagePackController,
         startupController: composition.startupController,
+        quickFolderController: composition.quickFolderController,
         searchController: composition.searchController,
         sortGames: (type) => composition.libraryRuntime.sortGames(type),
         reannotateGames: () => composition.libraryRuntime.reannotateGames(),
@@ -72,6 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         categoryFilterController: composition.categoryFilterController,
         refs,
         settingsController: composition.settingsController,
+        quickFolderController: composition.quickFolderController,
         duplicateStackOverlayController: composition.duplicateStackOverlayController,
         closeLanguagePackModal: () => composition.languagePackController.closeLanguagePackModal()
     });

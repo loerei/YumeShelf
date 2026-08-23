@@ -4,6 +4,7 @@ const path = require('node:path');
 
 // We will test at the public seam: resolveGameTitle
 const { resolveGameTitle } = require('../dist/main/library-state/title-resolver');
+const { collectCandidateDirectories } = require('../dist/main/library-state/title-resolver/directory-explorer');
 
 // In-memory mock filesystem factory for testing without touching OS disk
 function createMockFs(fileMap) {
@@ -224,4 +225,33 @@ test('TDD Slice 9: Dynamic candidate tree explorer finds RPG Maker metadata in a
     });
 
     assert.equal(title, 'The Closeted, Gloomy JK Starts to Take Lewd Selfies.');
+});
+
+test('TDD Slice 10: collectCandidateDirectories filters out non-directory files when Dirent objects are provided', async () => {
+    const folderPath = 'D:/Downloads/MyGame';
+    const exePath = `${folderPath}/Game.exe`;
+
+    const mockFsWithDirent = {
+        readdir: async (p, options) => {
+            if (options?.withFileTypes) {
+                return [
+                    { name: 'data', isDirectory: () => true, isSymbolicLink: () => false },
+                    { name: 'setup.exe', isDirectory: () => false, isSymbolicLink: () => false },
+                    { name: 'readme.txt', isDirectory: () => false, isSymbolicLink: () => false },
+                    { name: 'image.png', isDirectory: () => false, isSymbolicLink: () => false },
+                    { name: 'symlink_dir', isDirectory: () => false, isSymbolicLink: () => true }
+                ];
+            }
+            return ['data', 'setup.exe', 'readme.txt', 'image.png', 'symlink_dir'];
+        }
+    };
+
+    const candidateDirs = await collectCandidateDirectories(folderPath, exePath, mockFsWithDirent);
+    const normalizedDirs = candidateDirs.map(d => path.basename(d).toLowerCase());
+
+    assert.ok(normalizedDirs.includes('data'));
+    assert.ok(normalizedDirs.includes('symlink_dir'));
+    assert.ok(!normalizedDirs.includes('setup.exe'));
+    assert.ok(!normalizedDirs.includes('readme.txt'));
+    assert.ok(!normalizedDirs.includes('image.png'));
 });

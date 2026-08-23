@@ -48,6 +48,7 @@ export interface LibraryConfig {
     exposeBetaOptions?: boolean;
     titleDisplayMode?: 'metadata' | 'legacy_folder';
     displayProductCodes?: boolean;
+    preferredLocale?: string;
 }
 
 export function isPlainObject(value: any): boolean {
@@ -66,6 +67,7 @@ export function normalizeLibraryConfigShape(config: any): LibraryConfig {
     const libraryPaths = Array.isArray(rawPaths)
         ? rawPaths.filter((p: any) => typeof p === 'string' && p.trim() !== '')
         : [];
+    const rawLocale = typeof base.preferredLocale === 'string' ? base.preferredLocale.trim() : undefined;
     return {
         libraryPaths,
         libraryPath: libraryPaths[0] || '',
@@ -77,7 +79,8 @@ export function normalizeLibraryConfigShape(config: any): LibraryConfig {
         telemetryEnabled: typeof base.telemetryEnabled === 'boolean' ? base.telemetryEnabled : undefined,
         exposeBetaOptions: typeof base.exposeBetaOptions === 'boolean' ? base.exposeBetaOptions : false,
         titleDisplayMode: (base.titleDisplayMode === 'legacy_folder') ? 'legacy_folder' : 'metadata',
-        displayProductCodes: typeof base.displayProductCodes === 'boolean' ? base.displayProductCodes : false
+        displayProductCodes: typeof base.displayProductCodes === 'boolean' ? base.displayProductCodes : false,
+        preferredLocale: rawLocale ? rawLocale : undefined
     };
 }
 

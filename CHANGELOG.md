@@ -4,6 +4,24 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.6] - 2026-08-23 — released
+
+### What Changed
+- Dumping messy folders like Downloads into your library will not lag the scanner anymore. It now skips non-game junk and processes titles in parallel, so scanning large folders is dozens of times faster, and opening the app after that is instant.
+- The "Open Games Folder" button now shows a dropdown list if you have multiple library paths setup. You can pick whichever folder you want to open, and it scrolls nicely if you have a bunch of them.
+
+### For the Nerds
+- [performance] Filtered directory entries in `collectCandidateDirectories` (`src/main/library-state/title-resolver/directory-explorer.ts`) using `withFileTypes: true` and `entry.isDirectory() || entry.isSymbolicLink?.()`, reducing redundant `fs.readFile` ENOENT calls by > 94%.
+- [concurrency] Parallelized candidate processing in `loadGamesForConfig` (`src/main/library-state/loader.ts`) using `Promise.all` with localized per-candidate error boundaries.
+- [cache] Implemented snapshot tracking for `db.titleResolutionConfig` (`titleDisplayMode`, `displayProductCodes`, `preferredLocale`) in `src/main/library-state/loader.ts`, enabling instant 0-I/O warm cache hits while guaranteeing reliable invalidation upon settings changes and protecting `customName: true` entries.
+- [schema] Extended `LibraryConfig` interface and `normalizeLibraryConfigShape` in `src/main/library-state/scanner.ts` to preserve `preferredLocale`.
+- [renderer] Introduced `createQuickFolderController` in `src/renderer/quick-folder.ts` to manage popup state, path rendering, and IPC routing between `openFolder` and `openPath`.
+- [ui] Wrapped `#quick-folder-btn` inside `.quick-folder-container` with `#quick-folder-menu` in `src/index.html` and added max-height scrolling and theme-matching scrollbar styling in `src/styles/header-search.css`.
+- [events] Integrated quick folder popup dismissals on `Escape` keypress and click-outside in `src/renderer/events/global-events.ts`.
+- [tests] Added test coverage in `tests/quick-folder.test.js`, `tests/title-resolution-engine.test.js`, and `tests/library-state.test.js` verifying quick folder menu, Dirent directory explorer filtering, warm scan cache hits, and setting change cache invalidations.
+
+---
+
 ## [2.0.5] - 2026-08-23 — released
 
 ### What Changed

@@ -18,6 +18,8 @@ export interface RendererRefs {
     bootStatus: HTMLElement | null;
     welcome: HTMLElement | null;
     quickFolder: HTMLElement | null;
+    quickFolderContainer: HTMLElement | null;
+    quickFolderMenu: HTMLElement | null;
     emptyContainer: HTMLElement | null;
     refreshLibraryBtn: HTMLElement | null;
     telemetryModal: HTMLElement | null;
@@ -164,6 +166,8 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
         bootStatus: documentRef.getElementById('boot-status'),
         welcome: documentRef.getElementById('welcome-screen'),
         quickFolder: documentRef.getElementById('quick-folder-btn'),
+        quickFolderContainer: documentRef.getElementById('quick-folder-container'),
+        quickFolderMenu: documentRef.getElementById('quick-folder-menu'),
         emptyContainer: documentRef.getElementById('empty-state-container'),
         refreshLibraryBtn: documentRef.getElementById('refresh-library-btn'),
         telemetryModal,

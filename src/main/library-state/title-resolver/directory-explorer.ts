@@ -34,12 +34,15 @@ export async function collectCandidateDirectories(
         const normFolder = normalize(folderPath);
         dirs.add(normFolder);
         try {
-            const entries = await fs.readdir(folderPath);
+            const entries = await fs.readdir(folderPath, { withFileTypes: true });
             if (Array.isArray(entries)) {
                 for (const entry of entries) {
-                    const name = typeof entry === 'string' ? entry : entry?.name;
-                    if (name) {
-                        dirs.add(normalize(path.join(folderPath, name)));
+                    if (typeof entry === 'object' && entry !== null && typeof entry.isDirectory === 'function') {
+                        if (entry.isDirectory() || entry.isSymbolicLink?.()) {
+                            dirs.add(normalize(path.join(folderPath, entry.name)));
+                        }
+                    } else if (typeof entry === 'string' && entry) {
+                        dirs.add(normalize(path.join(folderPath, entry)));
                     }
                 }
             }

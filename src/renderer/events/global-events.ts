@@ -4,6 +4,7 @@ export interface BindGlobalUiEventsOptions {
     categoryFilterController: any;
     refs: RendererRefs;
     settingsController: any;
+    quickFolderController?: any;
     duplicateStackOverlayController: any;
     closeLanguagePackModal: () => void;
 }
@@ -18,6 +19,7 @@ export interface BindControlEventsOptions {
     localeController: any;
     languagePackController: any;
     startupController: any;
+    quickFolderController?: any;
     searchController: any;
     sortGames: (sort: string) => void;
     reannotateGames: () => void;
@@ -29,6 +31,7 @@ export function bindGlobalUiEvents({
     categoryFilterController,
     refs,
     settingsController,
+    quickFolderController,
     duplicateStackOverlayController,
     closeLanguagePackModal
 }: BindGlobalUiEventsOptions): void {
@@ -40,6 +43,8 @@ export function bindGlobalUiEvents({
                 if (closeBtn) closeBtn.click();
             } else if (refs.languagePackOverlay?.style.display === 'flex') {
                 closeLanguagePackModal();
+            } else if (quickFolderController?.isOpen()) {
+                quickFolderController.hideMenu();
             } else if (duplicateStackOverlayController.isOpen()) {
                 duplicateStackOverlayController.close();
             } else if (settingsController.isSettingsOpen()) {
@@ -57,10 +62,13 @@ export function bindGlobalUiEvents({
             document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.remove('show'));
         }
         if (target && !target.closest('.sort-container')) {
-            document.querySelectorAll('.sort-menu').forEach(menu => menu.classList.remove('show'));
+            document.querySelectorAll('.sort-menu:not(.category-filter-menu):not(.quick-folder-menu)').forEach(menu => menu.classList.remove('show'));
         }
         if (target && !target.closest('.category-filter-container')) {
             categoryFilterController.hideMenu();
+        }
+        if (target && !target.closest('.quick-folder-container')) {
+            quickFolderController?.hideMenu();
         }
     });
 }
@@ -80,6 +88,7 @@ export function bindControlEvents({
     localeController,
     languagePackController,
     startupController,
+    quickFolderController,
     searchController,
     sortGames,
     reannotateGames,
@@ -102,7 +111,14 @@ export function bindControlEvents({
         refs.buttons.languagePackClose.onclick = () => languagePackController.closeLanguagePackModal();
     }
     if (refs.quickFolder) {
-        refs.quickFolder.onclick = () => startupController.handleQuickFolderOpen();
+        refs.quickFolder.onclick = (event) => {
+            event.stopPropagation();
+            if (quickFolderController) {
+                quickFolderController.handleQuickFolderClick();
+            } else {
+                startupController.handleQuickFolderOpen();
+            }
+        };
     }
     if (refs.refreshLibraryBtn) {
         refs.refreshLibraryBtn.onclick = async () => { await startupController.handleRefreshLibrary(); };

@@ -4,6 +4,19 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.7] - 2026-08-23 — released
+
+### What Changed
+- Game card tooltips now show the correct library folder when you have multiple library paths. Previously, games from secondary libraries were showing the root folder of your first library by mistake.
+
+### For the Nerds
+- [renderer] Updated `annotateGamesForDisplay` in `src/renderer/game-annotations.ts` to accept multi-library configurations (`libraryPaths`), matching each game's `folderPath` against candidate paths sorted by descending length using strict directory boundary validation.
+- [renderer] Implemented root segment deduplication and preserved original root casing in `src/renderer/game-annotations.ts`.
+- [runtime] Updated `setAllGames` and `reannotateGames` in `src/renderer/library/runtime.ts` to pass the full `LibraryConfig` to `annotateGamesForDisplay`.
+- [tests] Added unit test suite in `tests/game-annotations.test.js` covering single-path, multi-path, prefix collision avoidance, nested paths, root deduplication, casing preservation, and defensive fallbacks.
+
+---
+
 ## [2.0.6] - 2026-08-23 — released
 
 ### What Changed

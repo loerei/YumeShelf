@@ -62,12 +62,53 @@ export function buildDuplicateSignature(game) {
     return `name:${normalizedName}|exe:${normalizedExeStem}`;
 }
 
-export function annotateGamesForDisplay(games, libraryPath = '', locationDisplayMode = LOCATION_DISPLAY_MODES.PARENT) {
-    const rootName = getLibraryRootName(libraryPath);
+function normalizeForPathMatching(value) {
+    return String(value || '')
+        .trim()
+        .replaceAll('\\', '/')
+        .replace(/\/+/g, '/')
+        .replace(/\/$/, '')
+        .toLowerCase();
+}
+
+export function annotateGamesForDisplay(games, libraryPathsInput = '', locationDisplayMode = LOCATION_DISPLAY_MODES.PARENT) {
+    if (!Array.isArray(games)) return [];
+
+    const rawPaths = Array.isArray(libraryPathsInput)
+        ? libraryPathsInput
+        : (typeof libraryPathsInput === 'string'
+            ? [libraryPathsInput]
+            : (libraryPathsInput?.libraryPaths || [libraryPathsInput?.libraryPath || '']));
+
+    const candidatePaths = rawPaths
+        .filter((p) => typeof p === 'string' && p.trim() !== '')
+        .sort((a, b) => normalizePathSegment(b).length - normalizePathSegment(a).length);
 
     function annotateRecord(game) {
+        if (game == null) return game;
+
+        const rawGameFolder = game.folderPath || game.relativePath || game.gameKey || game.folderName || '';
+        const normGameFolder = normalizeForPathMatching(rawGameFolder);
+
+        const owningLibPath = candidatePaths.find((candidate) => {
+            const normCandidate = normalizeForPathMatching(candidate);
+            if (!normCandidate) return false;
+            return normGameFolder === normCandidate || normGameFolder.startsWith(`${normCandidate}/`);
+        }) || candidatePaths[0] || '';
+
+        const rootName = getLibraryRootName(owningLibPath);
         const relativePath = normalizePathSegment(game.relativePath || game.gameKey || game.folderName);
-        const displayPath = normalizePathSegment([rootName, relativePath].filter(Boolean).join('/'));
+
+        const normRelative = normalizeForPathMatching(relativePath);
+        const normRoot = normalizeForPathMatching(rootName);
+
+        let displayPath = '';
+        if (normRoot && (normRelative === normRoot || normRelative.startsWith(`${normRoot}/`))) {
+            displayPath = relativePath;
+        } else {
+            displayPath = normalizePathSegment([rootName, relativePath].filter(Boolean).join('/'));
+        }
+
         const parentLocationLabel = getParentLocationLabel(displayPath);
         const fullLocationLabel = displayPath;
         const useFullLocation = locationDisplayMode === LOCATION_DISPLAY_MODES.FULL;
@@ -85,6 +126,7 @@ export function annotateGamesForDisplay(games, libraryPath = '', locationDisplay
     }
 
     return games.map((game) => {
+        if (game == null) return game;
         return {
             ...annotateRecord(game),
             instances: Array.isArray(game.instances) ? game.instances.map(annotateRecord) : game.instances,

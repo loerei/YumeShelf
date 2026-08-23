@@ -16,7 +16,7 @@ export function createLibraryRuntime({
         state.setCurrentLibraryConfig(config || state.getCurrentLibraryConfig());
         state.setAllGames(annotateGamesForDisplay(
             games,
-            state.getCurrentLibraryConfig()?.libraryPath || '',
+            state.getCurrentLibraryConfig(),
             settingsController.getLocationDisplayMode()
         ));
     }
@@ -24,7 +24,7 @@ export function createLibraryRuntime({
     function reannotateGames() {
         state.setAllGames(annotateGamesForDisplay(
             state.getAllGames(),
-            state.getCurrentLibraryConfig()?.libraryPath || '',
+            state.getCurrentLibraryConfig(),
             settingsController.getLocationDisplayMode()
         ));
     }

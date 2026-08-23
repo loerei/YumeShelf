@@ -7,8 +7,10 @@ import {
     resolveUnitySave,
     resolveUnrealSave,
     resolveWolfRpgSave,
+    resolveFlashSave,
     resolveBakinSave,
     resolveGodotSave,
+    resolveGameMakerSave,
     resolveTyranoBuilderSave
 } from './resolvers/engine-resolvers';
 import { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } from './heuristics';
@@ -74,6 +76,17 @@ export class SaveFolderResolver {
             }
         }
 
+        // 4b. Predicted Default Path for Unlaunched Games
+        if (!result && engine === 'rpg-mv-mz') {
+            if (await this.fs.exists(this.fs.join(exeDir, 'bin', 'www'))) {
+                result = { path: this.fs.join(exeDir, 'bin', 'www', 'save'), engine, confidence: 'high', source: 'deterministic' };
+            } else if (await this.fs.exists(this.fs.join(exeDir, 'www'))) {
+                result = { path: this.fs.join(exeDir, 'www', 'save'), engine, confidence: 'high', source: 'deterministic' };
+            } else if (await this.fs.exists(this.fs.join(exeDir, 'data'))) {
+                result = { path: this.fs.join(exeDir, 'save'), engine, confidence: 'high', source: 'deterministic' };
+            }
+        }
+
         // 5. Deepen Folder Path if Found
         if (result?.path) {
             const deeper = await deepenSaveFolder(result.path, this.fs);
@@ -103,13 +116,17 @@ export class SaveFolderResolver {
             case 'unity':
                 return await resolveUnitySave(exeDir, this.fs);
             case 'unreal':
-                return await resolveUnrealSave(exeDir, this.fs);
+                return await resolveUnrealSave(exeDir, exeStem, this.fs);
             case 'wolf-rpg':
                 return await resolveWolfRpgSave(exeDir, this.fs);
+            case 'flash':
+                return await resolveFlashSave(exeDir, exeStem, this.fs);
             case 'bakin':
                 return await resolveBakinSave(exeDir, this.fs);
             case 'godot':
                 return await resolveGodotSave(exeDir, exeStem, this.fs);
+            case 'gamemaker':
+                return await resolveGameMakerSave(exeDir, exeStem, this.fs);
             case 'tyranobuilder':
                 return await resolveTyranoBuilderSave(exeDir, this.fs);
             default:

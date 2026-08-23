@@ -178,9 +178,20 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         if (!saveInfo?.path) return null;
         
         // Find data directory (MV/MZ specific)
+        const parentOfSave = path.dirname(saveInfo.path);
+        const candidateDataDirs = [
+            path.join(parentOfSave, 'data'),
+            path.join(exeDir, 'www', 'data'),
+            path.join(exeDir, 'data'),
+            path.join(exeDir, 'bin', 'www', 'data'),
+            path.join(exeDir, 'bin', 'data')
+        ];
         let dataDir = path.join(exeDir, 'www', 'data');
-        if (!(await exists(dataDir))) {
-            dataDir = path.join(exeDir, 'data');
+        for (const cand of candidateDataDirs) {
+            if (await exists(cand)) {
+                dataDir = cand;
+                break;
+            }
         }
 
         // Check for language packs (Specific to certain engines/plugins like in Fallen Priestess)

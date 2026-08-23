@@ -48,3 +48,24 @@ Analyzes game engine configurations (`package.json`, `window.icon`), scans candi
 # Inspect game engine directory assets and static candidates
 node .devutil/inspect-engine-icon.cjs "D:/Games/MyGames/RPG_Game_Folder"
 ```
+
+---
+
+### 4. `simulate-save-pipeline.cjs`
+**Full End-to-End Save Folder, Save Format & Auxiliary Metadata Pipeline Simulator**
+
+Simulates YumeShelf's complete Save Resolution and Metadata Pipeline against any target library directory. Hooks directly into production modules (`scanner.ts`, `save-folder-resolver`, `SaveDataEngine`, `SaveEditorService`) to evaluate game discovery, save directory resolution rates, confidence distribution, recognized save file formats, and auxiliary game metadata (Items, Weapons, Armors, Variables, Switches, System configurations, and Multi-language packs).
+
+```bash
+# Run simulation against a game library folder
+node .devutil/simulate-save-pipeline.cjs "D:/Games/MyGames"
+
+# List individual save files and matched format strategies
+node .devutil/simulate-save-pipeline.cjs "D:/Games/MyGames" --list-files
+
+# Inspect in-game auxiliary metadata (Items, Weapons, Armors, Variables, Switches, Titles)
+node .devutil/simulate-save-pipeline.cjs "D:/Games/MyGames" --metadata
+
+# Output raw JSON metrics for automated evaluations
+node .devutil/simulate-save-pipeline.cjs "D:/Games/MyGames" --json
+```

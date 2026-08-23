@@ -8,6 +8,7 @@ export type GameEngineType =
     | 'flash'
     | 'bakin'
     | 'godot'
+    | 'gamemaker'
     | 'tyranobuilder';
 
 export interface ResolvedSaveDirectory {

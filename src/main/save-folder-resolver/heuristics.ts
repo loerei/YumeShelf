@@ -79,16 +79,25 @@ export async function heuristicSaveScan(
     return null;
 }
 
+const GENERIC_STEMS = new Set([
+    'game', 'app', 'play', 'start', 'main', 'launcher', 'client',
+    'build', 'windows', 'defaultcompany', 'shipping', 'release',
+    'win64', 'win32', 'x64', 'x86', 'setup', 'config'
+]);
+
 export async function appDataFuzzyMatch(
     exeDir: string,
     exeStem: string,
     fs: FileSystemProvider = defaultFs
 ): Promise<ResolvedSaveDirectory | null> {
     console.log(`[SAVE-RESOLVER][APPDATA] Fuzzy matching stem: ${exeStem}`);
-    if (exeStem.length < 3) return null;
 
-    const normalizedStem = normalizeForSearch(exeStem);
-    if (!normalizedStem) return null;
+    let effectiveStem = normalizeForSearch(exeStem);
+    if (!effectiveStem || GENERIC_STEMS.has(effectiveStem) || effectiveStem.length < 3) {
+        const parentFolder = fs.basename(exeDir);
+        effectiveStem = normalizeForSearch(parentFolder);
+    }
+    if (!effectiveStem || GENERIC_STEMS.has(effectiveStem) || effectiveStem.length < 3) return null;
 
     const unityRoots = new Set<string>();
     const unrealRoots = new Set<string>();
@@ -141,7 +150,12 @@ export async function appDataFuzzyMatch(
                     const products = await fs.readdir(companyPath);
                     const match = products.find((product) => {
                         const normProduct = normalizeForSearch(product);
-                        return normProduct.includes(normalizedStem) || normalizedStem.includes(normProduct);
+                        if (!normProduct || GENERIC_STEMS.has(normProduct) || normProduct.length < 3) return false;
+                        if (normProduct === effectiveStem) return true;
+                        if (effectiveStem.length >= 5 && normProduct.length >= 5) {
+                            return normProduct.includes(effectiveStem) || effectiveStem.includes(normProduct);
+                        }
+                        return false;
                     });
                     if (match) {
                         return { path: fs.join(companyPath, match), engine: 'unity', confidence: 'low', source: 'appdata' };
@@ -160,7 +174,15 @@ export async function appDataFuzzyMatch(
         try {
             if (!(await fs.exists(localRoot))) continue;
             const entries = await fs.readdir(localRoot);
-            const match = entries.find((entry) => entry.toLowerCase() === exeStem.toLowerCase());
+            const match = entries.find((entry) => {
+                const normEntry = normalizeForSearch(entry);
+                if (!normEntry || GENERIC_STEMS.has(normEntry) || normEntry.length < 3) return false;
+                if (normEntry === effectiveStem) return true;
+                if (effectiveStem.length >= 5 && normEntry.length >= 5) {
+                    return normEntry.includes(effectiveStem) || effectiveStem.includes(normEntry);
+                }
+                return false;
+            });
             if (match) {
                 const saveGames = fs.join(localRoot, match, 'Saved', 'SaveGames');
                 if (await fs.exists(saveGames)) {

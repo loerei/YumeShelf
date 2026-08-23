@@ -80,13 +80,30 @@ async function simulate() {
     let currentEngine = null;
 
     const saveDataEngine = new SaveDataEngine({
-        getGamePaths: async () => ({
-            exeDir: currentExeDir || '',
-            saveDir: currentSaveDir || '',
-            dataDir: path.join(currentExeDir || '', 'www', 'data'),
-            langDataDir: null,
-            engine: currentEngine || undefined
-        }),
+        getGamePaths: async () => {
+            const parentOfSave = currentSaveDir ? path.dirname(currentSaveDir) : currentExeDir;
+            const candidateDataDirs = [
+                path.join(parentOfSave || '', 'data'),
+                path.join(currentExeDir || '', 'www', 'data'),
+                path.join(currentExeDir || '', 'data'),
+                path.join(currentExeDir || '', 'bin', 'www', 'data'),
+                path.join(currentExeDir || '', 'bin', 'data')
+            ];
+            let dataDir = path.join(currentExeDir || '', 'www', 'data');
+            for (const c of candidateDataDirs) {
+                if (fs.existsSync(c)) {
+                    dataDir = c;
+                    break;
+                }
+            }
+            return {
+                exeDir: currentExeDir || '',
+                saveDir: currentSaveDir || '',
+                dataDir,
+                langDataDir: null,
+                engine: currentEngine || undefined
+            };
+        },
         loadMetadata: async () => ({})
     });
 

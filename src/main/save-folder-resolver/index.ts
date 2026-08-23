@@ -76,6 +76,17 @@ export class SaveFolderResolver {
             }
         }
 
+        // 4b. Predicted Default Path for Unlaunched Games
+        if (!result && engine === 'rpg-mv-mz') {
+            if (await this.fs.exists(this.fs.join(exeDir, 'bin', 'www'))) {
+                result = { path: this.fs.join(exeDir, 'bin', 'www', 'save'), engine, confidence: 'high', source: 'deterministic' };
+            } else if (await this.fs.exists(this.fs.join(exeDir, 'www'))) {
+                result = { path: this.fs.join(exeDir, 'www', 'save'), engine, confidence: 'high', source: 'deterministic' };
+            } else if (await this.fs.exists(this.fs.join(exeDir, 'data'))) {
+                result = { path: this.fs.join(exeDir, 'save'), engine, confidence: 'high', source: 'deterministic' };
+            }
+        }
+
         // 5. Deepen Folder Path if Found
         if (result?.path) {
             const deeper = await deepenSaveFolder(result.path, this.fs);

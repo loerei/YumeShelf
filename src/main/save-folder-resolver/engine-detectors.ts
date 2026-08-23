@@ -74,9 +74,22 @@ const ENGINE_RULES: EngineRule[] = [
     },
     {
         engine: 'gamemaker',
-        check: async (dir, fs) =>
-            (await fs.exists(fs.join(dir, 'data.win'))) ||
-            (await fs.exists(fs.join(dir, 'options.ini')))
+        check: async (dir, fs) => {
+            if (await fs.exists(fs.join(dir, 'data.win'))) return true;
+            if (await fs.exists(fs.join(dir, 'audiogroup1.dat'))) return true;
+            const optionsPath = fs.join(dir, 'options.ini');
+            if (await fs.exists(optionsPath)) {
+                try {
+                    const content = await fs.readFile(optionsPath, 'utf8');
+                    if (/\[(Windows|General|Mac|Linux|iOS|Android)\]/i.test(content) && /DisplayName|BackBuffer|SleepMargin/i.test(content)) {
+                        return true;
+                    }
+                } catch {
+                    // ignore
+                }
+            }
+            return false;
+        }
     },
     {
         engine: 'tyranobuilder',

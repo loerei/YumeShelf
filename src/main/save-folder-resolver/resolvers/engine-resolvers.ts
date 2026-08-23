@@ -21,15 +21,6 @@ export async function resolveRpgMakerSave(
             return { path: c, engine: 'rpg-mv-mz', confidence: 'high', source: 'deterministic' };
         }
     }
-    if (await fs.exists(fs.join(exeDir, 'www'))) {
-        return { path: fs.join(exeDir, 'www', 'save'), engine: 'rpg-mv-mz', confidence: 'high', source: 'deterministic' };
-    }
-    if (await fs.exists(fs.join(exeDir, 'bin', 'www'))) {
-        return { path: fs.join(exeDir, 'bin', 'www', 'save'), engine: 'rpg-mv-mz', confidence: 'high', source: 'deterministic' };
-    }
-    if (await fs.exists(fs.join(exeDir, 'data'))) {
-        return { path: fs.join(exeDir, 'save'), engine: 'rpg-mv-mz', confidence: 'high', source: 'deterministic' };
-    }
     return null;
 }
 
@@ -376,8 +367,23 @@ export async function resolveFlashSave(
     const flashObjectsRoot = fs.join(appData, 'Macromedia', 'Flash Player', '#SharedObjects');
     if (await fs.exists(flashObjectsRoot)) {
         try {
-            async function scanDir(dir: string, depth = 0): Promise<string | null> {
-                if (depth > 4) return null;
+            // Find all potential game identifiers (exeStem, SWF names)
+            const identifiers = new Set<string>();
+            if (exeStem) identifiers.add(exeStem.toLowerCase());
+            try {
+                const dirFiles = await fs.readdir(exeDir);
+                for (const df of dirFiles) {
+                    if (df.toLowerCase().endsWith('.swf')) {
+                        identifiers.add(df.replace(/\.swf$/i, '').toLowerCase());
+                    }
+                }
+            } catch {
+                // ignore
+            }
+
+            const allSolDirs: string[] = [];
+            async function scanDir(dir: string, depth = 0): Promise<void> {
+                if (depth > 4) return;
                 try {
                     const entries = await fs.readdir(dir);
                     for (const e of entries) {
@@ -385,21 +391,40 @@ export async function resolveFlashSave(
                         if (await fs.isDirectory(full)) {
                             const subFiles = await fs.readdir(full).catch(() => []);
                             if (subFiles.some((f) => f.toLowerCase().endsWith('.sol'))) {
-                                return full;
+                                allSolDirs.push(full);
                             }
-                            const nested = await scanDir(full, depth + 1);
-                            if (nested) return nested;
+                            await scanDir(full, depth + 1);
                         }
                     }
                 } catch {
                     // ignore
                 }
-                return null;
             }
 
-            const solPath = await scanDir(flashObjectsRoot);
-            if (solPath) {
-                return { path: solPath, engine: 'flash', confidence: 'high', source: 'deterministic' };
+            await scanDir(flashObjectsRoot);
+
+            // 1. Look for match with game identifiers in folder path or .sol filename
+            for (const solDir of allSolDirs) {
+                const lower = solDir.toLowerCase();
+                for (const id of identifiers) {
+                    if (id && id.length > 2 && lower.includes(id)) {
+                        return { path: solDir, engine: 'flash', confidence: 'high', source: 'deterministic' };
+                    }
+                }
+                const subFiles = await fs.readdir(solDir).catch(() => []);
+                for (const sf of subFiles) {
+                    const sfLower = sf.toLowerCase();
+                    for (const id of identifiers) {
+                        if (id && id.length > 2 && sfLower.includes(id)) {
+                            return { path: solDir, engine: 'flash', confidence: 'high', source: 'deterministic' };
+                        }
+                    }
+                }
+            }
+
+            // 2. If exactly one Flash save dir exists globally, return it
+            if (allSolDirs.length === 1) {
+                return { path: allSolDirs[0], engine: 'flash', confidence: 'high', source: 'deterministic' };
             }
         } catch {
             // ignore

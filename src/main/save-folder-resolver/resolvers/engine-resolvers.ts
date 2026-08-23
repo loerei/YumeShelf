@@ -456,7 +456,7 @@ export async function resolveGameMakerSave(
     const localAppData = fs.getEnv('LOCALAPPDATA');
     if (!localAppData) return null;
 
-    const sanitizedStem = exeStem.replace(/[^a-zA-Z0-9_]/g, '_');
+    const sanitizedStem = exeStem.replace(/\W/g, '_');
     const candidates = [
         fs.join(localAppData, sanitizedStem),
         fs.join(localAppData, exeStem)

@@ -4,18 +4,51 @@ Rules governing execution, context isolation, invalidation routing, and artifact
 
 ## 1. Clean & Neutral Artifact Protocol (Anti-Anchoring)
 
-When updating draft artifacts between iterations, integrate fixes directly into the specification. NEVER include past reviewer names, version tags, or review notes inside the document body.
+When updating draft artifacts between iterations, integrate fixes directly into the specification as native first-class requirements.
 
-## 2. Context Freezing Protocol
+### DA Sanitization Checklist (Before Invoking Reviewers)
+- [ ] Strip review-iteration delta markers (e.g. `[UPDATED]`, `[FIXED]`, `[ADDED IN ROUND N]`, `[RESOLVED]`). Preserve standard `AGENTS.md` plan action tags (`[NEW]`, `[MODIFY]`, `[DELETE]`).
+- [ ] Remove internal changelogs, version history tables (`v1.x`), or review feedback references.
+- [ ] Normalize tone and detail level across all sections to eliminate defensive patching markers.
 
-Layer 2 Host writes `scratch/deep_review/Context.md` once at round start. Context files MUST remain frozen during active reviewer execution.
+## 2. Workspace Air-Gap & Context Freezing Protocol
+
+### Workspace Layout
+```text
+scratch/deep_review/
+├── host/                    # [HOST ONLY] Analyzation.md, Changelog.md (hidden from reviewers)
+├── Context.md               # [PUBLIC] Initialized by Layer 1 (DA path, rules, criteria, static SP)
+└── reports/                 # [REVIEWER OUTPUTS] Purged at pass starts; static overwrite (<Role>.md)
+```
+
+Reviewers MUST read only their assigned target DA and `scratch/deep_review/Context.md`. Reviewers MUST NOT inspect `scratch/deep_review/host/` or reports of other reviewers.
+
+Layer 1 initializes `scratch/deep_review/Context.md` at workflow start. Context files MUST remain frozen during active reviewer execution.
 
 ### Context Content Rules
 
-- **MUST Include**: Target DA path, codebase rules path (`AGENTS.md`), task domain skill paths, objective user criteria.
-- **MUST NOT Include**: Leading prompt questions, past reviewer scores, historical changelogs, or opinions from previous rounds.
+- **MUST Include**: Target DA path, codebase rules path (`AGENTS.md`), task domain skill paths, objective user criteria, static `SP` threshold.
+- **MUST NOT Include**: Leading prompt questions, past reviewer scores, historical changelogs, or dynamic execution state (active round numbers, iteration counts, or current `PassCount`).
 
-## 3. Dynamic DAG Execution Sequence
+## 3. Invariant Reviewer Invocation Protocol
+
+Host MUST summon Layer 3 subagents using this exact invariant template across all rounds:
+
+```text
+You are the <Role> Reviewer for Directive Artifact verification.
+Target DA: <da_path>
+Domain Context: scratch/deep_review/Context.md
+Review Guide: <guide_path>
+Output Path: scratch/deep_review/reports/<Role>.md
+
+Audit the target document objectively from a clean-slate perspective. Follow your Review Guide strictly.
+```
+
+- `<guide_path>` MUST be resolved dynamically relative to the active skill location (`.agents/skills/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in distributed projects or `productivity/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in central `myskills`).
+- **Tool Metadata Rule**: Host MUST specify neutral tool metadata (`toolAction: "Summoning reviewer"`, `toolSummary: "Domain review"`) to prevent leaking phase/round names in subagent tool logs.
+- **Banned Calling Tokens**: `Round`, `Sweep`, `Targeted`, `Re-verify`, `Re-audit`, `Fix`, `Pass`, `Iteration`, `Previous round`.
+
+## 4. Dynamic DAG Execution Sequence
 
 Host executes Layer 3 reviewers in dependency order:
 

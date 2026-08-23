@@ -4,6 +4,20 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.0.8] - 2026-08-23 — released
+
+### What Changed
+- The startup screen no longer hangs for several seconds checking for updates when your internet is slow. Instead, the app opens your games right away and checks for updates in the background, showing the update badge as soon as it's ready.
+
+### For the Nerds
+- [performance] Decoupled `checkForAppUpdate` and `fetchLanguageManifest` from the synchronous startup boot sequence in `src/main/startup.ts`, reducing cold launch time from ~1.5–3.5s to $< 50\text{ms}$.
+- [architecture] Implemented event-driven background update notifications: `checkForAppUpdate` in `src/main/app-updates/check-service.ts` dispatches `broadcastStatus({ phase: 'update-available', update })` across discovery and metadata enrichment.
+- [renderer] Updated `setupStatusHandler` and `createAppUpdateController` in `src/renderer/updates/status-handler.ts` and `src/renderer/app-updates.ts` to dynamically present notification banners upon late-arriving background updates, trigger background downloads in `automatic` mode, and non-destructively patch metadata without duplicate toast notifications.
+- [edgecases] Added guards against division-by-zero during initial stream handshake progress calculations, prevented state clobbering during early boot races, and ensured background checks are suppressed when a deferred install is pending or when update mode is `off`.
+- [tests] Added test coverage in `tests/app-updates-background.test.js` covering non-blocking boot, asynchronous event dispatching, notify/automatic handler transitions, and error boundary containment.
+
+---
+
 ## [2.0.7] - 2026-08-23 — released
 
 ### What Changed

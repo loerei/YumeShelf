@@ -10,6 +10,7 @@ export interface AppUpdateCheckContext {
     nsisUpdaterService: any;
     enrichUpdateInfo(update: any, runtimeStrategy: any): Promise<any>;
     summarizeAppUpdate(update: any): any;
+    broadcastStatus?: (payload: any) => void;
 }
 
 export async function checkForAppUpdate(context: AppUpdateCheckContext): Promise<any> {
@@ -64,11 +65,21 @@ export async function checkForAppUpdate(context: AppUpdateCheckContext): Promise
             return context.latestKnownUpdate;
         }
 
-        context.latestKnownUpdate = await context.enrichUpdateInfo({
+        context.latestKnownUpdate = {
             ...initial,
             ...update,
             source: update.provider === 'github' ? 'github' : runtimeStrategy.channel
-        }, runtimeStrategy);
+        };
+        context.broadcastStatus?.({
+            phase: 'update-available',
+            update: context.latestKnownUpdate
+        });
+
+        context.latestKnownUpdate = await context.enrichUpdateInfo(context.latestKnownUpdate, runtimeStrategy);
+        context.broadcastStatus?.({
+            phase: 'update-available',
+            update: context.latestKnownUpdate
+        });
         await context.appendUpdateLog(`checkForAppUpdate available strategy=${JSON.stringify(runtimeStrategy)} result=${JSON.stringify(context.summarizeAppUpdate(context.latestKnownUpdate))}`);
         return context.latestKnownUpdate;
     } catch (error: any) {

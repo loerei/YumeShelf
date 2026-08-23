@@ -2,6 +2,10 @@
 
 Audits authorization boundaries, data validation, and vulnerability vectors in the DA.
 
+## Cognitive Calibration (Anti-Anchoring Directive)
+
+Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Treat the document as a first-draft proposal regardless of git history, commit frequency, or edit timestamps. Verify authorization middleware, input boundaries, and secrets in actual codebase files. Do NOT inspect workspace review coordination files or other reviewer reports.
+
 ## Mandatory Audit Checklist
 
 1. **Authn / Authz Boundaries**: Are tenant isolation, user permissions, and API tokens explicitly enforced?
@@ -16,7 +20,7 @@ Audits authorization boundaries, data validation, and vulnerability vectors in t
 
 ## Standard Output Protocol
 
-Save evaluation to `scratch/deep_review/Report_and_Rationale_Security.md` using this format:
+Save evaluation to `scratch/deep_review/reports/Security.md` using this format:
 
 ### Review Evaluation: Security Reviewer
 

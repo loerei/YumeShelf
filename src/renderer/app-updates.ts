@@ -22,6 +22,12 @@ export function createAppUpdateController({
         // no-op debug logger
     }
 
+    let currentAppUpdatesMode = 'notify';
+
+    function getAppUpdatesMode() {
+        return currentAppUpdatesMode;
+    }
+
     // Initialize execution actions
     const actions = setupInstallActions({
         state,
@@ -39,8 +45,14 @@ export function createAppUpdateController({
         updateNotificationFeature,
         getText,
         openReview,
-        reviewState
+        reviewState,
+        electronAPI,
+        getAppUpdatesMode
     });
+
+    if (typeof electronAPI?.onAppUpdateStatus === 'function') {
+        electronAPI.onAppUpdateStatus(handleRuntimeStatus);
+    }
 
     async function openReview() {
         await openUpdatesReviewModal();
@@ -95,7 +107,9 @@ export function createAppUpdateController({
     }
 
     async function initialize(bootstrapData) {
-        electronAPI.onAppUpdateStatus(handleRuntimeStatus);
+        if (bootstrapData?.bootChecks?.appUpdatesMode) {
+            currentAppUpdatesMode = String(bootstrapData.bootChecks.appUpdatesMode).toLowerCase();
+        }
         let presentedPostUpdate = false;
 
         const deferredAppUpdateInstall = bootstrapData?.deferredAppUpdateInstall || null;
@@ -126,15 +140,18 @@ export function createAppUpdateController({
 
         const appUpdateCheck = bootstrapData?.bootChecks?.appUpdateCheck || null;
         if (appUpdateCheck) {
-            let actionState = 'idle';
-            if (appUpdateCheck.deferredUntilNextLaunch) {
-                actionState = 'scheduled';
-            } else if (appUpdateCheck.downloadReady) {
-                actionState = 'ready';
-            } else if (appUpdateCheck.available) {
-                actionState = 'available';
+            const currentLiveUpdate = state.getCurrentUpdateState();
+            if (!currentLiveUpdate?.available) {
+                let actionState = 'idle';
+                if (appUpdateCheck.deferredUntilNextLaunch) {
+                    actionState = 'scheduled';
+                } else if (appUpdateCheck.downloadReady) {
+                    actionState = 'ready';
+                } else if (appUpdateCheck.available) {
+                    actionState = 'available';
+                }
+                state.setCurrentUpdate(appUpdateCheck, { actionState });
             }
-            state.setCurrentUpdate(appUpdateCheck, { actionState });
         }
 
         logDebug(`initialize appUpdateCheck=${JSON.stringify({

@@ -63,7 +63,15 @@ export class AppIpcController {
         ipcMain.handle('is-dev', () => !this.isAppPackaged());
 
         ipcMain.handle('get-language-state', async () => languagePackServices?.buildLanguageState());
-        ipcMain.handle('bootstrap-app', async (event, options = {}) => startupServices?.bootstrapAppState(event.sender, options));
+        ipcMain.handle('bootstrap-app', async (event, options = {}) => {
+            const bootstrapData = await startupServices?.bootstrapAppState(event.sender, options);
+            if (typeof startupServices?.triggerBackgroundChecks === 'function') {
+                setImmediate(() => {
+                    void startupServices.triggerBackgroundChecks(options);
+                });
+            }
+            return bootstrapData;
+        });
 
         ipcMain.handle('log-app-update-debug', async (_event, message: unknown) => {
             if (typeof appUpdateServices?.logDebug === 'function') {

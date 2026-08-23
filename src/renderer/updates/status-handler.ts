@@ -2,8 +2,10 @@
 import {
     createAppUpdateDownloadFailedNotification,
     createAppUpdateReadyNotification,
-    createAppUpdateScheduledNotification
-} from '../update-notification-presets.js';
+    createAppUpdateScheduledNotification,
+    createAggregatedUpdateNotification,
+    buildAppAvailableGroup
+} from '../update-notification-presets';
 
 export function setupStatusHandler({
     state,
@@ -12,7 +14,9 @@ export function setupStatusHandler({
     updateNotificationFeature,
     getText,
     openReview,
-    reviewState
+    reviewState,
+    electronAPI,
+    getAppUpdatesMode = () => 'notify'
 }) {
     function presentReadyNotification(update) {
         updateNotificationFeature.present(createAppUpdateReadyNotification({
@@ -24,10 +28,74 @@ export function setupStatusHandler({
         }));
     }
 
+    function presentAvailableNotification(update) {
+        const group = buildAppAvailableGroup(update, getText);
+        if (!group) return;
+        updateNotificationFeature.present(createAggregatedUpdateNotification({
+            getText,
+            groups: [group],
+            mode: 'notify',
+            openUpdatesReviewModal: () => openReview()
+        }));
+    }
+
     function handleRuntimeStatus(payload) {
         if (!payload?.phase) return;
         const update = payload.update || null;
         if (!update) return;
+
+        if (payload.phase === 'update-available') {
+            const mode = String(getAppUpdatesMode() || 'notify').toLowerCase();
+            if (mode === 'off') {
+                return;
+            }
+
+            const current = state.getCurrentUpdateState();
+            // If already in active progression (downloading, ready, scheduled, installing), non-destructively patch metadata only
+            if (current?.actionState && current.actionState !== 'idle' && current.actionState !== 'available') {
+                state.patchCurrentUpdate({
+                    releaseName: update.releaseName || current.releaseName || '',
+                    releaseNotes: update.releaseNotes || current.releaseNotes || '',
+                    releaseUrl: update.releaseUrl || current.releaseUrl || ''
+                });
+                return;
+            }
+
+            // If already in 'available' state (e.g. secondary enriched broadcast), non-destructively patch without re-presenting toast
+            if (current?.actionState === 'available') {
+                state.patchCurrentUpdate({
+                    releaseName: update.releaseName || current.releaseName || '',
+                    releaseNotes: update.releaseNotes || current.releaseNotes || '',
+                    releaseUrl: update.releaseUrl || current.releaseUrl || ''
+                });
+                return;
+            }
+
+            // First arrival of update-available
+            state.setCurrentUpdate(update, {
+                actionState: 'available',
+                deferredUntilNextLaunch: false,
+                downloadReady: !!update.downloadReady,
+                progress: null
+            });
+
+            if (!reviewState.actionInFlight) {
+                if (update.downloadReady) {
+                    presentReadyNotification(update);
+                } else if (mode === 'automatic' && update.downloadable) {
+                    state.patchCurrentUpdate({
+                        actionState: 'downloading',
+                        deferredUntilNextLaunch: false
+                    });
+                    if (typeof electronAPI?.startAppUpdateDownload === 'function') {
+                        electronAPI.startAppUpdateDownload().catch(() => {});
+                    }
+                } else {
+                    presentAvailableNotification(update);
+                }
+            }
+            return;
+        }
 
         if (payload.phase === 'download-started') {
             state.setCurrentUpdate(update, {
@@ -39,13 +107,16 @@ export function setupStatusHandler({
         }
 
         if (payload.phase === 'download-progress') {
+            const downloaded = Number(payload.downloaded) || 0;
+            const total = Number(payload.total) || 0;
+            const percent = (total > 0) ? Math.round((downloaded / total) * 100) : 0;
             state.patchCurrentUpdate({
                 actionState: 'downloading',
                 deferredUntilNextLaunch: false,
                 progress: {
-                    downloaded: payload.downloaded,
-                    total: payload.total,
-                    percent: Math.round((payload.downloaded / payload.total) * 100),
+                    downloaded,
+                    total,
+                    percent,
                     bytesPerSecond: payload.bytesPerSecond || 0
                 }
             });
@@ -123,6 +194,7 @@ export function setupStatusHandler({
 
     return {
         handleRuntimeStatus,
-        presentReadyNotification
+        presentReadyNotification,
+        presentAvailableNotification
     };
 }

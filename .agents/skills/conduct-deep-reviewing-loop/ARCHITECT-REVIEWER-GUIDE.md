@@ -2,6 +2,10 @@
 
 Audits whether the Directive Artifact (DA) represents the optimal structural solution for the problem.
 
+## Cognitive Calibration (Anti-Anchoring Directive)
+
+Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Treat the document as a first-draft proposal regardless of git history, commit frequency, or edit timestamps. Past edits are NOT evidence of architectural stability or consensus. Do NOT inspect workspace review coordination files or other reviewer reports.
+
 ## Mandatory Audit Questions
 
 1. **Problem Formulation**: Does the DA address the root cause, or merely mitigate symptoms?
@@ -16,7 +20,7 @@ Audits whether the Directive Artifact (DA) represents the optimal structural sol
 
 ## Standard Output Protocol
 
-Save evaluation to `scratch/deep_review/Report_and_Rationale_Architect.md` using this format:
+Save evaluation to `scratch/deep_review/reports/Architect.md` using this format:
 
 ### Review Evaluation: Architect / Problem-Solving Director
 

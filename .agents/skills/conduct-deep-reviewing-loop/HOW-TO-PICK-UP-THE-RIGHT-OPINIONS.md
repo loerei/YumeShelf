@@ -13,17 +13,17 @@ Instructions for Layer 2 Critical Gate Agent to evaluate, filter, and reject Lay
 
 | Reviewer Finding Category | Gate Criterion | Action |
 | :--- | :--- | :--- |
-| **Architectural Invalidation** | Design reduces complexity, removes bottlenecks, or fixes contract breaks. | **ACCEPT**: Add to `Changelog.md`. Invalidate downstream tiers. |
-| **Missing Edge Case / Safety** | Unhandled empty state, race condition, security flaw, or data corruption path. | **ACCEPT**: Add concrete guard requirement to `Changelog.md`. |
-| **Codebase Unreadiness** | Dependency missing, target file missing/locked, API contract mismatch. | **ACCEPT**: Add prerequisite task step to `Changelog.md`. |
-| **UX/UI Redundancy** | UI element adds user friction, duplicates existing component, or breaks consistency. | **ACCEPT**: Instruct removal or simplification in `Changelog.md`. |
-| **Speculative Over-Engineering** | Demands premature optimization, unnecessary abstractions, or unrequested features. | **REJECT**: Record rejection rationale in `Analyzation.md`. |
-| **Pedantic / Stylistic Preference** | Requests rephrasing, renaming, or cosmetic adjustments without functional impact. | **REJECT**: Mark as non-blocking in `Analyzation.md`. |
+| **Architectural Invalidation** | Design reduces complexity, removes bottlenecks, or fixes contract breaks. | **ACCEPT**: Add to `host/Changelog.md`. Invalidate downstream tiers. |
+| **Missing Edge Case / Safety** | Unhandled empty state, race condition, security flaw, or data corruption path. | **ACCEPT**: Add concrete guard requirement to `host/Changelog.md`. |
+| **Codebase Unreadiness** | Dependency missing, target file missing/locked, API contract mismatch. | **ACCEPT**: Add prerequisite task step to `host/Changelog.md`. |
+| **UX/UI Redundancy** | UI element adds user friction, duplicates existing component, or breaks consistency. | **ACCEPT**: Instruct removal or simplification in `host/Changelog.md`. |
+| **Speculative Over-Engineering** | Demands premature optimization, unnecessary abstractions, or unrequested features. | **REJECT**: Record rejection rationale in `host/Analyzation.md`. |
+| **Pedantic / Stylistic Preference** | Requests rephrasing, renaming, or cosmetic adjustments without functional impact. | **REJECT**: Mark as non-blocking in `host/Analyzation.md`. |
 
 ## Decision Rules for Round Verdict
 
 | Condition | Gate Verdict | Output Artifacts |
 | :--- | :--- | :--- |
-| 1+ Accepted Blocking Defects | `ROUND_REVISION_NEEDED` | Write `Analyzation.md` (rationale) and `Changelog.md` (clean edits). |
-| 0 Accepted Blocking Defects (Targeted Pass) | `TARGETED_PASS` | Trigger Full Sweep Round. |
-| 0 Accepted Blocking Defects (Full Sweep Pass) | `ROUND_PASS` (Increment `PassCount`) or `FINAL_PASS` (if `PassCount >= SP`) | Write `Analyzation.md`. |
+| 1+ Accepted Blocking Defects | `ROUND_REVISION_NEEDED` | Write `host/Analyzation.md` (rationale) and `host/Changelog.md` (clean edits). |
+| 0 Accepted Blocking Defects (Targeted Pass) | `TARGETED_PASS` *(Ephemeral Internal Host State)* | Purge `reports/` and trigger Full Sweep Round. |
+| 0 Accepted Blocking Defects (Full Sweep Pass) | `ROUND_PASS` (Increment `PassCount`) or `FINAL_PASS` (if `PassCount >= SP`) | Write `host/Analyzation.md`. |

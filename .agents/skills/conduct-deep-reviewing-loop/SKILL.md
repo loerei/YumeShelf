@@ -12,7 +12,7 @@ Multi-agent review loop using isolated domain reviewers, topological dependency 
 | Layer | Agent | Primary Responsibility |
 | :--- | :--- | :--- |
 | **Layer 1** | Main Agent | Spawns Layer 2 Host, applies clean DA mutations from `Changelog.md`, presents final output. |
-| **Layer 2** | Review Host & Critical Gate | Writes `Context.md`, routes Layer 3 reviewers via DAG, skips unaffected roles on re-review, runs Full Sweep before Final PASS, writes `Analyzation.md` and `Changelog.md`. |
+| **Layer 2** | Review Host & Critical Gate | Validates `Context.md`, summons Layer 3 reviewers using invariant prompts, purges `reports/` before each pass, isolates host artifacts in `host/`, runs Full Sweep before Final PASS, writes `Analyzation.md` and `Changelog.md`. |
 | **Layer 3** | Domain Reviewers | Independent subagents executing domain audits per `<Role>-REVIEWER-GUIDE.md`. |
 
 ## Workflow
@@ -36,21 +36,22 @@ flowchart TD
 
 ### Step 1: Initialize Workspace
 
-Create `scratch/deep_review/`. Save target DA path and criteria.
+Create `scratch/deep_review/host/` and `scratch/deep_review/reports/`. Initialize `scratch/deep_review/Context.md` with target DA path, codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
 
 ### Step 2: Spawn Review Host & Critical Gate (Layer 2)
 
 Spawn Layer 2 Subagent with prompt:
-`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: PROTOCOL.md. Opinion Filtering: HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md. Execute DAG routing, write Context.md, spawn Layer 3 domain reviewers, filter feedback, and generate Analyzation.md and Changelog.md.`
+`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: PROTOCOL.md. Opinion Filtering: HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md. Context File: scratch/deep_review/Context.md. Execute DAG routing, spawn Layer 3 domain reviewers using invariant prompts, filter feedback, and generate Analyzation.md and Changelog.md in scratch/deep_review/host/.`
 
 ### Step 3: Handle Host Verdict
 
-Read `scratch/deep_review/Analyzation.md`.
+Read `scratch/deep_review/host/Analyzation.md`.
 
 | Verdict in `Analyzation.md` | Action |
 | :--- | :--- |
-| `ROUND_REVISION_NEEDED` | Read `scratch/deep_review/Changelog.md`. Apply edits to DA using Clean & Neutral Artifact Protocol. Re-spawn Layer 2 Host for Round N+1. |
-| `FINAL_PASS` | Conclude review loop. Present fully verified DA to user. |
+| `ROUND_REVISION_NEEDED` | Read `scratch/deep_review/host/Changelog.md`. Apply edits to DA using Clean & Neutral Artifact Protocol. Re-spawn Layer 2 Host for Round N+1 (Host consumes Changelog on start). |
+| `ROUND_PASS` | Re-spawn Layer 2 Host for next Full Sweep round on unchanged DA. |
+| `FINAL_PASS` | Conclude review loop (`PassCount >= SP`). Present fully verified DA to user. |
 
 ## Modifiers
 

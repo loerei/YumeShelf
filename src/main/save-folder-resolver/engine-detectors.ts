@@ -11,7 +11,18 @@ interface EngineRule {
 }
 
 const ENGINE_RULES: EngineRule[] = [
-    { engine: 'rpg-mv-mz', check: async (dir, fs) => fs.exists(fs.join(dir, 'www', 'js')) },
+    {
+        engine: 'rpg-mv-mz',
+        check: async (dir, fs) =>
+            (await fs.exists(fs.join(dir, 'www', 'js'))) ||
+            (await fs.exists(fs.join(dir, 'www', 'data'))) ||
+            (await fs.exists(fs.join(dir, 'js', 'rmmz_core.js'))) ||
+            (await fs.exists(fs.join(dir, 'js', 'rpg_core.js'))) ||
+            (await fs.exists(fs.join(dir, 'data', 'System.json'))) ||
+            (await fs.exists(fs.join(dir, 'data', 'Actors.json'))) ||
+            (await fs.exists(fs.join(dir, 'bin', 'www', 'js'))) ||
+            (await fs.exists(fs.join(dir, 'Game.rpgproject')))
+    },
     {
         engine: 'rpg-vxace',
         check: async (dir, fs) => (await fs.exists(fs.join(dir, 'Data'))) && fs.globMatch(fs.join(dir, 'Data'), /\.rvdata2$/i)
@@ -28,19 +39,30 @@ const ENGINE_RULES: EngineRule[] = [
         check: async (dir, fs) =>
             (await fs.exists(fs.join(dir, 'UnityPlayer.dll'))) ||
             (await fs.exists(fs.join(dir, 'UnityPlayer.so'))) ||
+            (await fs.exists(fs.join(dir, 'GameAssembly.dll'))) ||
             fs.globMatch(dir, /_Data$/i)
     },
     {
         engine: 'unreal',
         check: async (dir, fs) =>
             (await fs.exists(fs.join(dir, 'Engine', 'Binaries'))) ||
+            (await fs.exists(fs.join(dir, 'Engine', 'Content'))) ||
             (await fs.exists(fs.join(dir, '..', 'Engine', 'Binaries'))) ||
             (await fs.exists(fs.join(dir, '..', '..', 'Engine', 'Binaries'))) ||
             (await fs.exists(fs.join(dir, '..', '..', '..', 'Engine', 'Binaries'))) ||
             /binaries[/\\](win64|win32|linux)/i.test(dir) ||
             (await fs.globMatch(dir, /\.uproject$/i))
     },
-    { engine: 'wolf-rpg', check: async (dir, fs) => fs.globMatch(dir, /\.wolf$/i) },
+    {
+        engine: 'wolf-rpg',
+        check: async (dir, fs) =>
+            (await fs.globMatch(dir, /\.wolf$/i)) ||
+            (await fs.globMatch(fs.join(dir, 'Data'), /\.wolf(\.bak|x)?$/i)) ||
+            (await fs.exists(fs.join(dir, 'Data', 'BasicData'))) ||
+            (await fs.exists(fs.join(dir, 'Data', 'BasicData.wolf'))) ||
+            (await fs.exists(fs.join(dir, 'GuruguruSMF4.dll'))) ||
+            (await fs.exists(fs.join(dir, 'Game.dat')))
+    },
     { engine: 'flash', check: async (dir, fs) => fs.globMatch(dir, /\.swf$/i) },
     {
         engine: 'bakin',
@@ -49,6 +71,12 @@ const ENGINE_RULES: EngineRule[] = [
     {
         engine: 'godot',
         check: async (dir, fs) => (await fs.globMatch(dir, /\.pck$/i)) || fs.exists(fs.join(dir, 'project.godot'))
+    },
+    {
+        engine: 'gamemaker',
+        check: async (dir, fs) =>
+            (await fs.exists(fs.join(dir, 'data.win'))) ||
+            (await fs.exists(fs.join(dir, 'options.ini')))
     },
     {
         engine: 'tyranobuilder',

@@ -9,12 +9,21 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### What Changed
 - Ren'Py save editing works on modern Ren'Py 8 games now. Edited saves load cleanly in-game instead of crashing with missing argument or corrupted token errors.
 - Grouped variable tabs (like character stats and relationship flags) and extra currency types (yen, coins, wallet) now show up properly in Ren'Py saves.
+- GameMaker Studio games now automatically resolve their save folders in AppData instead of getting trapped by distributor shortcut folders.
+- Portable Unity games (like Naninovel visual novels) and Godot / Ren'Py games with local save folders now detect their saves right inside the game directory.
+- RPG Maker games using launcher wrappers now find their item, weapon, and armor database files properly.
 
 ### For the Nerds
 - [save-editor] Implemented byte-level Surgical Stream Patcher in `renpy_save_converter.py` to mutate `store.*` variable slices directly in the raw pickle stream, preserving downstream Cython compiled classes (`StyleCore`, `Displayable`, `RollbackLog`) without full-graph re-serialization.
 - [save-editor] Added Pickle Protocol 5 Frame Length Compensation to dynamically recalculate and patch 8-byte frame length headers when variable byte widths change, eliminating stream desynchronization and memo index errors.
 - [save-editor] Added automated ECDSA NIST P-256 token re-signing over modified `log` payloads using SHA-1 digest and system token keys from `%APPDATA%\RenPy\tokens\security_keys.txt`.
 - [save-editor] Fixed dynamic `prefix_*` proxy routing in `RenpyEngine` and broadened currency identifier detection.
+- [save-resolver] Added GameMaker Studio engine detector (`data.win`, `options.ini`) and deterministic resolver mapping sanitized executable stems to `%LOCALAPPDATA%`.
+- [save-resolver] Enhanced Unity resolver to inspect runtime data folders and portable `StreamingAssets/SaveData` (Naninovel) before falling back to `AppData\LocalLow`.
+- [save-resolver] Added deterministic local portable save checks for Ren'Py (`game/saves`) and Godot (`save/`) before querying user AppData roots.
+- [save-resolver] Added recursive search for Flash Player `.sol` objects under `%APPDATA%\Macromedia\Flash Player\#SharedObjects`.
+- [save-editor] Dynamic `dataDir` resolution relative to resolved `saveDir` (`path.join(path.dirname(saveDir), 'data')`) and wrapper directories (`bin/www/data`) for RPG Maker MZ/MV games.
+- [devutil] Added `.devutil/simulate-save-pipeline.cjs` and updated documentation in `.devutil/README.md` for end-to-end save path, format, and auxiliary metadata benchmarking.
 
 ---
 

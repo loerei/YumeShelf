@@ -7,8 +7,10 @@ import {
     resolveUnitySave,
     resolveUnrealSave,
     resolveWolfRpgSave,
+    resolveFlashSave,
     resolveBakinSave,
     resolveGodotSave,
+    resolveGameMakerSave,
     resolveTyranoBuilderSave
 } from './resolvers/engine-resolvers';
 import { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } from './heuristics';
@@ -103,13 +105,17 @@ export class SaveFolderResolver {
             case 'unity':
                 return await resolveUnitySave(exeDir, this.fs);
             case 'unreal':
-                return await resolveUnrealSave(exeDir, this.fs);
+                return await resolveUnrealSave(exeDir, exeStem, this.fs);
             case 'wolf-rpg':
                 return await resolveWolfRpgSave(exeDir, this.fs);
+            case 'flash':
+                return await resolveFlashSave(exeDir, exeStem, this.fs);
             case 'bakin':
                 return await resolveBakinSave(exeDir, this.fs);
             case 'godot':
                 return await resolveGodotSave(exeDir, exeStem, this.fs);
+            case 'gamemaker':
+                return await resolveGameMakerSave(exeDir, exeStem, this.fs);
             case 'tyranobuilder':
                 return await resolveTyranoBuilderSave(exeDir, this.fs);
             default:

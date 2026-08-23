@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.0.5] - working
+## [2.0.5] - 2026-08-23 — released
 
 ### What Changed
 - Ren'Py save editing works on modern Ren'Py 8 games now. Edited saves load cleanly in-game instead of crashing with missing argument or corrupted token errors.

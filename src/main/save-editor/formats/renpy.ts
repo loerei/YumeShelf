@@ -6,18 +6,6 @@ class RenpyFormat {
         return fileName.toLowerCase().endsWith('.save');
     }
 
-    getConverterScriptPath(): string {
-        const candidate = path.resolve(__dirname, '..', 'bin', 'renpy_save_converter.py');
-        if (candidate.includes('app.asar')) {
-            return candidate.replace('app.asar', 'app.asar.unpacked');
-        }
-        return candidate;
-    }
-
-    getPythonCommand(): string {
-        return process.platform === 'win32' ? 'python' : 'python3';
-    }
-
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         return YumeEngine.decodeSaveFile('renpy', rawData, {
             fileName,

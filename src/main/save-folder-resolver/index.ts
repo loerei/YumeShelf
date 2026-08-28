@@ -1,11 +1,36 @@
-import { detectEngine } from './engine-detectors';
 import { FileSystemProvider, GameEngineType, ResolvedSaveDirectory } from './types';
 import { DefaultFileSystemProvider } from './fs-provider';
-import { YumeEngine, type ResolvedSaveLocation } from '@yumeshelf/engine';
+import { YumeEngine, type GameEngineProfile, type ResolvedSaveLocation } from '@yumeshelf/engine';
 
 export type { GameEngineType, ResolvedSaveDirectory, FileSystemProvider };
 export { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
-export { detectEngine, profileToEngineType } from './engine-detectors';
+
+export function profileToEngineType(profile: GameEngineProfile | null | undefined): GameEngineType | null {
+    if (!profile) return null;
+    switch (profile.family) {
+        case 'rpg-maker':
+            return profile.variant === 'vx-ace' || profile.variant === 'xp' || profile.variant === '2000-2003' ? 'rpg-vxace' : 'rpg-mv-mz';
+        case 'unity':
+            return 'unity';
+        case 'renpy':
+            return 'renpy';
+        case 'wolf-rpg':
+            return 'wolf-rpg';
+        case 'unreal':
+            return 'unreal';
+        case 'godot':
+            return 'godot';
+        case 'flash':
+            return 'flash';
+        case 'gamemaker':
+            return 'gamemaker';
+        case 'tyranobuilder':
+            return 'tyranobuilder';
+        default:
+            if (profile.variant === 'bakin') return 'bakin';
+            return null;
+    }
+}
 
 function mapEngineType(matchedStrategy?: string, engineProfileType?: GameEngineType | null): GameEngineType | 'unknown' {
     if (engineProfileType) return engineProfileType;
@@ -52,63 +77,64 @@ export class SaveFolderResolver {
         console.log(`[SAVE-RESOLVER][START] ${exePath}`);
 
         // 1. Check User Override
-        if (saveFolderOverride && (await this.fs.exists(saveFolderOverride))) {
-            return {
-                path: saveFolderOverride,
-                engine: 'user-override',
-                confidence: 'high',
-                source: 'override'
+        if (saveFolderOverride) {
+            try {
+                if (await this.fs.exists(saveFolderOverride)) {
+                    return {
+                        path: saveFolderOverride,
+                        engine: 'user-override',
+                        confidence: 'high',
+                        source: 'override'
+                    };
+                }
+            } catch {}
+        }
+
+        let profile: GameEngineProfile | null = null;
+        try {
+            const scanFs: any = {
+                exists: (p: string) => this.fs.exists(p),
+                readFile: (p: string, enc?: string) => this.fs.readFile(p, enc || 'utf8'),
+                stat: async (p: string) => {
+                    const isDir = await this.fs.isDirectory(p);
+                    return {
+                        size: 0,
+                        isDirectory: () => isDir,
+                        isFile: () => !isDir
+                    };
+                },
+                readdir: async (p: string) => {
+                    const entries = await this.fs.readdir(p);
+                    return (entries || []).map((e: any) => (typeof e === 'string' ? e : e?.name || ''));
+                },
+                open: async (p: string) => {
+                    try {
+                        const content = await this.fs.readFile(p, 'binary');
+                        const buf = Buffer.from(content, 'binary');
+                        return {
+                            read: async (offset: number, length: number) => buf.subarray(offset, offset + length),
+                            close: async () => {}
+                        };
+                    } catch {
+                        const emptyBuf = Buffer.alloc(0);
+                        return {
+                            read: async () => emptyBuf,
+                            close: async () => {}
+                        };
+                    }
+                }
             };
+            profile = await YumeEngine.inspectExecutable(exePath, scanFs);
+        } catch {
+            // Unreadable or non-existent binary paths gracefully fall back
         }
 
-        const exeDir = this.fs.dirname(exePath);
-        const engineType = await detectEngine(exeDir, this.fs);
+        const engineType = profileToEngineType(profile);
 
-        // Convert detected engine type to partial profile for YumeEngine
-        let profile: any = undefined;
-        if (engineType) {
-            switch (engineType) {
-                case 'rpg-mv-mz':
-                    profile = { family: 'rpg-maker', variant: 'mv-mz', saveStrategy: 'rpg-maker-mv-mz' };
-                    break;
-                case 'rpg-vxace':
-                    profile = { family: 'rpg-maker', variant: 'vx-ace', saveStrategy: 'rpg-maker-rgss' };
-                    break;
-                case 'renpy':
-                    profile = { family: 'renpy', saveStrategy: 'renpy-pickle' };
-                    break;
-                case 'unity':
-                    profile = { family: 'unity', saveStrategy: 'unity' };
-                    break;
-                case 'unreal':
-                    profile = { family: 'unreal', saveStrategy: 'unreal-sav' };
-                    break;
-                case 'wolf-rpg':
-                    profile = { family: 'wolf-rpg', saveStrategy: 'wolf-sav' };
-                    break;
-                case 'flash':
-                    profile = { family: 'flash', saveStrategy: 'flash' };
-                    break;
-                case 'bakin':
-                    profile = { family: 'bakin', saveStrategy: 'bakin-sgs' };
-                    break;
-                case 'godot':
-                    profile = { family: 'godot', saveStrategy: 'godot' };
-                    break;
-                case 'gamemaker':
-                    profile = { family: 'gamemaker', saveStrategy: 'gamemaker-appdata' };
-                    break;
-                case 'tyranobuilder':
-                    profile = { family: 'tyranobuilder', saveStrategy: 'tyranobuilder' };
-                    break;
-            }
-        }
-
-        // Bridge FileSystemProvider to YumeEngine FileSystemProvider
+        // 3. Bridge FileSystemProvider to YumeEngine IFileSystem
         const engineFs: any = {
-            exists: async (p: string) => this.fs.exists(p),
-            readdir: async (p: string) => this.fs.readdir(p),
-            readFile: async (p: string, encoding?: any) => this.fs.readFile(p, encoding || 'utf8'),
+            exists: (p: string) => this.fs.exists(p),
+            readFile: (p: string, enc?: string) => this.fs.readFile(p, enc || 'utf8'),
             stat: async (p: string) => {
                 const isDir = await this.fs.isDirectory(p);
                 return {
@@ -117,14 +143,13 @@ export class SaveFolderResolver {
                     isFile: () => !isDir
                 };
             },
-            open: async (p: string) => {
-                const content = await this.fs.readFile(p, 'utf8');
-                const buf = Buffer.from(content);
-                return {
-                    read: async (offset: number, length: number) => buf.subarray(offset, offset + length),
-                    close: async () => {}
-                };
+            readdir: async (p: string) => {
+                const entries = await this.fs.readdir(p);
+                return (entries || []).map((e: any) => (typeof e === 'string' ? e : e?.name || ''));
             },
+            join: (...args: string[]) => this.fs.join(...args),
+            dirname: (p: string) => this.fs.dirname(p),
+            basename: (p: string) => this.fs.basename(p),
             getAppDataPath: () => this.fs.getEnv('APPDATA') || (this.fs.getXdgConfigHome?.() || ''),
             getLocalAppDataPath: () => this.fs.getEnv('LOCALAPPDATA') || (this.fs.getXdgDataHome?.() || ''),
             getUserProfilePath: () => this.fs.getEnv('USERPROFILE') || this.fs.getEnv('HOME') || this.fs.getHomeDir?.() || '',
@@ -148,28 +173,33 @@ export class SaveFolderResolver {
             },
         };
 
-        const resolved: ResolvedSaveLocation | null = await YumeEngine.resolveSaveDirectory(
-            profile,
-            exePath,
-            engineFs,
-            { saveFolderOverride }
-        );
+        try {
+            const resolved: ResolvedSaveLocation | null = await YumeEngine.resolveSaveDirectory(
+                profile || undefined,
+                exePath,
+                engineFs,
+                { saveFolderOverride }
+            );
 
-        if (resolved?.path) {
-            const mappedEngine = resolved.source === 'override'
-                ? 'user-override'
-                : (engineType || mapEngineType(resolved.matchedStrategy, engineType));
+            if (resolved?.path) {
+                const mappedEngine = resolved.source === 'override'
+                    ? 'user-override'
+                    : (engineType || mapEngineType(resolved.matchedStrategy, engineType));
 
-            const mappedSource = (resolved.source === 'wine' ? 'deterministic' : resolved.source) as ResolvedSaveDirectory['source'];
+                const mappedSource = (resolved.source === 'wine' ? 'deterministic' : resolved.source) as ResolvedSaveDirectory['source'];
 
-            console.log(`[SAVE-RESOLVER][SUCCESS] ${resolved.source} found: ${resolved.path} (Engine: ${mappedEngine})`);
-            return {
-                path: resolved.path,
-                engine: mappedEngine,
-                confidence: resolved.confidence,
-                source: mappedSource
-            };
+                console.log(`[SAVE-RESOLVER][SUCCESS] ${resolved.source} found: ${resolved.path} (Engine: ${mappedEngine})`);
+                return {
+                    path: resolved.path,
+                    engine: mappedEngine,
+                    confidence: resolved.confidence,
+                    source: mappedSource
+                };
+            }
+        } catch {
+            // Resolution boundary containment
         }
+
         console.log(`[SAVE-RESOLVER][FAILED] No save folder found for ${exePath}`);
         return {
             path: null,

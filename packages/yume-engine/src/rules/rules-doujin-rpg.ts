@@ -52,9 +52,14 @@ export const RPGMakerRule: EngineClassificationRule = {
       } catch {}
 
       try {
-        if (await fs.exists(`${ctx.parentDir}/js/rpg_core.js`) || await fs.exists(`${ctx.parentDir}/www/js/rpg_core.js`)) {
+        if (
+          (await fs.exists(`${ctx.parentDir}/js/rpg_core.js`)) ||
+          (await fs.exists(`${ctx.parentDir}/www/js/rpg_core.js`)) ||
+          (await fs.exists(`${ctx.parentDir}/www/js/main.js`)) ||
+          (await fs.exists(`${ctx.parentDir}/www/save`))
+        ) {
           hasMvMarker = true;
-        } else if (await fs.exists(`${ctx.parentDir}/www/data/System.json`) || await fs.exists(`${ctx.parentDir}/www/data/system.json`)) {
+        } else if ((await fs.exists(`${ctx.parentDir}/www/data/System.json`)) || (await fs.exists(`${ctx.parentDir}/www/data/system.json`))) {
           hasMvMarker = true;
         }
       } catch {}
@@ -305,17 +310,20 @@ export const RenpyRule: EngineClassificationRule = {
       filesLowerSet.has('renpy') ||
       filesLowerSet.has('renpy.py') ||
       filesLowerSet.has('options.rpyc') ||
+      filesLowerSet.has('script.rpy') ||
       extensionsSet.has('.rpa') ||
+      extensionsSet.has('.rpy') ||
+      extensionsSet.has('.rpyc') ||
       pe.versionInfo?.fileDescription?.includes("Ren'Py") ||
       pe.versionInfo?.comments?.includes("Ren'Py");
 
-    // 3. Check game/ subdirectory for .rpa or .rpyc if fs is available
+    // 3. Check game/ subdirectory for .rpa, .rpy, or .rpyc if fs is available
     if (!hasRenpyFiles && fs && filesLowerSet.has('game')) {
       try {
         if (await fs.exists(`${ctx.parentDir}/game`)) {
           const gameEntries = await fs.readdir(`${ctx.parentDir}/game`);
           const lowerEntries = gameEntries.map(e => e.toLowerCase());
-          if (lowerEntries.some(e => e.endsWith('.rpa') || e.endsWith('.rpyc') || e === 'options.rpyc')) {
+          if (lowerEntries.some(e => e.endsWith('.rpa') || e.endsWith('.rpyc') || e.endsWith('.rpy') || e === 'options.rpyc' || e === 'script.rpy')) {
             hasRenpyFiles = true;
           }
         }

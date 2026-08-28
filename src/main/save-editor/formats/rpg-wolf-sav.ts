@@ -10,22 +10,6 @@ class RpgWolfSavFormat {
         return normalized.endsWith('.sav') && !normalized.endsWith('.rpgsave');
     }
 
-    _crypt(data: Buffer, seeds: number[]): Buffer {
-        const intervals = [1, 2, 5];
-        const out = Buffer.from(data);
-        for (let s = 0; s < seeds.length; s++) {
-            const interval = intervals[s];
-            let currentSeed = seeds[s];
-            for (let i = 0; i < out.length; i += interval) {
-                currentSeed = Math.imul(currentSeed, 0x343FD) + 0x269EC3;
-                currentSeed >>>= 0;
-                const keystream = (currentSeed >>> 28) & 7;
-                out[i] ^= keystream;
-            }
-        }
-        return out;
-    }
-
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         console.log(`[WOLF-SAV] decode called for file: ${fileName}, length: ${rawData.length}`);
         const result = await YumeEngine.decodeSaveFile('wolf-sav', rawData, { fileName });

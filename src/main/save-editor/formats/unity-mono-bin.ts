@@ -55,36 +55,7 @@ class UnityMonoBinFormat {
             console.error('[SAVE-EDITOR-UNITY] Fallback assembly search in DB failed:', err);
         }
 
-        // If still not found, search the parent VN folder of YumeShelf
-        try {
-            const vnDir = path.resolve(__dirname, '..', '..', '..', 'YumeShelf', 'VN');
-            assemblyPath = await this.findAssembly(vnDir);
-            if (assemblyPath) {
-                console.log(`[SAVE-EDITOR-UNITY] Found fallback Assembly-CSharp.dll in VN folder: ${assemblyPath}`);
-                return assemblyPath;
-            }
-        } catch (err) {
-            console.error('[SAVE-EDITOR-UNITY] Fallback assembly search in VN folder failed:', err);
-        }
-
         throw new Error(`Could not locate Assembly-CSharp.dll under: ${paths.exeDir} or any other game folders. Please make sure Sisters Connect or another Unity Hikari Sky game is installed/scanned.`);
-    }
-
-    getConverterExecutionConfig(): { executable: string; baseArgs: string[] } {
-        const binDir = path.resolve(__dirname, '..', 'bin');
-        const unpackedBinDir = binDir.includes('app.asar') ? binDir.replace('app.asar', 'app.asar.unpacked') : binDir;
-        const nativeExeName = process.platform === 'win32' ? 'ModernSaveConverter.exe' : 'ModernSaveConverter';
-        const candidateNativePaths = [
-            path.join(unpackedBinDir, nativeExeName),
-            path.join(unpackedBinDir, process.platform === 'win32' ? 'win-x64' : 'linux-x64', nativeExeName)
-        ];
-        for (const candidate of candidateNativePaths) {
-            if (fsSync.existsSync(candidate)) {
-                return { executable: candidate, baseArgs: [] };
-            }
-        }
-        const dllPath = path.join(unpackedBinDir, 'ModernSaveConverter.dll');
-        return { executable: 'dotnet', baseArgs: [dllPath] };
     }
 
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {

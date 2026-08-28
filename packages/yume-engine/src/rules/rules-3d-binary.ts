@@ -67,6 +67,7 @@ export const UnityRule: EngineClassificationRule = {
       pe.hasImport('mono-2.0-bdwgc.dll') ||
       pe.hasImport('mono.dll') ||
       filesLowerSet.has('unityplayer.dll') ||
+      filesLowerSet.has('unityplayer.so') ||
       filesLowerSet.has('mono-2.0-bdwgc.dll') ||
       filesLowerSet.has('mono.dll') ||
       pe.versionInfo?.companyName === 'Unity Technologies' ||

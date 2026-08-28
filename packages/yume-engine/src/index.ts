@@ -13,25 +13,33 @@ import type {
 } from './types.js';
 import { SaveCodecError } from './types.js';
 import { PEInspector } from './pe/pe-inspector.js';
+import { defaultRuleRegistry } from './rules/engine-rule-registry.js';
 
 export type * from './types.js';
 export { SaveCodecError } from './types.js';
 export * from './pe/index.js';
+export * from './rules/index.js';
 
 export class YumeEngine {
-  static async inspectExecutable(exePath: string, fs?: IFileSystem): Promise<GameEngineProfile> {
+  static async inspectExecutable(
+    exePath: string,
+    fs?: IFileSystem,
+    parentFiles?: string[]
+  ): Promise<GameEngineProfile> {
     const inspector = await PEInspector.fromPath(exePath, fs);
-    const is64 = inspector.is64Bit;
-    const arch = is64 ? 'x64' : (inspector.coffHeader.machine === 0x014c ? 'x86' : 'unknown');
+    let files = parentFiles;
 
-    return {
-      tag: 'Others',
-      family: 'unknown',
-      arch,
-      runtime: 'native',
-      saveStrategy: 'unknown',
-      detectedBy: inspector.isValid ? 'PEInspector' : 'fallback',
-    };
+    if (!files && fs) {
+      const normalized = exePath.replace(/\\/g, '/');
+      const dir = normalized.substring(0, normalized.lastIndexOf('/'));
+      try {
+        files = await fs.readdir(dir);
+      } catch {
+        files = [];
+      }
+    }
+
+    return defaultRuleRegistry.resolve(inspector, exePath, files || [], fs);
   }
 
   static async resolveSaveDirectory(

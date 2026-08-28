@@ -34,20 +34,22 @@ export class YumeEngine {
     fs?: IFileSystem,
     parentFiles?: string[]
   ): Promise<GameEngineProfile> {
-    const inspector = await PEInspector.fromPath(exePath, fs);
+    const fileSystem = fs || new NodeFileSystemProvider();
+    const inspector = await PEInspector.fromPath(exePath, fileSystem);
     let files = parentFiles;
 
-    if (!files && fs) {
+    if (!files) {
       const normalized = exePath.replace(/\\/g, '/');
-      const dir = normalized.substring(0, normalized.lastIndexOf('/'));
+      const lastSlash = normalized.lastIndexOf('/');
+      const dir = lastSlash !== -1 ? normalized.substring(0, lastSlash) : '.';
       try {
-        files = await fs.readdir(dir);
+        files = await fileSystem.readdir(dir);
       } catch {
         files = [];
       }
     }
 
-    return defaultRuleRegistry.resolve(inspector, exePath, files || [], fs);
+    return defaultRuleRegistry.resolve(inspector, exePath, files || [], fileSystem);
   }
 
   static async resolveSaveDirectory(

@@ -1,5 +1,5 @@
 import { getExeStemFromPath } from './utils';
-import { detectEngine } from './engine-detectors';
+import { detectEngine, profileToEngineType } from './engine-detectors';
 import {
     resolveRpgMakerSave,
     resolveRpgVxAceSave,
@@ -19,7 +19,7 @@ import { DefaultFileSystemProvider } from './fs-provider';
 
 export type { GameEngineType, ResolvedSaveDirectory, FileSystemProvider };
 export { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
-export { detectEngine };
+export { detectEngine, profileToEngineType };
 
 export class SaveFolderResolver {
     private readonly fs: FileSystemProvider;

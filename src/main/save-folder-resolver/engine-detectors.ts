@@ -1,7 +1,35 @@
+import type { GameEngineProfile } from '@yumeshelf/engine';
 import { FileSystemProvider, GameEngineType } from './types';
 import { DefaultFileSystemProvider } from './fs-provider';
 
 export type { GameEngineType };
+
+export function profileToEngineType(profile: GameEngineProfile | null | undefined): GameEngineType | null {
+    if (!profile) return null;
+    switch (profile.family) {
+        case 'rpg-maker':
+            return profile.variant === 'vx-ace' ? 'rpg-vxace' : 'rpg-mv-mz';
+        case 'unity':
+            return 'unity';
+        case 'renpy':
+            return 'renpy';
+        case 'wolf-rpg':
+            return 'wolf-rpg';
+        case 'unreal':
+            return 'unreal';
+        case 'godot':
+            return 'godot';
+        case 'flash':
+            return 'flash';
+        case 'gamemaker':
+            return 'gamemaker';
+        case 'tyranobuilder':
+            return 'tyranobuilder';
+        default:
+            if (profile.variant === 'bakin') return 'bakin';
+            return null;
+    }
+}
 
 const defaultFs = new DefaultFileSystemProvider();
 

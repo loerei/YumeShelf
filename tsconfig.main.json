@@ -5,6 +5,8 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
     "isolatedModules": false,
     "types": ["node"],
     "paths": {

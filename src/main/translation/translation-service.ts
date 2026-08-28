@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
+import { YumeEngine, GameEngineProfile } from '@yumeshelf/engine';
 import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
 import { extractZip } from '../core/zip-extractor';
 import { createDirectorySymlink } from '../core/filesystem-adapter';
@@ -173,13 +174,7 @@ export class TranslationService {
         if (this.jobs.has(gameKey)) return;
 
         const exeDir = path.dirname(exePath);
-        const detection = await this.detectUnityType(exePath);
-        let engineType: string | null = null;
-        if (detection) {
-            engineType = 'unity';
-        } else if (await this.isRpgMaker(exeDir)) {
-            engineType = 'rpg-maker';
-        }
+        const engineType = await this.detectEngineSupport(exePath);
 
         if (!engineType || !this.extractors[engineType]) {
             console.log(`[DEEP-SYNC] No extractor for ${gameKey} (${engineType})`);
@@ -367,6 +362,14 @@ export class TranslationService {
     }
 
     async detectEngineSupport(exePath: string): Promise<string | null> {
+        try {
+            const profile = await YumeEngine.inspectExecutable(exePath);
+            if (profile) {
+                if (profile.family === 'unity') return 'unity';
+                if (profile.family === 'rpg-maker') return 'rpg-maker';
+            }
+        } catch {}
+
         const exeDir = path.dirname(exePath);
         const detection = await this.detectUnityType(exePath);
         if (detection) return 'unity';
@@ -379,6 +382,15 @@ export class TranslationService {
     }
 
     async detectUnityType(exePath: string): Promise<UnityDetection | null> {
+        try {
+            const profile = await YumeEngine.inspectExecutable(exePath);
+            if (profile && profile.family === 'unity') {
+                const type: 'mono' | 'il2cpp' = profile.variant === 'il2cpp' ? 'il2cpp' : 'mono';
+                const arch: 'x64' | 'x86' = profile.arch === 'x86' ? 'x86' : 'x64';
+                return { type, arch };
+            }
+        } catch {}
+
         const exeDir = path.dirname(exePath);
         const entries = await fs.readdir(exeDir).catch(() => []);
         const dataDir = entries.find(e => e.toLowerCase().endsWith('_data'));

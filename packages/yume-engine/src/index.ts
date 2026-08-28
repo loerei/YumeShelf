@@ -17,11 +17,14 @@ import { defaultRuleRegistry } from './rules/engine-rule-registry.js';
 import { resolveSaveDirectory, type ResolveSaveOptions } from './save-resolvers/index.js';
 import { NodeFileSystemProvider } from './fs/node-fs-provider.js';
 
+import { decodeSaveFile, encodeSaveFile } from './save-codecs/index.js';
+
 export type * from './types.js';
 export { SaveCodecError } from './types.js';
 export * from './pe/index.js';
 export * from './rules/index.js';
 export * from './save-resolvers/index.js';
+export * from './save-codecs/index.js';
 export * from './fs/index.js';
 
 export class YumeEngine {
@@ -61,7 +64,7 @@ export class YumeEngine {
     rawBuffer: Buffer,
     context?: SaveCodecContext
   ): Promise<any> {
-    throw new Error('decodeSaveFile: Not yet implemented in scaffold stage');
+    return decodeSaveFile(strategy, rawBuffer, context);
   }
 
   static async encodeSaveFile(
@@ -69,6 +72,6 @@ export class YumeEngine {
     jsonData: any,
     context?: SaveCodecContext
   ): Promise<Buffer> {
-    throw new Error('encodeSaveFile: Not yet implemented in scaffold stage');
+    return encodeSaveFile(strategy, jsonData, context);
   }
 }

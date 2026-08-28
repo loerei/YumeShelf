@@ -128,21 +128,8 @@ export interface SaveCodecContext {
   options?: Record<string, any>;
 }
 
-export type SaveCodecErrorCode =
-  | 'CHECKSUM_FAILED'
-  | 'DECOMPRESSION_FAILED'
-  | 'PARSE_FAILED'
-  | 'UNSUPPORTED_FORMAT';
-
-export class SaveCodecError extends Error {
-  readonly code: SaveCodecErrorCode;
-
-  constructor(message: string, code: SaveCodecErrorCode) {
-    super(message);
-    this.name = 'SaveCodecError';
-    this.code = code;
-  }
-}
+export type { SaveCodecErrorCode } from './saves/errors.js';
+export { SaveCodecError } from './saves/errors.js';
 
 export interface IProcessRunner {
   run(

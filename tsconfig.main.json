@@ -8,7 +8,8 @@
     "isolatedModules": false,
     "types": ["node"],
     "paths": {
-      "@yumeshelf/engine": ["./packages/yume-engine/src/index.ts"]
+      "@yumeshelf/engine": ["./packages/yume-engine/src/index.ts"],
+      "@yumeshelf/engine/types": ["./packages/yume-engine/src/types.ts"]
     }
   },
   "include": [

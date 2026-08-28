@@ -5,8 +5,14 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
     "isolatedModules": false,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@yumeshelf/engine": ["./packages/yume-engine/dist/index.d.ts"],
+      "@yumeshelf/engine/types": ["./packages/yume-engine/dist/types.d.ts"]
+    }
   },
   "include": [
     "src/main/**/*",
@@ -16,5 +22,10 @@
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.spec.ts"
+  ],
+  "references": [
+    {
+      "path": "./packages/yume-engine"
+    }
   ]
 }

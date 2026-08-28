@@ -337,6 +337,16 @@
     "save_editor_reload_title": "Reload from disk",
     "save_editor_translate_title": "Translate to app language",
     "tray_show_app": "Show YumeShelf",
-    "tray_quit": "Quit"
+    "tray_quit": "Quit",
+    "settings_about_credits": "About & Credits",
+    "about_modal_title": "About & Credits",
+    "about_tagline": "A minimalist game library and launcher for your personal collection.",
+    "about_author": "Created by <a href=\"https://github.com/loerei\" class=\"about-external-link\" target=\"_blank\" rel=\"noreferrer\">loerei</a>",
+    "about_credits_heading": "Acknowledgements & Credits",
+    "about_credits_intro": "YumeShelf and the YumeEngine core parser are built upon foundational open-source engineering and heuristics from the community:",
+    "about_credit_die_desc": "Binary inspection heuristics, PE structure analysis, and engine signatures.",
+    "about_credit_xunity_desc": "Unity runtime translation architecture and plugin hooking models.",
+    "about_credit_bepinex_desc": "Unity and .NET modding and runtime injection framework.",
+    "about_license_text": "YumeShelf is free and open-source software under the MIT License."
   }
 }

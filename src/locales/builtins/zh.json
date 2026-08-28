@@ -338,6 +338,16 @@
     "save_editor_reload_title": "从磁盘重新加载",
     "save_editor_translate_title": "翻译为应用语言",
     "tray_show_app": "显示梦之架",
-    "tray_quit": "退出"
+    "tray_quit": "退出",
+    "settings_about_credits": "关于与鸣谢",
+    "about_modal_title": "关于与鸣谢",
+    "about_tagline": "专为个人收藏打造的极简游戏库与启动器。",
+    "about_author": "作者：<a href=\"https://github.com/loerei\" class=\"about-external-link\" target=\"_blank\" rel=\"noreferrer\">loerei</a>",
+    "about_credits_heading": "鸣谢与致敬",
+    "about_credits_intro": "YumeShelf 与 YumeEngine 核心二进制解析器基于社区杰出的开源工程与启发式算法构建：",
+    "about_credit_die_desc": "二进制启发式分析、PE 结构检测与游戏引擎特征码。",
+    "about_credit_xunity_desc": "Unity 运行时动态翻译架构与插件 Hook 模型。",
+    "about_credit_bepinex_desc": "Unity 与 .NET 模组开发及运行时注入框架。",
+    "about_license_text": "YumeShelf 是遵循 MIT 协议的自由及开源软件。"
   }
 }

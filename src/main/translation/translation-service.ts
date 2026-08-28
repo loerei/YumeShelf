@@ -1,8 +1,16 @@
+/**
+ * TranslationService - Runtime Translator Shim & Hooking Deployer
+ *
+ * Utilizes XUnity.AutoTranslator by bbepis and BepInEx runtime injection.
+ * MIT License - Copyright (c) bbepis, BepInEx Contributors / YumeShelf Contributors
+ */
+
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
+import { YumeEngine } from '@yumeshelf/engine';
 import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
 import { extractZip } from '../core/zip-extractor';
 import { createDirectorySymlink } from '../core/filesystem-adapter';
@@ -173,13 +181,7 @@ export class TranslationService {
         if (this.jobs.has(gameKey)) return;
 
         const exeDir = path.dirname(exePath);
-        const detection = await this.detectUnityType(exePath);
-        let engineType: string | null = null;
-        if (detection) {
-            engineType = 'unity';
-        } else if (await this.isRpgMaker(exeDir)) {
-            engineType = 'rpg-maker';
-        }
+        const engineType = await this.detectEngineSupport(exePath);
 
         if (!engineType || !this.extractors[engineType]) {
             console.log(`[DEEP-SYNC] No extractor for ${gameKey} (${engineType})`);
@@ -367,6 +369,14 @@ export class TranslationService {
     }
 
     async detectEngineSupport(exePath: string): Promise<string | null> {
+        try {
+            const profile = await YumeEngine.inspectExecutable(exePath);
+            if (profile) {
+                if (profile.family === 'unity') return 'unity';
+                if (profile.family === 'rpg-maker') return 'rpg-maker';
+            }
+        } catch {}
+
         const exeDir = path.dirname(exePath);
         const detection = await this.detectUnityType(exePath);
         if (detection) return 'unity';
@@ -374,35 +384,39 @@ export class TranslationService {
         return null;
     }
 
-    async isRpgMaker(exeDir: string): Promise<boolean> {
-        return fsSync.existsSync(path.join(exeDir, 'www', 'data')) || fsSync.existsSync(path.join(exeDir, 'data'));
+    async isRpgMaker(exeDirOrPath: string): Promise<boolean> {
+        try {
+            const stat = await fs.stat(exeDirOrPath).catch(() => null);
+            let targetExe = exeDirOrPath;
+            if (stat?.isDirectory()) {
+                const candidates = ['Game.exe', 'RPGVXAce.exe', 'RPG_RT.exe', 'nw.exe'];
+                for (const cand of candidates) {
+                    const full = path.join(exeDirOrPath, cand);
+                    if (fsSync.existsSync(full)) {
+                        targetExe = full;
+                        break;
+                    }
+                }
+                if (targetExe === exeDirOrPath) {
+                    return fsSync.existsSync(path.join(exeDirOrPath, 'www', 'data')) || fsSync.existsSync(path.join(exeDirOrPath, 'data'));
+                }
+            }
+            const profile = await YumeEngine.inspectExecutable(targetExe);
+            return profile?.family === 'rpg-maker';
+        } catch {
+            return false;
+        }
     }
 
     async detectUnityType(exePath: string): Promise<UnityDetection | null> {
-        const exeDir = path.dirname(exePath);
-        const entries = await fs.readdir(exeDir).catch(() => []);
-        const dataDir = entries.find(e => e.toLowerCase().endsWith('_data'));
-        if (!dataDir) return null;
-
-        let arch: 'x64' | 'x86' = 'x64';
         try {
-            const handle = await fs.open(exePath, 'r');
-            const { buffer: peOffsetBuf } = await handle.read(Buffer.alloc(4), 0, 4, 0x3c);
-            const peOffset = peOffsetBuf.readUInt32LE(0);
-            const { buffer: machineBuf } = await handle.read(Buffer.alloc(2), 0, 2, peOffset + 4);
-            const machine = machineBuf.readUInt16LE(0);
-            if (machine === 0x14c) {
-                arch = 'x86';
+            const profile = await YumeEngine.inspectExecutable(exePath);
+            if (profile?.family === 'unity') {
+                const type: 'mono' | 'il2cpp' = profile.variant === 'il2cpp' ? 'il2cpp' : 'mono';
+                const arch: 'x64' | 'x86' = profile.arch === 'x86' ? 'x86' : 'x64';
+                return { type, arch };
             }
-            await handle.close();
         } catch {}
-
-        const managedDir = path.join(exeDir, dataDir, 'Managed');
-        if (fsSync.existsSync(path.join(managedDir, 'mscorlib.dll'))) return { type: 'mono', arch };
-
-        const il2cppDll = path.join(exeDir, 'GameAssembly.dll');
-        if (fsSync.existsSync(il2cppDll)) return { type: 'il2cpp', arch };
-
         return null;
     }
 

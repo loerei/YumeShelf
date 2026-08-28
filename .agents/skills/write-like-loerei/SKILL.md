@@ -45,6 +45,8 @@ The main idea is simple: talk like a normal person who is thinking out loud whil
     - Self-deprecation is natural and relatable, but keep it deadpan and grounded, never whiny or pathetic. State the reality bluntly and move on.
 13. **Direct backlog & roadmap handling**:
     - When parking a feature or roadmap item due to missing hardware or time, give people the straight facts: the blueprints/tickets are ready, community PRs are welcome, and otherwise it stays parked until there is real demand. No corporate excuses, no fake ETAs.
+14. **No cringe metaphors or gimmicky labels**:
+    - Do not invent cute, cartoonish analogies or attach gimmicky nicknames in parentheses to section titles (like `(The Ping-Pong Loop)` or cute stories). Just call the thing by its literal name and explain the literal mechanics. Keep it clean, deadpan, and unforced.
 
 ---
 
@@ -57,6 +59,7 @@ The main idea is simple: talk like a normal person who is thinking out loud whil
 | `Built with a high-performance Rust helper and pure TypeScript PE decoders!` | `It is lightweight and runs without extra runtimes.` |
 | `This insane new feature is an absolute game-changer!` | `It finds your saves automatically so you do not have to dig around.` |
 | `If your folder looks like mine—a massive mess—this tool is for you!` | `If your game folder looks like mine (a massive pile), this is for you.` |
+| `### 1. /conduct-reviewing-loop (The Ping-Pong Loop)` | `### 1. /conduct-reviewing-loop` |
 | `Due to resource allocation constraints, macOS support is deferred to Q3.` | `I'm broke and have no Mac, so I have zero hardware to build or test macOS builds on. The blueprint and tickets are all ready above. Contributions and PRs from Mac users are very welcome. Otherwise, this stays parked here until it's really demanded.` |
 | `Enjoy a cleaner desktop and have a wonderful day!` | `Let me know what you guys think, and enjoy a cleaner desktop.` |
 | A giant list of 8 bullet points | 3 short bullets that solve the actual annoying problems |

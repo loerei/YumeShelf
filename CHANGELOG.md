@@ -4,6 +4,22 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.1.0] - working
+
+### What Changed
+- Game engine detection no longer guesses based on surface folder names. It now inspects the actual binary headers directly.
+- Added an About & Credits section in Settings to credit the community tools and open-source projects that made this possible.
+
+### For the Nerds
+- [engine] Extracted `@yumeshelf/engine` into an independent headless pure TypeScript workspace package with dual ESM/CJS compilation and zero Electron dependencies.
+- [pe-parser] Implemented 64KB bounded PE stream parser (`MZ`, `PE`, Section Table, 32/64-bit Import Directory & Thunk Table with Borland FirstThunk fallback, and `VS_VERSIONINFO` resource tree walker).
+- [rules] Implemented declarative rule registry covering 26+ game engine families across F95zone and classic Japanese VN formats (Unity Mono/IL2CPP, Unreal, Godot, Flash, Java, RPG Maker 2000-MZ/Bakin, Ren'Py, Wolf RPG, QSP, RAGS, ADRIFT, TADS, Twine, KiriKiri, CatSystem2, BGI, Siglus, Nitro+, Majiro, SystemNNN, Artemis, Lilim, LiveMaker, AdvPlayer, Silky, Circus, M2/E-mote).
+- [saves] Extracted deterministic save folder resolvers (`IEnvironmentPaths`, `IFileSystemProvider`) and pure TypeScript save codecs (LZString, zlib, sandboxed Ren'Py pickle parser, Wolf RPG XOR stream cipher) with `IProcessRunner` subprocess seam.
+- [ui] Integrated in-app About & Credits modal in Settings with multi-language i18n support (`en`, `vi`, `zh`, `ja`) and community author attributions.
+- [tests] Added full test suite verifying 100% roundtrip fidelity with synthetic PE binary and save fixtures (134 engine unit tests, 153 root test suites).
+
+---
+
 ## [2.0.8] - 2026-08-23 — released
 
 ### What Changed

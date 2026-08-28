@@ -10,8 +10,15 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "dist"
+    "types": ["node"],
+    "noEmit": true,
+    "outDir": "dist",
+    "paths": {
+      "@yumeshelf/engine": ["./packages/yume-engine/src/index.ts"],
+      "@yumeshelf/engine/types": ["./packages/yume-engine/src/types.ts"]
+    }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "packages/**/*"]
 }

@@ -26,6 +26,17 @@ export function bindI18nStrings(
         }
     });
 
+    // 1b. HTML content: [data-i18n-html]
+    const htmlElements = root.querySelectorAll<HTMLElement>('[data-i18n-html]');
+    htmlElements.forEach((el) => {
+        const key = el.dataset.i18nHtml;
+        if (!key) return;
+        const value = dictionary[key] ?? fallbackDictionary?.[key];
+        if (value !== undefined && value !== null) {
+            el.innerHTML = value;
+        }
+    });
+
     // 2. Placeholders: [data-i18n-placeholder]
     const placeholderElements = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-i18n-placeholder]');
     placeholderElements.forEach((el) => {

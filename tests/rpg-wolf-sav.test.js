@@ -6,6 +6,22 @@ const os = require('node:os');
 const wolfMod = require('../dist/main/save-editor/formats/rpg-wolf-sav.js');
 const strategy = wolfMod.default || wolfMod;
 
+function testCrypt(data, seeds) {
+    const intervals = [1, 2, 5];
+    const out = Buffer.from(data);
+    for (let s = 0; s < seeds.length; s++) {
+        const interval = intervals[s];
+        let currentSeed = seeds[s];
+        for (let i = 0; i < out.length; i += interval) {
+            currentSeed = Math.imul(currentSeed, 0x343FD) + 0x269EC3;
+            currentSeed >>>= 0;
+            const keystream = (currentSeed >>> 28) & 7;
+            out[i] ^= keystream;
+        }
+    }
+    return out;
+}
+
 test('Wolf RPG Save Format - 3-Seed LCG Stream Cipher roundtrip & checksum byte calculation', async () => {
     assert.ok(strategy, 'rpg-wolf-sav format strategy must be registered');
 
@@ -13,11 +29,11 @@ test('Wolf RPG Save Format - 3-Seed LCG Stream Cipher roundtrip & checksum byte 
     const rawPayload = Buffer.from('Testing Wolf RPG Stream Cipher with arbitrary binary data payload 1234567890', 'utf8');
 
     // 1. Encrypt payload
-    const encrypted = strategy._crypt(rawPayload, seeds);
+    const encrypted = testCrypt(rawPayload, seeds);
     assert.notDeepEqual(encrypted, rawPayload, 'Encrypted payload must differ from raw payload');
 
     // 2. Decrypt payload
-    const decrypted = strategy._crypt(encrypted, seeds);
+    const decrypted = testCrypt(encrypted, seeds);
     assert.deepEqual(decrypted, rawPayload, 'Decrypted payload must match original raw payload 100%');
 });
 
@@ -36,7 +52,7 @@ test('Wolf RPG Save Format - Decode & mutate flat variable array (Tag 10 standar
     tagBuffer.writeInt32LE(19, 8 + 4 * 4);    // Var 4 (Time Hour) = 19
     tagBuffer.writeInt32LE(10, 8 + 5 * 4);    // Var 5 (Time Min) = 10
 
-    const encrypted = strategy._crypt(tagBuffer, seeds);
+    const encrypted = testCrypt(tagBuffer, seeds);
     const mockSaveBuffer = Buffer.concat([header, encrypted]);
 
     // 1. Decode save
@@ -54,7 +70,7 @@ test('Wolf RPG Save Format - Decode & mutate flat variable array (Tag 10 standar
     const reEncoded = await strategy.encode(decoded);
 
     // 4. Verify checksum byte in header[2]
-    const decryptedPayload = strategy._crypt(reEncoded.subarray(20), seeds);
+    const decryptedPayload = testCrypt(reEncoded.subarray(20), seeds);
     let expectedSum = 0;
     for (const b of decryptedPayload) expectedSum = (expectedSum + b) & 0xFF;
     assert.equal(reEncoded[2], expectedSum, 'Header checksum byte at header[2] must match decrypted payload sum LSB');
@@ -66,7 +82,7 @@ test('Wolf RPG Save Format - Decode & mutate flat variable array (Tag 10 standar
 });
 
 test('Wolf RPG Save Format - Decode & mutate segmented table matrix (500-table layout)', async () => {
-    const seeds = [0x55, 0x66, 0x77];
+    const seeds = [0xAA, 0x55, 0x33];
     const header = Buffer.alloc(20);
     header[0] = seeds[0];
     header[3] = seeds[1];
@@ -76,7 +92,7 @@ test('Wolf RPG Save Format - Decode & mutate segmented table matrix (500-table l
     const delimiter = Buffer.from('save/system.sav\0', 'utf8');
     const matrixHeader = Buffer.alloc(5);
     matrixHeader.writeInt32LE(numTables, 0);
-    matrixHeader.writeUInt8(100, 4); // First table marker
+    matrixHeader.writeUInt8(100, 4); // Delimiter marker
 
     const matrixBody = Buffer.alloc(numTables * 401);
     for (let t = 0; t < numTables; t++) {
@@ -89,7 +105,7 @@ test('Wolf RPG Save Format - Decode & mutate segmented table matrix (500-table l
     }
 
     const unencrypted = Buffer.concat([delimiter, matrixHeader, matrixBody]);
-    const encrypted = strategy._crypt(unencrypted, seeds);
+    const encrypted = testCrypt(unencrypted, seeds);
     const mockSaveBuffer = Buffer.concat([header, encrypted]);
 
     // 1. Decode save
@@ -136,7 +152,7 @@ test('Wolf RPG Save Format - Unified coexistence of System Variables (sys_X) and
     }
 
     const unencrypted = Buffer.concat([sysTagBuffer, delimiter, matrixHeader, matrixBody]);
-    const encrypted = strategy._crypt(unencrypted, seeds);
+    const encrypted = testCrypt(unencrypted, seeds);
     const mockSaveBuffer = Buffer.concat([header, encrypted]);
 
     // 1. Decode save

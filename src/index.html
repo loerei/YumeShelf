@@ -318,6 +318,62 @@
                 <div class="settings-info">
                     <p id="ui-app-version">YumeShelf</p>
                     <p id="ui-footer-desc" data-i18n="footer_desc">Your dreams, organized perfectly.</p>
+                    <div class="settings-about-row">
+                        <button type="button" class="settings-about-link" id="settings-about-btn" data-i18n="settings_about_credits">About &amp; Credits</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-overlay" id="about-overlay" style="display: none;">
+        <div class="settings-panel about-panel">
+            <div class="settings-header">
+                <h2 id="ui-about-title" data-i18n="about_modal_title">About &amp; Credits</h2>
+                <div class="close-settings" id="about-close-btn">×</div>
+            </div>
+            <div class="settings-body about-body">
+                <div class="about-brand">
+                    <img src="./assets/yumeshelf_icon.png" alt="YumeShelf" width="64" height="64" class="about-icon">
+                    <div class="about-brand-text">
+                        <h3 id="about-app-name" data-i18n="title">YumeShelf</h3>
+                        <p id="about-version-text" class="about-version">v1.0.0</p>
+                        <p class="about-tagline" data-i18n="about_tagline">A minimalist game library and launcher for your personal collection.</p>
+                        <p class="about-author" data-i18n-html="about_author">Created by <a href="https://github.com/loerei" class="about-external-link" target="_blank" rel="noreferrer">loerei</a></p>
+                    </div>
+                </div>
+
+                <div class="about-credits-section">
+                    <h4 data-i18n="about_credits_heading">Acknowledgements &amp; Credits</h4>
+                    <p class="about-credits-intro" data-i18n="about_credits_intro">YumeShelf and the <strong>YumeEngine</strong> core parser are built upon foundational open-source engineering and heuristics from the community:</p>
+                    
+                    <div class="about-credit-card">
+                        <div class="about-credit-header">
+                            <a href="https://github.com/horsicq/Detect-It-Easy" class="about-external-link" target="_blank" rel="noreferrer">Detect-It-Easy / XPEViewer</a>
+                            <span class="about-credit-author">by horsicq</span>
+                        </div>
+                        <p class="about-credit-desc" data-i18n="about_credit_die_desc">Binary inspection heuristics, PE structure analysis, and engine signatures.</p>
+                    </div>
+
+                    <div class="about-credit-card">
+                        <div class="about-credit-header">
+                            <a href="https://github.com/bbepis/XUnity.AutoTranslator" class="about-external-link" target="_blank" rel="noreferrer">XUnity.AutoTranslator</a>
+                            <span class="about-credit-author">by bbepis</span>
+                        </div>
+                        <p class="about-credit-desc" data-i18n="about_credit_xunity_desc">Unity runtime translation architecture and plugin hooking models.</p>
+                    </div>
+
+                    <div class="about-credit-card">
+                        <div class="about-credit-header">
+                            <a href="https://github.com/BepInEx/BepInEx" class="about-external-link" target="_blank" rel="noreferrer">BepInEx</a>
+                            <span class="about-credit-author">by BepInEx Team</span>
+                        </div>
+                        <p class="about-credit-desc" data-i18n="about_credit_bepinex_desc">Unity and .NET modding and runtime injection framework.</p>
+                    </div>
+                </div>
+
+                <div class="about-license-note">
+                    <p data-i18n="about_license_text">YumeShelf is free and open-source software under the MIT License.</p>
                 </div>
             </div>
         </div>

@@ -8,9 +8,9 @@
  * 3. [🚀] Launched Brave with port 9222 (Registry NOT configured). Consider configuring Registry to streamline workflow.
  */
 
-const { execSync, spawn } = require('node:child_process');
-const os = require('node:os');
-const path = require('node:path');
+import { execSync, spawn } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
 
 async function checkPort9222() {
   try {

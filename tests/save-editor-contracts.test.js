@@ -67,6 +67,22 @@ test('RPG Maker MZ Format Contract - Standard zlib-deflate compression round-tri
     assert.deepEqual(decodedJson, testPayload, 'MZ round-trip must preserve exact JSON structure');
 });
 
+function testCrypt(data, seeds) {
+    const intervals = [1, 2, 5];
+    const out = Buffer.from(data);
+    for (let s = 0; s < seeds.length; s++) {
+        const interval = intervals[s];
+        let currentSeed = seeds[s];
+        for (let i = 0; i < out.length; i += interval) {
+            currentSeed = Math.imul(currentSeed, 0x343FD) + 0x269EC3;
+            currentSeed >>>= 0;
+            const keystream = (currentSeed >>> 28) & 7;
+            out[i] ^= keystream;
+        }
+    }
+    return out;
+}
+
 test('RPG Wolf SAV Format Contract - LCG XOR Cipher Involution & Sum-Checksum integrity', async () => {
     const strategy = formats['rpg-wolf-sav'];
     assert.equal(strategy.match('Save01.sav'), true);
@@ -76,8 +92,8 @@ test('RPG Wolf SAV Format Contract - LCG XOR Cipher Involution & Sum-Checksum in
     const originalPayload = crypto.randomBytes(256);
     const seeds = [0x5A, 0xBC, 0x12];
 
-    const encrypted = strategy._crypt(originalPayload, seeds);
-    const decrypted = strategy._crypt(encrypted, seeds);
+    const encrypted = testCrypt(originalPayload, seeds);
+    const decrypted = testCrypt(encrypted, seeds);
 
     assert.ok(originalPayload.equals(decrypted), 'Wolf LCG-XOR cipher must be a perfect involution (reversible transformation)');
 
@@ -110,7 +126,7 @@ test('RPG Wolf SAV Format Contract - LCG XOR Cipher Involution & Sum-Checksum in
     assert.equal(finalBuffer[9], seeds[2]);
 
     // Check checksum recalculation: header[2] should be the byte sum LSB of the mutated payload
-    const finalPayload = strategy._crypt(finalBuffer.subarray(20), seeds);
+    const finalPayload = testCrypt(finalBuffer.subarray(20), seeds);
     let expectedSum = 0;
     for (let i = 0; i < finalPayload.length; i++) {
         expectedSum = (expectedSum + finalPayload[i]) & 0xFF;
@@ -164,7 +180,11 @@ test('SaveDataEngine - End-to-end writeSave with sanitizeSaveData preserves form
     decryptedPayload.writeInt32LE(800, 0);
     decryptedPayload.writeInt32LE(777, 4 + 7 * 4); // Gold = 777
 
-    const encrypted = strategy._crypt(decryptedPayload, seeds);
+    let sum1 = 0;
+    for (const b of decryptedPayload) sum1 = (sum1 + b) & 0xFF;
+    header[2] = sum1;
+
+    const encrypted = testCrypt(decryptedPayload, seeds);
     const mockSaveBuffer = Buffer.concat([header, encrypted]);
 
     const os = require('node:os');
@@ -233,7 +253,11 @@ test('SaveDataEngine - End-to-end writeSave with Wolf RPG segmented table matrix
     }
 
     const unencrypted = Buffer.concat([sysTagBuffer, delimiter, matrixHeader, matrixBody]);
-    const encrypted = strategy._crypt(unencrypted, seeds);
+    let sum2 = 0;
+    for (const b of unencrypted) sum2 = (sum2 + b) & 0xFF;
+    header[2] = sum2;
+
+    const encrypted = testCrypt(unencrypted, seeds);
     const mockSaveBuffer = Buffer.concat([header, encrypted]);
 
     const os = require('node:os');

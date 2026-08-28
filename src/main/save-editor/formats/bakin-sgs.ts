@@ -1,4 +1,5 @@
 import { SaveFormat } from '../index';
+import { YumeEngine } from '@yumeshelf/engine';
 
 class BakinSgsFormat implements SaveFormat {
     match(fileName: string): boolean {
@@ -6,11 +7,11 @@ class BakinSgsFormat implements SaveFormat {
     }
 
     async decode(rawData: Buffer): Promise<any> {
-        throw new Error('SGS (RPG Developer Bakin) save file format is currently not supported for editing.');
+        return YumeEngine.decodeSaveFile('bakin-sgs', rawData);
     }
 
     async encode(jsonData: any): Promise<Buffer> {
-        throw new Error('SGS (RPG Developer Bakin) save file format is currently not supported for editing.');
+        return YumeEngine.encodeSaveFile('bakin-sgs', jsonData);
     }
 }
 

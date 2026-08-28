@@ -1,9 +1,7 @@
 /// <reference types="node" />
 import test from 'node:test';
 import assert from 'node:assert/strict';
-// @ts-ignore
 import { PEInspector, normalizeDllName } from '../dist/index.js';
-// @ts-ignore
 import { SyntheticPEBuilder } from './fixtures/synthetic-pe-builder.ts';
 
 test('DLL Name Normalization: Handles case, whitespace, and .dll extension', () => {

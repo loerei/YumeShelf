@@ -18,7 +18,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup && tsc --emitDeclarationOnly",
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --experimental-strip-types --test tests/**/*.test.ts"
   },

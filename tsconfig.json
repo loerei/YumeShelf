@@ -10,9 +10,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["node"],
+    "noEmit": true,
     "outDir": "dist"
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "packages/**/*"]
 }

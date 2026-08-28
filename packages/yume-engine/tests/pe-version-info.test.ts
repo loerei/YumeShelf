@@ -1,9 +1,7 @@
 /// <reference types="node" />
 import test from 'node:test';
 import assert from 'node:assert/strict';
-// @ts-ignore
 import { PEInspector, parseVsVersionInfo } from '../dist/index.js';
-// @ts-ignore
 import { SyntheticPEBuilder } from './fixtures/synthetic-pe-builder.ts';
 
 test('PE Version Info Parser: Extracts standard version strings from 64-bit binary', () => {

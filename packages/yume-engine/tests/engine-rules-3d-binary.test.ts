@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import test from 'node:test';
 import assert from 'node:assert/strict';
-// @ts-ignore
 import {
   EngineRuleRegistry,
   PEInspector,
@@ -11,9 +10,7 @@ import {
   FlashRule,
   JavaRule,
 } from '../dist/index.js';
-// @ts-ignore
 import { SyntheticPEBuilder } from './fixtures/synthetic-pe-builder.ts';
-// @ts-ignore
 import { MockFileSystemProvider } from './fixtures/mock-fs-provider.ts';
 
 test('Unity Engine Rules: IL2CPP vs Mono classification', async () => {

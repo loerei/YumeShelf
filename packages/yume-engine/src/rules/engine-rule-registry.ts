@@ -10,6 +10,7 @@ import type { GameEngineProfile, IFileSystem } from '../types.js';
 import type { EngineClassificationRule, ScanContext } from './types.js';
 import { PEInspector } from '../pe/pe-inspector.js';
 import { Core3DAndBinaryRules } from './rules-3d-binary.js';
+import { DoujinAndRPGRules } from './rules-doujin-rpg.js';
 
 export class EngineRuleRegistry {
   private rules: EngineClassificationRule[] = [];
@@ -17,6 +18,9 @@ export class EngineRuleRegistry {
   constructor() {
     // Register standard default rule groups
     for (const rule of Core3DAndBinaryRules) {
+      this.registerRule(rule);
+    }
+    for (const rule of DoujinAndRPGRules) {
       this.registerRule(rule);
     }
   }

@@ -1,6 +1,6 @@
 {
   "name": "yumeshelf",
-  "version": "2.0.8",
+  "version": "2.1.0",
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "dist/main.js",

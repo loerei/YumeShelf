@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.1.0] - working
+## [2.1.0] - 2026-08-28 — released
 
 ### What Changed
 - Game engine detection no longer guesses based on surface folder names. It now inspects the actual binary headers directly.

@@ -1,11 +1,11 @@
-import { detectEngine, profileToEngineType } from './engine-detectors';
+import { detectEngine } from './engine-detectors';
 import { FileSystemProvider, GameEngineType, ResolvedSaveDirectory } from './types';
 import { DefaultFileSystemProvider } from './fs-provider';
 import { YumeEngine, type ResolvedSaveLocation } from '@yumeshelf/engine';
 
 export type { GameEngineType, ResolvedSaveDirectory, FileSystemProvider };
 export { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
-export { detectEngine, profileToEngineType };
+export { detectEngine, profileToEngineType } from './engine-detectors';
 
 function mapEngineType(matchedStrategy?: string, engineProfileType?: GameEngineType | null): GameEngineType | 'unknown' {
     if (engineProfileType) return engineProfileType;

@@ -73,20 +73,16 @@ class UnityMonoBinFormat {
     getConverterExecutionConfig(): { executable: string; baseArgs: string[] } {
         const binDir = path.resolve(__dirname, '..', 'bin');
         const unpackedBinDir = binDir.includes('app.asar') ? binDir.replace('app.asar', 'app.asar.unpacked') : binDir;
-
         const nativeExeName = process.platform === 'win32' ? 'ModernSaveConverter.exe' : 'ModernSaveConverter';
         const candidateNativePaths = [
             path.join(unpackedBinDir, nativeExeName),
             path.join(unpackedBinDir, process.platform === 'win32' ? 'win-x64' : 'linux-x64', nativeExeName)
         ];
-
         for (const candidate of candidateNativePaths) {
             if (fsSync.existsSync(candidate)) {
                 return { executable: candidate, baseArgs: [] };
             }
         }
-
-        // Fallback to dotnet <dll>
         const dllPath = path.join(unpackedBinDir, 'ModernSaveConverter.dll');
         return { executable: 'dotnet', baseArgs: [dllPath] };
     }

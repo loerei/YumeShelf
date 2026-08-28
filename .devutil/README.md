@@ -69,3 +69,15 @@ node .devutil/simulate-save-pipeline.cjs "D:/Games/MyGames" --metadata
 # Output raw JSON metrics for automated evaluations
 node .devutil/simulate-save-pipeline.cjs "D:/Games/MyGames" --json
 ```
+
+---
+
+### 5. `inspect-game-engine.cjs`
+**Game Engine & F95zone Tag Binary Inspector**
+
+High-performance binary inspector and classifier covering 100% of F95zone engine tags (`Unity`, `RPGM`, `Ren'Py`, `Wolf RPG`, `Unreal Engine`, `Godot`, `Flash`, `HTML`, `Java`, `QSP`, `RAGS`, `ADRIFT`, `Tads`, `Others`). Uses bounded 64KB PE header slicing, RVA-to-offset mapping, and import/version introspection.
+
+```bash
+# Run simulation & benchmark across game library
+node .devutil/inspect-game-engine.cjs "D:/Games/MyGames"
+```

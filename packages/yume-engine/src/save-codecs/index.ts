@@ -6,6 +6,7 @@ import { RpgMakerMzSaveCodec } from './rpg-maker-mz.js';
 import { WolfSavSaveCodec } from './wolf-sav.js';
 import { RenpyPickleSaveCodec } from './renpy-pickle.js';
 import { BakinSgsSaveCodec } from './bakin-sgs.js';
+import { UnityBinaryFormatterSaveCodec } from './unity-binary-formatter.js';
 import { isDangerousKey, sanitizeDeep, createSafeDict, safeJsonParse } from './sanitize.js';
 import type { SaveCodecContext } from '../types.js';
 
@@ -19,6 +20,7 @@ export * from './rpg-maker-mz.js';
 export * from './wolf-sav.js';
 export * from './renpy-pickle.js';
 export * from './bakin-sgs.js';
+export * from './unity-binary-formatter.js';
 
 function normalizeStrategy(strategy: string, context?: SaveCodecContext): string {
   const norm = (strategy || '').toLowerCase().trim();
@@ -31,6 +33,7 @@ function normalizeStrategy(strategy: string, context?: SaveCodecContext): string
     if (fn.endsWith('.sav')) return 'wolf-sav';
     if (fn.endsWith('.save')) return 'renpy-pickle';
     if (fn.endsWith('.sgs')) return 'bakin-sgs';
+    if (fn.endsWith('.bin')) return 'unity-binary-formatter';
     if (fn.endsWith('.json')) {
       if (fn.includes('savedata')) return 'keyed-json';
       return 'pure-json';
@@ -79,6 +82,12 @@ export async function decodeSaveFile(
     case 'sgs':
       return BakinSgsSaveCodec.decode(rawBuffer);
 
+    case 'unity-binary-formatter':
+    case 'unity-mono-bin':
+    case 'binary-formatter':
+    case 'modern-save-converter':
+      return UnityBinaryFormatterSaveCodec.decode(rawBuffer, context);
+
     default:
       throw new SaveCodecError(
         `Unsupported save codec strategy: "${strategy}"`,
@@ -125,6 +134,12 @@ export async function encodeSaveFile(
     case 'bakin-sgs':
     case 'sgs':
       return BakinSgsSaveCodec.encode(jsonData);
+
+    case 'unity-binary-formatter':
+    case 'unity-mono-bin':
+    case 'binary-formatter':
+    case 'modern-save-converter':
+      return UnityBinaryFormatterSaveCodec.encode(jsonData, context);
 
     default:
       throw new SaveCodecError(

@@ -126,19 +126,21 @@ export interface SaveCodecContext {
   gameTitle?: string;
   gameKey?: string;
   options?: Record<string, any>;
+  runner?: import('./process/types.js').IProcessRunner;
+  assemblyPath?: string;
+  converterPath?: string;
 }
 
 export type { SaveCodecErrorCode } from './saves/errors.js';
 export { SaveCodecError } from './saves/errors.js';
+export type {
+  IProcessRunner,
+  ProcessRunOptions,
+  ProcessRunResult,
+} from './process/types.js';
+export {
+  DEFAULT_PROCESS_TIMEOUT_MS,
+  DEFAULT_GRACE_PERIOD_MS,
+  DEFAULT_MAX_BUFFER_BYTES,
+} from './process/types.js';
 
-export interface IProcessRunner {
-  run(
-    command: string,
-    args: string[],
-    options?: {
-      cwd?: string;
-      timeout?: number;
-      env?: Record<string, string>;
-    }
-  ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
-}

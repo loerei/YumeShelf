@@ -11,13 +11,26 @@ import type {
   SaveCodecContext,
 } from './types.js';
 import { SaveCodecError } from './types.js';
+import { PEInspector } from './pe/pe-inspector.js';
 
 export type * from './types.js';
 export { SaveCodecError } from './types.js';
+export * from './pe/index.js';
 
 export class YumeEngine {
   static async inspectExecutable(exePath: string, fs?: IFileSystem): Promise<GameEngineProfile> {
-    throw new Error('inspectExecutable: Not yet implemented in scaffold stage');
+    const inspector = await PEInspector.fromPath(exePath, fs);
+    const is64 = inspector.is64Bit;
+    const arch = is64 ? 'x64' : (inspector.coffHeader.machine === 0x014c ? 'x86' : 'unknown');
+
+    return {
+      tag: 'Others',
+      family: 'unknown',
+      arch,
+      runtime: 'native',
+      saveStrategy: 'unknown',
+      detectedBy: inspector.isValid ? 'PEInspector' : 'fallback',
+    };
   }
 
   static async resolveSaveDirectory(

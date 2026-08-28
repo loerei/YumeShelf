@@ -20,7 +20,7 @@
   "scripts": {
     "build": "tsup && tsc --emitDeclarationOnly",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/**/*.test.ts"
+    "test": "npm run build && node --experimental-strip-types --test tests/**/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

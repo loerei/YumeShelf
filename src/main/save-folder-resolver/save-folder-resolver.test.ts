@@ -79,7 +79,17 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
         }
     ];
 
-    it.each(engineTestCases)('detects and resolves $name save folder', async (tc) => {
+    interface EngineTestCase {
+        name: string;
+        exe: string;
+        files: Record<string, string>;
+        dirs: string[];
+        env?: Record<string, string>;
+        expectedEngine: string;
+        expectedPath: string;
+    }
+
+    it.each(engineTestCases)('detects and resolves $name save folder', async (tc: EngineTestCase) => {
         const resolver = createResolver(tc.files, tc.dirs, tc.env);
         const result = await resolver.resolve(tc.exe);
         expect(result.engine).toBe(tc.expectedEngine);

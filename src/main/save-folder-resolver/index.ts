@@ -90,49 +90,8 @@ export class SaveFolderResolver {
             } catch {}
         }
 
-        let profile: GameEngineProfile | null = null;
-        try {
-            const scanFs: any = {
-                exists: (p: string) => this.fs.exists(p),
-                readFile: (p: string, enc?: string) => this.fs.readFile(p, enc || 'utf8'),
-                stat: async (p: string) => {
-                    const isDir = await this.fs.isDirectory(p);
-                    return {
-                        size: 0,
-                        isDirectory: () => isDir,
-                        isFile: () => !isDir
-                    };
-                },
-                readdir: async (p: string) => {
-                    const entries = await this.fs.readdir(p);
-                    return (entries || []).map((e: any) => (typeof e === 'string' ? e : e?.name || ''));
-                },
-                open: async (p: string) => {
-                    try {
-                        const content = await this.fs.readFile(p, 'binary');
-                        const buf = Buffer.from(content, 'binary');
-                        return {
-                            read: async (offset: number, length: number) => buf.subarray(offset, offset + length),
-                            close: async () => {}
-                        };
-                    } catch {
-                        const emptyBuf = Buffer.alloc(0);
-                        return {
-                            read: async () => emptyBuf,
-                            close: async () => {}
-                        };
-                    }
-                }
-            };
-            profile = await YumeEngine.inspectExecutable(exePath, scanFs);
-        } catch {
-            // Unreadable or non-existent binary paths gracefully fall back
-        }
-
-        const engineType = profileToEngineType(profile);
-
-        // 3. Bridge FileSystemProvider to YumeEngine IFileSystem
-        const engineFs: any = {
+        // 2. Create unified FileSystem bridge
+        const unifiedFs: any = {
             exists: (p: string) => this.fs.exists(p),
             readFile: (p: string, enc?: string) => this.fs.readFile(p, enc || 'utf8'),
             stat: async (p: string) => {
@@ -146,6 +105,22 @@ export class SaveFolderResolver {
             readdir: async (p: string) => {
                 const entries = await this.fs.readdir(p);
                 return (entries || []).map((e: any) => (typeof e === 'string' ? e : e?.name || ''));
+            },
+            open: async (p: string) => {
+                try {
+                    const content = await this.fs.readFile(p, 'binary');
+                    const buf = Buffer.from(content, 'binary');
+                    return {
+                        read: async (offset: number, length: number) => buf.subarray(offset, offset + length),
+                        close: async () => {}
+                    };
+                } catch {
+                    const emptyBuf = Buffer.alloc(0);
+                    return {
+                        read: async () => emptyBuf,
+                        close: async () => {}
+                    };
+                }
             },
             join: (...args: string[]) => this.fs.join(...args),
             dirname: (p: string) => this.fs.dirname(p),
@@ -173,11 +148,20 @@ export class SaveFolderResolver {
             },
         };
 
+        let profile: GameEngineProfile | null = null;
+        try {
+            profile = await YumeEngine.inspectExecutable(exePath, unifiedFs);
+        } catch {
+            // Unreadable or non-existent binary paths gracefully fall back
+        }
+
+        const engineType = profileToEngineType(profile);
+
         try {
             const resolved: ResolvedSaveLocation | null = await YumeEngine.resolveSaveDirectory(
                 profile || undefined,
                 exePath,
-                engineFs,
+                unifiedFs,
                 { saveFolderOverride }
             );
 

@@ -23,37 +23,30 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Cache Node Modules (Linux)
-        if: runner.os == 'Linux'
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-
-      - name: Cache Node Modules (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\npm-cache
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
+          cache: 'pnpm'
 
       - name: Install Dependencies
-        run: npm install
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run Engine Build & Tests
+        run: |
+          pnpm --filter @yumeshelf/engine build
+          pnpm --filter @yumeshelf/engine test
 
       - name: Run Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Run TypeScript & Unit Tests
-        run: npm test
+        run: pnpm test
 
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable

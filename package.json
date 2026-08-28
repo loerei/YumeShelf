@@ -33,6 +33,7 @@
     "typecheck": "tsc --noEmit",
     "test:vitest": "npx vitest run",
     "test:node": "node --test \"tests/*.test.js\"",
+    "test:engine": "pnpm --filter @yumeshelf/engine test",
     "test": "npm run build:main && npm run test:vitest && npm run test:node",
     "verify:deps": "node scripts/verify-packaged-dependencies.js",
     "build:preload": "tsup src/preload.ts --out-dir dist --format cjs --external electron",
@@ -123,6 +124,7 @@
     "web-tree-sitter": "^0.20.8"
   },
   "dependencies": {
+    "@yumeshelf/engine": "workspace:*",
     "argparse": "^2.0.1",
     "builder-util-runtime": "^9.2.9",
     "debug": "^4.4.0",

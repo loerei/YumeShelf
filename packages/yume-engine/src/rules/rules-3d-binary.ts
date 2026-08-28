@@ -159,7 +159,7 @@ export const GodotRule: EngineClassificationRule = {
   name: 'godot',
   priority: 30,
   async match(ctx: ScanContext): Promise<GameEngineProfile | null> {
-    const { pe, filesLowerSet, extensionsSet, fs } = ctx;
+    const { pe, exeName, filesLowerSet, extensionsSet, fs } = ctx;
     const arch = pe.is64Bit ? 'x64' : (pe.coffHeader.machine === 0x014c ? 'x86' : 'unknown');
 
     // 1. Version info signature: FileDescription "Godot Engine" or GDScript
@@ -191,7 +191,14 @@ export const GodotRule: EngineClassificationRule = {
       }
     }
 
-    if (isGodotVersionInfo || hasProjectGodot || hasPckExtension || hasGdpcMagic) {
+    const isSiglusMarker =
+      exeName.includes('siglus') ||
+      filesLowerSet.has('scene.pck') ||
+      filesLowerSet.has('siglusengine.dll');
+
+    const hasPckMatch = hasGdpcMagic || (hasPckExtension && !isSiglusMarker);
+
+    if (isGodotVersionInfo || hasProjectGodot || hasPckMatch) {
       return {
         tag: 'Godot',
         family: 'godot',
@@ -203,7 +210,9 @@ export const GodotRule: EngineClassificationRule = {
           ? 'PE VersionInfo: Godot Engine'
           : hasProjectGodot
           ? 'Filesystem: project.godot'
-          : 'Godot .pck package container (GDPC)',
+          : hasGdpcMagic
+          ? 'Godot .pck package container (GDPC magic)'
+          : 'Godot .pck package container',
       };
     }
 

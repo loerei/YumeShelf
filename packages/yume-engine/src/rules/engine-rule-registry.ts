@@ -12,6 +12,7 @@ import { PEInspector } from '../pe/pe-inspector.js';
 import { Core3DAndBinaryRules } from './rules-3d-binary.js';
 import { DoujinAndRPGRules } from './rules-doujin-rpg.js';
 import { InteractiveFictionAndWebRules } from './rules-if-web.js';
+import { ClassicVisualNovelRules } from './rules-classic-vn.js';
 
 export class EngineRuleRegistry {
   private rules: EngineClassificationRule[] = [];
@@ -25,6 +26,9 @@ export class EngineRuleRegistry {
       this.registerRule(rule);
     }
     for (const rule of InteractiveFictionAndWebRules) {
+      this.registerRule(rule);
+    }
+    for (const rule of ClassicVisualNovelRules) {
       this.registerRule(rule);
     }
   }

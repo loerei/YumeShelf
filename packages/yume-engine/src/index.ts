@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * YumeEngine (@yumeshelf/engine)
  * Headless Game Engine Inspector, Save Resolver & Codec Core

@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Bounds-checked binary buffer reading utilities
  *

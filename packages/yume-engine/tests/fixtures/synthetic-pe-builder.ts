@@ -7,6 +7,7 @@
 export interface SyntheticPEImport {
   dllName: string;
   functions?: string[];
+  borlandMode?: boolean;
 }
 
 export interface SyntheticPESection {
@@ -59,8 +60,12 @@ export class SyntheticPEBuilder {
     return this;
   }
 
-  public addImport(dllName: string, functions: string[] = []): this {
-    this.imports.push({ dllName, functions });
+  public addImport(
+    dllName: string,
+    functions: string[] = [],
+    options?: { borlandMode?: boolean }
+  ): this {
+    this.imports.push({ dllName, functions, borlandMode: options?.borlandMode });
     return this;
   }
 
@@ -431,7 +436,7 @@ export class SyntheticPEBuilder {
           // +8 ForwarderChain (0)
           // +12 Name (RVA)
           // +16 FirstThunk (RVA)
-          sec.rawBuffer.writeUInt32LE(origThunkRVA, descOffset + 0);
+          sec.rawBuffer.writeUInt32LE(imp.borlandMode ? 0 : origThunkRVA, descOffset + 0);
           sec.rawBuffer.writeUInt32LE(0, descOffset + 4);
           sec.rawBuffer.writeUInt32LE(0, descOffset + 8);
           // Name RVA will be filled below

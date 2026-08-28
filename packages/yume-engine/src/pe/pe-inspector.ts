@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * PE Binary Inspector - Core Header & Section Table Parser
  *
@@ -15,6 +16,7 @@ import {
   ImageSectionHeader,
   IMAGE_DOS_SIGNATURE,
   IMAGE_NT_SIGNATURE,
+  ImportedLibrary,
   OptionalHeader,
   ParsedPEHeader,
 } from './types.js';
@@ -25,6 +27,7 @@ import {
   safeReadUInt16LE,
   safeReadUInt32LE,
 } from './binary-reader.js';
+import { normalizeDllName, parseImportDirectory } from './import-parser.js';
 
 export interface RvaReader {
   (offset: number, length: number): Promise<Buffer | null>;
@@ -39,6 +42,8 @@ export class PEInspector {
   public readonly optionalHeader: OptionalHeader;
   public readonly sections: ImageSectionHeader[];
   public readonly rawBuffer: Buffer | null;
+  public readonly imports: ImportedLibrary[];
+  public readonly importsSet: Set<string>;
   private readonly lazyReader: RvaReader | null;
 
   constructor(
@@ -55,6 +60,10 @@ export class PEInspector {
     this.sections = parsed.sections;
     this.rawBuffer = rawBuffer;
     this.lazyReader = lazyReader;
+
+    const { libraries, importsSet } = parseImportDirectory(this);
+    this.imports = libraries;
+    this.importsSet = importsSet;
   }
 
   /**
@@ -381,6 +390,38 @@ export class PEInspector {
     }
 
     return null;
+  }
+
+  /**
+   * Checks whether a specific DLL is imported in O(1) time complexity.
+   * Tolerant to whitespace, case sensitivity, and optional '.dll' extension.
+   * e.g. hasImport('GameAssembly.dll'), hasImport('gameassembly'), hasImport('  UNITYPLAYER.DLL ')
+   */
+  public hasImport(dllName: string): boolean {
+    if (!dllName || !this.importsSet) {
+      return false;
+    }
+    const trimmed = dllName.trim().toLowerCase();
+    const normalized = normalizeDllName(dllName);
+    return this.importsSet.has(normalized) || this.importsSet.has(trimmed);
+  }
+
+  /**
+   * Retrieves import metadata and imported functions for a specific DLL.
+   */
+  public getImport(dllName: string): ImportedLibrary | undefined {
+    if (!dllName || !this.imports) {
+      return undefined;
+    }
+    const normalized = normalizeDllName(dllName);
+    return this.imports.find((i) => i.normalizedName === normalized);
+  }
+
+  /**
+   * Retrieves all imported libraries.
+   */
+  public getImports(): ImportedLibrary[] {
+    return [...(this.imports ?? [])];
   }
 
   /**

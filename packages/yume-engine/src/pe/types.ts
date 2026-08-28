@@ -90,6 +90,20 @@ export interface OptionalHeader {
   dataDirectories: ImageDataDirectory[];
 }
 
+export interface ImportedLibrary {
+  name: string;
+  normalizedName: string;
+  functions: string[];
+}
+
+export interface ImageImportDescriptor {
+  originalFirstThunk: number;
+  timeDateStamp: number;
+  forwarderChain: number;
+  nameRva: number;
+  firstThunk: number;
+}
+
 export interface ParsedPEHeader {
   isValid: boolean;
   is64Bit: boolean;

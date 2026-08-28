@@ -11,6 +11,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
     "outDir": "dist"
   },
   "include": ["src/**/*"]

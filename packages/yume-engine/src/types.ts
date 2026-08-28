@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Core types and interfaces for YumeEngine (@yumeshelf/engine)
  */

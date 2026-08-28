@@ -2,6 +2,7 @@
  * In-memory FileSystemProvider for headless tests
  */
 
+import { Buffer } from 'node:buffer';
 import type { FileSystemProvider, IFileHandle } from '../../src/types.js';
 
 function normalizePath(p: string): string {

@@ -3,6 +3,7 @@ import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { YumeEngine } from '@yumeshelf/engine';
 
 class UnityMonoBinFormat {
     match(fileName: string): boolean {
@@ -94,51 +95,22 @@ class UnityMonoBinFormat {
 
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         const assemblyPath = await this.getAssemblyPath(paths);
-        const { executable, baseArgs } = this.getConverterExecutionConfig();
-
-        const tempIn = path.join(os.tmpdir(), `yumeshelf_dec_${Date.now()}_in.bin`);
-        const tempOut = path.join(os.tmpdir(), `yumeshelf_dec_${Date.now()}_out.json`);
-
-        try {
-            await fs.writeFile(tempIn, rawData);
-
-            const args = [...baseArgs, 'to-json', assemblyPath, tempIn, tempOut];
-            console.log(`[SAVE-EDITOR-UNITY] Running decompress command: ${executable} ${args.join(' ')}`);
-            execFileSync(executable, args, { windowsHide: true });
-
-            const jsonStr = await fs.readFile(tempOut, 'utf8');
-            return JSON.parse(jsonStr.replace(/^\uFEFF/, ''));
-        } finally {
-            // Cleanup temp files asynchronously
-            fs.unlink(tempIn).catch(() => {});
-            fs.unlink(tempOut).catch(() => {});
-        }
+        return YumeEngine.decodeSaveFile('unity-binary-formatter', rawData, {
+            fileName,
+            assemblyPath
+        });
     }
 
     async encode(jsonData: any, paths: any, fileName: string): Promise<Buffer> {
         const assemblyPath = await this.getAssemblyPath(paths);
-        const { executable, baseArgs } = this.getConverterExecutionConfig();
-
         const originalBin = path.join(paths.saveDir, fileName);
-        const tempBin = path.join(os.tmpdir(), `yumeshelf_enc_${Date.now()}_out.bin`);
-        const tempJson = path.join(os.tmpdir(), `yumeshelf_enc_${Date.now()}_in.json`);
-
-        try {
-            // Copy original binary to tempBin to serve as serialization base
-            await fs.copyFile(originalBin, tempBin);
-            await fs.writeFile(tempJson, JSON.stringify(jsonData, null, 2), 'utf8');
-
-            const args = [...baseArgs, 'to-bin', assemblyPath, tempBin, tempJson];
-            console.log(`[SAVE-EDITOR-UNITY] Running compress command: ${executable} ${args.join(' ')}`);
-            execFileSync(executable, args, { windowsHide: true });
-
-            const encodedBuffer = await fs.readFile(tempBin);
-            return encodedBuffer;
-        } finally {
-            // Cleanup temp files asynchronously
-            fs.unlink(tempBin).catch(() => {});
-            fs.unlink(tempJson).catch(() => {});
-        }
+        return YumeEngine.encodeSaveFile('unity-binary-formatter', jsonData, {
+            fileName,
+            assemblyPath,
+            options: {
+                originalSavePath: originalBin
+            }
+        });
     }
 }
 

@@ -2,6 +2,7 @@ import * as crypto from 'node:crypto';
 import * as zlib from 'node:zlib';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { YumeEngine } from '@yumeshelf/engine';
 
 function sha256(buffer: Buffer): string {
     return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -197,225 +198,16 @@ class RpgWolfSavFormat {
 
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {
         console.log(`[WOLF-SAV] decode called for file: ${fileName}, length: ${rawData.length}`);
-        if (rawData.length < 20) {
-            throw new Error("File too short to be a valid WOLF RPG save.");
+        const result = await YumeEngine.decodeSaveFile('wolf-sav', rawData, { fileName });
+        if (result) {
+            result.fileName = fileName;
         }
-        
-        const header = rawData.subarray(0, 20);
-        const payload = rawData.subarray(20);
-        const seeds = [header[0], header[3], header[9]];
-        console.log(`[WOLF-SAV] decode header: ${header.toString('hex')}`);
-        console.log(`[WOLF-SAV] decode seeds: ${JSON.stringify(seeds)}`);
-        
-        // Decrypt payload with 3-seed LCG stream cipher
-        const decrypted = this._crypt(payload, seeds);
-        console.log(`[WOLF-SAV] decrypted payload length: ${decrypted.length}`);
-
-        // Read Game Title if header format is present
-        let gameTitle = 'WOLF RPG Game';
-        if (decrypted.length >= 3) {
-            const titleLen = decrypted.readUInt16LE(1);
-            if (titleLen > 0 && titleLen < 256 && 3 + titleLen <= decrypted.length) {
-                gameTitle = decrypted.subarray(3, 3 + titleLen).toString('utf8').split('\0')[0].trim() || 'WOLF RPG Game';
-            }
-        }
-        console.log(`[WOLF-SAV] detected gameTitle: "${gameTitle}"`);
-
-        // 1. Locate System Variables Block (Tag 10 / aux_n14)
-        let sysVarOffset = -1;
-        let sysVarCount = 0;
-        for (let i = 0; i < decrypted.length - 8; i++) {
-            if (decrypted.readInt32LE(i) === 10) {
-                const count = decrypted.readInt32LE(i + 4);
-                if (count >= 50 && count <= 5000 && (count % 10 === 0 || count === 502 || count === 800)) {
-                    if (i + 8 + count * 4 <= decrypted.length) {
-                        sysVarOffset = i + 8;
-                        sysVarCount = count;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Fallback: search for flat variable array without Tag 10
-        if (sysVarOffset === -1) {
-            for (let i = 0; i < decrypted.length - 4; i++) {
-                const count = decrypted.readInt32LE(i);
-                if (count >= 50 && count <= 5000 && count % 10 === 0) {
-                    if (i + 4 + count * 4 <= decrypted.length) {
-                        sysVarOffset = i + 4;
-                        sysVarCount = count;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 2. Locate Database Table Matrix (n: after "save/system.sav\0")
-        let matrixOffset = -1;
-        let numTables = 0;
-        const sysSavRegex = /save\/system\.sav\0/gi;
-        const decLatin1 = decrypted.toString('latin1');
-        let match: RegExpExecArray | null;
-        while ((match = sysSavRegex.exec(decLatin1)) !== null) {
-            const afterStr = match.index + match[0].length;
-            if (afterStr + 8 <= decrypted.length) {
-                const tCount = decrypted.readInt32LE(afterStr);
-                const firstMarker = decrypted.readUInt8(afterStr + 4);
-                if (tCount >= 10 && tCount <= 2000 && firstMarker === 100) {
-                    matrixOffset = afterStr + 5;
-                    numTables = tCount;
-                    break;
-                }
-            }
-        }
-
-        console.log(`[WOLF-SAV] sysVarOffset: ${sysVarOffset} (count: ${sysVarCount}), matrixOffset: ${matrixOffset} (numTables: ${numTables})`);
-        
-        const variables: Record<string, number> = {};
-        const tables: Record<number, Record<number, number>> = {};
-        const aux_n14: Record<string, Record<number, number>> = {};
-
-        // Case A: Game has Database Table Matrix (e.g. 吸血鬼○○日記)
-        if (matrixOffset !== -1) {
-            // Extract System Variables (aux_n14)
-            if (sysVarOffset !== -1) {
-                const aux0: Record<number, number> = {};
-                for (let v = 0; v < sysVarCount; v++) {
-                    const off = sysVarOffset + v * 4;
-                    const val = decrypted.readInt32LE(off);
-                    if (val !== 0) aux0[v] = val;
-                    variables[`sys_${v}`] = val;
-                }
-                aux_n14['0'] = aux0;
-            }
-
-            // Extract Table Matrix (n)
-            for (let t = 0; t < numTables; t++) {
-                const tVars: Record<number, number> = {};
-                let hasNonZero = false;
-                const tableStart = matrixOffset + t * 401;
-                for (let v = 0; v < 100; v++) {
-                    const off = tableStart + v * 4;
-                    if (off + 4 > decrypted.length) break;
-                    const val = decrypted.readInt32LE(off);
-                    variables[`${t * 100 + v}`] = val;
-                    if (val !== 0) {
-                        tVars[v] = val;
-                        hasNonZero = true;
-                    }
-                }
-                if (hasNonZero) {
-                    tables[t] = tVars;
-                }
-            }
-        } 
-        // Case B: Game has Flat System Variables only (e.g. Sister Monochrome Fantasy)
-        else if (sysVarOffset !== -1) {
-            for (let v = 0; v < sysVarCount; v++) {
-                const off = sysVarOffset + v * 4;
-                const val = decrypted.readInt32LE(off);
-                variables[`${v}`] = val;
-            }
-        }
-        
-        console.log(`[WOLF-SAV] decode finished. Total variables extracted: ${Object.keys(variables).length}, active tables: ${Object.keys(tables).length}`);
-
-        return {
-            $type: 'RpgWolfSavBinaryInspection',
-            fileName,
-            gameTitle,
-            format: 'rpg-wolf-sav',
-            variables: variables,
-            tables: tables,
-            aux_n14: aux_n14,
-            switches: {},
-            items: {},
-            weapons: {},
-            armors: {},
-            rawBase64: rawData.toString('base64'),
-            _decryptedBase64: decrypted.toString('base64'),
-            _sysVarOffset: sysVarOffset,
-            _sysVarCount: sysVarCount,
-            _matrixOffset: matrixOffset,
-            _numTables: numTables,
-            canSemanticEdit: true
-        };
+        return result;
     }
 
     async encode(jsonData: any): Promise<Buffer> {
         console.log(`[WOLF-SAV] encode called for file: ${jsonData?.fileName}`);
-        if (!jsonData?.rawBase64 || !jsonData?._decryptedBase64) {
-            throw new Error('Invalid RPG/Wolf .sav inspection payload: missing raw or decrypted binary base64');
-        }
-
-        const rawData = Buffer.from(jsonData.rawBase64, 'base64');
-        if (rawData.length < 20) {
-            throw new Error('Invalid RPG/Wolf .sav binary data: header must be at least 20 bytes');
-        }
-        const header = rawData.subarray(0, 20);
-        const seeds = [header[0], header[3], header[9]];
-        
-        const decrypted = Buffer.from(jsonData._decryptedBase64 || '', 'base64');
-        const sysVarOffset = jsonData._sysVarOffset ?? -1;
-        const matrixOffset = jsonData._matrixOffset ?? -1;
-
-        console.log(`[WOLF-SAV] encode seeds: ${JSON.stringify(seeds)}`);
-        console.log(`[WOLF-SAV] encode sysVarOffset: ${sysVarOffset}, matrixOffset: ${matrixOffset}`);
-        
-        if (jsonData.variables) {
-            console.log(`[WOLF-SAV] encode writing variables...`);
-            for (const [key, value] of Object.entries(jsonData.variables)) {
-                const intVal = Number.parseInt(value as string, 10);
-                if (Number.isNaN(intVal)) continue;
-
-                if (key.startsWith('sys_') && sysVarOffset !== -1) {
-                    const idx = Number.parseInt(key.replace('sys_', ''), 10);
-                    if (!Number.isNaN(idx)) {
-                        const offset = sysVarOffset + idx * 4;
-                        if (offset + 4 <= decrypted.length) {
-                            decrypted.writeInt32LE(intVal, offset);
-                        }
-                    }
-                } else {
-                    const idx = Number.parseInt(key, 10);
-                    if (!Number.isNaN(idx)) {
-                        if (matrixOffset !== -1) {
-                            const t = Math.floor(idx / 100);
-                            const v = idx % 100;
-                            const offset = matrixOffset + t * 401 + v * 4;
-                            if (offset + 4 <= decrypted.length) {
-                                decrypted.writeInt32LE(intVal, offset);
-                            }
-                        } else if (sysVarOffset !== -1) {
-                            const offset = sysVarOffset + idx * 4;
-                            if (offset + 4 <= decrypted.length) {
-                                decrypted.writeInt32LE(intVal, offset);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Re-encrypt the payload
-        const reEncryptedPayload = this._crypt(decrypted, seeds);
-        
-        // Construct a safe, mutable copy of the header and update the checksum (payload sum LSB)
-        const headerCopy = Buffer.from(header);
-        let sum = 0;
-        for (const byte of decrypted) {
-            sum = (sum + byte) & 0xFF;
-        }
-        console.log(`[WOLF-SAV] decrypted payload byte sum (lower 8 bits): 0x${sum.toString(16).toUpperCase()}`);
-        console.log(`[WOLF-SAV] original header checksum byte:        0x${header[2].toString(16).toUpperCase()}`);
-        console.log(`[WOLF-SAV] writing new checksum byte to header:  0x${sum.toString(16).toUpperCase()}`);
-        headerCopy[2] = sum;
-        
-        // Construct final file
-        const finalFile = Buffer.concat([headerCopy, reEncryptedPayload]);
-        console.log(`[WOLF-SAV] final encoded file length: ${finalFile.length}`);
-        return finalFile;
+        return YumeEngine.encodeSaveFile('wolf-sav', jsonData);
     }
 
     async metadata(jsonData: any, paths: any, fileName: string): Promise<any> {

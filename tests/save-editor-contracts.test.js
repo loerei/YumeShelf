@@ -164,6 +164,10 @@ test('SaveDataEngine - End-to-end writeSave with sanitizeSaveData preserves form
     decryptedPayload.writeInt32LE(800, 0);
     decryptedPayload.writeInt32LE(777, 4 + 7 * 4); // Gold = 777
 
+    let sum1 = 0;
+    for (const b of decryptedPayload) sum1 = (sum1 + b) & 0xFF;
+    header[2] = sum1;
+
     const encrypted = strategy._crypt(decryptedPayload, seeds);
     const mockSaveBuffer = Buffer.concat([header, encrypted]);
 
@@ -233,6 +237,10 @@ test('SaveDataEngine - End-to-end writeSave with Wolf RPG segmented table matrix
     }
 
     const unencrypted = Buffer.concat([sysTagBuffer, delimiter, matrixHeader, matrixBody]);
+    let sum2 = 0;
+    for (const b of unencrypted) sum2 = (sum2 + b) & 0xFF;
+    header[2] = sum2;
+
     const encrypted = strategy._crypt(unencrypted, seeds);
     const mockSaveBuffer = Buffer.concat([header, encrypted]);
 

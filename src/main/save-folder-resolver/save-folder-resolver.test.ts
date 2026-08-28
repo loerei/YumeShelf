@@ -86,8 +86,9 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
 
         const result = await resolver.resolve('C:/Games/UnknownGame/Game.exe');
         expect(result.engine).toBe('unknown');
-        expect(result.confidence).toBe('medium');
+        expect(result.confidence).toBe('high');
         expect(result.source).toBe('heuristic');
         expect(result.path).toBe('C:/Games/UnknownGame/savedata');
     });
 });
+

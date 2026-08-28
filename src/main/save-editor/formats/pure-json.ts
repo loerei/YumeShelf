@@ -1,4 +1,5 @@
 import { TelemetryShipper } from '../../telemetry/shipper';
+import { YumeEngine } from '@yumeshelf/engine';
 
 class PureJsonFormat {
     match(fileName: string): boolean {
@@ -14,26 +15,11 @@ class PureJsonFormat {
             10
         );
 
-        const str = rawData.toString('utf8');
-        try {
-            const data = JSON.parse(str);
-            if (data && typeof data === 'object') {
-                data.$type = 'PureJsonSave';
-            }
-            return data;
-        } catch (err) {
-            console.error('[SAVE-EDITOR-JSON] Failed to parse JSON:', err);
-            throw err;
-        }
+        return YumeEngine.decodeSaveFile('pure-json', rawData);
     }
 
     async encode(jsonData: any): Promise<Buffer> {
-        const cleanData = { ...jsonData };
-        delete cleanData.$type;
-        delete cleanData._userMappings;
-        
-        const outputStr = JSON.stringify(cleanData);
-        return Buffer.from(outputStr, 'utf8');
+        return YumeEngine.encodeSaveFile('pure-json', jsonData);
     }
 
     async metadata(jsonData: any): Promise<any> {

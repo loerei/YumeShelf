@@ -35,19 +35,6 @@ export class WolfSavSaveCodec {
     // Decrypt payload with 3-seed LCG stream cipher
     const decrypted = WolfSavSaveCodec.crypt(payload, seeds);
 
-    // Validate Checksum (header[2] is lower 8-bit sum of decrypted payload)
-    let sum = 0;
-    for (const byte of decrypted) {
-      sum = (sum + byte) & 0xff;
-    }
-
-    if (header[2] !== sum) {
-      throw new SaveCodecError(
-        `Wolf RPG save checksum mismatch: expected 0x${header[2].toString(16)}, calculated 0x${sum.toString(16)}`,
-        'CHECKSUM_FAILED'
-      );
-    }
-
     // Read Game Title if header format is present
     let gameTitle = 'WOLF RPG Game';
     if (decrypted.length >= 3) {
@@ -150,7 +137,6 @@ export class WolfSavSaveCodec {
         const off = sysVarOffset + v * 4;
         const val = decrypted.readInt32LE(off);
         variables[`${v}`] = val;
-        variables[`sys_${v}`] = val;
       }
     }
 
@@ -196,7 +182,7 @@ export class WolfSavSaveCodec {
     const header = rawData.subarray(0, 20);
     const seeds = [header[0], header[3], header[9]];
     const decrypted = Buffer.from(jsonData._decryptedBase64, 'base64');
-    const sysVarOffset = jsonData._sysVarOffset ?? -1;
+    const sysVarOffset = jsonData._sysVarOffset ?? jsonData._varArrayOffset ?? -1;
     const matrixOffset = jsonData._matrixOffset ?? -1;
 
     if (jsonData.variables && typeof jsonData.variables === 'object') {

@@ -1,25 +1,42 @@
-import { getExeStemFromPath } from './utils';
 import { detectEngine, profileToEngineType } from './engine-detectors';
-import {
-    resolveRpgMakerSave,
-    resolveRpgVxAceSave,
-    resolveRenPySave,
-    resolveUnitySave,
-    resolveUnrealSave,
-    resolveWolfRpgSave,
-    resolveFlashSave,
-    resolveBakinSave,
-    resolveGodotSave,
-    resolveGameMakerSave,
-    resolveTyranoBuilderSave
-} from './resolvers/engine-resolvers';
-import { deepenSaveFolder, heuristicSaveScan, appDataFuzzyMatch } from './heuristics';
 import { FileSystemProvider, GameEngineType, ResolvedSaveDirectory } from './types';
-import { DefaultFileSystemProvider } from './fs-provider';
+import { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
+import { YumeEngine, type ResolvedSaveLocation } from '@yumeshelf/engine';
 
 export type { GameEngineType, ResolvedSaveDirectory, FileSystemProvider };
 export { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
 export { detectEngine, profileToEngineType };
+
+function mapEngineType(matchedStrategy?: string, engineProfileType?: GameEngineType | null): GameEngineType | 'unknown' {
+    if (engineProfileType) return engineProfileType;
+    if (!matchedStrategy) return 'unknown';
+    switch (matchedStrategy) {
+        case 'rpg-maker-mv-mz':
+            return 'rpg-mv-mz';
+        case 'rpg-maker-rgss':
+            return 'rpg-vxace';
+        case 'renpy-pickle':
+            return 'renpy';
+        case 'unity':
+            return 'unity';
+        case 'unreal-sav':
+            return 'unreal';
+        case 'wolf-sav':
+            return 'wolf-rpg';
+        case 'flash':
+            return 'flash';
+        case 'bakin-sgs':
+            return 'bakin';
+        case 'godot':
+            return 'godot';
+        case 'gamemaker-appdata':
+            return 'gamemaker';
+        case 'tyranobuilder':
+            return 'tyranobuilder';
+        default:
+            return 'unknown';
+    }
+}
 
 export class SaveFolderResolver {
     private readonly fs: FileSystemProvider;
@@ -45,93 +62,116 @@ export class SaveFolderResolver {
         }
 
         const exeDir = this.fs.dirname(exePath);
-        const exeStem = getExeStemFromPath(exePath);
-        let result: ResolvedSaveDirectory | null = null;
+        const engineType = await detectEngine(exeDir, this.fs);
 
-        // 2. Engine Detection & Deterministic Resolution
-        const engine = await detectEngine(exeDir, this.fs);
-        if (engine) {
-            result = await this.resolveDeterministicSaveByEngine(engine, exeDir, exeStem);
-            if (result) {
-                console.log(`[SAVE-RESOLVER][SUCCESS] Deterministic found: ${result.path} (Engine: ${engine})`);
+        // Convert detected engine type to partial profile for YumeEngine
+        let profile: any = undefined;
+        if (engineType) {
+            switch (engineType) {
+                case 'rpg-mv-mz':
+                    profile = { family: 'rpg-maker', variant: 'mv-mz', saveStrategy: 'rpg-maker-mv-mz' };
+                    break;
+                case 'rpg-vxace':
+                    profile = { family: 'rpg-maker', variant: 'vx-ace', saveStrategy: 'rpg-maker-rgss' };
+                    break;
+                case 'renpy':
+                    profile = { family: 'renpy', saveStrategy: 'renpy-pickle' };
+                    break;
+                case 'unity':
+                    profile = { family: 'unity', saveStrategy: 'unity' };
+                    break;
+                case 'unreal':
+                    profile = { family: 'unreal', saveStrategy: 'unreal-sav' };
+                    break;
+                case 'wolf-rpg':
+                    profile = { family: 'wolf-rpg', saveStrategy: 'wolf-sav' };
+                    break;
+                case 'flash':
+                    profile = { family: 'flash', saveStrategy: 'flash' };
+                    break;
+                case 'bakin':
+                    profile = { family: 'bakin', saveStrategy: 'bakin-sgs' };
+                    break;
+                case 'godot':
+                    profile = { family: 'godot', saveStrategy: 'godot' };
+                    break;
+                case 'gamemaker':
+                    profile = { family: 'gamemaker', saveStrategy: 'gamemaker-appdata' };
+                    break;
+                case 'tyranobuilder':
+                    profile = { family: 'tyranobuilder', saveStrategy: 'tyranobuilder' };
+                    break;
             }
         }
 
-        // 3. Heuristic File System Scan Fallback
-        if (!result) {
-            const heuristicResult = await heuristicSaveScan(exeDir, 0, this.fs);
-            if (heuristicResult) {
-                heuristicResult.engine = heuristicResult.engine || engine || 'unknown';
-                console.log(`[SAVE-RESOLVER][SUCCESS] Heuristic found: ${heuristicResult.path}`);
-                result = heuristicResult;
-            }
-        }
+        // Bridge FileSystemProvider to YumeEngine FileSystemProvider
+        const engineFs: any = {
+            exists: async (p: string) => this.fs.exists(p),
+            readdir: async (p: string) => this.fs.readdir(p),
+            readFile: async (p: string, encoding?: any) => this.fs.readFile(p, encoding || 'utf8'),
+            stat: async (p: string) => {
+                const isDir = await this.fs.isDirectory(p);
+                return {
+                    size: 0,
+                    isDirectory: () => isDir,
+                    isFile: () => !isDir
+                };
+            },
+            open: async (p: string) => {
+                const content = await this.fs.readFile(p, 'utf8');
+                const buf = Buffer.from(content);
+                return {
+                    read: async (offset: number, length: number) => buf.subarray(offset, offset + length),
+                    close: async () => {}
+                };
+            },
+            getAppDataPath: () => this.fs.getEnv('APPDATA') || (this.fs.getXdgConfigHome?.() || ''),
+            getLocalAppDataPath: () => this.fs.getEnv('LOCALAPPDATA') || (this.fs.getXdgDataHome?.() || ''),
+            getUserProfilePath: () => this.fs.getEnv('USERPROFILE') || this.fs.getEnv('HOME') || this.fs.getHomeDir?.() || '',
+            getDocumentsPath: () => {
+                const user = this.fs.getEnv('USERPROFILE') || this.fs.getEnv('HOME') || this.fs.getHomeDir?.() || '';
+                return user ? this.fs.join(user, 'Documents') : '';
+            },
+            getSavedGamesPath: () => {
+                const user = this.fs.getEnv('USERPROFILE') || this.fs.getEnv('HOME') || this.fs.getHomeDir?.() || '';
+                return user ? this.fs.join(user, 'Saved Games') : '';
+            },
+            getXdgConfigHome: () => this.fs.getXdgConfigHome?.() || '',
+            getXdgDataHome: () => this.fs.getXdgDataHome?.() || '',
+            getWinePrefixRoots: (dir?: string) => this.fs.getWinePrefixRoots?.(dir) || Promise.resolve([]),
+            getWineAppDataPaths: (prefix: string, type: any) => this.fs.getWineAppDataPaths?.(prefix, type) || Promise.resolve([]),
+        };
 
-        // 4. AppData Fuzzy Matching Fallback
-        if (!result) {
-            const appDataResult = await appDataFuzzyMatch(exeDir, exeStem, this.fs);
-            if (appDataResult) {
-                console.log(`[SAVE-RESOLVER][SUCCESS] AppData found: ${appDataResult.path}`);
-                result = appDataResult;
-            }
-        }
+        const resolved: ResolvedSaveLocation | null = await YumeEngine.resolveSaveDirectory(
+            profile,
+            exePath,
+            engineFs,
+            { saveFolderOverride }
+        );
 
-        // 4b. Predicted Default Path for Unlaunched Games
-        if (!result && engine === 'rpg-mv-mz') {
-            if (await this.fs.exists(this.fs.join(exeDir, 'bin', 'www'))) {
-                result = { path: this.fs.join(exeDir, 'bin', 'www', 'save'), engine, confidence: 'high', source: 'deterministic' };
-            } else if (await this.fs.exists(this.fs.join(exeDir, 'www'))) {
-                result = { path: this.fs.join(exeDir, 'www', 'save'), engine, confidence: 'high', source: 'deterministic' };
-            } else if (await this.fs.exists(this.fs.join(exeDir, 'data'))) {
-                result = { path: this.fs.join(exeDir, 'save'), engine, confidence: 'high', source: 'deterministic' };
-            }
-        }
+        if (resolved && resolved.path) {
+            const mappedEngine = resolved.source === 'override'
+                ? 'user-override'
+                : (engineType || mapEngineType(resolved.matchedStrategy, engineType));
 
-        // 5. Deepen Folder Path if Found
-        if (result?.path) {
-            const deeper = await deepenSaveFolder(result.path, this.fs);
-            if (deeper && deeper !== result.path) {
-                console.log(`[SAVE-RESOLVER][DEEPEN] ${result.path} -> ${deeper}`);
-                result.path = deeper;
-            }
-            return result;
+            const mappedSource = (resolved.source === 'wine' ? 'deterministic' : resolved.source) as ResolvedSaveDirectory['source'];
+
+            console.log(`[SAVE-RESOLVER][SUCCESS] ${resolved.source} found: ${resolved.path} (Engine: ${mappedEngine})`);
+            return {
+                path: resolved.path,
+                engine: mappedEngine,
+                confidence: resolved.confidence,
+                source: mappedSource
+            };
         }
 
         console.log(`[SAVE-RESOLVER][FAILED] No save folder found for ${exePath}`);
-        return { path: null, engine: engine, confidence: 'none', source: 'none' };
-    }
-
-    private async resolveDeterministicSaveByEngine(
-        engine: GameEngineType,
-        exeDir: string,
-        exeStem: string
-    ): Promise<ResolvedSaveDirectory | null> {
-        switch (engine) {
-            case 'rpg-mv-mz':
-                return await resolveRpgMakerSave(exeDir, this.fs);
-            case 'rpg-vxace':
-                return await resolveRpgVxAceSave(exeDir, this.fs);
-            case 'renpy':
-                return await resolveRenPySave(exeDir, exeStem, this.fs);
-            case 'unity':
-                return await resolveUnitySave(exeDir, this.fs);
-            case 'unreal':
-                return await resolveUnrealSave(exeDir, exeStem, this.fs);
-            case 'wolf-rpg':
-                return await resolveWolfRpgSave(exeDir, this.fs);
-            case 'flash':
-                return await resolveFlashSave(exeDir, exeStem, this.fs);
-            case 'bakin':
-                return await resolveBakinSave(exeDir, this.fs);
-            case 'godot':
-                return await resolveGodotSave(exeDir, exeStem, this.fs);
-            case 'gamemaker':
-                return await resolveGameMakerSave(exeDir, exeStem, this.fs);
-            case 'tyranobuilder':
-                return await resolveTyranoBuilderSave(exeDir, this.fs);
-            default:
-                return null;
-        }
+        return {
+            path: null,
+            engine: engineType || null,
+            confidence: 'none',
+            source: 'none'
+        };
     }
 }
 
@@ -143,3 +183,4 @@ export async function resolveSaveFolder(
 ): Promise<ResolvedSaveDirectory> {
     return defaultResolver.resolve(exePath, saveFolderOverride);
 }
+

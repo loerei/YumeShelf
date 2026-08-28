@@ -1,5 +1,5 @@
 import { TelemetryShipper } from '../../telemetry/shipper';
-import { LZString } from '../../core/lz-string';
+import { YumeEngine } from '@yumeshelf/engine';
 
 class RpgMakerMvFormat {
     match(fileName: string): boolean {
@@ -15,23 +15,11 @@ class RpgMakerMvFormat {
             9
         );
 
-        // Convert Buffer to UTF-8 string first
-        const str = rawData.toString('utf8');
-        try {
-            const decompressed = LZString.decompressFromBase64(str);
-            if (typeof decompressed === 'string') {
-                return JSON.parse(decompressed);
-            }
-            throw new Error('Decompression returned null');
-        } catch {
-            return JSON.parse(str);
-        }
+        return YumeEngine.decodeSaveFile('rpg-maker-mv', rawData);
     }
 
     async encode(jsonData: any): Promise<Buffer> {
-        const compressed = LZString.compressToBase64(JSON.stringify(jsonData));
-        // Return as a Buffer object
-        return Buffer.from(compressed, 'utf8');
+        return YumeEngine.encodeSaveFile('rpg-maker-mv', jsonData);
     }
 }
 

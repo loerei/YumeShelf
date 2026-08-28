@@ -19,6 +19,7 @@ import {
   ImportedLibrary,
   OptionalHeader,
   ParsedPEHeader,
+  PEVersionInfo,
 } from './types.js';
 import {
   safeReadAsciiString,
@@ -28,6 +29,7 @@ import {
   safeReadUInt32LE,
 } from './binary-reader.js';
 import { normalizeDllName, parseImportDirectory } from './import-parser.js';
+import { parseVersionInfo } from './version-parser.js';
 
 export interface RvaReader {
   (offset: number, length: number): Promise<Buffer | null>;
@@ -44,6 +46,7 @@ export class PEInspector {
   public readonly rawBuffer: Buffer | null;
   public readonly imports: ImportedLibrary[];
   public readonly importsSet: Set<string>;
+  public readonly versionInfo: PEVersionInfo | null;
   private readonly lazyReader: RvaReader | null;
 
   constructor(
@@ -64,6 +67,7 @@ export class PEInspector {
     const { libraries, importsSet } = parseImportDirectory(this);
     this.imports = libraries;
     this.importsSet = importsSet;
+    this.versionInfo = parseVersionInfo(this);
   }
 
   /**

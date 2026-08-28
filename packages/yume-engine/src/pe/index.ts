@@ -8,4 +8,5 @@
 export * from './types.js';
 export * from './binary-reader.js';
 export * from './import-parser.js';
+export * from './version-parser.js';
 export * from './pe-inspector.js';

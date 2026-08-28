@@ -42,6 +42,8 @@ export enum ImageDataDirectoryIndex {
   RESERVED = 15,
 }
 
+export const RT_VERSION = 16;
+
 export interface ImageDataDirectory {
   virtualAddress: number;
   size: number;
@@ -102,6 +104,19 @@ export interface ImageImportDescriptor {
   forwarderChain: number;
   nameRva: number;
   firstThunk: number;
+}
+
+export interface PEVersionInfo {
+  originalFilename?: string;
+  productName?: string;
+  internalName?: string;
+  fileDescription?: string;
+  fileVersion?: string;
+  productVersion?: string;
+  companyName?: string;
+  legalCopyright?: string;
+  comments?: string;
+  rawValues: Record<string, string>;
 }
 
 export interface ParsedPEHeader {

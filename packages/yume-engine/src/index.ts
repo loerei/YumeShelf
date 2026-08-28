@@ -14,11 +14,15 @@ import type {
 import { SaveCodecError } from './types.js';
 import { PEInspector } from './pe/pe-inspector.js';
 import { defaultRuleRegistry } from './rules/engine-rule-registry.js';
+import { resolveSaveDirectory, type ResolveSaveOptions } from './save-resolvers/index.js';
+import { NodeFileSystemProvider } from './fs/node-fs-provider.js';
 
 export type * from './types.js';
 export { SaveCodecError } from './types.js';
 export * from './pe/index.js';
 export * from './rules/index.js';
+export * from './save-resolvers/index.js';
+export * from './fs/index.js';
 
 export class YumeEngine {
   static async inspectExecutable(
@@ -43,11 +47,13 @@ export class YumeEngine {
   }
 
   static async resolveSaveDirectory(
-    profile: GameEngineProfile,
+    profile: GameEngineProfile | undefined,
     exePath: string,
-    fs?: FileSystemProvider
+    fs?: FileSystemProvider,
+    options?: ResolveSaveOptions
   ): Promise<ResolvedSaveLocation | null> {
-    throw new Error('resolveSaveDirectory: Not yet implemented in scaffold stage');
+    const provider = fs || new NodeFileSystemProvider();
+    return resolveSaveDirectory(profile, exePath, provider, options);
   }
 
   static async decodeSaveFile(

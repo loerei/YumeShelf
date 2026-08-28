@@ -22,8 +22,8 @@ export interface IEnvironmentPaths {
   getUserProfilePath(): string;
   getDocumentsPath(): string;
   getSavedGamesPath(): string;
-  getWinePrefixRoots?(): string[];
-  getWineAppDataPaths?(): string[];
+  getWinePrefixRoots?(exeDir?: string): Promise<string[]> | string[];
+  getWineAppDataPaths?(prefix: string, type?: 'Roaming' | 'Local' | 'LocalLow'): Promise<string[]> | string[];
   getXdgDataHome?(): string;
   getXdgConfigHome?(): string;
 }

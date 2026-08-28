@@ -5,8 +5,12 @@
 import { Buffer } from 'node:buffer';
 import type { FileSystemProvider, IFileHandle } from '../../src/types.js';
 
-function normalizePath(p: string): string {
+function normalizeLookupKey(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase();
+}
+
+function cleanPath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/\/+/g, '/');
 }
 
 export interface MockFileSystemOptions {
@@ -22,8 +26,8 @@ export interface MockFileSystemOptions {
 }
 
 export class MockFileSystemProvider implements FileSystemProvider {
-  private files: Map<string, Buffer> = new Map();
-  private directories: Set<string> = new Set();
+  private files: Map<string, { originalPath: string; buffer: Buffer }> = new Map();
+  private directories: Map<string, string> = new Map();
 
   private appDataPath: string;
   private localAppDataPath: string;
@@ -55,11 +59,12 @@ export class MockFileSystemProvider implements FileSystemProvider {
 
   // --- Test Setup Helpers ---
 
-  public writeFile(path: string, content: string | Buffer): void {
-    const norm = normalizePath(path);
+  public writeFile(path: string, content: string | Buffer = ''): void {
+    const cleaned = cleanPath(path);
+    const key = normalizeLookupKey(cleaned);
     const buf = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
-    this.files.set(norm, buf);
-    this.ensureParentDirectories(norm);
+    this.files.set(key, { originalPath: cleaned, buffer: buf });
+    this.ensureParentDirectories(cleaned);
   }
 
   public mkdir(path: string): void {
@@ -67,17 +72,17 @@ export class MockFileSystemProvider implements FileSystemProvider {
   }
 
   public deleteFile(path: string): void {
-    const norm = normalizePath(path);
-    this.files.delete(norm);
+    const key = normalizeLookupKey(path);
+    this.files.delete(key);
   }
 
   private ensureDirectory(path: string): void {
-    const norm = normalizePath(path);
-    const parts = norm.split('/').filter(Boolean);
-    let current = norm.startsWith('/') ? '' : '';
+    const cleaned = cleanPath(path);
+    const parts = cleaned.split('/').filter(Boolean);
+    let current = cleaned.startsWith('/') ? '' : '';
     for (const part of parts) {
-      current = current ? `${current}/${part}` : (norm.startsWith('/') ? `/${part}` : part);
-      this.directories.add(current);
+      current = current ? `${current}/${part}` : (cleaned.startsWith('/') ? `/${part}` : part);
+      this.directories.set(normalizeLookupKey(current), current);
     }
   }
 
@@ -91,12 +96,13 @@ export class MockFileSystemProvider implements FileSystemProvider {
   // --- IFileSystem Implementation ---
 
   async open(path: string): Promise<IFileHandle> {
-    const norm = normalizePath(path);
-    const buf = this.files.get(norm);
-    if (!buf) {
+    const key = normalizeLookupKey(path);
+    const entry = this.files.get(key);
+    if (!entry) {
       throw new Error(`ENOENT: no such file or directory, open '${path}'`);
     }
 
+    const buf = entry.buffer;
     return {
       read: async (offset: number, length: number): Promise<Buffer> => {
         if (offset < 0 || offset >= buf.length) {
@@ -112,28 +118,28 @@ export class MockFileSystemProvider implements FileSystemProvider {
   }
 
   async readFile(path: string, encoding?: BufferEncoding): Promise<string | Buffer> {
-    const norm = normalizePath(path);
-    const buf = this.files.get(norm);
-    if (!buf) {
+    const key = normalizeLookupKey(path);
+    const entry = this.files.get(key);
+    if (!entry) {
       throw new Error(`ENOENT: no such file or directory, open '${path}'`);
     }
     if (encoding) {
-      return buf.toString(encoding);
+      return entry.buffer.toString(encoding);
     }
-    return Buffer.from(buf);
+    return Buffer.from(entry.buffer);
   }
 
   async stat(path: string): Promise<{ size: number; isDirectory(): boolean; isFile(): boolean }> {
-    const norm = normalizePath(path);
-    if (this.files.has(norm)) {
-      const size = this.files.get(norm)!.length;
+    const key = normalizeLookupKey(path);
+    if (this.files.has(key)) {
+      const size = this.files.get(key)!.buffer.length;
       return {
         size,
         isDirectory: () => false,
         isFile: () => true,
       };
     }
-    if (this.directories.has(norm)) {
+    if (this.directories.has(key)) {
       return {
         size: 0,
         isDirectory: () => true,
@@ -144,36 +150,46 @@ export class MockFileSystemProvider implements FileSystemProvider {
   }
 
   async readdir(path: string): Promise<string[]> {
-    const norm = normalizePath(path).replace(/\/+$/, '');
-    const prefix = norm ? `${norm}/` : '';
-    const entries = new Set<string>();
+    const cleaned = cleanPath(path).replace(/\/+$/, '');
+    const key = normalizeLookupKey(cleaned);
+    const prefix = key ? `${key}/` : '';
+    const entries = new Map<string, string>(); // lowerName -> originalName
 
-    for (const file of this.files.keys()) {
-      if (file.startsWith(prefix)) {
-        const rest = file.slice(prefix.length);
-        const firstSegment = rest.split('/')[0];
-        if (firstSegment) entries.add(firstSegment);
+    for (const fileEntry of this.files.values()) {
+      const fileKey = normalizeLookupKey(fileEntry.originalPath);
+      if (fileKey.startsWith(prefix)) {
+        const restKey = fileKey.slice(prefix.length);
+        const restOrig = fileEntry.originalPath.slice(cleaned.length + (cleaned ? 1 : 0));
+        const firstSegmentKey = restKey.split('/')[0];
+        const firstSegmentOrig = restOrig.split('/')[0];
+        if (firstSegmentKey && !entries.has(firstSegmentKey)) {
+          entries.set(firstSegmentKey, firstSegmentOrig);
+        }
       }
     }
 
-    for (const dir of this.directories) {
-      if (dir.startsWith(prefix) && dir !== norm) {
-        const rest = dir.slice(prefix.length);
-        const firstSegment = rest.split('/')[0];
-        if (firstSegment) entries.add(firstSegment);
+    for (const [dirKey, dirOrig] of this.directories.entries()) {
+      if (dirKey.startsWith(prefix) && dirKey !== key) {
+        const restKey = dirKey.slice(prefix.length);
+        const restOrig = dirOrig.slice(cleaned.length + (cleaned ? 1 : 0));
+        const firstSegmentKey = restKey.split('/')[0];
+        const firstSegmentOrig = restOrig.split('/')[0];
+        if (firstSegmentKey && !entries.has(firstSegmentKey)) {
+          entries.set(firstSegmentKey, firstSegmentOrig);
+        }
       }
     }
 
-    if (entries.size === 0 && !this.directories.has(norm) && !this.files.has(norm)) {
+    if (entries.size === 0 && !this.directories.has(key) && !this.files.has(key)) {
       throw new Error(`ENOENT: no such file or directory, scandir '${path}'`);
     }
 
-    return Array.from(entries);
+    return Array.from(entries.values());
   }
 
   async exists(path: string): Promise<boolean> {
-    const norm = normalizePath(path);
-    return this.files.has(norm) || this.directories.has(norm);
+    const key = normalizeLookupKey(path);
+    return this.files.has(key) || this.directories.has(key);
   }
 
   // --- IEnvironmentPaths Implementation ---
@@ -231,7 +247,13 @@ export class MockFileSystemProvider implements FileSystemProvider {
     this.winePrefixRoots = roots;
   }
 
-  getWineAppDataPaths(): string[] {
+  getWineAppDataPaths(prefix?: string, type: 'Roaming' | 'Local' | 'LocalLow' = 'Roaming'): string[] {
+    if (type === 'Local') {
+      return this.wineAppDataPaths.map((p) => p.replace(/Roaming$/i, 'Local'));
+    }
+    if (type === 'LocalLow') {
+      return this.wineAppDataPaths.map((p) => p.replace(/Roaming$/i, 'LocalLow'));
+    }
     return this.wineAppDataPaths;
   }
 

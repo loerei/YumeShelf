@@ -11,6 +11,7 @@ import type { EngineClassificationRule, ScanContext } from './types.js';
 import { PEInspector } from '../pe/pe-inspector.js';
 import { Core3DAndBinaryRules } from './rules-3d-binary.js';
 import { DoujinAndRPGRules } from './rules-doujin-rpg.js';
+import { InteractiveFictionAndWebRules } from './rules-if-web.js';
 
 export class EngineRuleRegistry {
   private rules: EngineClassificationRule[] = [];
@@ -21,6 +22,9 @@ export class EngineRuleRegistry {
       this.registerRule(rule);
     }
     for (const rule of DoujinAndRPGRules) {
+      this.registerRule(rule);
+    }
+    for (const rule of InteractiveFictionAndWebRules) {
       this.registerRule(rule);
     }
   }

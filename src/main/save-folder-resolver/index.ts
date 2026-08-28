@@ -1,6 +1,6 @@
 import { detectEngine, profileToEngineType } from './engine-detectors';
 import { FileSystemProvider, GameEngineType, ResolvedSaveDirectory } from './types';
-import { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
+import { DefaultFileSystemProvider } from './fs-provider';
 import { YumeEngine, type ResolvedSaveLocation } from '@yumeshelf/engine';
 
 export type { GameEngineType, ResolvedSaveDirectory, FileSystemProvider };
@@ -138,8 +138,14 @@ export class SaveFolderResolver {
             },
             getXdgConfigHome: () => this.fs.getXdgConfigHome?.() || '',
             getXdgDataHome: () => this.fs.getXdgDataHome?.() || '',
-            getWinePrefixRoots: (dir?: string) => this.fs.getWinePrefixRoots?.(dir) || Promise.resolve([]),
-            getWineAppDataPaths: (prefix: string, type: any) => this.fs.getWineAppDataPaths?.(prefix, type) || Promise.resolve([]),
+            getWinePrefixRoots: async (dir?: string) => {
+                const roots = this.fs.getWinePrefixRoots ? await this.fs.getWinePrefixRoots(dir) : [];
+                return roots || [];
+            },
+            getWineAppDataPaths: async (prefix: string, type: any) => {
+                const paths = this.fs.getWineAppDataPaths ? await this.fs.getWineAppDataPaths(prefix, type) : [];
+                return paths || [];
+            },
         };
 
         const resolved: ResolvedSaveLocation | null = await YumeEngine.resolveSaveDirectory(
@@ -149,7 +155,7 @@ export class SaveFolderResolver {
             { saveFolderOverride }
         );
 
-        if (resolved && resolved.path) {
+        if (resolved?.path) {
             const mappedEngine = resolved.source === 'override'
                 ? 'user-override'
                 : (engineType || mapEngineType(resolved.matchedStrategy, engineType));
@@ -164,7 +170,6 @@ export class SaveFolderResolver {
                 source: mappedSource
             };
         }
-
         console.log(`[SAVE-RESOLVER][FAILED] No save folder found for ${exePath}`);
         return {
             path: null,

@@ -10,7 +10,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
-import { YumeEngine, GameEngineProfile } from '@yumeshelf/engine';
+import { YumeEngine } from '@yumeshelf/engine';
 import { downloadFile, downloadBuffer, ensureDir } from '../core/shared-io';
 import { extractZip } from '../core/zip-extractor';
 import { createDirectorySymlink } from '../core/filesystem-adapter';
@@ -391,7 +391,7 @@ export class TranslationService {
     async detectUnityType(exePath: string): Promise<UnityDetection | null> {
         try {
             const profile = await YumeEngine.inspectExecutable(exePath);
-            if (profile && profile.family === 'unity') {
+            if (profile?.family === 'unity') {
                 const type: 'mono' | 'il2cpp' = profile.variant === 'il2cpp' ? 'il2cpp' : 'mono';
                 const arch: 'x64' | 'x86' = profile.arch === 'x86' ? 'x86' : 'x64';
                 return { type, arch };

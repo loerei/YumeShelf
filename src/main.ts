@@ -22,7 +22,6 @@ import { createStatusBroadcaster } from './main/window/broadcast-status';
 import { createMainWindow, logStartupDiagnostics } from './main/window/main-window';
 import { createSaveEditorService } from './main/save-editor';
 import { TranslationService } from './main/translation/translation-service';
-import { YumeEngine } from '@yumeshelf/engine';
 
 if (!app.isPackaged) {
     app.setName('YumeShelfDev');

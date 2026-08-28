@@ -466,6 +466,13 @@
     line-height: 1.4;
 }
 
+.about-author {
+    margin: 4px 0 0 0;
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.4;
+}
+
 .about-credits-section {
     display: flex;
     flex-direction: column;

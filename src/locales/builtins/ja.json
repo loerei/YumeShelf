@@ -341,6 +341,7 @@
     "settings_about_credits": "アプリ情報と謝辞",
     "about_modal_title": "アプリ情報と謝辞",
     "about_tagline": "個人のゲームコレクションを美しく管理するミニマルランチャー。",
+    "about_author": "作者：<a href=\"https://github.com/loerei\" class=\"about-external-link\" target=\"_blank\" rel=\"noreferrer\">loerei</a>",
     "about_credits_heading": "謝辞＆クレジット",
     "about_credits_intro": "YumeShelf および YumeEngine コアバイナリ解析エンジンは、以下のオープンソースプロジェクトと解析ヒューリスティクスを活用しています：",
     "about_credit_die_desc": "バイナリ解析ヒューリスティクス、PE 構造解析、ゲームエンジンシグネチャ。",

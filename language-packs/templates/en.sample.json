@@ -341,6 +341,7 @@
     "settings_about_credits": "About & Credits",
     "about_modal_title": "About & Credits",
     "about_tagline": "A minimalist game library and launcher for your personal collection.",
+    "about_author": "Created by <a href=\"https://github.com/loerei\" class=\"about-external-link\" target=\"_blank\" rel=\"noreferrer\">loerei</a>",
     "about_credits_heading": "Acknowledgements & Credits",
     "about_credits_intro": "YumeShelf and the YumeEngine core parser are built upon foundational open-source engineering and heuristics from the community:",
     "about_credit_die_desc": "Binary inspection heuristics, PE structure analysis, and engine signatures.",

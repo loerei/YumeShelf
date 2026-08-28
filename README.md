@@ -5,9 +5,9 @@
 
   <p>
     <a href="#english">English</a> | 
-    <a href="#tiếng-việt">Tiếng Việt</a> | 
-    <a href="#简体中文">简体中文</a> | 
-    <a href="#日本語">日本語</a>
+    <a href="README.vi.md">Tiếng Việt</a> | 
+    <a href="README.zh.md">简体中文</a> | 
+    <a href="README.ja.md">日本語</a>
   </p>
 </div>
 
@@ -88,6 +88,14 @@ npm run build         # Windows installer
 npm run build:linux   # Linux AppImage & tarball
 ```
 
+### Acknowledgements & Credits
+
+YumeShelf and the **YumeEngine** core extraction are built upon foundational open-source engineering and heuristics from the community:
+
+- **[Detect-It-Easy](https://github.com/horsicq/Detect-It-Easy) / [XPEViewer](https://github.com/horsicq/XPEViewer)** (`horsicq`) — Binary inspection heuristics, PE structure analysis, and engine signatures.
+- **[XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator)** (`bbepis`) — Unity runtime translation architecture and plugin hooking models.
+- **[BepInEx](https://github.com/BepInEx/BepInEx)** — Unity and .NET modding and runtime injection framework.
+
 ### Contributing
 
 YumeShelf is open-source and constantly evolving. If anyone wants to help test on different Linux distros, submit translations, suggest new features, or report bugs, PRs and feedback are welcome.
@@ -122,6 +130,14 @@ Chỉ cần trỏ YumeShelf vào folder game là xong. Nó sẽ tự gom mọi t
 
 Vì đây là tool mã nguồn mở tự làm và không có tiền mua chứng chỉ doanh nghiệp đắt đỏ, Windows SmartScreen hay Windows Defender có thể sẽ báo linh tinh. Đây là chuyện bình thường với app desktop nguồn mở. Bạn cứ bấm "More info" -> "Run anyway" là được, hoặc vào GitHub tự xem code.
 
+### Tri ân & Đóng góp (Acknowledgements & Credits)
+
+YumeShelf và nhân phân tích **YumeEngine** được phát triển dựa trên các công trình mã nguồn mở tuyệt vời từ cộng đồng:
+
+- **[Detect-It-Easy](https://github.com/horsicq/Detect-It-Easy) / [XPEViewer](https://github.com/horsicq/XPEViewer)** (`horsicq`) — Thuật toán nhận diện nhị phân, phân tích cấu trúc PE và chữ ký engine.
+- **[XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator)** (`bbepis`) — Kiến trúc dịch thuật thời gian thực và mô hình hook plugin cho Unity.
+- **[BepInEx](https://github.com/BepInEx/BepInEx)** — Framework mod và tiêm mã runtime cho Unity & .NET.
+
 ---
 
 ## 简体中文
@@ -150,6 +166,14 @@ Vì đây là tool mã nguồn mở tự làm và không có tiền mua chứng 
 
 因为这是个人开发的开源小工具，买不起死贵的企业代码签名证书，Windows SmartScreen 或 Windows Defender 可能会弹警告。开源软件经常这样。直接点 "更多信息" -> "仍要运行" 就行，心里没底的话也可以去 GitHub 看源码。
 
+### 鸣谢与致敬 (Acknowledgements & Credits)
+
+YumeShelf 与 **YumeEngine** 核心解析引擎基于社区杰出的开源工程与启发式算法构建：
+
+- **[Detect-It-Easy](https://github.com/horsicq/Detect-It-Easy) / [XPEViewer](https://github.com/horsicq/XPEViewer)** (`horsicq`) — 二进制启发式分析、PE 结构检测与游戏引擎特征码。
+- **[XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator)** (`bbepis`) — Unity 运行时动态翻译架构与插件 Hook 模型。
+- **[BepInEx](https://github.com/BepInEx/BepInEx)** — Unity 与 .NET 模组开发及运行时注入框架。
+
 ---
 
 ## 日本語
@@ -177,3 +201,12 @@ YumeShelf にゲームフォルダを指定するだけで、フォルダの奥�
 ### セキュリティ警告について
 
 個人開発のオープンソースで高価な企業用証明書を買っていないため、Windows SmartScreen 等に引っかかることがあります。オープンソースアプリではよくあることなので、「詳細情報」→「実行」を押してください。気になるなら GitHub でソースコードを見てもらって大丈夫です。
+
+### 謝辞＆クレジット (Acknowledgements & Credits)
+
+YumeShelf および **YumeEngine** コアバイナリ解析エンジンは、以下のオープンソースプロジェクトと解析ヒューリスティクスを活用しています：
+
+- **[Detect-It-Easy](https://github.com/horsicq/Detect-It-Easy) / [XPEViewer](https://github.com/horsicq/XPEViewer)** (`horsicq`) — バイナリ解析ヒューリスティクス、PE 構造解析、ゲームエンジンシグネチャ。
+- **[XUnity.AutoTranslator](https://github.com/bbepis/XUnity.AutoTranslator)** (`bbepis`) — Unity リアルタイム翻訳アーキテクチャおよびプラグインフックモデル。
+- **[BepInEx](https://github.com/BepInEx/BepInEx)** — Unity および .NET Mod 開発・ランタイムインジェクションフレームワーク。
+

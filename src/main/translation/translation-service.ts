@@ -1,3 +1,10 @@
+/**
+ * TranslationService - Runtime Translator Shim & Hooking Deployer
+ *
+ * Utilizes XUnity.AutoTranslator by bbepis and BepInEx runtime injection.
+ * MIT License - Copyright (c) bbepis, BepInEx Contributors / YumeShelf Contributors
+ */
+
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';

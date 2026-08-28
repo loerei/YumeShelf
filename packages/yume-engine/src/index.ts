@@ -2,6 +2,10 @@
 /**
  * YumeEngine (@yumeshelf/engine)
  * Headless Game Engine Inspector, Save Resolver & Codec Core
+ *
+ * Derived from Detect-It-Easy & XPEViewer specifications by horsicq,
+ * XUnity.AutoTranslator by bbepis, and BepInEx runtime hooking models.
+ * MIT License - Copyright (c) horsicq, bbepis, BepInEx Contributors / YumeShelf Contributors
  */
 
 import type {

@@ -43,6 +43,8 @@ export function bindGlobalUiEvents({
                 if (closeBtn) closeBtn.click();
             } else if (refs.languagePackOverlay?.style.display === 'flex') {
                 closeLanguagePackModal();
+            } else if (refs.containers.about?.style.display === 'flex') {
+                refs.containers.about.style.display = 'none';
             } else if (quickFolderController?.isOpen()) {
                 quickFolderController.hideMenu();
             } else if (duplicateStackOverlayController.isOpen()) {
@@ -109,6 +111,34 @@ export function bindControlEvents({
     }
     if (refs.buttons.languagePackClose) {
         refs.buttons.languagePackClose.onclick = () => languagePackController.closeLanguagePackModal();
+    }
+    if (refs.buttons.aboutOpen) {
+        refs.buttons.aboutOpen.onclick = () => {
+            if (refs.containers.about) {
+                refs.containers.about.style.display = 'flex';
+                const versionEl = refs.containers.about.querySelector('#about-version-text');
+                if (versionEl) {
+                    const appVersion = localeController.getLocaleState()?.appVersion || '1.0.0';
+                    versionEl.textContent = `v${appVersion}`;
+                }
+                const links = refs.containers.about.querySelectorAll<HTMLAnchorElement>('a.about-external-link');
+                links.forEach((link) => {
+                    link.onclick = async (event) => {
+                        event.preventDefault();
+                        if (link.href && (window as any).electronAPI?.openExternalUrl) {
+                            await (window as any).electronAPI.openExternalUrl(link.href);
+                        }
+                    };
+                });
+            }
+        };
+    }
+    if (refs.buttons.aboutClose) {
+        refs.buttons.aboutClose.onclick = () => {
+            if (refs.containers.about) {
+                refs.containers.about.style.display = 'none';
+            }
+        };
     }
     if (refs.quickFolder) {
         refs.quickFolder.onclick = (event) => {

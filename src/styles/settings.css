@@ -391,3 +391,156 @@
     cursor: default;
     pointer-events: none;
 }
+
+/* ABOUT & CREDITS MODAL */
+.settings-about-row {
+    margin-top: 10px;
+}
+
+.settings-about-link {
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.settings-about-link:hover {
+    color: var(--text-main);
+    background: var(--hover-bg);
+}
+
+.about-panel {
+    max-width: 580px;
+    height: auto;
+    max-height: 85vh;
+}
+
+.about-body {
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.about-brand {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.about-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.about-brand-text h3 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.about-version {
+    margin: 2px 0 6px 0;
+    font-size: 13px;
+    color: var(--text-sub);
+    font-family: inherit;
+}
+
+.about-tagline {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.4;
+}
+
+.about-credits-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.about-credits-section h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.about-credits-intro {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.4;
+}
+
+.about-credit-card {
+    background: var(--field-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color 0.2s ease;
+}
+
+.about-credit-card:hover {
+    border-color: var(--text-sub);
+}
+
+.about-credit-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.about-external-link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: color 0.15s ease;
+}
+
+.about-external-link:hover {
+    color: var(--text-main);
+}
+
+.about-credit-author {
+    color: var(--text-sub);
+    font-size: 12px;
+}
+
+.about-credit-desc {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.35;
+}
+
+.about-license-note {
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.about-license-note p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-sub);
+}
+

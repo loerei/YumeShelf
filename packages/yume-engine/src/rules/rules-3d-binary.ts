@@ -3,8 +3,9 @@
  * YumeEngine - Declarative Rules for Major 3D and VM Binary Engines
  * (Unity, Unreal Engine, Godot, Flash, Java)
  *
- * Derived from Detect-It-Easy & XPEViewer specifications by horsicq
- * MIT License - Copyright (c) horsicq / YumeShelf Contributors
+ * Derived from Detect-It-Easy & XPEViewer specifications by horsicq,
+ * XUnity.AutoTranslator by bbepis, and BepInEx runtime hooking models.
+ * MIT License - Copyright (c) horsicq, bbepis, BepInEx Contributors / YumeShelf Contributors
  */
 
 import type { EngineClassificationRule, ScanContext } from './types.js';

@@ -31,6 +31,7 @@ export interface RendererRefs {
         languagePack: HTMLElement | null;
         duplicateStack: HTMLElement | null;
         search: HTMLElement | null;
+        about: HTMLElement | null;
     };
 
     // === Event binding refs ===
@@ -74,6 +75,8 @@ export interface RendererRefs {
         settingsOpen: HTMLElement | null;
         settingsClose: HTMLElement | null;
         languagePackClose: HTMLElement | null;
+        aboutOpen: HTMLElement | null;
+        aboutClose: HTMLElement | null;
         telemetryOptIn: HTMLElement | null;
         telemetryOptOut: HTMLElement | null;
     };
@@ -143,6 +146,7 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
     // Each Controller queries its own child elements within its container.
     const settingsContainer = documentRef.getElementById('settings-overlay');
     const languagePackContainer = documentRef.getElementById('language-pack-overlay');
+    const aboutContainer = documentRef.getElementById('about-overlay');
     const searchContainer = documentRef.querySelector<HTMLElement>('.search-container');
     const telemetryModal = documentRef.getElementById('telemetry-modal');
 
@@ -179,7 +183,8 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
             categoryFilter: documentRef.getElementById('category-filter-container'),
             languagePack: languagePackContainer,
             duplicateStack: documentRef.getElementById('duplicate-stack-overlay'),
-            search: searchContainer
+            search: searchContainer,
+            about: aboutContainer
         },
 
         // === Event binding refs ===
@@ -229,6 +234,8 @@ export function buildRendererRefs(documentRef = document): RendererRefs {
             settingsOpen:    documentRef.getElementById('settings-open-btn') || documentRef.getElementById('settings-btn'),
             settingsClose:   settingsContainer ? settingsContainer.querySelector('#settings-close-btn') : null,
             languagePackClose: languagePackContainer ? languagePackContainer.querySelector('#language-pack-close-btn') : null,
+            aboutOpen:       settingsContainer ? settingsContainer.querySelector('#settings-about-btn') : null,
+            aboutClose:      aboutContainer ? aboutContainer.querySelector('#about-close-btn') : null,
             telemetryOptIn:  telemetryModal ? telemetryModal.querySelector('#telemetry-opt-in-btn') : null,
             telemetryOptOut: telemetryModal ? telemetryModal.querySelector('#telemetry-opt-out-btn') : null
         },

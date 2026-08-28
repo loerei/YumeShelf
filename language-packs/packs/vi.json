@@ -341,6 +341,15 @@
     "save_editor_reload_title": "Tải lại từ ổ đĩa",
     "save_editor_translate_title": "Dịch sang ngôn ngữ ứng dụng",
     "tray_show_app": "Hiện YumeShelf",
-    "tray_quit": "Thoát"
+    "tray_quit": "Thoát",
+    "settings_about_credits": "Thông tin & Tri ân",
+    "about_modal_title": "Thông tin & Tri ân",
+    "about_tagline": "Trình quản lý và khởi chạy bộ sưu tập game cá nhân tối giản.",
+    "about_credits_heading": "Tri ân & Đóng góp",
+    "about_credits_intro": "YumeShelf và nhân phân tích YumeEngine được phát triển dựa trên các công trình mã nguồn mở tuyệt vời từ cộng đồng:",
+    "about_credit_die_desc": "Thuật toán nhận diện nhị phân, phân tích cấu trúc PE và chữ ký engine.",
+    "about_credit_xunity_desc": "Kiến trúc dịch thuật thời gian thực và mô hình hook plugin cho Unity.",
+    "about_credit_bepinex_desc": "Framework mod và tiêm mã runtime cho Unity & .NET.",
+    "about_license_text": "YumeShelf là phần mềm tự do nguồn mở phát hành theo giấy phép MIT."
   }
 }

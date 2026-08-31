@@ -60,3 +60,43 @@ Rank skill content along the 4-rung hierarchy based on retrieval immediacy:
 | **No-Op** | Instructions the model already obeys by default. | Run the **No-Op Sentence Test**: Does deleting the sentence change behavior? If no, delete entire sentence. |
 | **Premature Completion** | Attention slips from doing the work to *being done*. | 1. Sharpen completion criterion (make checkable & exhaustive).<br/>2. If fuzzy, hide later steps behind context boundaries (subagents/split). |
 | **Negation (The Elephant)** | Steering by prohibition (*"NEVER do X"*) drags the forbidden behavior into context. | Prompt the **positive target behavior**; reserve `NEVER` strictly for hard guardrails. |
+| **Micro-Format Lock-In** | Directives prescribe specific output structures ("Two-Pass: bullets then paragraph") instead of thinking principles. Agent replays the format template literally for every response regardless of context. | Write directives as mindset shifts ("talk like a peer"), not format specs. Name the root bias to fight, not individual symptoms. Fewer rules = higher compliance. |
+
+---
+
+## 5. Case Study: Macro vs. Micro Directives
+
+A conversational skill was refactored from micro-format directives to macro-mindset directives. The before version had 5 specific structural rules + 4 workflow steps. The after version had 3 thinking principles.
+
+### Before (Micro-Format — 5 directives + 4-step workflow):
+
+1. **Zero Scaffolding Leakage**: NEVER leak skill meta-terms ("decision branch", "1-sentence constraint").
+2. **Two-Pass Grouping**: Present candidates in flat bullets, then caveats in a separate paragraph.
+3. **No Forced Constraints**: Only mention constraints when there's a real tradeoff.
+4. **Ban A/B/C Menus**: NEVER package conclusions as "Option A / Option B / Option C".
+5. **No Premature Leaf Solutioning**: Answer only the immediate question.
+
+Workflow: 1. Answer → 2. List candidates (flat) → 3. Surface "Buts" (separate paragraph) → 4. Pass the ball.
+
+### After (Macro-Mindset — 3 directives, no workflow):
+
+1. **Answer the Question, Don't Solve the Project**: Focus on what the user asked. Don't jump to implementation plans, wireframes, or file diffs.
+2. **Peer-to-Peer Dialogue**: Talk naturally. Don't leak rules. Don't force A/B/C quizzes. Mention real tradeoffs plainly.
+3. **Keep the Ball Moving**: Keep turns concise for back-and-forth exchange.
+
+### What Changed:
+
+| Dimension | Before | After |
+| :--- | :--- | :--- |
+| Rule count | 9 (5 directives + 4 workflow steps) | 3 directives |
+| Rule type | Format specs ("flat bullets then separate paragraph") | Thinking principles ("talk like a peer") |
+| Symptoms listed | 3 named traps (Scaffolding Leakage, Nested Bullets, A/B/C Menus) | 1 root bias named (Work Order Mindset) |
+| Flowchart purpose | 4-level decision tree (Q0→Q1→Q2→Q3) agent replayed step-by-step to users | 3-node mindset diagram illustrating why premature planning wastes effort |
+| Test result | Agent replayed skill structure in its response, forced A/B/C menu, wrote 6-section essay | Natural peer conversation, concise, passed the turn back |
+
+### Extracted Principles:
+
+1. **Transmit mindset, not format**: "Talk like a peer" works better than "Step 1: flat bullets. Step 2: separate paragraph."
+2. **Name the root bias, not individual symptoms**: "Work Order Mindset" covers more ground than 3 separately named "Traps".
+3. **Fewer rules = higher compliance**: Agent working memory is finite. 3 principles stick; 9 rules get cherry-picked or distorted.
+4. **Diagrams illustrate WHY, not prescribe HOW**: Show why premature planning wastes effort. Don't draw a literal process the agent replays step-by-step.

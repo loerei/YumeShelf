@@ -27,12 +27,13 @@ export class NodeFileSystemProvider implements FileSystemProvider {
     return fs.readFile(filePath);
   }
 
-  async stat(filePath: string): Promise<{ size: number; isDirectory(): boolean; isFile(): boolean }> {
+  async stat(filePath: string): Promise<{ size: number; isDirectory(): boolean; isFile(): boolean; mtimeMs?: number }> {
     const s = await fs.stat(filePath);
     return {
       size: s.size,
       isDirectory: () => s.isDirectory(),
       isFile: () => s.isFile(),
+      mtimeMs: s.mtimeMs,
     };
   }
 

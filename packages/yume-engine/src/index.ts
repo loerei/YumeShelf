@@ -9,6 +9,7 @@
  */
 
 import type {
+  DirectorySizeResult,
   FileSystemProvider,
   GameEngineProfile,
   IFileSystem,
@@ -18,8 +19,10 @@ import type {
 import { SaveCodecError } from './types.js';
 import { PEInspector } from './pe/pe-inspector.js';
 import { defaultRuleRegistry } from './rules/engine-rule-registry.js';
+import { formatEngineName } from './rules/engine-formatter.js';
 import { resolveSaveDirectory, type ResolveSaveOptions } from './save-resolvers/index.js';
 import { NodeFileSystemProvider } from './fs/node-fs-provider.js';
+import { calculateDirectorySize } from './fs/directory-size.js';
 
 import { decodeSaveFile, encodeSaveFile } from './save-codecs/index.js';
 
@@ -54,6 +57,17 @@ export class YumeEngine {
     }
 
     return defaultRuleRegistry.resolve(inspector, exePath, files || [], fileSystem);
+  }
+
+  static formatEngineName(profile?: GameEngineProfile | null): string | undefined {
+    return formatEngineName(profile);
+  }
+
+  static async calculateDirectorySize(
+    dirPath: string,
+    fs?: IFileSystem
+  ): Promise<DirectorySizeResult> {
+    return calculateDirectorySize(dirPath, fs);
   }
 
   static async resolveSaveDirectory(

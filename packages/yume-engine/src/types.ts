@@ -11,9 +11,15 @@ export interface IFileHandle {
 export interface IFileSystem {
   open(path: string): Promise<IFileHandle>;
   readFile(path: string, encoding?: BufferEncoding): Promise<string | Buffer>;
-  stat(path: string): Promise<{ size: number; isDirectory(): boolean; isFile(): boolean }>;
+  stat(path: string): Promise<{ size: number; isDirectory(): boolean; isFile(): boolean; mtimeMs?: number }>;
   readdir(path: string): Promise<string[]>;
   exists(path: string): Promise<boolean>;
+}
+
+export interface DirectorySizeResult {
+  sizeBytes: number;
+  fileCount: number;
+  mtimeMs: number;
 }
 
 export interface IEnvironmentPaths {

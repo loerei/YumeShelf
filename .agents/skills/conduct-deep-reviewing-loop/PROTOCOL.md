@@ -15,7 +15,7 @@ When updating draft artifacts between iterations, integrate fixes directly into 
 
 ### Workspace Layout
 ```text
-scratch/deep_review/
+<repo-root>/.scratch/deep_review/
 ├── host/                    # [HOST ONLY] Coordination artifacts (hidden from reviewers)
 │   ├── Analyzation.md
 │   ├── Changelog.md
@@ -26,12 +26,12 @@ scratch/deep_review/
 <repo-root>/.scratch/        # [DIAGNOSTIC SANDBOX] Inline probes & shadow modules (.scratch/<action>_<role>_*, .scratch/shadow_*)
 ```
 
-Reviewers MUST read only their assigned target DA and `scratch/deep_review/Context.md`. Reviewers MUST NOT inspect `scratch/deep_review/host/` or reports of other reviewers.
+Reviewers MUST read only their assigned target DA and `.scratch/deep_review/Context.md`. Reviewers MUST NOT inspect `.scratch/deep_review/host/` or reports of other reviewers.
 
 ### File Authoring Protocol
-Reviewers and Host MUST use `write_to_file` for all file creations (`.scratch/` probe scripts, `reports/<Role>.md`, `host/*.md`). Embedding multi-line code or report content inside `run_command` inline strings (`node -e`, `python -c`, `echo`) is strictly prohibited to prevent shell escaping failures and hanging processes.
+Reviewers and Host MUST use native `write_to_file` directly (without `ArtifactMetadata`) for all file creations (`.scratch/` probe scripts, `.scratch/deep_review/reports/<Role>.md`, `.scratch/deep_review/host/*.md`). Creating intermediate helper scripts (e.g. `write_report.cjs`, `.js`, `.ps1`) or embedding multi-line code inside `run_command` inline strings (`node -e`, `python -c`, `echo`, `pwsh`) to author text files is strictly prohibited.
 
-Layer 1 initializes `scratch/deep_review/Context.md` at workflow start. Context files MUST remain frozen during active reviewer execution.
+Layer 1 initializes `.scratch/deep_review/Context.md` at workflow start. Context files MUST remain frozen during active reviewer execution.
 
 ### Context Content Rules
 
@@ -45,9 +45,9 @@ Host MUST summon Layer 3 subagents using this exact invariant template across al
 ```text
 You are the <Role> Reviewer for Directive Artifact verification.
 Target DA: <da_path>
-Domain Context: scratch/deep_review/Context.md
+Domain Context: .scratch/deep_review/Context.md
 Review Guide: <guide_path>
-Output Path: scratch/deep_review/reports/<Role>.md
+Output Path: .scratch/deep_review/reports/<Role>.md
 
 Audit the target document objectively from a clean-slate perspective. Follow your Review Guide and any domain subdocuments referenced within it strictly.
 ```
@@ -59,12 +59,12 @@ Audit the target document objectively from a clean-slate perspective. Follow you
 
 ## 4. Dynamic Role Selection Protocol
 
-Before launching Round 1, Layer 2 Host inspects target DA scope and criteria, then writes `scratch/deep_review/host/Reviewer_Choice_Rationale.md`.
+Before launching Round 1, Layer 2 Host inspects target DA scope and criteria, then writes `.scratch/deep_review/host/Reviewer_Choice_Rationale.md`.
 
 ### Selection Rules:
 1. **Mandatory Core Roles**: `Architect` (Tier 3.1) and `Logic` (Tier 3.3) MUST ALWAYS be `INCLUDED` for every DA and cannot be excluded.
 2. **Specialist Roles (Dynamic)**: `Readiness`, `Security`, `DataMigration`, `Testability`, `Progress`, `Edgecase`, `Performance`, `Observability`, `UXUI` are marked `INCLUDED` or `EXCLUDED` with concrete technical justification based on DA scope (`Progress` MUST be `INCLUDED` for multi-phase/multi-ticket epics, roadmaps, or work-breakdown structures; `EXCLUDED` for single-ticket/simple plans).
-3. **Roster Immutability**: If `scratch/deep_review/host/Reviewer_Choice_Rationale.md` exists (Round N+1), Host loads and preserves the active roster without re-evaluating exclusions.
+3. **Roster Immutability**: If `.scratch/deep_review/host/Reviewer_Choice_Rationale.md` exists (Round N+1), Host loads and preserves the active roster without re-evaluating exclusions.
 4. **Active Roster**: Only `INCLUDED` roles are summoned during DAG execution passes and Full Sweep rounds.
 
 ## 5. Dynamic DAG Execution Sequence
@@ -100,11 +100,11 @@ To prevent redundant subagent invocations on identical static snapshots while pr
 
 - **Targeted Pass Verification**: When all active targeted roles return `PASS` on snapshot $S_N$, Host identifies any active roles in the frozen roster that have **not yet audited snapshot $S_N$** (the skipped upstream roles).
 - **Snapshot Delta Backfill**:
-  - If skipped upstream roles exist: Host executes the skipped upstream roles in **topological DAG dependency sequence** (e.g. Layer 3.1 then Layer 3.2), writing reports into `scratch/deep_review/reports/` (preserving intra-round targeted reports on snapshot $S_N$) and enforcing early tier suspension if any upstream role returns `REVISION NEEDED`.
+  - If skipped upstream roles exist: Host executes the skipped upstream roles in **topological DAG dependency sequence** (e.g. Layer 3.1 then Layer 3.2), writing reports into `.scratch/deep_review/reports/` (preserving intra-round targeted reports on snapshot $S_N$) and enforcing early tier suspension if any upstream role returns `REVISION NEEDED`.
   - If no skipped upstream roles exist (i.e. Full DAG executed from Layer 3.1 to Layer 3.4 on snapshot $S_N$): The round is **natively recognized as a Full Sweep pass**.
 - **Full Sweep Pass (`ROUND_PASS`)**: Once 100% of active roles in the frozen roster have audited and passed snapshot $S_N$ with zero blocking issues:
   - Increments `PassCount` by 1.
-  - If `PassCount < SP`: Host purges `scratch/deep_review/reports/` and initiates the next Full Sweep round on the unchanged static DA.
+  - If `PassCount < SP`: Host purges `.scratch/deep_review/reports/` and initiates the next Full Sweep round on the unchanged static DA.
   - If `PassCount >= SP`: Host issues `FINAL_PASS`, recursively purges `<repo-root>/.scratch/*` diagnostic artifacts (idempotently handling missing directories), and presents verified final artifacts to Layer 1.
 - **Pass Counter Invalidation**: `PassCount` resets to 0 whenever any role returns `REVISION NEEDED`.
 

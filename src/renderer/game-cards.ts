@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
 import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
-import { formatPlaytime, timeSince } from './utils/formatting';
+import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
 
@@ -119,6 +119,8 @@ export function createGameCardFactory({
 
         attachTooltip(card, () => ({
             title: game.name,
+            engine: game.engine || undefined,
+            size: formatBytes(game.sizeBytes),
             subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || game.folderPath || ''
         }));
 

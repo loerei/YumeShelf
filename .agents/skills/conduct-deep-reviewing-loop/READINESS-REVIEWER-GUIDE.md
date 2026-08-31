@@ -17,10 +17,10 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 When auditing system prerequisites and dependencies, verify directly against codebase reality:
 1. **Baseline Checks**: Run type-checks (`tsc --noEmit`), linters, and dependency tree inspections (`npm ls`, `pip check`) under a 30s execution timeout to verify compiler and environment health. Reviewers MUST NOT run mutating package commands (`npm install`, `pip install`) or modify lockfiles.
 2. **Inline Import Check**: When the plan introduces new library APIs or imports, author `.scratch/check_readiness_<name>.*` via `write_to_file` attempting to import and instantiate the target package/symbol from existing installed dependencies using the appropriate runtime under a 15s execution timeout (or in `.scratch/shadow_readiness_<name>.*` with adjusted relative imports).
-3. **Cite Proof**: Write evaluation to `scratch/deep_review/reports/Readiness.md` via `write_to_file`, including missing symbol errors, version mismatch logs, compilation failures, or execution timeouts.
+3. **Cite Proof**: Write evaluation to `.scratch/deep_review/reports/Readiness.md` via `write_to_file`, including missing symbol errors, version mismatch logs, compilation failures, or execution timeouts.
 
 > [!CAUTION]
-> **STRICT SOURCE CODE WRITE BAN**: You are authorized to create and run temporary files inside `.scratch/` ONLY. You MUST NOT modify or delete project source files. Write all findings to `scratch/deep_review/reports/Readiness.md`.
+> **STRICT SOURCE CODE WRITE BAN**: You are authorized to create and run temporary files inside `.scratch/` ONLY. You MUST NOT modify or delete project source files. Write all findings to `.scratch/deep_review/reports/Readiness.md`.
 
 ## Mandatory Audit Checklist
 
@@ -46,7 +46,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 ## Standard Output Protocol
 
-Save evaluation to `scratch/deep_review/reports/Readiness.md` using this format:
+Save evaluation to `.scratch/deep_review/reports/Readiness.md` via `write_to_file` using this format:
 
 ### Review Evaluation: Readiness Reviewer
 

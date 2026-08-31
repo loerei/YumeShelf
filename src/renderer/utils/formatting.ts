@@ -43,3 +43,17 @@ export function formatPlaytime(ms) {
     }
     return `${mins}m`;
 }
+
+export function formatBytes(bytes) {
+    if (bytes === undefined || bytes === null || typeof bytes !== 'number' || Number.isNaN(bytes) || bytes < 0) {
+        return '';
+    }
+    if (bytes === 0) return '0 B';
+
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const index = Math.min(i, sizes.length - 1);
+    const value = bytes / Math.pow(k, index);
+    return `${index === 0 ? value : value.toFixed(2)} ${sizes[index]}`;
+}

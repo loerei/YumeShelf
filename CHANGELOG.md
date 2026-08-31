@@ -4,6 +4,21 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.1.1] - 2026-08-31 — released
+
+### What Changed
+- Game card tooltips now display detected game engine (e.g. RPG Maker MZ, Unity, Ren'Py) and folder size alongside the title and folder path.
+- Library scanning now calculates game folder sizes in the background with smart caching so repeat scans stay instantaneous.
+
+### For the Nerds
+- [engine] Added `calculateDirectorySize` in `@yumeshelf/engine` with high-throughput streaming traversal, symlink/junction skipping, bounded stat concurrency (64), and root directory `mtimeMs` capture.
+- [engine] Added `formatEngineName` in `@yumeshelf/engine` as the single source of truth for engine display labels.
+- [main] Integrated engine inspection and folder size calculation into `src/main/library-state/loader.ts` with `mtime` cache gate (`sizeMtime`) and `null` serialization preservation for native binaries.
+- [renderer] Updated `.app-tooltip` layout in `src/styles/menus-tooltips.css` and `src/renderer/tooltips.ts` to render a clean typography single-line meta (`Engine • Size`), using strict `textContent` binding with zero icons or emojis.
+- [tests] Added test coverage in `@yumeshelf/engine` (`directory-size.test.ts`, `engine-formatter.test.ts`), `tests/library-state.test.js`, and `src/renderer/utils/formatting.test.ts`.
+
+---
+
 ## [2.1.0] - 2026-08-28 — released
 
 ### What Changed

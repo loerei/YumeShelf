@@ -9,6 +9,7 @@ import {
     LibraryConfig
 } from './scanner';
 import { resolveGameTitle } from './title-resolver';
+import { YumeEngine } from '@yumeshelf/engine';
 
 import {
     buildLegacyMigrationMap,
@@ -119,8 +120,46 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
                 }
             }
 
+            const hasCachedEngine = hasMatchingExe && (
+                typeof existingRecord?.engine === 'string' || existingRecord?.engine === null
+            );
+            let engine: string | null;
+            if (hasCachedEngine) {
+                engine = existingRecord.engine;
+            } else {
+                try {
+                    const profile = await YumeEngine.inspectExecutable(candidate.exePath);
+                    engine = YumeEngine.formatEngineName(profile) ?? null;
+                } catch {
+                    engine = null;
+                }
+            }
+
+            const currentMtimeMs = typeof stats?.mtimeMs === 'number' ? stats.mtimeMs : (stats?.mtime ? new Date(stats.mtime).getTime() : 0);
+            const hasCachedSize = (
+                currentMtimeMs > 0 &&
+                existingRecord?.sizeMtime === currentMtimeMs &&
+                typeof existingRecord?.sizeBytes === 'number'
+            );
+            let sizeBytes: number;
+            let sizeMtime: number;
+            if (hasCachedSize) {
+                sizeBytes = existingRecord.sizeBytes;
+                sizeMtime = existingRecord.sizeMtime;
+            } else {
+                try {
+                    const sizeResult = await YumeEngine.calculateDirectorySize(candidate.folderPath);
+                    sizeBytes = sizeResult.sizeBytes;
+                    sizeMtime = currentMtimeMs || sizeResult.mtimeMs;
+                } catch {
+                    sizeBytes = existingRecord?.sizeBytes || 0;
+                    sizeMtime = currentMtimeMs;
+                }
+            }
+
             const record = {
                 dateAdded: existingRecord?.dateAdded || stats?.birthtimeMs || Date.now(),
+                engine,
                 exePath: candidate.exePath,
                 platform: candidate.platform || (candidate.exePath.toLowerCase().endsWith('.exe') ? 'windows' : 'linux'),
                 favorite: existingRecord?.favorite || false,
@@ -136,7 +175,9 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
                 playtime: existingRecord?.playtime || 0,
                 runInBackground: existingRecord?.runInBackground || false,
                 autoTranslate: existingRecord?.autoTranslate || false,
-                saveFolderOverride: existingRecord?.saveFolderOverride || undefined
+                saveFolderOverride: existingRecord?.saveFolderOverride || undefined,
+                sizeBytes,
+                sizeMtime
             };
 
             return { gameKey, record };

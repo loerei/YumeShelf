@@ -117,9 +117,12 @@ export function buildMoveMigrationMap({ candidates, libraryPath, storedGames }: 
 export function normalizeGameRecord(gameKey: string, record: any): any {
     return {
         ...record,
+        engine: typeof record.engine === 'string' ? record.engine : (record.engine === null ? null : undefined),
         folderName: record.folderName || getLeafFolderName(record.folderPath),
         gameKey,
-        relativePath: record.relativePath || gameKey
+        relativePath: record.relativePath || gameKey,
+        sizeBytes: typeof record.sizeBytes === 'number' ? record.sizeBytes : undefined,
+        sizeMtime: typeof record.sizeMtime === 'number' ? record.sizeMtime : undefined
     };
 }
 
@@ -183,6 +186,7 @@ export function buildLogicalGames(records: any[], assignments: Record<string, st
             dateAdded: orderedRecords.reduce((min, record) => Math.min(min, record.dateAdded || min), primaryRecord.dateAdded || Date.now()),
             duplicateCount: orderedRecords.length > 1 ? orderedRecords.length : 0,
             duplicateSignature,
+            engine: typeof primaryRecord.engine === 'string' ? primaryRecord.engine : (primaryRecord.engine === null ? null : undefined),
             exePath: primaryRecord.exePath,
             favorite: orderedRecords.some((record) => !!record.favorite),
             runInBackground: primaryRecord.runInBackground || false,
@@ -196,7 +200,9 @@ export function buildLogicalGames(records: any[], assignments: Record<string, st
             name: primaryRecord.name,
             playtime: orderedRecords.reduce((sum, record) => sum + (record.playtime || 0), 0),
             primaryInstance,
-            relativePath: primaryRecord.relativePath
+            relativePath: primaryRecord.relativePath,
+            sizeBytes: typeof primaryRecord.sizeBytes === 'number' ? primaryRecord.sizeBytes : undefined,
+            sizeMtime: typeof primaryRecord.sizeMtime === 'number' ? primaryRecord.sizeMtime : undefined
         };
     });
 }

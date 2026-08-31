@@ -38,7 +38,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 ## Standard Output Protocol
 
-Save evaluation to `scratch/deep_review/reports/Architect.md` using this format:
+Save evaluation to `.scratch/deep_review/reports/Architect.md` via `write_to_file` using this format:
 
 ### Review Evaluation: Architect / Problem-Solving Director
 

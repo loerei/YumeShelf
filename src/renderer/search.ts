@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
 import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { formatBytes } from './utils/formatting';
 
 export function createSearchController({
     attachTooltip,
@@ -158,6 +159,8 @@ export function createSearchController({
 
             attachTooltip(item, () => ({
                 title: game.name,
+                engine: game.engine || undefined,
+                size: formatBytes(game.sizeBytes),
                 subtitle: game.relativePathFullDisplay || game.relativePathDisplay || game.relativePath || ''
             }));
             item.ondblclick = (event) => {

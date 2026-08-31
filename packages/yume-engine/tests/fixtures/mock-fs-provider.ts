@@ -129,7 +129,7 @@ export class MockFileSystemProvider implements FileSystemProvider {
     return Buffer.from(entry.buffer);
   }
 
-  async stat(path: string): Promise<{ size: number; isDirectory(): boolean; isFile(): boolean }> {
+  async stat(path: string): Promise<{ size: number; isDirectory(): boolean; isFile(): boolean; mtimeMs?: number }> {
     const key = normalizeLookupKey(path);
     if (this.files.has(key)) {
       const size = this.files.get(key)!.buffer.length;
@@ -137,6 +137,7 @@ export class MockFileSystemProvider implements FileSystemProvider {
         size,
         isDirectory: () => false,
         isFile: () => true,
+        mtimeMs: 1700000000000,
       };
     }
     if (this.directories.has(key)) {
@@ -144,6 +145,7 @@ export class MockFileSystemProvider implements FileSystemProvider {
         size: 0,
         isDirectory: () => true,
         isFile: () => false,
+        mtimeMs: 1700000000000,
       };
     }
     throw new Error(`ENOENT: no such file or directory, stat '${path}'`);

@@ -11,3 +11,4 @@ export * from './rules-doujin-rpg.js';
 export * from './rules-if-web.js';
 export * from './rules-classic-vn.js';
 export * from './engine-rule-registry.js';
+export * from './engine-formatter.js';

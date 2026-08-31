@@ -41,7 +41,7 @@ flowchart TD
 
 ### Step 1: Initialize Workspace
 
-Create `scratch/deep_review/host/` and `scratch/deep_review/reports/`. Initialize `scratch/deep_review/Context.md` with target DA path, codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
+Create `.scratch/deep_review/host/` and `.scratch/deep_review/reports/`. Initialize `.scratch/deep_review/Context.md` with target DA path, codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
 
 ### Step 2: Spawn Review Host & Critical Gate (Layer 2)
 
@@ -59,15 +59,15 @@ Invoke the registered `review_host` subagent via `invoke_subagent`:
 - `TypeName`: `"review_host"`
 - `Role`: `"Review Host & Critical Gate"`
 - `Prompt`:
-`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: PROTOCOL.md. Opinion Filtering: HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md. Context File: scratch/deep_review/Context.md. Dynamically select active reviewers in scratch/deep_review/host/Reviewer_Choice_Rationale.md, execute DAG routing for active roles, spawn reviewers using invariant prompts, filter feedback, and generate Analyzation.md and Changelog.md in scratch/deep_review/host/.`
+`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: PROTOCOL.md. Opinion Filtering: HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md. Context File: .scratch/deep_review/Context.md. Dynamically select active reviewers in .scratch/deep_review/host/Reviewer_Choice_Rationale.md, execute DAG routing for active roles, spawn reviewers using invariant prompts, filter feedback, and generate Analyzation.md and Changelog.md in .scratch/deep_review/host/.`
 
 ### Step 3: Handle Host Verdict
 
-Read `scratch/deep_review/host/Analyzation.md`.
+Read `.scratch/deep_review/host/Analyzation.md`.
 
 | Verdict in `Analyzation.md` | Action |
 | :--- | :--- |
-| `ROUND_REVISION_NEEDED` | Read `scratch/deep_review/host/Changelog.md`.<br>• **If `!PA` / `!WA` active**: STOP execution immediately before modifying DA. Output standardized quota pause message (requesting keyword `"C"` to apply edits and proceed).<br>• **Upon receiving `"C"` (or if no pause tag)**: Apply edits to DA using Clean & Neutral Artifact Protocol. If `Changelog.md` includes `## Target Directive Artifacts Synchronization (Context.md)`, update `scratch/deep_review/Context.md`. Re-spawn/revive Layer 2 Host for Round N+1 (Host consumes Changelog on start). |
+| `ROUND_REVISION_NEEDED` | Read `.scratch/deep_review/host/Changelog.md`.<br>• **If `!PA` / `!WA` active**: STOP execution immediately before modifying DA. Output standardized quota pause message (requesting keyword `"C"` to apply edits and proceed).<br>• **Upon receiving `"C"` (or if no pause tag)**: Apply edits to DA using Clean & Neutral Artifact Protocol. If `Changelog.md` includes `## Target Directive Artifacts Synchronization (Context.md)`, update `.scratch/deep_review/Context.md`. Re-spawn/revive Layer 2 Host for Round N+1 (Host consumes Changelog on start). |
 | `ROUND_PASS` | Re-spawn Layer 2 Host for next Full Sweep round on unchanged DA. |
 | `FINAL_PASS` | Conclude review loop (`PassCount >= SP`). Present fully verified DA to user. |
 

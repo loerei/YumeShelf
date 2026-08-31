@@ -362,3 +362,72 @@ test('Smart Cache: invalidation triggers re-resolution when title config changes
     assert.equal(customGame.name, 'My Special User Renamed Game');
     assert.equal(customGame.customName, true);
 });
+
+test('library-state: calculates engine and sizeBytes, utilizing mtime cache for warm scans', async () => {
+    const rootPath = await makeTempDir();
+    const gameFolder = path.join(rootPath, 'MyTestGame');
+    await fs.mkdir(gameFolder, { recursive: true });
+    await fs.writeFile(path.join(gameFolder, 'Game.exe'), 'stub-exe');
+    await fs.writeFile(path.join(gameFolder, 'data.bin'), Buffer.alloc(1000, 0x41));
+
+    const stats = await fs.stat(gameFolder);
+    const { db, state } = createLibraryHarness(rootPath);
+
+    // First cold scan
+    const coldGames = await state.loadGamesForConfig({
+        libraryPath: rootPath,
+        maxDepth: 5
+    });
+
+    assert.equal(coldGames.length, 1);
+    const coldGame = coldGames[0];
+    assert.equal(coldGame.folderName, 'MyTestGame');
+    assert.ok(coldGame.sizeBytes > 1000);
+    assert.equal(coldGame.sizeMtime, stats.mtimeMs);
+    assert.equal(typeof coldGame.engine, 'object'); // null for stub executable
+
+    const savedDb = db.read();
+    const storedKey = Object.keys(savedDb.games)[0];
+    assert.equal(savedDb.games[storedKey].sizeBytes, coldGame.sizeBytes);
+    assert.equal(savedDb.games[storedKey].sizeMtime, stats.mtimeMs);
+    assert.equal(savedDb.games[storedKey].engine, null);
+
+    // Warm scan: mutate stored sizeBytes to verify cache hit
+    savedDb.games[storedKey].sizeBytes = 999999;
+    savedDb.games[storedKey].engine = 'RPG Maker MZ';
+    await db.saveDB(savedDb);
+
+    const warmGames = await state.loadGamesForConfig({
+        libraryPath: rootPath,
+        maxDepth: 5
+    });
+
+    assert.equal(warmGames.length, 1);
+    assert.equal(warmGames[0].sizeBytes, 999999, 'Expected warm scan to reuse cached sizeBytes without recalculation');
+    assert.equal(warmGames[0].engine, 'RPG Maker MZ', 'Expected warm scan to reuse cached engine label');
+});
+
+test('library-state: continuity preserves engine and size metadata during warm scans', async () => {
+    const rootPath = await makeTempDir();
+    const gameFolder = path.join(rootPath, 'RJ01111111_Game');
+    await writeExe(path.join(gameFolder, 'Game.exe'));
+
+    const { state } = createLibraryHarness(rootPath, {
+        games: {
+            RJ01111111_Game: {
+                name: 'Cached Game Title',
+                folderPath: gameFolder,
+                customName: true,
+                exePath: path.join(gameFolder, 'Game.exe'),
+                engine: 'Unity',
+                sizeBytes: 543210,
+                sizeMtime: 12345
+            }
+        }
+    });
+
+    const games = await state.loadGamesForConfig({ libraryPath: rootPath, maxDepth: 5 });
+    assert.equal(games.length, 1);
+    assert.equal(games[0].name, 'Cached Game Title');
+    assert.equal(games[0].engine, 'Unity');
+});

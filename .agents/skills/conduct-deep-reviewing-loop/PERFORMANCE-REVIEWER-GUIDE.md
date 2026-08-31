@@ -17,10 +17,10 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 When auditing algorithmic complexity or throughput, author a self-contained inline benchmark script in `<repo-root>/.scratch/`:
 1. **Inline Benchmark**: Author `.scratch/bench_perf_<name>.*` via `write_to_file` importing real project dependencies and implementing the proposed loop, algorithm, or query construction inline alongside the existing codebase baseline against identical input fixtures (or clone into `.scratch/shadow_perf_<name>.*` with adjusted relative imports if full module replacement is required).
 2. **Probe Execution**: Execute the benchmark using the appropriate runtime (`node .scratch/...`, `npx tsx .scratch/...`, `python .scratch/...`) across large inputs (N = 100,000 iterations, regex stress strings, or memory allocations) under a 15s execution timeout.
-3. **Cite Proof**: Write evaluation to `scratch/deep_review/reports/Performance.md` via `write_to_file`, including relative percentage latency deltas (% speedup/slowdown), event loop block latencies, heap allocation differences, or execution timeouts.
+3. **Cite Proof**: Write evaluation to `.scratch/deep_review/reports/Performance.md` via `write_to_file`, including relative percentage latency deltas (% speedup/slowdown), event loop block latencies, heap allocation differences, or execution timeouts.
 
 > [!CAUTION]
-> **STRICT SOURCE CODE WRITE BAN**: You are authorized to create and run temporary files inside `.scratch/` ONLY. You MUST NOT modify or delete project source files. Write all findings to `scratch/deep_review/reports/Performance.md`.
+> **STRICT SOURCE CODE WRITE BAN**: You are authorized to create and run temporary files inside `.scratch/` ONLY. You MUST NOT modify or delete project source files. Write all findings to `.scratch/deep_review/reports/Performance.md`.
 
 ## Mandatory Audit Checklist
 
@@ -47,7 +47,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 ## Standard Output Protocol
 
-Save evaluation to `scratch/deep_review/reports/Performance.md` using this format:
+Save evaluation to `.scratch/deep_review/reports/Performance.md` via `write_to_file` using this format:
 
 ### Review Evaluation: Performance & Scalability Specialist
 

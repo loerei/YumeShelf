@@ -47,6 +47,19 @@ The main idea is simple: talk like a normal person who is thinking out loud whil
     - When parking a feature or roadmap item due to missing hardware or time, give people the straight facts: the blueprints/tickets are ready, community PRs are welcome, and otherwise it stays parked until there is real demand. No corporate excuses, no fake ETAs.
 14. **No cringe metaphors or gimmicky labels**:
     - Do not invent cute, cartoonish analogies or attach gimmicky nicknames in parentheses to section titles (like `(The Ping-Pong Loop)` or cute stories). Just call the thing by its literal name and explain the literal mechanics. Keep it clean, deadpan, and unforced.
+15. **Forum thread body vs. intro bullets**:
+    - The "2 or 3 killer bullets" rule applies to the **intro paragraph** only (the part everyone reads before deciding to scroll). Not to the full thread body.
+    - In a long-form forum thread (like an F95zone release post), using spoilers with per-feature detail is fine. The goal is still to put the most convincing thing first.
+    - The intro must still be ruthlessly short. Spoilers are for people who already decided they want it and need the specifics.
+16. **GitHub star CTA**:
+    - A raw "give me a star" CTA sounds like a YouTuber. Do not use it as-is.
+    - If including it, reword as a dry, low-key afterthought: `a star on GitHub would be nice if you find it useful`.
+    - Never make it a header, a bullet, or bold. One quiet sentence at the very end, max.
+17. **Self-deprecation ceiling**:
+    - Be honest and dry about real constraints. State the fact and move on in the same sentence. Do not linger on it.
+    - Good: `Mac is planned but I have no Mac to test it on, so it waits until someone demands it.`
+    - Bad (whiny): `I really wish I could support Mac but I genuinely cannot afford one and it has been really stressful.`
+    - Bad (sugarcoating): `Mac support is coming very soon, stay tuned.`
 
 ---
 
@@ -63,6 +76,7 @@ The main idea is simple: talk like a normal person who is thinking out loud whil
 | `Due to resource allocation constraints, macOS support is deferred to Q3.` | `I'm broke and have no Mac, so I have zero hardware to build or test macOS builds on. The blueprint and tickets are all ready above. Contributions and PRs from Mac users are very welcome. Otherwise, this stays parked here until it's really demanded.` |
 | `Enjoy a cleaner desktop and have a wonderful day!` | `Let me know what you guys think, and enjoy a cleaner desktop.` |
 | A giant list of 8 bullet points | 3 short bullets that solve the actual annoying problems |
+| `Feel free to give me a star! ⭐` | `a star on GitHub would be nice if you find it useful` (last line, no bullet, no bold) |
 
 ---
 

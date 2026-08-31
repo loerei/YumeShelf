@@ -35,7 +35,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 ## Standard Output Protocol
 
-Save evaluation to `scratch/deep_review/reports/Security.md` using this format:
+Save evaluation to `.scratch/deep_review/reports/Security.md` via `write_to_file` using this format:
 
 ### Review Evaluation: Security Reviewer
 

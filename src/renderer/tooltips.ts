@@ -8,6 +8,24 @@ export function createTooltipController() {
     title.className = 'app-tooltip-title';
     tooltip.appendChild(title);
 
+    const metaLine = document.createElement('div');
+    metaLine.className = 'app-tooltip-meta-line';
+
+    const engineSpan = document.createElement('span');
+    engineSpan.className = 'app-tooltip-engine';
+    metaLine.appendChild(engineSpan);
+
+    const dotSpan = document.createElement('span');
+    dotSpan.className = 'app-tooltip-dot';
+    dotSpan.textContent = '•';
+    metaLine.appendChild(dotSpan);
+
+    const sizeSpan = document.createElement('span');
+    sizeSpan.className = 'app-tooltip-size';
+    metaLine.appendChild(sizeSpan);
+
+    tooltip.appendChild(metaLine);
+
     const subtitle = document.createElement('div');
     subtitle.className = 'app-tooltip-subtitle';
     tooltip.appendChild(subtitle);
@@ -20,10 +38,21 @@ export function createTooltipController() {
 
     function setContent(content) {
         const nextTitle = content?.title || '';
+        const nextEngine = content?.engine || '';
+        const nextSize = content?.size || '';
         const nextSubtitle = content?.subtitle || '';
 
         title.textContent = nextTitle;
         title.style.display = nextTitle ? 'block' : 'none';
+
+        engineSpan.textContent = nextEngine;
+        engineSpan.style.display = nextEngine ? 'inline' : 'none';
+
+        sizeSpan.textContent = nextSize;
+        sizeSpan.style.display = nextSize ? 'inline' : 'none';
+
+        dotSpan.style.display = (nextEngine && nextSize) ? 'inline' : 'none';
+        metaLine.style.display = (nextEngine || nextSize) ? 'flex' : 'none';
 
         subtitle.textContent = nextSubtitle;
         subtitle.style.display = nextSubtitle ? 'block' : 'none';
@@ -51,7 +80,7 @@ export function createTooltipController() {
     }
 
     function show(content, event, element) {
-        if (!content || (!content.title && !content.subtitle)) {
+        if (!content || (!content.title && !content.subtitle && !content.engine && !content.size)) {
             hide();
             return;
         }

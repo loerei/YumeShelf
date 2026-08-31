@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
-import { formatPlaytime, timeSince } from './utils/formatting';
+import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
 
@@ -71,6 +71,8 @@ export function createStackCardFactory({
 
         attachTooltip(card, () => ({
             title: primaryGame.name,
+            engine: primaryGame.engine || undefined,
+            size: formatBytes(primaryGame.sizeBytes),
             subtitle: primaryGame.fullLocationLabel || locationSummary
         }));
 

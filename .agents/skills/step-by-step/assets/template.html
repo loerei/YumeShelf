@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Step-by-Step Visual Explanation</title>
+  <style>
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+      --bg-primary: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-card: #1e293b;
+      --bg-card-subtle: #334155;
+      --border-color: #334155;
+      --border-highlight: #60a5fa;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --accent-blue: #38bdf8;
+      --accent-green: #4ade80;
+      --accent-amber: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-rose: #fb7185;
+
+      --node-bg: #0f172a;
+      --arrow-color: #60a5fa;
+      --grid-dot: rgba(255, 255, 255, 0.05);
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-subtle: #f1f5f9;
+      --border-color: #e2e8f0;
+      --border-highlight: #2563eb;
+
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+
+      --accent-blue: #0284c7;
+      --accent-green: #16a34a;
+      --accent-amber: #d97706;
+      --accent-purple: #9333ea;
+      --accent-rose: #e11d48;
+
+      --node-bg: #f8fafc;
+      --arrow-color: #2563eb;
+      --grid-dot: rgba(0, 0, 0, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      background-image: radial-gradient(var(--grid-dot) 1.5px, transparent 1.5px);
+      background-size: 20px 20px;
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 24px 20px 80px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* Header & Controls */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header-info h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .topic-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: var(--bg-card-subtle);
+      color: var(--accent-blue);
+      border: 1px solid var(--border-color);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .theme-toggle-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle-btn:hover {
+      border-color: var(--accent-blue);
+      transform: translateY(-1px);
+    }
+
+    /* Step Card Container */
+    .steps-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 24px;
+      position: relative;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .analogy-pill {
+      display: inline-block;
+      font-size: 0.8rem;
+      background: var(--bg-card-subtle);
+      color: var(--accent-amber);
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      border-left: 3px solid var(--accent-amber);
+    }
+
+    .step-content {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+    }
+
+    /* VISUAL PRIMITIVE 1: FLOW & PIPELINE */
+    .flow-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      padding: 16px;
+      border-radius: 10px;
+      margin: 14px 0;
+    }
+
+    .flow-node {
+      background: var(--node-bg);
+      border: 1px solid var(--border-color);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .flow-node.highlight {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .flow-node .node-sub {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .flow-arrow {
+      color: var(--arrow-color);
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 4px;
+    }
+
+    /* VISUAL PRIMITIVE 2: COMPONENT TOPOLOGY */
+    .box-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 14px 0;
+    }
+
+    .comp-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .comp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .comp-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .comp-badge {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--bg-card-subtle);
+      color: var(--accent-green);
+      font-family: var(--font-mono);
+    }
+
+    .comp-body {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* VISUAL PRIMITIVE 3: MEMORY & PACKET STRIP */
+    .mem-strip {
+      display: flex;
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 14px 0;
+      background: var(--bg-surface);
+    }
+
+    .mem-cell {
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      border-right: 1px solid var(--border-color);
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      transition: background 0.2s ease;
+    }
+
+    .mem-cell:last-child {
+      border-right: none;
+    }
+
+    .mem-cell.active {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      font-weight: 600;
+    }
+
+    .mem-cell .cell-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    /* VISUAL PRIMITIVE 4: STATE CHAIN */
+    .state-chain {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 14px 0;
+      flex-wrap: wrap;
+    }
+
+    .state-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-muted);
+    }
+
+    .state-badge.active {
+      background: var(--accent-blue);
+      color: #0f172a;
+      border-color: var(--accent-blue);
+    }
+
+    .state-badge.success {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--accent-green);
+      border-color: var(--accent-green);
+    }
+
+    /* VISUAL PRIMITIVE 5: INTERACTIVE TABS & CONTROLS */
+    .interactive-panel {
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      background: var(--bg-surface);
+      padding: 14px;
+      margin: 14px 0;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--bg-card-subtle);
+      color: var(--accent-blue);
+    }
+
+    .tab-content {
+      display: none;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      animation: fadeIn 0.2s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-info">
+        <h1>Step-by-Step Visualizer</h1>
+        <span class="topic-badge" id="topicBadge">Interactive System</span>
+      </div>
+      <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()">
+        <span id="themeIcon">☀️</span> Switch Theme
+      </button>
+    </header>
+
+    <main class="steps-timeline" id="stepsContainer">
+      <!-- Steps will be dynamically injected here -->
+      
+      <!-- NEXT_STEP_ANCHOR -->
+    </main>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      document.getElementById('themeIcon').textContent = next === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('step_theme', next);
+    }
+
+    // Restore saved theme
+    (function initTheme() {
+      const saved = localStorage.getItem('step_theme');
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('themeIcon').textContent = saved === 'dark' ? '☀️' : '🌙';
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.getElementById('themeIcon').textContent = '🌙';
+      }
+    })();
+
+    // Tab switcher helper
+    document.addEventListener('click', function(e) {
+      if (e.target.classList.contains('tab-btn')) {
+        const parent = e.target.closest('.interactive-panel');
+        const targetTab = e.target.getAttribute('data-tab');
+        
+        parent.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        parent.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+
+        e.target.classList.add('active');
+        const activeContent = parent.querySelector(`.tab-content[data-tab-content="${targetTab}"]`);
+        if (activeContent) activeContent.classList.add('active');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -22,22 +22,41 @@ export * from './renpy-pickle.js';
 export * from './bakin-sgs.js';
 export * from './unity-binary-formatter.js';
 
+export function detectSaveStrategy(fileName: string): string | null {
+  if (!fileName || typeof fileName !== 'string' || fileName.trim() === '') {
+    return null;
+  }
+  const clean = fileName.trim().replace(/\\/g, '/');
+  const baseName = clean.substring(clean.lastIndexOf('/') + 1).toLowerCase();
+
+  if (baseName.endsWith('.rpgsave')) return 'rpg-maker-mv';
+  if (baseName.endsWith('.rmmzsave')) return 'rpg-maker-mz';
+  if (baseName.endsWith('.sav')) return 'wolf-sav';
+  if (baseName.endsWith('.save')) return 'renpy-pickle';
+  if (baseName.endsWith('.sgs')) return 'bakin-sgs';
+  if (baseName.endsWith('.bin')) return 'unity-binary-formatter';
+  if (baseName.endsWith('.json')) {
+    if (baseName.includes('savedata')) return 'keyed-json';
+    return 'pure-json';
+  }
+  return null;
+}
+
+export function isSupportedSaveFile(fileName: string): boolean {
+  return detectSaveStrategy(fileName) !== null;
+}
+
+export function listSupportedSaveExtensions(): string[] {
+  return ['.bin', '.json', '.rmmzsave', '.rpgsave', '.sav', '.save', '.sgs'];
+}
+
 function normalizeStrategy(strategy: string, context?: SaveCodecContext): string {
   const norm = (strategy || '').toLowerCase().trim();
   if (norm) return norm;
 
   if (context?.fileName) {
-    const fn = context.fileName.toLowerCase();
-    if (fn.endsWith('.rpgsave')) return 'rpg-maker-mv';
-    if (fn.endsWith('.rmmzsave')) return 'rpg-maker-mz';
-    if (fn.endsWith('.sav')) return 'wolf-sav';
-    if (fn.endsWith('.save')) return 'renpy-pickle';
-    if (fn.endsWith('.sgs')) return 'bakin-sgs';
-    if (fn.endsWith('.bin')) return 'unity-binary-formatter';
-    if (fn.endsWith('.json')) {
-      if (fn.includes('savedata')) return 'keyed-json';
-      return 'pure-json';
-    }
+    const detected = detectSaveStrategy(context.fileName);
+    if (detected) return detected;
   }
 
   return 'unknown';

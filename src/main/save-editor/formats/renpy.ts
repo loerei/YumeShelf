@@ -3,7 +3,7 @@ import { YumeEngine } from '@yumeshelf/engine';
 
 class RenpyFormat {
     match(fileName: string): boolean {
-        return fileName.toLowerCase().endsWith('.save');
+        return YumeEngine.detectSaveStrategy(fileName) === 'renpy-pickle';
     }
 
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {

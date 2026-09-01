@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Ground ticket breakdowns in actual codebase dependencies and test suites. Do NOT demand speculative ticket splits for stable, working modules.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Verify that the target DA's milestones and ticket prerequisites correctly sequence with `Upstream` DAs (ensuring target tickets do not attempt to implement upstream capabilities or assume upstream milestones are complete without explicit staging).
 - Follow Postel's Law: Preserve backward-compatible decoding during transitional milestone phases.
 
 ## Mandatory Audit Questions
@@ -25,19 +27,19 @@ When restructuring multi-phase PRDs or tickets, reviewers MUST formulate finding
 
 ### 1. Macro & Phase-Level Actions (PRD ↔ PRD)
 - **`MERGE_PRDS`**: Consolidate tightly coupled or circular PRDs into a single unified phase to eliminate artificial boundaries.
-- **`SPLIT_PRD`**: Decompose an overloaded PRD into sequential phases (e.g., Phase A: Core Engine MVP -> Phase B: Ecosystem/UI).
+- **`SPLIT_PRD`**: Decompose an overloaded PRD into sequential phases (e.g., Phase A: Backend Service MVP -> Phase B: Client UI).
 - **`REORDER_PHASES`**: Re-sequence execution order when a downstream phase contains mandatory architectural prerequisites for an upstream phase.
 
 ### 2. Cross-Level Actions (PRD ↔ Ticket)
 - **`EXTRACT_PRD_FROM_TICKETS`**: Extract a cluster of related tickets from an existing PRD into a new standalone PRD/Phase when they form an independent subsystem.
-- **`RELOCATE_TICKET`**: Move a ticket from a later phase to an earlier phase (e.g., promoting test fixtures or binary parsers to Phase 0) or defer a non-essential ticket to a later phase.
+- **`RELOCATE_TICKET`**: Move a ticket from a later phase to an earlier phase (e.g., promoting shared test fixtures or schema migrations to Phase 1) or defer a non-essential ticket to a later phase.
 - **`DEMOTE_PRD_TO_TICKET`**: Demote an overly trivial PRD into a single ticket within an existing parent PRD.
 
 ### 3. Micro & Ticket-Level Actions (Ticket ↔ Ticket)
 - **`SPLIT_TICKET_TRACER_BULLETS`**: Split a monolithic ticket into sequential tracer bullets using **Hierarchical Dot Notation** (e.g., `Ticket 3` $\rightarrow$ `Ticket 3.1` and `Ticket 3.2`; `Ticket 3.2` $\rightarrow$ `Ticket 3.2.1` and `Ticket 3.2.2`). NEVER renumber subsequent tickets (`04 -> 05`).
 - **`MERGE_TICKETS`**: Combine fragmented tickets that cannot be independently tested or delivered in isolation into a single cohesive ticket.
 - **`REORDER_TICKETS`**: Re-sequence tickets within a phase to build data models, contracts, and test seams before consuming logic.
-- **`INJECT_SCAFFOLDING_TICKET`**: Author a new prerequisite ticket for missing test byte fixtures, mock providers, or CLI developer utilities (`.devutil/`).
+- **`INJECT_SCAFFOLDING_TICKET`**: Author a new prerequisite ticket for missing test fixtures, mock data providers, or developer utilities.
 
 ### Hierarchical Dot-Splitting & Anti-Renumbering Directives
 1. **Hierarchical Dot Notation (`X.1, X.2 ... X.n`)**: When decomposing a ticket, MUST use symmetrical dot notation (`3.1, 3.2` rather than `3, 3b` or `3a, 3b`). Arbitrary nesting depth (`3.2.1, 3.2.2 ... 3.2.n`) is fully authorized and encouraged whenever sub-scopes require granular tracer bullets.

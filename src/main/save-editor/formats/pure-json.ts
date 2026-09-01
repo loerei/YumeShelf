@@ -3,7 +3,7 @@ import { YumeEngine } from '@yumeshelf/engine';
 
 class PureJsonFormat {
     match(fileName: string): boolean {
-        return fileName.toLowerCase().endsWith('.json');
+        return YumeEngine.detectSaveStrategy(fileName) === 'pure-json';
     }
 
     async decode(rawData: Buffer): Promise<any> {

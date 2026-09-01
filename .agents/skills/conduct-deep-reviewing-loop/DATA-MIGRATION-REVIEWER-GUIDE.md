@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Cross-reference legacy schema contracts, disk fixtures, and migration tests before demanding schema constraints.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Cross-reference the target DA's schema mutations against `Upstream` DAs to ensure that the target DA does NOT clobber, overwrite, or mutate fields owned by upstream epics without transactional merge semantics.
 - Follow Postel's Law: Be liberal in reading legacy/mock records (allow field omissions), conservative in writing canonical schemas. Do NOT introduce deserialization validation that breaks mock databases.
 
 ## Empirical Verification: Shadow Sandbox (.scratch/)

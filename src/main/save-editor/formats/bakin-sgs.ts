@@ -3,7 +3,7 @@ import { YumeEngine } from '@yumeshelf/engine';
 
 class BakinSgsFormat implements SaveFormat {
     match(fileName: string): boolean {
-        return fileName.toLowerCase().endsWith('.sgs');
+        return YumeEngine.detectSaveStrategy(fileName) === 'bakin-sgs';
     }
 
     async decode(rawData: Buffer): Promise<any> {

@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Ground interface critiques in active UI design systems and user workflow patterns. Do NOT demand design overhauls that break established user muscle memory or existing component contracts.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Cross-reference UI component mount points, navigation hierarchies, modal flows, and design tokens against `Upstream` DAs to guarantee harmonious UI integration without designing detached or clashing interaction patterns.
 - Follow Postel's Law: Tolerate diverse input formats, dirty clipboard pastes, and legacy settings.
 
 ## Mandatory Audit Checklist

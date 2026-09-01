@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Inspect existing test suites and fixtures in the repository before demanding new mocking layers. Do NOT demand dependency injection abstractions that break established public contracts or existing tests.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Verify that the target DA's test commands, test fixtures, and testing boundaries align with the test runner architecture established in `Upstream` DAs.
 - Follow Postel's Law: Ensure proposed test verification tolerates existing synthetic test buffers and mock fixtures.
 
 ## Empirical Verification: Shadow Sandbox (.scratch/)

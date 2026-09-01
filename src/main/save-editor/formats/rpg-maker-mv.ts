@@ -3,7 +3,7 @@ import { YumeEngine } from '@yumeshelf/engine';
 
 class RpgMakerMvFormat {
     match(fileName: string): boolean {
-        return fileName.endsWith('.rpgsave');
+        return YumeEngine.detectSaveStrategy(fileName) === 'rpg-maker-mv';
     }
 
     async decode(rawData: Buffer): Promise<any> {

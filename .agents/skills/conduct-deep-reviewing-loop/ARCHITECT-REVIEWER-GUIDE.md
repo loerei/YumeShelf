@@ -10,15 +10,20 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Cross-reference active codebase implementations and test fixtures before proposing new architectural constraints, abstractions, or error models.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - **Anti-Bloat**: Verify that the target DA does NOT re-implement or duplicate mechanisms already specified in `Upstream` DAs.
+  - **Anti-Drift**: Verify that the target DA's proposed types, APIs, and data models conform strictly to contracts established by `Upstream` DAs.
+  - **Downstream Seams**: Verify that the target DA exposes clean extension points without prematurely coupling to `Downstream` epics.
 - Follow Postel's Law: Be liberal in what you accept on deserialization/ingress paths, conservative in what you produce on encode/egress paths. Do NOT demand fail-fast rejection on read paths if active code or tests tolerate uncalculated checksums, synthetic mocks, or lenient headers, unless the user explicitly requested a breaking change.
 
 ## Mandatory Audit Questions
 
 1. **Problem Formulation**: Does the DA address the root cause, or merely mitigate symptoms?
 2. **Solution Optimality**: Is there a simpler, lower-complexity architectural approach that achieves the same goals?
-3. **Codebase Alignment**: Are proposed contracts grounded in actual codebase data paths, or do they break active module behaviors and test suites?
-4. **Domain Boundaries**: Are module responsibilities, domain models, and data boundaries correctly isolated?
-5. **Trade-Off Transparency**: Are performance, memory, and maintainability trade-offs explicitly identified?
+3. **Lineage Alignment & Single Source of Truth**: Does the DA respect `Upstream` contracts without spec bloat or architectural drift?
+4. **Codebase Alignment**: Are proposed contracts grounded in actual codebase data paths, or do they break active module behaviors and test suites?
+5. **Domain Boundaries**: Are module responsibilities, domain models, and data boundaries correctly isolated?
+6. **Trade-Off Transparency**: Are performance, memory, and maintainability trade-offs explicitly identified?
 
 ## Domain Subdocuments Routing Table
 

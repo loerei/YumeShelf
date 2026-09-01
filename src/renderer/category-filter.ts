@@ -57,7 +57,7 @@ export function createCategoryFilterController({
         const allText = d.category_filter_all || 'All categories';
         const activeCategory = getActiveCategory();
         categoryFilterLabel.innerText = activeCategory ? activeCategory.label : allText;
-        categoryFilterBtn.title = activeCategory ? `${activeCategory.trailLabel}` : allText;
+        categoryFilterBtn.setAttribute('data-tooltip', activeCategory ? `${activeCategory.trailLabel}` : allText);
     }
 
     function hideMenu() {
@@ -93,7 +93,7 @@ export function createCategoryFilterController({
             item.dataset.categoryId = entry.id;
             item.innerText = entry.label;
             item.style.paddingLeft = `${15 + (entry.depth * 18)}px`;
-            item.title = entry.trailLabel;
+            item.setAttribute('data-tooltip', entry.trailLabel);
             if (getActiveCategoryId() === entry.id) {
                 item.classList.add('active');
             }

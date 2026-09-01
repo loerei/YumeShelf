@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Ground telemetry requirements in the operational environment of the codebase. Do NOT demand distributed tracing spans on local utility scripts or private helper functions.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Cross-reference telemetry events, progress streaming formats, and error logging contracts against `Upstream` DAs to ensure consistent event naming, log formatting, and secret redaction without schema fragmentation across subsystems.
 - Follow Postel's Law: Capture diagnostics without failing business logic or crashing on missing telemetry endpoints.
 
 ## Mandatory Audit Checklist

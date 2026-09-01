@@ -59,13 +59,13 @@ GOOD (Tidy First Order):
 
 ### Anti-Pattern 3: Overloaded Checkboxes Inside Execution Plan
 BAD (Multi-Concern Step):
-- `[ ] Implement Mach-O 32/64 bit parser, add unit tests, update Electron UI preview table, and fix legacy crash bug.` (Exceeds single-turn execution limits; impossible to cleanly isolate mid-turn failures).
+- `[ ] Implement user avatar upload, write API tests, update profile settings page UI, and fix image cache bug.`
 
 GOOD (Atomic Steps with Discrete Verification):
-- `[ ] 1. Define Mach-O binary header struct interfaces and stub parser in src/binary/macho.ts` (`SPLIT_STEP`)
-- `[ ] 2. Implement 32/64 bit FAT header parse logic and endianness normalization` (`SPLIT_STEP`)
-- `[ ] 3. Run unit tests verifying Mach-O parser against byte fixtures` (`INJECT_VERIFICATION_STEP`)
-- `[ ] 4. Connect Mach-O parser to Electron UI table` (`SPLIT_STEP`)
+- `[ ] 1. Define AvatarStorage interface and local disk adapter stub` (`SPLIT_STEP`)
+- `[ ] 2. Implement image validation and resizing pipeline` (`SPLIT_STEP`)
+- `[ ] 3. Run unit tests verifying image validator against test fixtures` (`INJECT_VERIFICATION_STEP`)
+- `[ ] 4. Mount avatar upload component in user profile UI` (`SPLIT_STEP`)
 
 ## Failure Modes & Mitigations
 

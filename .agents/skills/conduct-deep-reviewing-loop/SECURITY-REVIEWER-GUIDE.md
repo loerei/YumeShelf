@@ -9,7 +9,9 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 **Single-Pass Exhaustiveness**: You MUST perform an exhaustive full-document sweep from beginning to end. Report an unabridged inventory of ALL security vulnerabilities, auth gaps, and data validation flaws across the entire document in a single pass. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
 
 **Ground-Truth Alignment**:
-- Ground security demands in the actual threat model of the project (e.g. local desktop/CLI vs public cloud). Do NOT demand enterprise auth on internal IPC paths if it breaks internal test suites.
+- Ground security demands in the actual threat model and architecture of the project. Do NOT demand remote enterprise authentication controls on internal, private process communications if it contradicts project requirements or breaks internal test suites.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Cross-reference security boundaries, credential storage mechanisms, and redaction standards against `Upstream` DAs to ensure the target DA upholds established security invariants without regression or conflicting credential models.
 - Follow Postel's Law: Allow lenient validation on internal mock fixtures; enforce strict validation on untrusted external boundaries.
 
 ## Mandatory Audit Checklist

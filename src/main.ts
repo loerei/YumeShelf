@@ -25,6 +25,15 @@ import { TranslationService } from './main/translation/translation-service';
 
 if (!app.isPackaged) {
     app.setName('YumeShelfDev');
+    let port = '9222';
+    const extraArgs = process.env.ELECTRON_EXTRA_LAUNCH_ARGS;
+    if (extraArgs) {
+        const match = extraArgs.match(/--remote-debugging-port=(\d+)/);
+        if (match) port = match[1];
+    }
+    if (!app.commandLine.hasSwitch('remote-debugging-port')) {
+        app.commandLine.appendSwitch('remote-debugging-port', port);
+    }
 }
 
 const isSingleInstance = app.requestSingleInstanceLock();

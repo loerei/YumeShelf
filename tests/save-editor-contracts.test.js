@@ -16,7 +16,9 @@ const formats = {
     'rpg-wolf-sav': getFormat('rpg-wolf-sav'),
     'renpy': getFormat('renpy'),
     'unity-mono-bin': getFormat('unity-mono-bin'),
-    'pure-json': getFormat('pure-json')
+    'pure-json': getFormat('pure-json'),
+    'simple-keyed-json': getFormat('simple-keyed-json'),
+    'bakin-sgs': getFormat('bakin-sgs')
 };
 
 test('Strict Strategy Interface Contracts - All formats must implement standard API', () => {
@@ -144,7 +146,8 @@ test('RenPy and Unity Format Contracts - File Matching Rules', () => {
 
 test('Pure JSON Save Format Contract - Plain JSON parsing and round-trip', async () => {
     const strategy = formats['pure-json'];
-    assert.equal(strategy.match('savedata0.json'), true);
+    assert.equal(strategy.match('save01.json'), true);
+    assert.equal(strategy.match('savedata0.json'), false);
     assert.equal(strategy.match('savedata0.sav'), false);
 
     const testPayload = {
@@ -163,6 +166,15 @@ test('Pure JSON Save Format Contract - Plain JSON parsing and round-trip', async
     const secondEncoded = await strategy.encode(decodedJson);
     const parsedSecond = JSON.parse(secondEncoded.toString('utf8'));
     assert.deepEqual(parsedSecond, testPayload, 'JSON round-trip must preserve exact payload');
+});
+
+test('Simple Keyed JSON Format Contract - File Matching Rules', () => {
+    const strategy = formats['simple-keyed-json'];
+    assert.equal(strategy.match('savedata0.json'), true);
+    assert.equal(strategy.match('SAVEDATA_01.JSON'), true);
+    assert.equal(strategy.match('save01.json'), false);
+    assert.equal(strategy.match('config.json'), false);
+    assert.equal(strategy.match('savedata.sav'), false);
 });
 
 test('SaveDataEngine - End-to-end writeSave with sanitizeSaveData preserves format inspection tokens', async () => {

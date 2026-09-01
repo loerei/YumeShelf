@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Cross-reference active module implementations and test fixtures before flagging missing error branches or validation steps.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Verify that state transitions, lifecycle hooks, and concurrency locks in the target DA correctly integrate with state machines defined in `Upstream` DAs.
 - Follow Postel's Law: Differentiate Ingress (reading/decoding legacy or mock inputs) vs. Egress (writing/encoding canonical outputs). Do NOT mandate throwing exceptions on read paths if existing regression tests rely on lenient decoding.
 
 ## Empirical Verification: Shadow Sandbox (.scratch/)

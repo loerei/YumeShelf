@@ -42,6 +42,16 @@ export class SaveEditorIpcController {
             return saveEditorService?.writeSaveData(gameKey, fileName, data);
         });
 
+        ipcMain.handle('save-editor:rename-file', async (_event, { gameKey, oldFileName, newFileName, overwrite }) => {
+            console.log(`[IPC] save-editor:rename-file gameKey: ${gameKey}, oldFileName: ${oldFileName}, newFileName: ${newFileName}, overwrite: ${overwrite}`);
+            return saveEditorService?.renameSaveFile(gameKey, oldFileName, newFileName, overwrite);
+        });
+
+        ipcMain.handle('save-editor:delete-file', async (_event, { gameKey, fileName }) => {
+            console.log(`[IPC] save-editor:delete-file gameKey: ${gameKey}, fileName: ${fileName}`);
+            return saveEditorService?.deleteSaveFile(gameKey, fileName);
+        });
+
         ipcMain.handle('save-editor:update-mapping', async (_event, { gameKey, name, offset, dataType }) => {
             console.log(`[IPC] save-editor:update-mapping gameKey: ${gameKey}`);
             return saveEditorService?.updateMapping(gameKey, name, offset, dataType);

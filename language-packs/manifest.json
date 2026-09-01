@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-31T23:52:21.020Z",
+  "generatedAt": "2026-09-01T20:37:33.068Z",
   "packs": [
     {
       "code": "vi",
@@ -8,7 +8,7 @@
       "nativeName": "Tiếng Việt",
       "packVersion": "1.0.2",
       "minAppVersion": "1.3.0",
-      "reviewedForAppVersion": "2.1.1",
+      "reviewedForAppVersion": "2.1.2",
       "aliases": [
         "vi",
         "viet",
@@ -21,7 +21,7 @@
         "southeast asia"
       ],
       "downloadUrl": "https://raw.githubusercontent.com/loerei/YumeShelf/main/language-packs/packs/vi.json",
-      "sha256": "551bae49a51f79fba81da29c2c899f7a9b5dd4858884513178e21b094f0ac895"
+      "sha256": "81074c80d05281ec2fe95d4a95846e7bb3b7b98b20c7af6e5bdbb82554342af5"
     }
   ]
 }

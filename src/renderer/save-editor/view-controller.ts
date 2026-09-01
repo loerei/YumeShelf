@@ -57,7 +57,7 @@ export class SaveEditorViewController {
     private createFilterLabel(i18nKey: string, text: string, className: string, checked = false, title = '', hide = false, titleI18nKey = ''): HTMLLabelElement {
         const label = document.createElement('label');
         label.className = `save-editor-filter-check ${hide ? 'switch-filters-only' : ''}`.trim();
-        if (title) label.title = title;
+        if (title) label.setAttribute('data-tooltip', title);
         if (titleI18nKey) label.dataset.i18nTitle = titleI18nKey;
         if (hide) label.style.display = 'none';
 
@@ -96,7 +96,7 @@ export class SaveEditorViewController {
         if (!isStandalone) {
             const popoutBtn = document.createElement('button');
             popoutBtn.className = 'save-editor-popout';
-            popoutBtn.title = 'Open in separate window';
+            popoutBtn.setAttribute('data-tooltip', 'Open in separate window');
             popoutBtn.dataset.i18nTitle = 'save_editor_popout_title';
             popoutBtn.style.cssText = 'background: none; border: none; color: #9ca3af; font-size: 1.25em; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;';
             popoutBtn.appendChild(createSVGIcon('M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3', 18, 18, '0 0 24 24', 2.2));
@@ -159,13 +159,13 @@ export class SaveEditorViewController {
 
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'refresh-save-btn';
-        refreshBtn.title = 'Reload from disk';
+        refreshBtn.setAttribute('data-tooltip', 'Reload from disk');
         refreshBtn.dataset.i18nTitle = 'save_editor_reload_title';
         refreshBtn.appendChild(createSVGIcon('M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15', 16, 16));
 
         const translateBtn = document.createElement('button');
         translateBtn.className = 'translate-btn';
-        translateBtn.title = 'Translate to app language';
+        translateBtn.setAttribute('data-tooltip', 'Translate to app language');
         translateBtn.dataset.i18nTitle = 'save_editor_translate_title';
         translateBtn.appendChild(createSVGIcon('M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1m14 20-5-10-5 10M14 18h6', 16, 16));
         const translateSpan = document.createElement('span');

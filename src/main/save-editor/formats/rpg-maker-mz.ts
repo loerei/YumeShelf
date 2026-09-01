@@ -2,7 +2,7 @@ import { YumeEngine } from '@yumeshelf/engine';
 
 class RpgMakerMzFormat {
     match(fileName: string): boolean {
-        return fileName.endsWith('.rmmzsave');
+        return YumeEngine.detectSaveStrategy(fileName) === 'rpg-maker-mz';
     }
 
     async decode(rawData: Buffer): Promise<any> {

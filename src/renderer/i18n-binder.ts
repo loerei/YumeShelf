@@ -55,7 +55,8 @@ export function bindI18nStrings(
         if (!key) return;
         const value = dictionary[key] ?? fallbackDictionary?.[key];
         if (value !== undefined && value !== null) {
-            el.title = value;
+            el.setAttribute('data-tooltip', value);
+            el.removeAttribute('title');
         }
     });
 }

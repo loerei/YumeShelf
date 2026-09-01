@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Ground performance critique in actual workload scale and codebase realities. Do NOT demand multi-threaded workers, streaming pipelines, or caching for small payloads (< 1KB) or non-hot paths.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Cross-reference memory ceilings, buffer bounds, and I/O efficiency against `Upstream` DAs to ensure performance invariants are upheld end-to-end.
 - Follow Postel's Law: Prioritize backward compatibility over micro-benchmarked premature optimizations.
 
 ## Empirical Verification: Shadow Sandbox (.scratch/)

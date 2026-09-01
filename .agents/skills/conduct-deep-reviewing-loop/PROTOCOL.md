@@ -35,8 +35,29 @@ Layer 1 initializes `.scratch/deep_review/Context.md` at workflow start. Context
 
 ### Context Content Rules
 
-- **MUST Include**: Target DA path, codebase rules path (`AGENTS.md`), task domain skill paths, objective user criteria, static `SP` threshold.
+- **MUST Include**:
+  - Target DA path.
+  - Cross-Referenced DAs & Dependency Lineage table:
+    ```markdown
+    ## Cross-Referenced DAs & Dependency Lineage
+    | DA Path | Lineage Direction | Codebase Status | Domain Boundary & Contract Responsibility |
+    | :--- | :---: | :---: | :--- |
+    | `<path-to-da>` | `Upstream` \| `Downstream` | `Implemented` \| `Unimplemented` | <Explicit responsibility boundary> |
+    ```
+  - Codebase rules path (`AGENTS.md`).
+  - Task domain skill paths.
+  - Objective user criteria.
+  - Static `SP` threshold.
 - **MUST NOT Include**: Leading prompt questions, past reviewer scores, historical changelogs, or dynamic execution state (active round numbers, iteration counts, or current `PassCount`).
+
+### Cross-Referenced DA & Dependency Lineage Semantics
+When evaluating a target DA with cross-referenced dependencies, reviewers MUST strictly follow these invariant semantics:
+1. **`Upstream` + `Implemented`**: The existing codebase on disk is the authoritative ground-truth. The target DA must cleanly integrate with existing implementations.
+2. **`Upstream` + `Unimplemented` (Authoritative Future Baseline)**: Reviewers MUST read the upstream DA and treat its declared types, schemas, and seams as the authoritative future baseline:
+   - **Anti-Bloat**: The target DA MUST NOT re-specify, duplicate, or expand features belonging to the upstream DA.
+   - **Anti-Drift**: The target DA MUST strictly adhere to the data structures, types, and seams defined in the upstream DA without contradiction or incompatible divergence.
+   - **Anti-False-Positive**: Reviewers MUST NOT flag missing codebase files or unimplemented methods as readiness/liveness defects if they are explicitly scheduled to be created by the upstream DA.
+3. **`Downstream` + `Unimplemented`**: The target DA must expose clean extension points and domain seams, but MUST NOT be tightly coupled to or leak domain-specific logic of future downstream epics.
 
 ## 3. Invariant Reviewer Invocation Protocol
 

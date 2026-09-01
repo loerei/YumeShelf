@@ -4,6 +4,22 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.1.2] - 2026-09-01 — released
+
+### What Changed
+- You can now rename and delete save files right inside the Save Editor sidebar without having to open File Explorer.
+- Hovering over a save file shows quick edit and delete buttons, with inline name editing and confirmation popovers so you don't accidentally overwrite or delete the wrong save.
+
+### For the Nerds
+- [engine] Added `detectSaveStrategy`, `isSupportedSaveFile`, and `listSupportedSaveExtensions` to `@yumeshelf/engine` as the single source of truth for save file format discovery.
+- [engine] Added `renameSave` and `deleteSave` methods to `SaveDataEngine` with path traversal rejection, backup file (`.bak`) management, format strategy verification, and collision detection.
+- [save-editor] Refactored all 8 format strategy adapters in `src/main/save-editor/formats/` to delegate format matching to `YumeEngine.detectSaveStrategy()`.
+- [ipc] Registered `save-editor:rename-file` and `save-editor:delete-file` IPC handlers in `SaveEditorIpcController` and exposed them on `ElectronAPI` via `preload.ts`.
+- [ui] Enhanced `setupSidebar` in `src/renderer/save-editor/sidebar.ts` with inline input editing, selection ranges, real-time validation tooltips, shake animation, duplicate overwrite popovers, and delete confirmation popovers.
+- [tests] Added test coverage in `@yumeshelf/engine` (`headless-save-codecs.test.ts`), `tests/save-editor-contracts.test.js`, and `tests/save-data-engine.test.js`.
+
+---
+
 ## [2.1.1] - 2026-08-31 — released
 
 ### What Changed

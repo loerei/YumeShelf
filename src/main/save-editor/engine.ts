@@ -111,6 +111,77 @@ export class SaveDataEngine {
         return { ok: true };
     }
 
+    async renameSave(gameKey: string, oldFileName: string, newFileName: string, overwrite = false) {
+        if (!newFileName || typeof newFileName !== 'string') {
+            throw new Error('New save file name cannot be empty');
+        }
+
+        const trimmedNewName = newFileName.trim();
+        if (!trimmedNewName) {
+            throw new Error('New save file name cannot be empty');
+        }
+
+        // Validate format compatibility
+        this.findFormat(trimmedNewName);
+
+        const paths = await this.config.getGamePaths(gameKey);
+        if (!paths) throw new Error('Could not resolve game paths');
+
+        const oldPath = this.resolveSafePath(paths.saveDir, oldFileName);
+        const newPath = this.resolveSafePath(paths.saveDir, trimmedNewName);
+
+        if (oldPath === newPath) {
+            return { ok: true, renamed: false, fileName: trimmedNewName };
+        }
+
+        if (!(await this.exists(oldPath))) {
+            throw new Error(`Original save file does not exist: ${oldFileName}`);
+        }
+
+        const targetExists = await this.exists(newPath);
+        if (targetExists) {
+            if (!overwrite) {
+                return { ok: false, error: 'FILE_EXISTS', message: `Target save file already exists: ${trimmedNewName}` };
+            }
+            await fs.unlink(newPath);
+        }
+
+        await fs.rename(oldPath, newPath);
+
+        const oldBakPath = oldPath + '.bak';
+        const newBakPath = newPath + '.bak';
+        try {
+            if (await this.exists(oldBakPath)) {
+                if (await this.exists(newBakPath)) {
+                    await fs.unlink(newBakPath);
+                }
+                await fs.rename(oldBakPath, newBakPath);
+            }
+        } catch {}
+
+        return { ok: true, renamed: true, fileName: trimmedNewName };
+    }
+
+    async deleteSave(gameKey: string, fileName: string) {
+        const paths = await this.config.getGamePaths(gameKey);
+        if (!paths) throw new Error('Could not resolve game paths');
+
+        const savePath = this.resolveSafePath(paths.saveDir, fileName);
+
+        if (await this.exists(savePath)) {
+            await fs.unlink(savePath);
+        }
+
+        const bakPath = savePath + '.bak';
+        try {
+            if (await this.exists(bakPath)) {
+                await fs.unlink(bakPath);
+            }
+        } catch {}
+
+        return { ok: true };
+    }
+
     sanitizeSaveData(data: any): any {
         if (!data || typeof data !== 'object') return data;
         const clean = { ...data };
@@ -119,8 +190,10 @@ export class SaveDataEngine {
     }
 
     private resolveSafePath(baseDir: string, fileName: string): string {
-        const safeName = path.basename(fileName);
-        const targetPath = path.join(baseDir, safeName);
+        if (!fileName || fileName.includes('/') || fileName.includes('\\') || path.basename(fileName) !== fileName) {
+            throw new Error('Invalid save file path: Path traversal detected');
+        }
+        const targetPath = path.join(baseDir, fileName);
         const resolvedPath = path.resolve(targetPath);
         const resolvedBase = path.resolve(baseDir);
 

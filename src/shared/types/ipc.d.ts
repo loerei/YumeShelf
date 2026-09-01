@@ -58,6 +58,8 @@ export interface ElectronAPI {
     listSaveFiles: (gameKey: string) => Promise<string[]>;
     loadSaveData: (data: { gameKey: string, fileName: string }) => Promise<{ data: any, metadata: any }>;
     writeSaveData: (data: any) => Promise<any>;
+    renameSaveFile: (data: { gameKey: string, oldFileName: string, newFileName: string, overwrite?: boolean }) => Promise<{ ok: boolean, error?: string, message?: string, renamed?: boolean, fileName?: string }>;
+    deleteSaveFile: (data: { gameKey: string, fileName: string }) => Promise<{ ok: boolean }>;
     updateMapping: (data: any) => Promise<any>;
     openSaveEditorWindow: (gameKey: string) => void;
     loadTranslations: (lang: string) => Promise<any>;

@@ -140,7 +140,7 @@
 }
 
 .save-editor-sidebar {
-    width: 200px;
+    width: 220px;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     padding: 12px;
     overflow-y: auto;
@@ -148,21 +148,23 @@
 }
 
 .save-file-item {
-    padding: 10px 14px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 10px;
     border-radius: 6px;
     margin-bottom: 4px;
     cursor: pointer;
     transition: all 0.15s;
     background: transparent;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     color: #999;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .save-file-item:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.04);
     color: #ccc;
 }
 
@@ -170,6 +172,189 @@
     background: rgba(255, 255, 255, 0.08);
     color: #fff;
     font-weight: 500;
+}
+
+.save-file-name {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+
+.save-file-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    flex-shrink: 0;
+}
+
+.save-file-item:hover .save-file-actions,
+.save-file-item.has-open-popover .save-file-actions {
+    opacity: 1;
+}
+
+.save-file-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.save-file-action-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.save-file-action-btn.delete-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* Inline rename input */
+.save-file-rename-input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    background: #18181b;
+    border: 1px solid #3b82f6;
+    border-radius: 4px;
+    padding: 3px 6px;
+    color: #fff;
+    font-size: 0.85rem;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.save-file-rename-input.input-error {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+    animation: save-input-shake 0.25s ease-in-out;
+}
+
+@keyframes save-input-shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-3px); }
+    40%, 80% { transform: translateX(3px); }
+}
+
+/* Save Editor Popover (Delete Confirm / Collision Overwrite) */
+.save-editor-popover {
+    position: fixed;
+    z-index: 10001;
+    background: var(--menu-bg, #202020);
+    border: 1px solid var(--menu-border, #3d3d3d);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--menu-shadow, 0 12px 28px rgba(0, 0, 0, 0.42));
+    backdrop-filter: blur(14px);
+    max-width: 270px;
+    font-size: 0.85rem;
+    color: var(--text-main, #ffffff);
+    animation: popover-fade 0.15s ease-out;
+}
+
+@keyframes popover-fade {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.save-editor-popover-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-main, #ffffff);
+}
+
+.save-editor-popover-desc {
+    color: var(--text-sub, #b3b3b3);
+    font-size: 11.5px;
+    line-height: 1.4;
+    margin-bottom: 12px;
+}
+
+.save-editor-popover-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.save-editor-popover-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+}
+
+.save-editor-popover-btn.cancel-btn {
+    background: var(--hover-bg, #2a2a2a);
+    color: var(--text-sub, #b3b3b3);
+    border-color: var(--border-color, #333333);
+}
+
+.save-editor-popover-btn.cancel-btn:hover {
+    background: var(--menu-active-bg, rgba(255, 255, 255, 0.08));
+    color: var(--text-main, #ffffff);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.save-editor-popover-btn.danger-btn {
+    background: rgba(255, 74, 74, 0.18);
+    color: #ff5c5c;
+    border-color: rgba(255, 74, 74, 0.35);
+}
+
+.save-editor-popover-btn.danger-btn:hover {
+    background: #e03131;
+    color: #ffffff;
+    border-color: #e03131;
+}
+
+.save-editor-popover-btn.primary-btn {
+    background: var(--accent, #0078d4);
+    color: #ffffff;
+    border-color: var(--accent, #0078d4);
+}
+
+.save-editor-popover-btn.primary-btn:hover {
+    filter: brightness(1.15);
+}
+
+/* Validation Tooltip for Rename */
+.save-editor-rename-tooltip {
+    position: fixed;
+    z-index: 10002;
+    background: var(--tooltip-bg, rgba(22, 22, 22, 0.96));
+    border: 1px solid rgba(255, 74, 74, 0.45);
+    color: #ff6b6b;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 6px;
+    box-shadow: var(--tooltip-shadow, 0 12px 32px rgba(0, 0, 0, 0.45));
+    backdrop-filter: blur(14px);
+    pointer-events: none;
+    animation: popover-fade 0.15s ease-out;
 }
 
 .save-editor-main {

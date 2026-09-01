@@ -6,12 +6,12 @@ Instructions for Review Host to route Layer 3 reviewers, filter feedback, and en
 
 0. **Scope Analysis & Dynamic Roster Selection**:
    - If `.scratch/deep_review/host/Reviewer_Choice_Rationale.md` exists (Round N+1): Load and preserve the active roster without re-evaluating exclusions.
-   - Else (Round 1): Inspect target DA scope and criteria, write `.scratch/deep_review/host/Reviewer_Choice_Rationale.md` using the standard table layout:
+   - Else (Round 1): Inspect target DA scope, `## Cross-Referenced DAs & Dependency Lineage` in `Context.md`, and user criteria; write `.scratch/deep_review/host/Reviewer_Choice_Rationale.md` using the standard table layout:
      ```markdown
      | Role Identifier | Selection Status (INCLUDED / EXCLUDED) | Technical Rationale |
      ```
      Ensure `Architect` and `Logic` are `INCLUDED`, and explicitly mark remaining 9 roles as `INCLUDED` or `EXCLUDED` (`Progress` MUST be `INCLUDED` for multi-phase/multi-ticket epics, roadmaps, or work-breakdown structures; `EXCLUDED` for single-ticket/simple plans).
-1. **Workspace Preparation**: Purge all files in `.scratch/deep_review/reports/` and recursively purge all diagnostic probe files in `<repo-root>/.scratch/` (excluding `.scratch/deep_review/`, idempotently handling missing directories) strictly at round start (before executing the first active tier) and before launching a Full Sweep pass (preserving intra-tier reports within an active pass). Validate `.scratch/deep_review/Context.md` without overwriting criteria or `SP`.
+1. **Workspace Preparation**: Purge all files in `.scratch/deep_review/reports/` and recursively purge all diagnostic probe files in `<repo-root>/.scratch/` (excluding `.scratch/deep_review/`, idempotently handling missing directories) strictly at round start (before executing the first active tier) and before launching a Full Sweep pass (preserving intra-tier reports within an active pass). Validate `.scratch/deep_review/Context.md` (verifying presence of target DA, dependency lineage table, and criteria) without overwriting criteria or `SP`.
 2. **DAG Routing & Targeted Execution**:
    - If `.scratch/deep_review/host/Changelog.md` exists: Reset `PassCount = 0`, determine highest modified tier for Targeted DAG routing per `PROTOCOL.md` Section 6, then delete `.scratch/deep_review/host/Changelog.md` before invoking reviewers.
    - If `.scratch/deep_review/host/Changelog.md` is absent:

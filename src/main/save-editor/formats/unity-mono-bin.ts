@@ -4,7 +4,7 @@ import { YumeEngine } from '@yumeshelf/engine';
 
 class UnityMonoBinFormat {
     match(fileName: string): boolean {
-        return fileName.endsWith('.bin');
+        return YumeEngine.detectSaveStrategy(fileName) === 'unity-binary-formatter';
     }
 
     async findAssembly(dir: string): Promise<string | null> {

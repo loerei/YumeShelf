@@ -24,7 +24,13 @@ import { resolveSaveDirectory, type ResolveSaveOptions } from './save-resolvers/
 import { NodeFileSystemProvider } from './fs/node-fs-provider.js';
 import { calculateDirectorySize } from './fs/directory-size.js';
 
-import { decodeSaveFile, encodeSaveFile } from './save-codecs/index.js';
+import {
+  decodeSaveFile,
+  encodeSaveFile,
+  detectSaveStrategy,
+  isSupportedSaveFile,
+  listSupportedSaveExtensions,
+} from './save-codecs/index.js';
 
 export type * from './types.js';
 export { SaveCodecError } from './types.js';
@@ -78,6 +84,18 @@ export class YumeEngine {
   ): Promise<ResolvedSaveLocation | null> {
     const provider = fs || new NodeFileSystemProvider();
     return resolveSaveDirectory(profile, exePath, provider, options);
+  }
+
+  static detectSaveStrategy(fileName: string): string | null {
+    return detectSaveStrategy(fileName);
+  }
+
+  static isSupportedSaveFile(fileName: string): boolean {
+    return isSupportedSaveFile(fileName);
+  }
+
+  static listSupportedSaveExtensions(): string[] {
+    return listSupportedSaveExtensions();
   }
 
   static async decodeSaveFile(

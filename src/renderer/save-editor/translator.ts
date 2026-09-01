@@ -161,7 +161,8 @@ export class Translator {
             if (key) {
                 const translation = strings[key];
                 if (translation && translation !== key) {
-                    /** @type {HTMLElement} */ (el).title = translation;
+                    /** @type {HTMLElement} */ (el).setAttribute('data-tooltip', translation);
+                    /** @type {HTMLElement} */ (el).removeAttribute('title');
                 }
             }
         }

@@ -32,15 +32,28 @@ export function createTooltipController() {
 
     document.body.appendChild(tooltip);
 
+    let currentDelegatedTarget = null;
+
     function hide() {
+        currentDelegatedTarget = null;
         tooltip.classList.remove('show');
     }
 
     function setContent(content) {
+        if (typeof content === 'string') {
+            content = { title: content };
+        }
         const nextTitle = content?.title || '';
         const nextEngine = content?.engine || '';
         const nextSize = content?.size || '';
         const nextSubtitle = content?.subtitle || '';
+
+        const isCompact = Boolean(nextTitle && !nextEngine && !nextSize && !nextSubtitle);
+        if (isCompact) {
+            tooltip.classList.add('compact');
+        } else {
+            tooltip.classList.remove('compact');
+        }
 
         title.textContent = nextTitle;
         title.style.display = nextTitle ? 'block' : 'none';
@@ -98,6 +111,7 @@ export function createTooltipController() {
     }
 
     function attachTooltip(element, getContent) {
+        element.__hasCustomTooltip = true;
         element.addEventListener('mouseenter', (event) => {
             const dropdown = element.querySelector('.dropdown-menu');
             if (dropdown?.classList.contains('show')) {
@@ -126,6 +140,55 @@ export function createTooltipController() {
         element.addEventListener('mouseleave', hide);
         element.addEventListener('blur', hide, true);
     }
+
+    // --- Global Delegated Tooltips ([data-tooltip] and [title] auto-interception) ---
+    document.addEventListener('mouseover', (event) => {
+        const el = event.target?.closest?.('[data-tooltip], [title]');
+        if (!el || el.__hasCustomTooltip) return;
+
+        const dropdown = el.closest?.('.dropdown-menu');
+        if (dropdown?.classList.contains('show') && !el.dataset.tooltipInsideDropdown) {
+            hide();
+            return;
+        }
+
+        // Migrate native title to data-tooltip to completely suppress browser native OS tooltip
+        if (el.hasAttribute('title')) {
+            const rawTitle = el.getAttribute('title');
+            if (rawTitle) {
+                el.setAttribute('data-tooltip', rawTitle);
+            }
+            el.removeAttribute('title');
+        }
+
+        const tipText = el.getAttribute('data-tooltip');
+        if (!tipText) {
+            hide();
+            return;
+        }
+
+        currentDelegatedTarget = el;
+        const subtitle = el.getAttribute('data-tooltip-subtitle') || '';
+        const engine = el.getAttribute('data-tooltip-engine') || '';
+        const size = el.getAttribute('data-tooltip-size') || '';
+
+        show({ title: tipText, subtitle, engine, size }, event, el);
+    });
+
+    document.addEventListener('mousemove', (event) => {
+        if (!currentDelegatedTarget || !tooltip.classList.contains('show')) return;
+        position(event.clientX, event.clientY);
+    });
+
+    document.addEventListener('mouseout', (event) => {
+        if (!currentDelegatedTarget) return;
+        const related = event.relatedTarget;
+        if (related && currentDelegatedTarget.contains(related)) {
+            return;
+        }
+        currentDelegatedTarget = null;
+        hide();
+    });
 
     document.addEventListener('pointerdown', hide, true);
     document.addEventListener('scroll', hide, true);

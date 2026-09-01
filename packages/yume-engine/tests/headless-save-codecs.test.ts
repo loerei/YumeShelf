@@ -545,5 +545,46 @@ describe('Headless Save Codecs & Sandboxing (@yumeshelf/engine)', () => {
         }
       );
     });
+
+    it('detectSaveStrategy correctly identifies canonical strategy IDs', () => {
+      assert.equal(YumeEngine.detectSaveStrategy('file.rpgsave'), 'rpg-maker-mv');
+      assert.equal(YumeEngine.detectSaveStrategy('C:\\Games\\save\\file.RPGSAVE'), 'rpg-maker-mv');
+      assert.equal(YumeEngine.detectSaveStrategy('save01.rmmzsave'), 'rpg-maker-mz');
+      assert.equal(YumeEngine.detectSaveStrategy('SaveData01.sav'), 'wolf-sav');
+      assert.equal(YumeEngine.detectSaveStrategy('1-LT1.save'), 'renpy-pickle');
+      assert.equal(YumeEngine.detectSaveStrategy('slot1.sgs'), 'bakin-sgs');
+      assert.equal(YumeEngine.detectSaveStrategy('GameSave.bin'), 'unity-binary-formatter');
+      assert.equal(YumeEngine.detectSaveStrategy('savedata0.json'), 'keyed-json');
+      assert.equal(YumeEngine.detectSaveStrategy('config.json'), 'pure-json');
+      assert.equal(YumeEngine.detectSaveStrategy('save_01.json'), 'pure-json');
+
+      // Invalid / unsupported
+      assert.equal(YumeEngine.detectSaveStrategy(''), null);
+      assert.equal(YumeEngine.detectSaveStrategy('   '), null);
+      assert.equal(YumeEngine.detectSaveStrategy(null as any), null);
+      assert.equal(YumeEngine.detectSaveStrategy(undefined as any), null);
+      assert.equal(YumeEngine.detectSaveStrategy('game.exe'), null);
+      assert.equal(YumeEngine.detectSaveStrategy('screenshot.png'), null);
+    });
+
+    it('isSupportedSaveFile returns true for supported formats and false otherwise', () => {
+      assert.equal(YumeEngine.isSupportedSaveFile('save.rmmzsave'), true);
+      assert.equal(YumeEngine.isSupportedSaveFile('save.rpgsave'), true);
+      assert.equal(YumeEngine.isSupportedSaveFile('save.sav'), true);
+      assert.equal(YumeEngine.isSupportedSaveFile('save.save'), true);
+      assert.equal(YumeEngine.isSupportedSaveFile('save.sgs'), true);
+      assert.equal(YumeEngine.isSupportedSaveFile('save.bin'), true);
+      assert.equal(YumeEngine.isSupportedSaveFile('save.json'), true);
+      assert.equal(YumeEngine.isSupportedSaveFile('savedata.json'), true);
+
+      assert.equal(YumeEngine.isSupportedSaveFile('save.txt'), false);
+      assert.equal(YumeEngine.isSupportedSaveFile('save.dat'), false);
+      assert.equal(YumeEngine.isSupportedSaveFile(''), false);
+    });
+
+    it('listSupportedSaveExtensions returns sorted canonical extension list', () => {
+      const extensions = YumeEngine.listSupportedSaveExtensions();
+      assert.deepEqual(extensions, ['.bin', '.json', '.rmmzsave', '.rpgsave', '.sav', '.save', '.sgs']);
+    });
   });
 });

@@ -252,16 +252,30 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         }
     }
 
+    async function renameSaveFile(gameKey: string, oldFileName: string, newFileName: string, overwrite = false) {
+        try {
+            return await engine.renameSave(gameKey, oldFileName, newFileName, overwrite);
+        } catch (err) {
+            console.error(`[SAVE-EDITOR] Error renaming save file:`, err);
+            throw err;
+        }
+    }
 
-
-
-
-
+    async function deleteSaveFile(gameKey: string, fileName: string) {
+        try {
+            return await engine.deleteSave(gameKey, fileName);
+        } catch (err) {
+            console.error(`[SAVE-EDITOR] Error deleting save file:`, err);
+            throw err;
+        }
+    }
 
     return {
         listSaveFiles,
         loadSaveData,
         writeSaveData,
+        renameSaveFile,
+        deleteSaveFile,
         updateMapping,
         loadTranslations,
         saveTranslations

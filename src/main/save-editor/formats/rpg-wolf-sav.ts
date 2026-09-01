@@ -6,8 +6,7 @@ const metadataCache = new Map<string, { dbFile: string | null; mtime: number; cu
 
 class RpgWolfSavFormat {
     match(fileName: string): boolean {
-        const normalized = fileName.toLowerCase();
-        return normalized.endsWith('.sav') && !normalized.endsWith('.rpgsave');
+        return YumeEngine.detectSaveStrategy(fileName) === 'wolf-sav';
     }
 
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {

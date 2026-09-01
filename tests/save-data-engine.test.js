@@ -180,3 +180,115 @@ test('SaveDataEngine - Handles null paths and non-existent saveDir gracefully', 
 
     await fs.rm(tmpDir, { recursive: true, force: true });
 });
+
+test('SaveDataEngine - renameSave handles success, collision, overwrite, format validation, and path traversal', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf_engine_rename_'));
+    const saveDir = path.join(tmpDir, 'save');
+    const dataDir = path.join(tmpDir, 'data');
+    await fs.mkdir(saveDir, { recursive: true });
+    await fs.mkdir(dataDir, { recursive: true });
+
+    const mockConfig = {
+        async getGamePaths(gameKey) {
+            return { exeDir: tmpDir, saveDir, dataDir, langDataDir: null };
+        },
+        async loadMetadata() { return { variables: [], switches: [] }; }
+    };
+
+    const engine = new SaveDataEngine(mockConfig);
+
+    const originalFile = 'save01.json';
+    const originalBak = 'save01.json.bak';
+    await fs.writeFile(path.join(saveDir, originalFile), JSON.stringify({ gold: 100 }), 'utf8');
+    await fs.writeFile(path.join(saveDir, originalBak), JSON.stringify({ gold: 90 }), 'utf8');
+
+    // 1. Success rename
+    const renameRes = await engine.renameSave('game:test', originalFile, 'save02.json');
+    assert.equal(renameRes.ok, true, 'renameSave must succeed on valid name');
+    assert.equal(renameRes.renamed, true);
+    assert.equal(renameRes.fileName, 'save02.json');
+
+    const filesAfterRename = await engine.listSaveFiles('game:test');
+    assert.deepEqual(filesAfterRename, ['save02.json']);
+    assert.ok(await fs.stat(path.join(saveDir, 'save02.json.bak')).catch(() => false), 'Backup file must also be renamed');
+
+    // 2. Same name returns renamed: false
+    const sameNameRes = await engine.renameSave('game:test', 'save02.json', 'save02.json');
+    assert.equal(sameNameRes.ok, true);
+    assert.equal(sameNameRes.renamed, false);
+
+    // 3. Collision without overwrite
+    await fs.writeFile(path.join(saveDir, 'save03.json'), JSON.stringify({ gold: 300 }), 'utf8');
+    const collisionRes = await engine.renameSave('game:test', 'save02.json', 'save03.json', false);
+    assert.equal(collisionRes.ok, false);
+    assert.equal(collisionRes.error, 'FILE_EXISTS');
+
+    // 4. Collision with overwrite
+    const overwriteRes = await engine.renameSave('game:test', 'save02.json', 'save03.json', true);
+    assert.equal(overwriteRes.ok, true);
+    assert.equal(overwriteRes.renamed, true);
+    const contentAfterOverwrite = JSON.parse(await fs.readFile(path.join(saveDir, 'save03.json'), 'utf8'));
+    assert.equal(contentAfterOverwrite.gold, 100, 'Overwritten file must contain source data');
+
+    // 5. Unsupported format rejection
+    await assert.rejects(
+        async () => { await engine.renameSave('game:test', 'save03.json', 'invalid.exe'); },
+        /Unsupported save file format/
+    );
+
+    // 6. Path traversal rejection
+    await assert.rejects(
+        async () => { await engine.renameSave('game:test', 'save03.json', '../../outside.json'); },
+        /Path traversal detected/
+    );
+
+    // 7. Empty name rejection
+    await assert.rejects(
+        async () => { await engine.renameSave('game:test', 'save03.json', '   '); },
+        /cannot be empty/
+    );
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+});
+
+test('SaveDataEngine - deleteSave deletes save and backup files safely', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf_engine_delete_'));
+    const saveDir = path.join(tmpDir, 'save');
+    const dataDir = path.join(tmpDir, 'data');
+    await fs.mkdir(saveDir, { recursive: true });
+    await fs.mkdir(dataDir, { recursive: true });
+
+    const mockConfig = {
+        async getGamePaths(gameKey) {
+            return { exeDir: tmpDir, saveDir, dataDir, langDataDir: null };
+        },
+        async loadMetadata() { return { variables: [], switches: [] }; }
+    };
+
+    const engine = new SaveDataEngine(mockConfig);
+
+    const targetFile = 'to_delete.json';
+    const targetBak = 'to_delete.json.bak';
+    await fs.writeFile(path.join(saveDir, targetFile), JSON.stringify({ gold: 50 }), 'utf8');
+    await fs.writeFile(path.join(saveDir, targetBak), JSON.stringify({ gold: 40 }), 'utf8');
+
+    const delRes = await engine.deleteSave('game:test', targetFile);
+    assert.equal(delRes.ok, true);
+
+    const filesAfterDelete = await engine.listSaveFiles('game:test');
+    assert.deepEqual(filesAfterDelete, []);
+    assert.ok(!(await fs.stat(path.join(saveDir, targetFile)).catch(() => false)), 'Save file must be removed');
+    assert.ok(!(await fs.stat(path.join(saveDir, targetBak)).catch(() => false)), 'Backup file must also be removed');
+
+    // Deleting non-existent file is safe
+    const nonExistentRes = await engine.deleteSave('game:test', 'nonexistent.json');
+    assert.equal(nonExistentRes.ok, true);
+
+    // Path traversal rejection
+    await assert.rejects(
+        async () => { await engine.deleteSave('game:test', '../secret.json'); },
+        /Path traversal detected/
+    );
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+});

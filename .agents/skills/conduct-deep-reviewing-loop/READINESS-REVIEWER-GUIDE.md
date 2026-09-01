@@ -10,6 +10,9 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Verify environment and dependency assumptions against real lockfiles and test baselines. Do NOT demand package upgrades or environment constraints that break working local/CI setups.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - For `Upstream` (`Unimplemented`) DAs: Treat their declared interfaces, types, and planned files as the *authoritative future baseline*. Do NOT fail readiness for files/methods scheduled to be created by an upstream DA. Verify that the target DA's imports and contract assumptions match the upstream spec.
+  - For `Upstream` (`Implemented`) DAs: Codebase on disk is the ground-truth. Verify that target DA uses active exported symbols.
 - Follow Postel's Law: Tolerate legacy configs and relaxed schemas where existing tests rely on them.
 
 ## Empirical Verification: Shadow Sandbox (.scratch/)

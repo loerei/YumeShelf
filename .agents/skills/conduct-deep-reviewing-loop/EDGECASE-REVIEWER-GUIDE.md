@@ -10,6 +10,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Cross-reference edge cases against active codebase handlers. Do NOT demand fail-fast exception boundaries on ingress/decode paths that cause regressions for synthetic mock data or lenient user files.
+- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+  - Cross-reference failure recovery, lockfile lifecycles, and edge-case handling against `Upstream` DAs to ensure failure paths are handled cohesively without resource contention or conflicting recovery logic across epics.
 - Follow Postel's Law: Handle edge-case input malformations gracefully on read paths with fallback values.
 
 ## Empirical Verification: Shadow Sandbox (.scratch/)

@@ -2,7 +2,7 @@ import { YumeEngine } from '@yumeshelf/engine';
 
 class SimpleKeyedJsonFormat {
     match(fileName: string): boolean {
-        return fileName.toLowerCase().endsWith('.json') && fileName.toLowerCase().includes('savedata');
+        return YumeEngine.detectSaveStrategy(fileName) === 'keyed-json';
     }
 
     async decode(rawData: Buffer, paths: any, fileName: string): Promise<any> {

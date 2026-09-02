@@ -46,8 +46,8 @@ When specialist reviewer opinions conflict (e.g. `Performance` requesting aggres
 
 | Condition | Gate Verdict | Output Artifacts |
 | :--- | :--- | :--- |
-| 1+ Accepted Blocking Defects | `ROUND_REVISION_NEEDED` | Write `host/Analyzation.md` (rationale) and `host/Changelog.md` (clean edits). |
-| 0 Accepted Blocking Defects (Targeted Pass with Pending Upstream) | `TARGETED_PASS` *(Ephemeral Internal Host State)* | Trigger Snapshot Delta Backfill for skipped upstream roles in topological DAG sequence (preserving intra-round reports). |
+| 1+ Accepted Blocking Defects | `ROUND_REVISION_NEEDED` | Write `host/Analyzation.md` (rationale), `host/Changelog.md` (clean edits), and `host/Untouched_Reviewers.md`. |
+| 0 Accepted Blocking Defects (Targeted Pass with Pending Skipped Roles) | `TARGETED_PASS` *(Ephemeral Internal Host State)* | Trigger Snapshot Delta Backfill for skipped roles (upstream + untouched) in topological DAG sequence (preserving intra-round reports). |
 | 0 Accepted Blocking Defects (100% Roster Passed on Snapshot) | `ROUND_PASS` (Increment `PassCount`) or `FINAL_PASS` (if `PassCount >= SP`) | Write `host/Analyzation.md`. |
 
 ## Changelog.md Authoring Standards
@@ -56,3 +56,26 @@ When authoring `.scratch/deep_review/host/Changelog.md` for `ROUND_REVISION_NEED
 1. **Clean & Native Spec Diffs**: Write direct, actionable modification instructions without meta-tags or reviewer references.
 2. **Mandatory Context DA Tree Synchronization**: If accepted feedback splits, merges, creates, deletes, or moves Directive Artifact files (e.g. Progress Reviewer WBS actions), include a dedicated section:
    - `## Target Directive Artifacts Synchronization (Context.md)`: Instruct Layer 1 to update `## Target Directive Artifacts` in `.scratch/deep_review/Context.md` with the updated list of active DA paths.
+
+## Untouched_Reviewers.md Authoring Standards
+
+When authoring `.scratch/deep_review/host/Untouched_Reviewers.md` for `ROUND_REVISION_NEEDED`:
+1. **Active Roster Scope**: Evaluate all `INCLUDED` reviewers from `.scratch/deep_review/host/Reviewer_Choice_Rationale.md`.
+2. **Strict Untouched Criteria**: A reviewer is listed ONLY IF the proposed diffs in `Changelog.md` introduce zero modifications, additions, or regressions relevant to that reviewer's domain checklist.
+3. **Streamlined 2-Column Layout**: Write `.scratch/deep_review/host/Untouched_Reviewers.md` using this format:
+   ```markdown
+   # Untouched Reviewers
+
+   | Role Identifier | Technical Rationale |
+   | :--- | :--- |
+   | `<Role>` | <Explanation why Changelog diffs do not touch this role's contracts or domain> |
+   ```
+   *When all active roles are affected (zero untouched roles), write explicitly:*
+   ```markdown
+   # Untouched Reviewers
+
+   | Role Identifier | Technical Rationale |
+   | :--- | :--- |
+   | *(None)* | Diffs in Changelog touch shared core abstractions and data models, invalidating all active roles. |
+   ```
+4. **Conservative Fallback**: If there is any ambiguity on whether a diff might affect a role, omit it from `Untouched_Reviewers.md` to ensure immediate re-audit.

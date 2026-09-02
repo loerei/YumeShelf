@@ -12,7 +12,7 @@ Multi-agent review loop using isolated domain reviewers, topological dependency 
 | Layer | Agent | Primary Responsibility |
 | :--- | :--- | :--- |
 | **Layer 1** | Main Agent | Spawns Layer 2 Host, applies clean DA mutations from `Changelog.md`, presents final output. |
-| **Layer 2** | Review Host & Critical Gate | Dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, summons active reviewers using invariant prompts, purges `reports/` before passes, isolates host artifacts in `host/`, executes Snapshot Delta Backfill for skipped upstream roles, writes `Analyzation.md` and `Changelog.md`. |
+| **Layer 2** | Review Host & Critical Gate | Dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, summons active reviewers using invariant prompts, purges `reports/` before passes, isolates host artifacts in `host/`, executes Reviewer-level DAG routing, executes Snapshot Delta Backfill for skipped roles (upstream and untouched), writes `Analyzation.md`, `Changelog.md`, and `Untouched_Reviewers.md`. |
 | **Layer 3** | Domain Reviewers | Independent specialist subagents (up to 11 roles across 4 Tiers) executing domain audits per `<Role>-REVIEWER-GUIDE.md`. |
 
 ## Workflow
@@ -22,12 +22,12 @@ flowchart TD
     Start["Round 1: Full DAG Sweep"] --> Eval{"All Roles PASS?"}
     Eval -->|"No"| Apply["Layer 1: Apply Changelog.md to DA"]
     Eval -->|"Yes"| Accumulate["PassCount += 1"]
-    Apply --> TargetRun["Round N+1: Targeted Re-Review<br/>(Run modified tier + downstream tiers)"]
+    Apply --> TargetRun["Round N+1: Targeted Re-Review<br/>(Run affected roles excluding Untouched_Reviewers)"]
     CheckTarget{"Targeted Roles PASS?"}
     TargetRun --> CheckTarget
     CheckTarget -->|"No"| Apply
-    CheckTarget -->|"Yes (Pending Upstream)"| Backfill["Snapshot Delta Backfill<br/>(Topologically summon skipped upstream roles on SN)"]
-    Backfill --> BackfillCheck{"Upstream Roles PASS?"}
+    CheckTarget -->|"Yes (Pending Skipped Roles)"| Backfill["Snapshot Delta Backfill<br/>(Topologically summon skipped roles on SN)"]
+    Backfill --> BackfillCheck{"Skipped Roles PASS?"}
     BackfillCheck -->|"No"| Apply
     BackfillCheck -->|"Yes"| Accumulate
     CheckTarget -->|"Yes (100% Roster Audited)"| Accumulate
@@ -59,7 +59,7 @@ Invoke the registered `review_host` subagent via `invoke_subagent`:
 - `TypeName`: `"review_host"`
 - `Role`: `"Review Host & Critical Gate"`
 - `Prompt`:
-`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: PROTOCOL.md. Opinion Filtering: HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md. Context File: .scratch/deep_review/Context.md. Dynamically select active reviewers in .scratch/deep_review/host/Reviewer_Choice_Rationale.md, execute DAG routing for active roles, spawn reviewers using invariant prompts, filter feedback, and generate Analyzation.md and Changelog.md in .scratch/deep_review/host/.`
+`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: PROTOCOL.md. Opinion Filtering: HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md. Context File: .scratch/deep_review/Context.md. Dynamically select active reviewers in .scratch/deep_review/host/Reviewer_Choice_Rationale.md, execute Reviewer-level DAG routing (consuming Changelog.md and Untouched_Reviewers.md), spawn reviewers using invariant prompts, filter feedback, and generate Analyzation.md, Changelog.md, and Untouched_Reviewers.md in .scratch/deep_review/host/.`
 
 ### Step 3: Handle Host Verdict
 
@@ -67,7 +67,7 @@ Read `.scratch/deep_review/host/Analyzation.md`.
 
 | Verdict in `Analyzation.md` | Action |
 | :--- | :--- |
-| `ROUND_REVISION_NEEDED` | Read `.scratch/deep_review/host/Changelog.md`.<br>• **If `!PA` / `!WA` active**: STOP execution immediately before modifying DA. Output standardized quota pause message (requesting keyword `"C"` to apply edits and proceed).<br>• **Upon receiving `"C"` (or if no pause tag)**: Apply edits to DA using Clean & Neutral Artifact Protocol. If `Changelog.md` includes `## Target Directive Artifacts Synchronization (Context.md)`, update `.scratch/deep_review/Context.md`. Re-spawn/revive Layer 2 Host for Round N+1 (Host consumes Changelog on start). |
+| `ROUND_REVISION_NEEDED` | Read `.scratch/deep_review/host/Changelog.md`.<br>• **If `!PA` / `!WA` active**: STOP execution immediately before modifying DA. Output standardized quota pause message (requesting keyword `"C"` to apply edits and proceed).<br>• **Upon receiving `"C"` (or if no pause tag)**: Apply edits to DA using Clean & Neutral Artifact Protocol. Preserve `.scratch/deep_review/host/Untouched_Reviewers.md` alongside `Changelog.md`. If `Changelog.md` includes `## Target Directive Artifacts Synchronization (Context.md)`, update `.scratch/deep_review/Context.md`. Re-spawn/revive Layer 2 Host for Round N+1 (Host consumes Changelog and Untouched_Reviewers on start). |
 | `ROUND_PASS` | Re-spawn Layer 2 Host for next Full Sweep round on unchanged DA. |
 | `FINAL_PASS` | Conclude review loop (`PassCount >= SP`). Present fully verified DA to user. |
 

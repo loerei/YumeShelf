@@ -20,6 +20,8 @@
     "build:fast": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell:fast && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js && npm run organize:build-output",
     "build:fast:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-win-unpacked.ps1 && npm run build:fast",
     "build:linux": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --linux && npm run organize:build-output",
+    "build:mac": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
+    "package:mac": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
     "build:all": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --linux && npm run organize:build-output",
     "build:test-version": "node scripts/build-test-version.js",
     "build:dir": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir && npm run organize:build-output",
@@ -71,17 +73,36 @@
     "directories": {
       "output": "build_output"
     },
-    "extraResources": [
-      {
-        "from": "native/playtime-helper/target/release/playtime-helper.exe",
-        "to": "native/playtime-helper/playtime-helper.exe"
-      }
-    ],
     "win": {
       "target": [
         "nsis"
       ],
-      "icon": "assets/yumeshelf_icon_highres_4096.png"
+      "icon": "assets/yumeshelf_icon_highres_4096.png",
+      "extraResources": [
+        {
+          "from": "native/playtime-helper/target/release/playtime-helper.exe",
+          "to": "native/playtime-helper/playtime-helper.exe"
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/yumeshelf_icon_highres_4096.png",
+      "category": "public.app-category.games",
+      "artifactName": "${productName}-${version}.${ext}",
+      "identity": null,
+      "extraResources": [
+        {
+          "from": "native/playtime-helper/target/release/playtime-helper",
+          "to": "native/playtime-helper/playtime-helper"
+        }
+      ]
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "linux": {
       "target": [

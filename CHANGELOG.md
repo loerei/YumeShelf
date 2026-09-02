@@ -7,6 +7,8 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.2.0] - working
 
 ### What Changed
+- Added electron-builder configuration for macOS (`dmg`, `zip`) with playtime helper native resource bundle and identity auto-discovery bypass.
+- Relocated Windows native executable mapping to platform-specific configuration in `package.json`.
 - Added `MacUpdaterStrategyAdapter` supporting DMG download, SHA-512 verification, `hdiutil` mounting and unmounting, and release feed parsing on macOS.
 - Added preliminary support for inspecting macOS application binaries and Universal FAT executables in the core engine.
 - Added macOS `.app` bundle layout engine classification across Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with automatic architecture detection.
@@ -16,6 +18,10 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Integrated cross-platform macOS save strategies and diagnostic error logging into the main process save folder resolver.
 
 ### For the Nerds
+- [packaging] Configured `electron-builder` macOS targets (`dmg`, `zip`) with `category: "public.app-category.games"`, `identity: null`, and Darwin `playtime-helper` mapping in `build.mac.extraResources`.
+- [packaging] Relocated Windows playtime-helper executable from root `build.extraResources` to `build.win.extraResources` to avoid cross-platform resource pollution.
+- [packaging] Added `"build:mac"` and `"package:mac"` scripts with `cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac`.
+- [packaging] Added automated packaging and build pipeline test assertions in `tests/release-artifacts.test.js` and `tests/macos-packaging.test.js`.
 - [updater] Implemented `MacUpdaterStrategyAdapter` in `src/main/app-updates/mac-strategy.ts` supporting `latest-mac.yml` feed resolution, HTTPS transport enforcement, SHA-512 verification, guaranteed `try...finally` unmount teardown via `hdiutil detach <mountPoint> -force`, and non-blocking timeout aborts.
 - [updater] Updated `createAppUpdaterStrategy` to route `darwin` platform to `MacUpdaterStrategyAdapter`.
 - [updater] Updated `resolvePackagedFeedOverride` in `src/main/app-updates/feed-resolver.ts` to accept Darwin runtime channels (`mac`/`dmg`) and parse `latest-mac.yml` manifests.

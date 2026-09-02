@@ -285,3 +285,43 @@ test('Write Release Checksum: macOS routing, collection, and safety fallback', a
         assert.doesNotThrow(() => writeReleaseChecksums(tempDir));
     });
 });
+test('macOS Packaging: package.json build targets, extraResources relocation, and scripts configuration', async (t) => {
+    const pkg = require('../package.json');
+
+    await t.test('package.json contains valid electron-builder macOS configuration', () => {
+        assert.ok(pkg.build, 'build section must exist');
+        assert.ok(pkg.build.mac, 'mac build section must exist');
+        assert.deepEqual(pkg.build.mac.target, ['dmg', 'zip']);
+        assert.equal(pkg.build.mac.category, 'public.app-category.games');
+        assert.equal(pkg.build.mac.icon, 'assets/yumeshelf_icon_highres_4096.png');
+        assert.equal(pkg.build.mac.artifactName, '${productName}-${version}.${ext}');
+        assert.equal(pkg.build.mac.identity, null);
+
+        // Extra resources macOS playtime-helper
+        assert.ok(Array.isArray(pkg.build.mac.extraResources), 'mac.extraResources must be an array');
+        const helperResource = pkg.build.mac.extraResources.find((r) => r.to === 'native/playtime-helper/playtime-helper');
+        assert.ok(helperResource, 'playtime-helper Darwin binary extraResource must be present for macOS');
+        assert.equal(helperResource.from, 'native/playtime-helper/target/release/playtime-helper');
+    });
+
+    await t.test('package.json relocates Windows executable mapping to build.win.extraResources', () => {
+        assert.ok(pkg.build.win, 'win build section must exist');
+        assert.ok(Array.isArray(pkg.build.win.extraResources), 'win.extraResources must be an array');
+        const winHelper = pkg.build.win.extraResources.find((r) => r.to === 'native/playtime-helper/playtime-helper.exe');
+        assert.ok(winHelper, 'playtime-helper.exe extraResource must be present under win.extraResources');
+        assert.equal(winHelper.from, 'native/playtime-helper/target/release/playtime-helper.exe');
+
+        // Root extraResources must not be present to avoid platform pollution
+        assert.equal(pkg.build.extraResources, undefined, 'root build.extraResources must be relocated to platform-specific targets');
+    });
+
+    await t.test('package.json contains build:mac and package:mac scripts with identity auto discovery disabled', () => {
+        assert.ok(pkg.scripts['build:mac'], 'build:mac script must exist');
+        assert.ok(pkg.scripts['build:mac'].includes('electron-builder --mac'));
+        assert.ok(pkg.scripts['build:mac'].includes('CSC_IDENTITY_AUTO_DISCOVERY=false'));
+
+        assert.ok(pkg.scripts['package:mac'], 'package:mac script must exist');
+        assert.ok(pkg.scripts['package:mac'].includes('electron-builder --mac'));
+    });
+});
+

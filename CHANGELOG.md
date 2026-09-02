@@ -8,6 +8,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ### What Changed
 - Added preliminary support for inspecting macOS application binaries and Universal FAT executables in the core engine.
+- Added macOS `.app` bundle layout engine classification across Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with automatic architecture detection.
 
 ### For the Nerds
 - [engine] Exported canonical `PlatformType`, `MachOInspectionResult`, and `AppBundleInspectionResult` types in `@yumeshelf/engine`.
@@ -17,6 +18,9 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Implemented headless binary property list deserializer (`BPlistParser`, `BinaryPlistParser`) in `packages/yume-engine/src/bundle/` supporting Apple's `bplist00` format up to 5 MB with trailer validation, cyclic reference detection, 64-level recursion depth limit, Cocoa epoch date offset (978307200s), and prototype pollution protection.
 - [engine] Implemented unified `PlistParser` facade and `parsePlist` entrypoint auto-detecting XML and binary property list formats across strings, Buffers, and Uint8Arrays.
 - [engine] Integrated standalone Mach-O binary inspection into `YumeEngine.inspectExecutable` and `YumeEngine.inspectGame`, dispatching valid Mach-O and FAT headers to `MachOInspector.fromPath` and returning canonical `GameEngineProfile` (`family: 'native'`, `tag: 'Others'`, `detectedBy: 'Mach-O Binary'`) with truncated/unreadable fallback resilience and PE `.exe` precedence.
+- [engine] Implemented `classifyAppBundle` in `packages/yume-engine/src/bundle/bundle-classifier.ts` detecting engine families (Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, Electron, NW.js, and unclassified), runtimes, save strategies, and candidate Mach-O `arch`.
+- [engine] Wired bundle context detection and engine classification into `YumeEngine.inspectExecutable`, `YumeEngine.inspectGame`, and `YumeEngine.inspectAppBundle`.
+- [tests] Added unit test suites in `packages/yume-engine/tests/bundle-engine-classification.test.ts` and `packages/yume-engine/tests/app-bundle-inspector.test.ts` validating bundle layout markers, inner Mach-O architecture detection, and facade inspection.
 - [tests] Added synthetic buffer and filesystem mock unit test suites in `packages/yume-engine/tests/macho-inspector.test.ts`.
 - [tests] Added comprehensive unit test suite in `packages/yume-engine/tests/xml-plist-parser.test.ts` validating Apple `Info.plist` files, BOM stripping, malformed inputs, entity explosion payloads, buffer limit, and prototype key stripping.
 - [tests] Added unit test suites in `packages/yume-engine/tests/bplist-parser.test.ts` and `packages/yume-engine/tests/plist-parser-facade.test.ts` verifying binary deserialization, cyclic reference prevention, Cocoa epoch date decoding, and unified facade auto-detection.

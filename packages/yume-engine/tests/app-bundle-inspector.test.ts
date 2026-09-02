@@ -4,7 +4,11 @@ import assert from 'node:assert/strict';
 import {
   AppBundleInspector,
   resolveBundleRoot,
+  classifyAppBundle,
   YumeEngine,
+  MACHO_MAGIC_64_BE,
+  CPU_TYPE_ARM64,
+  CPU_TYPE_X86_64,
 } from '../dist/index.js';
 import type { AppBundleInspectionResult } from '../dist/types.d.ts';
 import { MockFileSystemProvider } from './fixtures/mock-fs-provider.ts';
@@ -417,6 +421,93 @@ test('macOS .app Bundle Metadata Inspector & resolveBundleRoot (@yumeshelf/engin
       assert.ok(result);
       assert.equal(result.executableName, 'FacadeApp');
       assert.equal(result.bundleIdentifier, 'com.yumeshelf.facade');
+      assert.ok(result.profile);
+      assert.equal(result.profile.detectedBy, 'macOS App Bundle (Unclassified)');
+      assert.equal(result.profile.arch, 'unknown');
+    });
+  });
+
+  await t.test('macOS bundle engine classification and mandatory arch property validation', async (st) => {
+    function makeMachO(cputype: number): Buffer {
+      const buf = Buffer.alloc(32);
+      buf.writeUInt32BE(MACHO_MAGIC_64_BE, 0);
+      buf.writeInt32BE(cputype, 4);
+      return buf;
+    }
+
+    await st.test('validates Unity classification and arm64 arch via inspectExecutable and inspectAppBundle', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Games/Unity.app/Contents/MacOS/Unity', makeMachO(CPU_TYPE_ARM64));
+      fs.mkdir('/Games/Unity.app/Contents/Resources/Data');
+
+      const profile = await YumeEngine.inspectExecutable('/Games/Unity.app', fs);
+      assert.equal(profile.family, 'unity');
+      assert.equal(profile.tag, 'Unity');
+      assert.equal(profile.arch, 'arm64');
+      assert.equal(profile.saveStrategy, 'unity-appsupport-playerprefs');
+
+      const inspected = await YumeEngine.inspectAppBundle('/Games/Unity.app', fs);
+      assert.ok(inspected?.profile);
+      assert.equal(inspected.profile.family, 'unity');
+      assert.equal(inspected.profile.arch, 'arm64');
+    });
+
+    await st.test('validates RPG Maker MZ classification and x64 arch', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Games/RPGMZ.app/Contents/MacOS/RPGMZ', makeMachO(CPU_TYPE_X86_64));
+      fs.mkdir('/Games/RPGMZ.app/Contents/Resources/app.nw');
+      fs.writeFile('/Games/RPGMZ.app/Contents/Resources/app.nw/rmmz_core.js', '// mz');
+
+      const profile = await YumeEngine.inspectExecutable('/Games/RPGMZ.app', fs);
+      assert.equal(profile.family, 'rpg-maker');
+      assert.equal(profile.variant, 'mz');
+      assert.equal(profile.arch, 'x64');
+      assert.equal(profile.saveStrategy, 'rpgmaker-bundle-data');
+    });
+
+    await st.test('validates RenPy classification and arch', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Games/RenPy.app/Contents/MacOS/RenPy', makeMachO(CPU_TYPE_ARM64));
+      fs.mkdir('/Games/RenPy.app/Contents/Resources/autorun');
+
+      const profile = await YumeEngine.inspectExecutable('/Games/RenPy.app', fs);
+      assert.equal(profile.family, 'renpy');
+      assert.equal(profile.arch, 'arm64');
+      assert.equal(profile.saveStrategy, 'renpy-appsupport-saves');
+    });
+
+    await st.test('validates Godot classification and arch', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Games/Godot.app/Contents/MacOS/Godot', makeMachO(CPU_TYPE_X86_64));
+      fs.writeFile('/Games/Godot.app/Contents/Resources/game.pck', 'pck');
+
+      const profile = await YumeEngine.inspectExecutable('/Games/Godot.app', fs);
+      assert.equal(profile.family, 'godot');
+      assert.equal(profile.arch, 'x64');
+      assert.equal(profile.saveStrategy, 'godot-appsupport-user');
+    });
+
+    await st.test('validates Unreal Engine classification and arch', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Games/Unreal.app/Contents/MacOS/Unreal', makeMachO(CPU_TYPE_ARM64));
+      fs.mkdir('/Games/Unreal.app/Contents/UE5');
+
+      const profile = await YumeEngine.inspectExecutable('/Games/Unreal.app', fs);
+      assert.equal(profile.family, 'unreal');
+      assert.equal(profile.tag, 'Unreal Engine');
+      assert.equal(profile.arch, 'arm64');
+      assert.equal(profile.saveStrategy, 'unreal-sav');
+    });
+
+    await st.test('validates unclassified bundle with mandatory arch property', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Games/Generic.app/Contents/MacOS/Generic', makeMachO(CPU_TYPE_ARM64));
+
+      const profile = await YumeEngine.inspectExecutable('/Games/Generic.app', fs);
+      assert.equal(profile.family, 'unknown');
+      assert.equal(profile.tag, 'Others');
+      assert.equal(profile.arch, 'arm64');
+      assert.equal(profile.detectedBy, 'macOS App Bundle (Unclassified)');
     });
   });
 });

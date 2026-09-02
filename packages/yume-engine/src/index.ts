@@ -32,7 +32,7 @@ import {
   FAT_MAGIC_64_BE,
   FAT_MAGIC_64_LE,
 } from './binary/index.js';
-import { AppBundleInspector } from './bundle/index.js';
+import { AppBundleInspector, resolveBundleRoot, classifyAppBundle } from './bundle/index.js';
 import { defaultRuleRegistry } from './rules/engine-rule-registry.js';
 import { formatEngineName } from './rules/engine-formatter.js';
 import { resolveSaveDirectory, type ResolveSaveOptions } from './save-resolvers/index.js';
@@ -137,6 +137,16 @@ export class YumeEngine {
     parentFiles?: string[]
   ): Promise<GameEngineProfile> {
     const fileSystem = fs || new NodeFileSystemProvider();
+
+    const bundleRoot =
+      resolveBundleRoot(exePath) ||
+      (exePath.replace(/\\/g, '/').toLowerCase().endsWith('.app') ? exePath : null);
+
+    if (bundleRoot) {
+      const bundleInfo = await AppBundleInspector.fromPath(bundleRoot, fileSystem);
+      return classifyAppBundle(bundleRoot, fileSystem, bundleInfo);
+    }
+
     const isExe = exePath.toLowerCase().endsWith('.exe');
 
     if (isExe) {
@@ -208,7 +218,24 @@ export class YumeEngine {
     bundlePath: string,
     fs?: IFileSystem
   ): Promise<AppBundleInspectionResult | null> {
-    return AppBundleInspector.fromPath(bundlePath, fs);
+    const fileSystem = fs || new NodeFileSystemProvider();
+    const result = await AppBundleInspector.fromPath(bundlePath, fileSystem);
+    if (!result) {
+      return null;
+    }
+    const profile = await classifyAppBundle(result.bundlePath, fileSystem, result);
+    return new AppBundleInspector({
+      ...result,
+      profile,
+    });
+  }
+
+  static async classifyAppBundle(
+    bundlePath: string,
+    fs?: IFileSystem,
+    bundleInfo?: AppBundleInspectionResult | null
+  ): Promise<GameEngineProfile> {
+    return classifyAppBundle(bundlePath, fs, bundleInfo);
   }
 
   static async calculateDirectorySize(

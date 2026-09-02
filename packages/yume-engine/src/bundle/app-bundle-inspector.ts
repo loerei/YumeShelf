@@ -10,7 +10,7 @@
  */
 
 import path from 'node:path';
-import type { IFileSystem, AppBundleInspectionResult } from '../types.js';
+import type { IFileSystem, AppBundleInspectionResult, GameEngineProfile } from '../types.js';
 import { NodeFileSystemProvider } from '../fs/node-fs-provider.js';
 import { parsePlist } from './plist-parser.js';
 
@@ -97,8 +97,13 @@ async function scanMacOSDir(
       }
     }
 
-    // Otherwise return first file
-    for (const entry of validEntries) {
+    // Otherwise prefer non-script binaries over script/text files
+    const nonScriptEntries = validEntries.filter(
+      (e) => !e.endsWith('.py') && !e.endsWith('.pyo') && !e.endsWith('.sh') && !e.endsWith('.txt')
+    );
+    const searchEntries = nonScriptEntries.length > 0 ? nonScriptEntries : validEntries;
+
+    for (const entry of searchEntries) {
       const candidatePath = `${macOSDir}/${entry}`;
       try {
         const s = await fileSystem.stat(candidatePath);
@@ -126,6 +131,7 @@ export class AppBundleInspector implements AppBundleInspectionResult {
   public readonly bundleIdentifier: string | null;
   public readonly bundleName: string | null;
   public readonly displayName: string | null;
+  public readonly profile?: GameEngineProfile;
 
   constructor(result: AppBundleInspectionResult) {
     this.bundlePath = result.bundlePath;
@@ -134,6 +140,7 @@ export class AppBundleInspector implements AppBundleInspectionResult {
     this.bundleIdentifier = result.bundleIdentifier;
     this.bundleName = result.bundleName;
     this.displayName = result.displayName;
+    this.profile = result.profile;
   }
 
   /**

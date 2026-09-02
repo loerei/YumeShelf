@@ -21,6 +21,7 @@ export interface AppBundleInspectionResult {
   bundleIdentifier: string | null;
   bundleName: string | null;
   displayName: string | null;
+  profile?: GameEngineProfile;
 }
 
 export interface IFileHandle {

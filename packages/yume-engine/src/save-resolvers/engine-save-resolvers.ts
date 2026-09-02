@@ -7,6 +7,7 @@ import {
   sanitizePathComponent,
   isStrictlyContained,
 } from './path-utils.js';
+import { resolveBundleRoot } from '../bundle/app-bundle-inspector.js';
 import {
   isDirectory,
   rankSaveCandidates,
@@ -14,7 +15,7 @@ import {
   type SaveCandidate,
 } from './heuristics.js';
 
-export const RPG_MAKER_MV_MZ_PATTERNS = /\.(rpgsave|rmmvsave|rmmzsave|json)$/i;
+export const RPG_MAKER_MV_MZ_PATTERNS = /\.(rpgsave|rmmvsave|rmmzsave|json|ldb|log)$/i;
 export const RPG_MAKER_RGSS_PATTERNS = /\.(rvdata2|rvdata|rxdata|lsd)$/i;
 export const RENPY_PATTERNS = /(\.(save|rpyc)$|^persistent)/i;
 export const UNREAL_PATTERNS = /\.sav$/i;
@@ -55,7 +56,15 @@ export async function resolveRpgMakerSave(
   }
 
   // RPG Maker MV / MZ
-  const candidates: SaveCandidate[] = [
+  const bundleRoot = resolveBundleRoot(exeDir) || (exeDir.replace(/\\/g, '/').toLowerCase().endsWith('.app') ? exeDir : null);
+  const candidates: SaveCandidate[] = [];
+
+  const rawInBundleCandidates: SaveCandidate[] = [
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpgmaker-bundle-data' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'www', 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpgmaker-bundle-data' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpgmaker-bundle-data' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'app', 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpgmaker-bundle-data' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'app', 'www', 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpgmaker-bundle-data' },
     { path: joinPaths(exeDir, 'www', 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpg-maker-mv-mz' },
     { path: joinPaths(exeDir, 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpg-maker-mv-mz' },
     { path: joinPaths(exeDir, 'Save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpg-maker-mv-mz' },
@@ -63,10 +72,119 @@ export async function resolveRpgMakerSave(
     { path: joinPaths(exeDir, 'bin', 'save'), confidence: 'high', source: 'deterministic', matchedStrategy: 'rpg-maker-mv-mz' },
   ];
 
+  for (const cand of rawInBundleCandidates) {
+    if (bundleRoot) {
+      if (isStrictlyContained(cand.path, bundleRoot)) {
+        candidates.push(cand);
+      }
+    } else {
+      candidates.push(cand);
+    }
+  }
+
+  // WebStorage LocalStorage discovery via package.json
+  const macAppSupport = fs.getMacApplicationSupportHome?.();
+  const macPreferences = fs.getMacPreferencesHome?.();
+
+  const packageJsonCandidates = [
+    joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'package.json'),
+    joinPaths(exeDir, 'Contents', 'Resources', 'app', 'package.json'),
+    joinPaths(exeDir, 'Contents', 'Resources', 'package.json'),
+    joinPaths(exeDir, 'package.json'),
+    joinPaths(exeDir, 'www', 'package.json'),
+  ];
+
+  for (const pkgPath of packageJsonCandidates) {
+    try {
+      if (await fs.exists(pkgPath)) {
+        const raw = await fs.readFile(pkgPath, 'utf-8');
+        const content = typeof raw === 'string' ? raw : raw.toString('utf-8');
+        const pkg = JSON.parse(content);
+        const rawName =
+          (typeof pkg.name === 'string' && pkg.name) ||
+          (typeof pkg['bundle-id'] === 'string' && pkg['bundle-id']) ||
+          (typeof pkg.id === 'string' && pkg.id) ||
+          (typeof pkg.window?.title === 'string' && pkg.window.title) ||
+          '';
+
+        const appName = sanitizePathComponent(rawName);
+        if (appName.length > 0) {
+          if (macAppSupport && macAppSupport.trim() !== '') {
+            const webStoragePaths = [
+              joinPaths(macAppSupport, appName, 'Default', 'Local Storage', 'leveldb'),
+              joinPaths(macAppSupport, appName, 'Local Storage', 'leveldb'),
+              joinPaths(macAppSupport, appName, 'Default', 'Local Storage'),
+              joinPaths(macAppSupport, appName, 'save'),
+            ];
+
+            for (const wsp of webStoragePaths) {
+              if (isStrictlyContained(wsp, macAppSupport, [macAppSupport, macPreferences])) {
+                candidates.push({
+                  path: wsp,
+                  confidence: 'high',
+                  source: 'appdata',
+                  matchedStrategy: bundleRoot ? 'rpgmaker-bundle-data' : 'rpg-maker-mv-mz',
+                });
+              }
+            }
+          }
+        }
+        break;
+      }
+    } catch {
+      // ignore malformed package.json
+    }
+  }
+
   const ranked = await rankSaveCandidates(candidates, fs, RPG_MAKER_MV_MZ_PATTERNS);
   if (ranked) return ranked;
 
   // Predicted path fallback for unlaunched games
+  if (await fs.exists(joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'www'))) {
+    return {
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'www', 'save'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'rpgmaker-bundle-data',
+      files: [],
+    };
+  }
+  if (await fs.exists(joinPaths(exeDir, 'Contents', 'Resources', 'app.nw'))) {
+    return {
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'save'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'rpgmaker-bundle-data',
+      files: [],
+    };
+  }
+  if (await fs.exists(joinPaths(exeDir, 'Contents', 'Resources', 'app', 'www'))) {
+    return {
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'app', 'www', 'save'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'rpgmaker-bundle-data',
+      files: [],
+    };
+  }
+  if (await fs.exists(joinPaths(exeDir, 'Contents', 'Resources', 'app'))) {
+    return {
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'app', 'save'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'rpgmaker-bundle-data',
+      files: [],
+    };
+  }
+  if (await fs.exists(joinPaths(exeDir, 'Contents', 'Resources', 'save'))) {
+    return {
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'save'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'rpgmaker-bundle-data',
+      files: [],
+    };
+  }
   if (await fs.exists(joinPaths(exeDir, 'bin', 'www'))) {
     return {
       path: joinPaths(exeDir, 'bin', 'www', 'save'),
@@ -91,6 +209,15 @@ export async function resolveRpgMakerSave(
       confidence: 'high',
       source: 'deterministic',
       matchedStrategy: 'rpg-maker-mv-mz',
+      files: [],
+    };
+  }
+  if (bundleRoot) {
+    return {
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'save'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'rpgmaker-bundle-data',
       files: [],
     };
   }
@@ -335,23 +462,35 @@ export async function resolveUnitySave(
     { path: joinPaths(exeDir, 'save_data'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
   ];
 
+  const candidateDataFolders = [
+    joinPaths('Contents', 'Resources', 'Data'),
+    joinPaths('Contents', 'Resources'),
+    'Data',
+  ];
+
   // Check Data folders and portable StreamingAssets / Naninovel saves
   try {
     const dirEntries = await fs.readdir(exeDir);
-    const dataFolders = dirEntries.filter((entry) => entry.toLowerCase().endsWith('_data'));
-    for (const df of dataFolders) {
-      const dataPath = joinPaths(exeDir, df);
-      candidates.push(
-        { path: joinPaths(dataPath, 'StreamingAssets', 'SaveData'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
-        { path: joinPaths(dataPath, 'StreamingAssets', 'NaninovelData'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
-        { path: joinPaths(dataPath, 'StreamingAssets', 'NaninovelData', 'NaniSaves'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
-        { path: joinPaths(dataPath, 'StreamingAssets', 'saves'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
-        { path: joinPaths(dataPath, 'SaveData'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
-        { path: joinPaths(dataPath, 'saves'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' }
-      );
+    const discovered = dirEntries.filter((entry) => entry.toLowerCase().endsWith('_data'));
+    for (const df of discovered) {
+      if (!candidateDataFolders.includes(df)) {
+        candidateDataFolders.push(df);
+      }
     }
   } catch {
     // ignore
+  }
+
+  for (const df of candidateDataFolders) {
+    const dataPath = joinPaths(exeDir, df);
+    candidates.push(
+      { path: joinPaths(dataPath, 'StreamingAssets', 'SaveData'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
+      { path: joinPaths(dataPath, 'StreamingAssets', 'NaninovelData'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
+      { path: joinPaths(dataPath, 'StreamingAssets', 'NaninovelData', 'NaniSaves'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
+      { path: joinPaths(dataPath, 'StreamingAssets', 'saves'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
+      { path: joinPaths(dataPath, 'SaveData'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' },
+      { path: joinPaths(dataPath, 'saves'), confidence: 'high', source: 'deterministic', matchedStrategy: 'unity' }
+    );
   }
 
   const candidateRoots = new Set<string>();
@@ -393,16 +532,17 @@ export async function resolveUnitySave(
     }
   }
 
-  try {
-    const dirEntries = await fs.readdir(exeDir);
-    const dataFolders = dirEntries.filter((entry) => entry.toLowerCase().endsWith('_data'));
-    for (const dataFolder of dataFolders) {
+  for (const dataFolder of candidateDataFolders) {
+    try {
       const appInfoCandidate = await resolveUnityFromAppInfo(exeDir, dataFolder, candidateRoots, fs);
       if (appInfoCandidate) {
         candidates.push(appInfoCandidate);
       }
 
-      const rawProductName = dataFolder.replace(/_Data$/i, '');
+      let rawProductName = dataFolder.replace(/_Data$/i, '');
+      if (rawProductName === 'Contents/Resources/Data' || rawProductName === 'Contents/Resources' || rawProductName === 'Data') {
+        rawProductName = exeStem;
+      }
       const productName = sanitizePathComponent(rawProductName);
       if (productName.length === 0) continue;
 
@@ -464,9 +604,9 @@ export async function resolveUnitySave(
           // ignore
         }
       }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
 
   return rankSaveCandidates(candidates, fs);
@@ -834,17 +974,98 @@ export async function resolveTyranoBuilderSave(
   exeDir: string,
   fs: FileSystemProvider
 ): Promise<ResolvedSaveLocation | null> {
-  const saveDir = joinPaths(exeDir, 'tyrano', 'savedata');
-  if (await fs.exists(saveDir)) {
-    const files = await scanDirectoryForSaveFiles(saveDir, fs);
+  const bundleRoot = resolveBundleRoot(exeDir) || (exeDir.replace(/\\/g, '/').toLowerCase().endsWith('.app') ? exeDir : null);
+  const candidates: SaveCandidate[] = [
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'tyrano', 'savedata'), confidence: 'high', source: 'deterministic', matchedStrategy: 'tyranobuilder' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'savedata'), confidence: 'high', source: 'deterministic', matchedStrategy: 'tyranobuilder' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'app', 'tyrano', 'savedata'), confidence: 'high', source: 'deterministic', matchedStrategy: 'tyranobuilder' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'tyrano', 'savedata'), confidence: 'high', source: 'deterministic', matchedStrategy: 'tyranobuilder' },
+    { path: joinPaths(exeDir, 'Contents', 'Resources', 'savedata'), confidence: 'high', source: 'deterministic', matchedStrategy: 'tyranobuilder' },
+    { path: joinPaths(exeDir, 'tyrano', 'savedata'), confidence: 'high', source: 'deterministic', matchedStrategy: 'tyranobuilder' },
+    { path: joinPaths(exeDir, 'savedata'), confidence: 'high', source: 'deterministic', matchedStrategy: 'tyranobuilder' },
+  ];
+
+  const macAppSupport = fs.getMacApplicationSupportHome?.();
+  const macPreferences = fs.getMacPreferencesHome?.();
+
+  const packageJsonCandidates = [
+    joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'package.json'),
+    joinPaths(exeDir, 'Contents', 'Resources', 'app', 'package.json'),
+    joinPaths(exeDir, 'Contents', 'Resources', 'package.json'),
+    joinPaths(exeDir, 'package.json'),
+  ];
+
+  for (const pkgPath of packageJsonCandidates) {
+    try {
+      if (await fs.exists(pkgPath)) {
+        const raw = await fs.readFile(pkgPath, 'utf-8');
+        const content = typeof raw === 'string' ? raw : raw.toString('utf-8');
+        const pkg = JSON.parse(content);
+        const rawName =
+          (typeof pkg.name === 'string' && pkg.name) ||
+          (typeof pkg['bundle-id'] === 'string' && pkg['bundle-id']) ||
+          (typeof pkg.id === 'string' && pkg.id) ||
+          (typeof pkg.window?.title === 'string' && pkg.window.title) ||
+          '';
+
+        const appName = sanitizePathComponent(rawName);
+        if (appName.length > 0 && macAppSupport && macAppSupport.trim() !== '') {
+          const webStoragePath = joinPaths(macAppSupport, appName, 'Default', 'Local Storage', 'leveldb');
+          if (isStrictlyContained(webStoragePath, macAppSupport, [macAppSupport, macPreferences])) {
+            candidates.push({
+              path: webStoragePath,
+              confidence: 'high',
+              source: 'appdata',
+              matchedStrategy: 'tyranobuilder',
+            });
+          }
+        }
+        break;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const validCandidates = candidates.filter((c) => {
+    if (bundleRoot && c.source === 'deterministic') {
+      return isStrictlyContained(c.path, bundleRoot);
+    }
+    return true;
+  });
+
+  const ranked = await rankSaveCandidates(validCandidates, fs);
+  if (ranked) return ranked;
+
+  // Predicted fallback
+  if (await fs.exists(joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'tyrano'))) {
     return {
-      path: saveDir,
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'tyrano', 'savedata'),
       confidence: 'high',
       source: 'deterministic',
       matchedStrategy: 'tyranobuilder',
-      files,
+      files: [],
     };
   }
+  if (await fs.exists(joinPaths(exeDir, 'Contents', 'Resources', 'app.nw'))) {
+    return {
+      path: joinPaths(exeDir, 'Contents', 'Resources', 'app.nw', 'savedata'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'tyranobuilder',
+      files: [],
+    };
+  }
+  if (await fs.exists(joinPaths(exeDir, 'tyrano'))) {
+    return {
+      path: joinPaths(exeDir, 'tyrano', 'savedata'),
+      confidence: 'high',
+      source: 'deterministic',
+      matchedStrategy: 'tyranobuilder',
+      files: [],
+    };
+  }
+
   return null;
 }
 

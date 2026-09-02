@@ -107,6 +107,50 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
             env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
             expectedEngine: 'godot',
             expectedPath: '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame'
+        },
+        {
+            name: 'RPG Maker MV/MZ (macOS In-Bundle)',
+            exe: '/Applications/RPGMGame.app/Contents/MacOS/Game',
+            files: {
+                '/Applications/RPGMGame.app/Contents/MacOS/Game': '',
+                '/Applications/RPGMGame.app/Contents/Resources/app.nw/js/rmmz_core.js': '',
+                '/Applications/RPGMGame.app/Contents/Resources/app.nw/save/file1.rmmzsave': 'save'
+            },
+            dirs: [
+                '/Applications/RPGMGame.app/Contents/Resources/app.nw/save'
+            ],
+            expectedEngine: 'rpg-mv-mz',
+            expectedPath: '/Applications/RPGMGame.app/Contents/Resources/app.nw/save'
+        },
+        {
+            name: 'RPG Maker MV/MZ (macOS WebStorage)',
+            exe: '/Applications/WebRPG.app/Contents/MacOS/Game',
+            files: {
+                '/Applications/WebRPG.app/Contents/MacOS/Game': '',
+                '/Applications/WebRPG.app/Contents/Resources/app.nw/package.json': '{"name":"WebRPGGame"}',
+                '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb/000003.log': 'log'
+            },
+            dirs: [
+                '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb'
+            ],
+            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
+            expectedEngine: 'rpg-mv-mz',
+            expectedPath: '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb'
+        },
+        {
+            name: 'Unity (macOS bundle app.info)',
+            exe: '/Applications/UnityMac.app/Contents/MacOS/UnityMac',
+            files: {
+                '/Applications/UnityMac.app/Contents/MacOS/UnityMac': '',
+                '/Applications/UnityMac.app/Contents/Resources/Data/app.info': 'IndieDev\nSpaceGame\n',
+                '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame/save.dat': 'data'
+            },
+            dirs: [
+                '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame'
+            ],
+            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
+            expectedEngine: 'unity',
+            expectedPath: '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame'
         }
     ];
 

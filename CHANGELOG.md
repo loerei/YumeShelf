@@ -11,8 +11,13 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Added macOS `.app` bundle layout engine classification across Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with automatic architecture detection.
 - Added bundle root resolution and path sanitization to headless save discovery pipelines, allowing save folders to be accurately located for macOS application bundles.
 - Added headless standard macOS Application Support save resolvers for Unity, Ren'Py, Godot, and Unreal Engine games.
+- Added headless in-bundle and WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, Unity PlayerPrefs, and TyranoBuilder on macOS.
 
 ### For the Nerds
+- [engine] Implemented in-bundle save resolvers for RPG Maker MV/MZ (`Contents/Resources/app.nw/save/`, `Contents/Resources/save/`, `Contents/Resources/app/save/`, `Contents/Resources/app.nw/www/save/`), NW.js, and TyranoBuilder in `packages/yume-engine/src/save-resolvers/engine-save-resolvers.ts`.
+- [engine] Implemented WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, and TyranoBuilder inspecting `package.json` to resolve `~/Library/Application Support/<name>/Default/Local Storage/leveldb`.
+- [engine] Updated `resolveUnitySave` to inspect `Contents/Resources/Data/app.info` and resolve `~/Library/Application Support/<company>/<product>` with CRLF/LF normalization and non-zero token validation.
+- [engine] Enforced path containment asserting WebStorage saves reside strictly within `getMacApplicationSupportHome()` and in-bundle saves reside strictly within `.app` bundle root.
 - [engine] Implemented standard macOS Application Support save resolvers in `packages/yume-engine/src/save-resolvers/engine-save-resolvers.ts` (`resolveRenPySave`, `resolveGodotSave`, `resolveUnrealSave`, `resolveUnitySave`) resolving `~/Library/Application Support/` and `~/Library/` paths for Unity (`<company>/<product>`, `unity.<company>.<product>`), Ren'Py (`RenPy/<stem>`), Godot (`Godot/app_userdata/<stem>`), and Unreal Engine (`Epic/<stem>/Saved/SaveGames`).
 - [engine] Added `sanitizePathComponent` and `isStrictlyContained` path helpers in `packages/yume-engine/src/save-resolvers/path-utils.ts` to enforce directory traversal prevention, non-zero name checks, containment within Application Support, and root directory collapse protection.
 - [engine] Normalized CRLF/LF line endings in `resolveUnityFromAppInfo` and added non-zero length validation on extracted company and product names.

@@ -949,4 +949,250 @@ describe('macOS Application Support save resolvers (Ticket 02.2.1.2.1)', () => {
     assert.notEqual(result?.path, '/Users/MacUser/Library/Preferences');
   });
 });
+
+describe('macOS In-Bundle & WebStorage save resolvers (Ticket 02.2.1.2.2)', () => {
+  it('resolves Unity save folder from Contents/Resources/Data/app.info inside macOS .app bundle', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Applications/UnityMacGame.app/Contents/Resources/Data/app.info',
+      'AwesomeCorp\r\nSuperGame\r\n'
+    );
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/AwesomeCorp/SuperGame/playerprefs.dat',
+      'save data'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'Unity',
+      family: 'unity',
+      arch: 'arm64',
+      runtime: 'native',
+      saveStrategy: 'unity-appsupport-playerprefs',
+      detectedBy: 'macOS App Bundle (Unity)',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/UnityMacGame.app/Contents/MacOS/UnityMacGame',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Users/MacUser/Library/Application Support/AwesomeCorp/SuperGame'
+    );
+    assert.equal(result.confidence, 'high');
+    assert.equal(result.source, 'appdata');
+  });
+
+  it('resolves RPG Maker MV/MZ in-bundle Contents/Resources/app.nw/save/ directory', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.writeFile(
+      '/Applications/RPGMZGame.app/Contents/Resources/app.nw/save/file1.rmmzsave',
+      'rmmz save'
+    );
+    fs.writeFile(
+      '/Applications/RPGMZGame.app/Contents/Resources/app.nw/save/global.rmmzsave',
+      'rmmz global'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'RPGM',
+      family: 'rpg-maker',
+      variant: 'mz',
+      arch: 'arm64',
+      runtime: 'nwjs',
+      saveStrategy: 'rpgmaker-bundle-data',
+      detectedBy: 'macOS App Bundle (RPG Maker)',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/RPGMZGame.app/Contents/MacOS/Game',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Applications/RPGMZGame.app/Contents/Resources/app.nw/save'
+    );
+    assert.equal(result.confidence, 'high');
+    assert.equal(result.source, 'deterministic');
+    assert.deepEqual(result.files?.sort(), ['file1.rmmzsave', 'global.rmmzsave']);
+  });
+
+  it('resolves RPG Maker MV/MZ in-bundle Contents/Resources/app.nw/www/save/ and Contents/Resources/save/', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.writeFile(
+      '/Applications/RPGMVGame.app/Contents/Resources/app.nw/www/save/file1.rpgsave',
+      'rpgsave file'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'RPGM',
+      family: 'rpg-maker',
+      variant: 'mv',
+      arch: 'x64',
+      runtime: 'nwjs',
+      saveStrategy: 'rpgmaker-bundle-data',
+      detectedBy: 'macOS App Bundle (RPG Maker)',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/RPGMVGame.app/Contents/MacOS/Game',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Applications/RPGMVGame.app/Contents/Resources/app.nw/www/save'
+    );
+    assert.equal(result.confidence, 'high');
+  });
+
+  it('resolves RPG Maker MV/MZ WebStorage LocalStorage save directory in ~/Library/Application Support/<name>/Default/Local Storage/leveldb', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Applications/WebRPG.app/Contents/Resources/app.nw/package.json',
+      JSON.stringify({ name: 'WebRPGGame', main: 'index.html' })
+    );
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb/000003.log',
+      'leveldb log data'
+    );
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb/CURRENT',
+      'CURRENT'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'RPGM',
+      family: 'rpg-maker',
+      variant: 'mz',
+      arch: 'arm64',
+      runtime: 'nwjs',
+      saveStrategy: 'rpgmaker-bundle-data',
+      detectedBy: 'macOS App Bundle (RPG Maker)',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/WebRPG.app/Contents/MacOS/Game',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb'
+    );
+    assert.equal(result.confidence, 'high');
+    assert.equal(result.source, 'appdata');
+  });
+
+  it('sanitizes malicious traversal names in package.json and enforces containment within Application Support', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Applications/EvilGame.app/Contents/Resources/app.nw/package.json',
+      JSON.stringify({ name: '../../../../../../System/Library' })
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'RPGM',
+      family: 'rpg-maker',
+      variant: 'mv',
+      arch: 'arm64',
+      runtime: 'nwjs',
+      saveStrategy: 'rpgmaker-bundle-data',
+      detectedBy: 'macOS App Bundle (RPG Maker)',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/EvilGame.app/Contents/MacOS/Game',
+      fs
+    );
+    // Must not escape Application Support
+    if (result?.path) {
+      assert.ok(
+        result.path.startsWith('/Applications/EvilGame.app') ||
+        result.path.startsWith('/Users/MacUser/Library/Application Support/SystemLibrary')
+      );
+      assert.notEqual(result.path, '/System/Library');
+      assert.notEqual(result.path, '/Users/MacUser/Library/Application Support');
+    }
+  });
+
+  it('rejects empty or sanitized zero-length package.json name tokens', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Applications/EmptyNameGame.app/Contents/Resources/app.nw/package.json',
+      JSON.stringify({ name: '..%00/\\..' })
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'RPGM',
+      family: 'rpg-maker',
+      variant: 'mv',
+      arch: 'arm64',
+      runtime: 'nwjs',
+      saveStrategy: 'rpgmaker-bundle-data',
+      detectedBy: 'macOS App Bundle (RPG Maker)',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/EmptyNameGame.app/Contents/MacOS/Game',
+      fs
+    );
+    // Must fall back to in-bundle path and not resolve to root Application Support
+    assert.notEqual(result?.path, '/Users/MacUser/Library/Application Support');
+    if (result?.path) {
+      assert.ok(result.path.startsWith('/Applications/EmptyNameGame.app'));
+    }
+  });
+
+  it('resolves TyranoBuilder in-bundle and WebStorage saves on macOS', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+    });
+    fs.writeFile(
+      '/Applications/TyranoMac.app/Contents/Resources/app.nw/tyrano/savedata/data.sav',
+      'tyrano save'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'Others',
+      family: 'tyranobuilder',
+      arch: 'arm64',
+      runtime: 'nwjs',
+      saveStrategy: 'custom',
+      detectedBy: 'tyranobuilder-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/TyranoMac.app/Contents/MacOS/Game',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Applications/TyranoMac.app/Contents/Resources/app.nw/tyrano/savedata'
+    );
+    assert.equal(result.confidence, 'high');
+  });
+});
 });

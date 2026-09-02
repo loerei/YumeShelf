@@ -88,6 +88,8 @@ export async function resolveSaveDirectory(
     result = await resolveTyranoBuilderSave(effectiveDir, fs);
   } else if (family === 'kirikiri') {
     result = await resolveKirikiriSave(effectiveDir, exeStem, fs);
+  } else if (family === 'html-webgl' || profile?.runtime === 'nwjs') {
+    result = (await resolveRpgMakerSave(effectiveDir, profile, fs)) || (await resolveTyranoBuilderSave(effectiveDir, fs));
   }
 
   // 3. Check User Profile / Documents / Saved Games

@@ -375,7 +375,125 @@ fn list_process_relations() -> Result<Vec<(u32, u32)>> {
     Ok(relations)
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn proc_listpids(type_: u32, typeinfo: u32, buffer: *mut libc::c_void, buffersize: i32) -> i32;
+    fn proc_pidinfo(
+        pid: libc::pid_t,
+        flavor: i32,
+        arg: u64,
+        buffer: *mut libc::c_void,
+        buffersize: i32,
+    ) -> i32;
+}
+
+#[cfg(target_os = "macos")]
+const PROC_ALL_PIDS: u32 = 1;
+#[cfg(target_os = "macos")]
+const PROC_PIDTASKALLINFO: i32 = 2;
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct ProcBsdInfo {
+    pbi_flags: u32,
+    pbi_status: u32,
+    pbi_xstatus: u32,
+    pbi_pid: u32,
+    pbi_ppid: u32,
+    pbi_uid: u32,
+    pbi_gid: u32,
+    pbi_ruid: u32,
+    pbi_rgid: u32,
+    pbi_svuid: u32,
+    pbi_svgid: u32,
+    rfu_1: u32,
+    pbi_comm: [u8; 16],
+    pbi_name: [u8; 32],
+    pbi_nfiles: u32,
+    pbi_pgid: u32,
+    pbi_pjobc: u32,
+    pbi_e_unum: u32,
+    pbi_e_pnum: u32,
+    pbi_nice: i32,
+    pbi_start_tvsec: u64,
+    pbi_start_tvusec: u64,
+}
+
+#[cfg(target_os = "macos")]
+#[repr(C)]
+struct ProcTaskAllInfo {
+    pbsd: ProcBsdInfo,
+    ptinfo: [u8; 192],
+}
+
+#[cfg(target_os = "macos")]
+fn list_process_relations() -> Result<Vec<(u32, u32)>> {
+    use std::mem::size_of;
+
+    let mut capacity = 2048usize;
+    let mut pids: Vec<libc::pid_t> = Vec::with_capacity(capacity);
+    let mut num_pids = 0usize;
+
+    loop {
+        pids.resize(capacity, 0);
+        let buffer_size = (capacity * size_of::<libc::pid_t>()) as i32;
+        let bytes_written = unsafe {
+            proc_listpids(
+                PROC_ALL_PIDS,
+                0,
+                pids.as_mut_ptr() as *mut libc::c_void,
+                buffer_size,
+            )
+        };
+
+        if bytes_written <= 0 {
+            return Ok(Vec::new());
+        }
+
+        let returned_count = (bytes_written as usize) / size_of::<libc::pid_t>();
+
+        if bytes_written >= buffer_size {
+            capacity = capacity.saturating_mul(2);
+            if capacity > 65536 {
+                num_pids = returned_count;
+                pids.truncate(num_pids);
+                break;
+            }
+            continue;
+        }
+
+        num_pids = returned_count;
+        pids.truncate(num_pids);
+        break;
+    }
+
+    let mut relations = Vec::with_capacity(num_pids);
+    for &pid in &pids {
+        if pid <= 0 {
+            continue;
+        }
+
+        let mut info: ProcTaskAllInfo = unsafe { std::mem::zeroed() };
+        let ret = unsafe {
+            proc_pidinfo(
+                pid,
+                PROC_PIDTASKALLINFO,
+                0,
+                &mut info as *mut _ as *mut libc::c_void,
+                size_of::<ProcTaskAllInfo>() as i32,
+            )
+        };
+
+        if ret >= size_of::<ProcBsdInfo>() as i32 {
+            relations.push((pid as u32, info.pbsd.pbi_ppid));
+        }
+    }
+
+    Ok(relations)
+}
+
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 fn list_process_relations() -> Result<Vec<(u32, u32)>> {
     Ok(Vec::new())
 }

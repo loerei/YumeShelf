@@ -7,52 +7,25 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.2.0] - working
 
 ### What Changed
-- Added electron-builder configuration for macOS (`dmg`, `zip`) with playtime helper native resource bundle and identity auto-discovery bypass.
-- Relocated Windows native executable mapping to platform-specific configuration in `package.json`.
-- Added `MacUpdaterStrategyAdapter` supporting DMG download, SHA-512 verification, `hdiutil` mounting and unmounting, and release feed parsing on macOS.
-- Added preliminary support for inspecting macOS application binaries and Universal FAT executables in the core engine.
-- Added macOS `.app` bundle layout engine classification across Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with automatic architecture detection.
-- Added bundle root resolution and path sanitization to headless save discovery pipelines, allowing save folders to be accurately located for macOS application bundles.
-- Added headless standard macOS Application Support save resolvers for Unity, Ren'Py, Godot, and Unreal Engine games.
-- Added headless in-bundle and WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, Unity PlayerPrefs, and TyranoBuilder on macOS.
-- Integrated cross-platform macOS save strategies and diagnostic error logging into the main process save folder resolver.
+- macOS engine support: scans `.app` bundles directly, reads Mach-O headers and Info.plist metadata, and detects game engines (Unity, Ren'Py, RPG Maker, Godot, Unreal) out of the box.
+- Mac save discovery: finds saves automatically in `~/Library/Application Support/` and inside app bundles, so you do not have to dig around for save folders.
+- Safer playtime tracking: the background tracker now writes data atomically to disk so your playtime records never get corrupted if the app closes abruptly.
+
+*(Note: The core engine and build scripts are wired for macOS now. I do not daily drive a Mac, so testing and PRs from Mac users are very welcome.)*
 
 ### For the Nerds
-- [packaging] Configured `electron-builder` macOS targets (`dmg`, `zip`) with `category: "public.app-category.games"`, `identity: null`, and Darwin `playtime-helper` mapping in `build.mac.extraResources`.
-- [packaging] Relocated Windows playtime-helper executable from root `build.extraResources` to `build.win.extraResources` to avoid cross-platform resource pollution.
-- [packaging] Added `"build:mac"` and `"package:mac"` scripts with `cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac`.
-- [packaging] Added automated packaging and build pipeline test assertions in `tests/release-artifacts.test.js` and `tests/macos-packaging.test.js`.
-- [updater] Implemented `MacUpdaterStrategyAdapter` in `src/main/app-updates/mac-strategy.ts` supporting `latest-mac.yml` feed resolution, HTTPS transport enforcement, SHA-512 verification, guaranteed `try...finally` unmount teardown via `hdiutil detach <mountPoint> -force`, and non-blocking timeout aborts.
-- [updater] Updated `createAppUpdaterStrategy` to route `darwin` platform to `MacUpdaterStrategyAdapter`.
-- [updater] Updated `resolvePackagedFeedOverride` in `src/main/app-updates/feed-resolver.ts` to accept Darwin runtime channels (`mac`/`dmg`) and parse `latest-mac.yml` manifests.
-- [resolver] Integrated macOS save strategies into `SaveFolderResolver` in `src/main/save-folder-resolver/index.ts`, mapping `rpgmaker-bundle-data`, `unity-appsupport-playerprefs`, `renpy-appsupport-saves`, and `godot-appsupport-user` through the engine facade.
-- [resolver] Added diagnostic error logging with `[SAVE-RESOLVER][ERROR]` in `SaveFolderResolver.resolve` catch blocks capturing failing paths and error stacks.
-- [engine] Implemented in-bundle save resolvers for RPG Maker MV/MZ (`Contents/Resources/app.nw/save/`, `Contents/Resources/save/`, `Contents/Resources/app/save/`, `Contents/Resources/app.nw/www/save/`), NW.js, and TyranoBuilder in `packages/yume-engine/src/save-resolvers/engine-save-resolvers.ts`.
-- [engine] Implemented WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, and TyranoBuilder inspecting `package.json` to resolve `~/Library/Application Support/<name>/Default/Local Storage/leveldb`.
-- [engine] Updated `resolveUnitySave` to inspect `Contents/Resources/Data/app.info` and resolve `~/Library/Application Support/<company>/<product>` with CRLF/LF normalization and non-zero token validation.
-- [engine] Enforced path containment asserting WebStorage saves reside strictly within `getMacApplicationSupportHome()` and in-bundle saves reside strictly within `.app` bundle root.
-- [engine] Implemented standard macOS Application Support save resolvers in `packages/yume-engine/src/save-resolvers/engine-save-resolvers.ts` (`resolveRenPySave`, `resolveGodotSave`, `resolveUnrealSave`, `resolveUnitySave`) resolving `~/Library/Application Support/` and `~/Library/` paths for Unity (`<company>/<product>`, `unity.<company>.<product>`), Ren'Py (`RenPy/<stem>`), Godot (`Godot/app_userdata/<stem>`), and Unreal Engine (`Epic/<stem>/Saved/SaveGames`).
-- [engine] Added `sanitizePathComponent` and `isStrictlyContained` path helpers in `packages/yume-engine/src/save-resolvers/path-utils.ts` to enforce directory traversal prevention, non-zero name checks, containment within Application Support, and root directory collapse protection.
-- [engine] Normalized CRLF/LF line endings in `resolveUnityFromAppInfo` and added non-zero length validation on extracted company and product names.
-- [engine] Integrated macOS save strategies (`renpy-appsupport-saves`, `unity-appsupport-playerprefs`, `godot-appsupport-user`, `rpgmaker-bundle-data`) into `resolveSaveDirectory` routing and main process `mapEngineType`.
-- [engine] Integrated `resolveBundleRoot` into `resolveSaveDirectory` in `packages/yume-engine/src/save-resolvers/index.ts`, computing `effectiveDir = bundleRoot || dirName(exePath)` to scope all child save resolvers and directory scans to outer `.app` bundles instead of nested `Contents/MacOS/` paths.
-- [engine] Updated `getExeStem` in `packages/yume-engine/src/save-resolvers/path-utils.ts` with optional `bundleRoot`, trailing slash normalization, and stem sanitization stripping path separators, null bytes (`\0`, `%00`), and directory traversal sequences (`..`).
-- [engine] Exported canonical `PlatformType`, `MachOInspectionResult`, and `AppBundleInspectionResult` types in `@yumeshelf/engine`.
-- [engine] Implemented in-memory `MachOInspector` in `packages/yume-engine/src/binary/` supporting 32-bit, 64-bit, and Universal FAT binary headers with Java `.class` collision defense and bounds checking.
-- [engine] Implemented `MachOInspector.fromPath` with bounded $\le 4\text{KB}$ file slice reading, file handle resource cleanup in `try...finally`, and exposed `YumeEngine.inspectMachOFile` facade.
-- [engine] Implemented headless XML property list parser (`parseXmlPlist`, `XmlPlistParser`) in `packages/yume-engine/src/bundle/` supporting Apple's plist DTD (dictionaries, arrays, strings, integers, reals, booleans, dates, and base64 data) with UTF-8 BOM stripping, 5 MB buffer limit, recursion depth limit (64 levels), XXE and entity expansion defense, XML comments/CDATA handling, and prototype pollution protection.
-- [engine] Implemented headless binary property list deserializer (`BPlistParser`, `BinaryPlistParser`) in `packages/yume-engine/src/bundle/` supporting Apple's `bplist00` format up to 5 MB with trailer validation, cyclic reference detection, 64-level recursion depth limit, Cocoa epoch date offset (978307200s), and prototype pollution protection.
-- [engine] Implemented unified `PlistParser` facade and `parsePlist` entrypoint auto-detecting XML and binary property list formats across strings, Buffers, and Uint8Arrays.
-- [engine] Integrated standalone Mach-O binary inspection into `YumeEngine.inspectExecutable` and `YumeEngine.inspectGame`, dispatching valid Mach-O and FAT headers to `MachOInspector.fromPath` and returning canonical `GameEngineProfile` (`family: 'native'`, `tag: 'Others'`, `detectedBy: 'Mach-O Binary'`) with truncated/unreadable fallback resilience and PE `.exe` precedence.
-- [engine] Implemented `classifyAppBundle` in `packages/yume-engine/src/bundle/bundle-classifier.ts` detecting engine families (Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, Electron, NW.js, and unclassified), runtimes, save strategies, and candidate Mach-O `arch`.
-- [engine] Wired bundle context detection and engine classification into `YumeEngine.inspectExecutable`, `YumeEngine.inspectGame`, and `YumeEngine.inspectAppBundle`.
-- [tests] Added unit test suites in `packages/yume-engine/tests/bundle-engine-classification.test.ts` and `packages/yume-engine/tests/app-bundle-inspector.test.ts` validating bundle layout markers, inner Mach-O architecture detection, and facade inspection.
-- [tests] Added synthetic buffer and filesystem mock unit test suites in `packages/yume-engine/tests/macho-inspector.test.ts`.
-- [tests] Added comprehensive unit test suite in `packages/yume-engine/tests/xml-plist-parser.test.ts` validating Apple `Info.plist` files, BOM stripping, malformed inputs, entity explosion payloads, buffer limit, and prototype key stripping.
-- [tests] Added unit test suites in `packages/yume-engine/tests/bplist-parser.test.ts` and `packages/yume-engine/tests/plist-parser-facade.test.ts` verifying binary deserialization, cyclic reference prevention, Cocoa epoch date decoding, and unified facade auto-detection.
-- [tests] Added unit test suite in `packages/yume-engine/tests/standalone-macho-facade.test.ts` and updated `packages/yume-engine/tests/macho-inspector.test.ts` verifying standalone Mach-O binaries, 64-bit FAT headers, truncated fallback handling, and PE fallback compatibility.
-- [tests] Added unit test suite in `packages/yume-engine/tests/headless-save-resolvers.test.ts` validating `getExeStem` stem normalization, trailing slash handling, null byte stripping, and `effectiveDir` scoping for outer and inner `.app` bundle paths.
-- [tests] Added integration test suite in `tests/save-folder-resolver-cross-platform.test.js` and updated `src/main/save-folder-resolver/save-folder-resolver.test.ts` validating end-to-end macOS save discovery across Unity, RPG Maker MV/MZ, Ren'Py, Godot, and Unreal Engine games.
+- [engine] Added in-memory and bounded file slice Mach-O binary inspector supporting 32-bit, 64-bit, and Universal FAT headers with Java `.class` magic collision defense.
+- [engine] Built headless XML and binary `bplist00` property list deserializers with cycle detection, depth limits, and prototype pollution guards, exposed via a unified `PlistParser` facade.
+- [engine] Added macOS `.app` bundle inspection and engine classification for Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with architecture detection (`arm64`, `x64`, `fat`).
+- [engine] Added `resolveBundleRoot` and stem sanitization to scope save resolvers and directory traversals to the outer `.app` bundle rather than internal `Contents/MacOS/` paths.
+- [resolver] Implemented headless standard macOS Application Support save resolvers for Unity, Ren'Py, Godot, and Unreal Engine games, with strict path containment checks.
+- [resolver] Implemented in-bundle and WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, Unity PlayerPrefs, and TyranoBuilder on macOS.
+- [resolver] Added `IEnvironmentPaths` MultiOS interface (`getAppSupportDir`, `getCachesDir`, `getPreferencesDir`) across engine and main process providers.
+- [scanner] Updated library scanner to treat `.app` directories as atomic leaves, pruning internal `Contents/` recursion and ranking native bundles with 6-tier Darwin priority.
+- [playtime] Implemented atomic persistence with monotonic temporary files, retry backoff, and strict file sync in the Rust playtime helper.
+- [playtime] Decoupled process tree traversal into a pure algorithm trait and added macOS `libproc` C FFI bindings with dynamic buffer sizing.
+- [updater] Implemented `AppUpdaterStrategy` interface seam with `NsisUpdaterStrategyAdapter` on Windows and `MacUpdaterStrategyAdapter` on macOS supporting DMG mounting, SHA-512 verification, and cleanup in `try...finally`.
+- [packaging] Configured `electron-builder` macOS targets (`dmg`, `zip`) with native playtime helper extraResources, and added MultiOS build asset classifier scripts.
 
 ---
 

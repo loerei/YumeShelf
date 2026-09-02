@@ -7,6 +7,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.2.0] - working
 
 ### What Changed
+- Added `MacUpdaterStrategyAdapter` supporting DMG download, SHA-512 verification, `hdiutil` mounting and unmounting, and release feed parsing on macOS.
 - Added preliminary support for inspecting macOS application binaries and Universal FAT executables in the core engine.
 - Added macOS `.app` bundle layout engine classification across Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with automatic architecture detection.
 - Added bundle root resolution and path sanitization to headless save discovery pipelines, allowing save folders to be accurately located for macOS application bundles.
@@ -15,6 +16,9 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Integrated cross-platform macOS save strategies and diagnostic error logging into the main process save folder resolver.
 
 ### For the Nerds
+- [updater] Implemented `MacUpdaterStrategyAdapter` in `src/main/app-updates/mac-strategy.ts` supporting `latest-mac.yml` feed resolution, HTTPS transport enforcement, SHA-512 verification, guaranteed `try...finally` unmount teardown via `hdiutil detach <mountPoint> -force`, and non-blocking timeout aborts.
+- [updater] Updated `createAppUpdaterStrategy` to route `darwin` platform to `MacUpdaterStrategyAdapter`.
+- [updater] Updated `resolvePackagedFeedOverride` in `src/main/app-updates/feed-resolver.ts` to accept Darwin runtime channels (`mac`/`dmg`) and parse `latest-mac.yml` manifests.
 - [resolver] Integrated macOS save strategies into `SaveFolderResolver` in `src/main/save-folder-resolver/index.ts`, mapping `rpgmaker-bundle-data`, `unity-appsupport-playerprefs`, `renpy-appsupport-saves`, and `godot-appsupport-user` through the engine facade.
 - [resolver] Added diagnostic error logging with `[SAVE-RESOLVER][ERROR]` in `SaveFolderResolver.resolve` catch blocks capturing failing paths and error stacks.
 - [engine] Implemented in-bundle save resolvers for RPG Maker MV/MZ (`Contents/Resources/app.nw/save/`, `Contents/Resources/save/`, `Contents/Resources/app/save/`, `Contents/Resources/app.nw/www/save/`), NW.js, and TyranoBuilder in `packages/yume-engine/src/save-resolvers/engine-save-resolvers.ts`.

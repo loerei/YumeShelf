@@ -70,8 +70,10 @@ export function setupFeedResolver({
     }
 
     async function resolvePackagedFeedOverride({ currentVersion, runtime }: { currentVersion: string; runtime: any }): Promise<any> {
-        if (runtime?.channel !== 'nsis') {
-            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-non-nsis current=${currentVersion} runtime=${JSON.stringify(runtime || null)}`);
+        const isDarwin = runtime?.channel === 'mac' || runtime?.channel === 'dmg';
+        const isNsis = runtime?.channel === 'nsis';
+        if (!isNsis && !isDarwin) {
+            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-non-supported current=${currentVersion} runtime=${JSON.stringify(runtime || null)}`);
             return null;
         }
         if (!isPrereleaseVersion(currentVersion)) {
@@ -87,14 +89,15 @@ export function setupFeedResolver({
             return null;
         }
 
-        const hasLatestManifest = targetRelease.assets.some((asset: any) => readAssetName(asset).toLowerCase() === 'latest.yml');
+        const expectedManifest = isDarwin ? 'latest-mac.yml' : 'latest.yml';
+        const hasLatestManifest = targetRelease.assets.some((asset: any) => readAssetName(asset).toLowerCase() === expectedManifest);
         if (!hasLatestManifest) {
-            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-missing-latest current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName}`);
+            await appendVerboseUpdateLog(`resolvePackagedFeedOverride skip-missing-manifest current=${currentVersion} target=${targetRelease.version} tag=${targetRelease.tagName} manifest=${expectedManifest}`);
             return null;
         }
 
         const override = {
-            channel: 'prerelease-github-generic',
+            channel: isDarwin ? 'prerelease-github-mac' : 'prerelease-github-generic',
             provider: 'generic',
             release: targetRelease,
             url: `https://github.com/loerei/YumeShelf/releases/download/${targetRelease.tagName}`

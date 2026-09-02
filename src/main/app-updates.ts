@@ -27,6 +27,7 @@ import {
     AppUpdaterStrategy,
     AppUpdaterStrategyOptions,
     createAppUpdaterStrategy,
+    MacUpdaterStrategyAdapter,
     NsisUpdaterStrategyAdapter
 } from './app-updates/updater-strategy';
 
@@ -36,6 +37,7 @@ export {
     AppUpdaterStrategy,
     AppUpdaterStrategyOptions,
     createAppUpdaterStrategy,
+    MacUpdaterStrategyAdapter,
     NoopUpdaterStrategy,
     NsisUpdaterStrategyAdapter
 } from './app-updates/updater-strategy';

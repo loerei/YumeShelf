@@ -6,6 +6,7 @@ const { createStartupServices } = require('../dist/main/startup');
 const {
     createAppUpdateServices,
     createAppUpdaterStrategy,
+    MacUpdaterStrategyAdapter,
     NoopUpdaterStrategy,
     NsisUpdaterStrategyAdapter
 } = require('../dist/main/app-updates');
@@ -763,15 +764,15 @@ test('Test 13: NsisUpdaterStrategyAdapter delegates all operations to underlying
 });
 
 // Test 14: createAppUpdaterStrategy factory creates appropriate strategy based on platform
-test('Test 14: createAppUpdaterStrategy returns NsisUpdaterStrategyAdapter for win32 and NoopUpdaterStrategy for unsupported platforms', () => {
+test('Test 14: createAppUpdaterStrategy returns NsisUpdaterStrategyAdapter for win32, MacUpdaterStrategyAdapter for darwin, and NoopUpdaterStrategy for unsupported platforms', () => {
     const winStrategy = createAppUpdaterStrategy({}, 'win32');
     assert.ok(winStrategy instanceof NsisUpdaterStrategyAdapter);
 
+    const darwinStrategy = createAppUpdaterStrategy({}, 'darwin');
+    assert.ok(darwinStrategy instanceof MacUpdaterStrategyAdapter);
+
     const linuxStrategy = createAppUpdaterStrategy({}, 'linux');
     assert.ok(linuxStrategy instanceof NoopUpdaterStrategy);
-
-    const darwinStrategy = createAppUpdaterStrategy({}, 'darwin');
-    assert.ok(darwinStrategy instanceof NoopUpdaterStrategy);
 });
 
 // Test 15: createAppUpdateServices with injected strategy, default fallbacks, and dispose delegation

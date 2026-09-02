@@ -3,6 +3,9 @@ import { ensureDir } from '../core/shared-io';
 import { compareAppReleaseVersions } from './release-utils';
 import { createNsisUpdaterService } from '../nsis-updater';
 import { APP_UPDATE_RELEASE_PAGE_URL } from './feed-resolver';
+import { MacUpdaterStrategyAdapter } from './mac-strategy';
+
+export { MacUpdaterStrategyAdapter };
 
 export interface AppUpdateCheckResult {
     attempted: boolean;
@@ -235,6 +238,9 @@ export function createAppUpdaterStrategy(
 ): AppUpdaterStrategy {
     if (platform === 'win32') {
         return new NsisUpdaterStrategyAdapter(options);
+    }
+    if (platform === 'darwin') {
+        return new MacUpdaterStrategyAdapter(options);
     }
     return new NoopUpdaterStrategy();
 }

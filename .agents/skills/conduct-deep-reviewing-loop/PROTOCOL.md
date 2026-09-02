@@ -19,7 +19,8 @@ When updating draft artifacts between iterations, integrate fixes directly into 
 ├── host/                    # [HOST ONLY] Coordination artifacts (hidden from reviewers)
 │   ├── Analyzation.md
 │   ├── Changelog.md
-│   └── Reviewer_Choice_Rationale.md
+│   ├── Reviewer_Choice_Rationale.md
+│   └── Untouched_Reviewers.md
 ├── Context.md               # [PUBLIC] Initialized by Layer 1 (DA path, rules, criteria, static SP)
 └── reports/                 # [REVIEWER OUTPUTS] Purged at pass starts; static overwrite (<Role>.md)
 
@@ -106,23 +107,26 @@ If any layer returns `REVISION NEEDED`, suspend remaining downstream layers for 
 
 ## 6. Invalidation Matrix & Targeted Re-Review
 
-When Layer 1 applies `Changelog.md` edits, the Directive Artifact transitions to a new static snapshot $S_N$. Host identifies the highest modified DAG tier and executes only the invalidated and downstream tiers:
+When Layer 1 applies `Changelog.md` edits, the Directive Artifact transitions to a new static snapshot $S_N$. The smallest scheduling unit is the **individual Reviewer**:
+1. Host identifies the highest modified DAG tier and its downstream tiers.
+2. Host loads `.scratch/deep_review/host/Untouched_Reviewers.md` (emitted by Host Round N) and filters out all untouched reviewers from the immediate pass.
+3. Host summons only the affected reviewers in topological DAG sequence, while registering untouched reviewers into the pending backfill queue for snapshot $S_N$:
 
-| Highest Modified Tier | Targeted Roles Run on Snapshot $S_N$ | Skipped Upstream Roles (Pending Backfill) |
+| Highest Modified Tier | Targeted Roles Run on Snapshot $S_N$ | Skipped Roles Pending Backfill (Upstream + Untouched) |
 | :--- | :--- | :--- |
-| **Layer 3.1 (Architectural & Phasing)** | All Active Roles in Roster (Full DAG) | None (Full DAG Execution) |
-| **Layer 3.2 (Readiness / Security / DataMigration / Testability)** | Active 3.2, 3.3, 3.4 Roles | Active Layer 3.1 Roles (`Architect`, `Progress`) |
-| **Layer 3.3 (Logic / Edgecase / Performance / Observability)** | Active 3.3, 3.4 Roles | Active Layer 3.1 & Layer 3.2 Roles |
-| **Layer 3.4 (UX/UI)** | Active 3.4 Roles (`UXUI`) | Active Layer 3.1, Layer 3.2 & Layer 3.3 Roles |
+| **Layer 3.1 (Architectural & Phasing)** | Active 3.1 to 3.4 Roles $\setminus$ `Untouched_Reviewers` | Untouched 3.1 to 3.4 Roles |
+| **Layer 3.2 (Readiness / Security / DataMigration / Testability)** | Active 3.2 to 3.4 Roles $\setminus$ `Untouched_Reviewers` | Active Layer 3.1 Roles + Untouched 3.2-3.4 Roles |
+| **Layer 3.3 (Logic / Edgecase / Performance / Observability)** | Active 3.3 to 3.4 Roles $\setminus$ `Untouched_Reviewers` | Active Layer 3.1 & 3.2 Roles + Untouched 3.3-3.4 Roles |
+| **Layer 3.4 (UX/UI)** | Active 3.4 Roles $\setminus$ `Untouched_Reviewers` | Active Layer 3.1 to 3.3 Roles + Untouched 3.4 Roles |
 
 ## 7. Snapshot Delta Backfill & Full Sweep Clearance Gate
 
 To prevent redundant subagent invocations on identical static snapshots while preserving strict 100% roster audit coverage:
 
-- **Targeted Pass Verification**: When all active targeted roles return `PASS` on snapshot $S_N$, Host identifies any active roles in the frozen roster that have **not yet audited snapshot $S_N$** (the skipped upstream roles).
+- **Targeted Pass Verification**: When all active targeted roles return `PASS` on snapshot $S_N$, Host identifies any active roles in the frozen roster that have **not yet audited snapshot $S_N$** (the union of skipped upstream roles and untouched reviewers).
 - **Snapshot Delta Backfill**:
-  - If skipped upstream roles exist: Host executes the skipped upstream roles in **topological DAG dependency sequence** (e.g. Layer 3.1 then Layer 3.2), writing reports into `.scratch/deep_review/reports/` (preserving intra-round targeted reports on snapshot $S_N$) and enforcing early tier suspension if any upstream role returns `REVISION NEEDED`.
-  - If no skipped upstream roles exist (i.e. Full DAG executed from Layer 3.1 to Layer 3.4 on snapshot $S_N$): The round is **natively recognized as a Full Sweep pass**.
+  - If skipped roles exist (upstream or untouched): Host executes all skipped roles in **topological DAG dependency sequence** (Layer 3.1 -> 3.2 -> 3.3 -> 3.4), writing reports into `.scratch/deep_review/reports/` (preserving intra-round targeted reports on snapshot $S_N$) and enforcing early tier suspension if any role returns `REVISION NEEDED`.
+  - If no skipped roles exist (i.e. 100% of active roster executed and passed on snapshot $S_N$): The round is **natively recognized as a Full Sweep pass**.
 - **Full Sweep Pass (`ROUND_PASS`)**: Once 100% of active roles in the frozen roster have audited and passed snapshot $S_N$ with zero blocking issues:
   - Increments `PassCount` by 1.
   - If `PassCount < SP`: Host purges `.scratch/deep_review/reports/` and initiates the next Full Sweep round on the unchanged static DA.

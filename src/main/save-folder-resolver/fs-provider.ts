@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import * as os from 'node:os';
 import * as fs from 'node:fs/promises';
 import { FileSystemProvider } from './types';
 
@@ -71,7 +72,23 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
     }
 
     getHomeDir(): string {
-        return process.env.HOME || process.env.USERPROFILE || '';
+        try {
+            return process.env.HOME || process.env.USERPROFILE || (typeof os.homedir === 'function' ? os.homedir() : '') || '';
+        } catch {
+            return '';
+        }
+    }
+
+    getMacApplicationSupportHome(): string {
+        const home = this.getHomeDir();
+        if (!home?.trim()) return '';
+        return path.join(home, 'Library', 'Application Support');
+    }
+
+    getMacPreferencesHome(): string {
+        const home = this.getHomeDir();
+        if (!home?.trim()) return '';
+        return path.join(home, 'Library', 'Preferences');
     }
 
     getXdgConfigHome(): string {
@@ -304,7 +321,21 @@ export class MockFileSystemProvider implements FileSystemProvider {
     }
 
     getHomeDir(): string {
-        return this.env.get('HOME') || this.env.get('USERPROFILE') || '/home/user';
+        if (this.env.has('HOME')) {
+            return this.env.get('HOME')!;
+        }
+        if (this.env.has('USERPROFILE')) {
+            return this.env.get('USERPROFILE')!;
+        }
+        return '/home/user';
+    }
+
+    getMacApplicationSupportHome(): string {
+        return this.env.get('MAC_APP_SUPPORT_HOME') || (this.getHomeDir() ? this.join(this.getHomeDir(), 'Library', 'Application Support') : '');
+    }
+
+    getMacPreferencesHome(): string {
+        return this.env.get('MAC_PREFERENCES_HOME') || (this.getHomeDir() ? this.join(this.getHomeDir(), 'Library', 'Preferences') : '');
     }
 
     getXdgConfigHome(): string {

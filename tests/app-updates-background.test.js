@@ -3,6 +3,20 @@ const assert = require('node:assert/strict');
 
 const { checkForAppUpdate } = require('../dist/main/app-updates/check-service');
 const { createStartupServices } = require('../dist/main/startup');
+const {
+    createAppUpdateServices,
+    createAppUpdaterStrategy,
+    MacUpdaterStrategyAdapter,
+    NoopUpdaterStrategy,
+    NsisUpdaterStrategyAdapter
+} = require('../dist/main/app-updates');
+const {
+    startBackgroundDownload,
+    restartAndInstallDownloadedUpdate,
+    scheduleInstallOnNextLaunch
+} = require('../dist/main/app-updates/download-install');
+const { summarizeAppUpdate } = require('../dist/main/app-updates/helpers');
+const { pickExpectedSha512 } = require('../dist/main/app-updates/updater-strategy');
 
 // Helper for testing renderer state machine
 function createTestUpdateState() {
@@ -632,3 +646,256 @@ test('Test 11: triggerBackgroundChecks handles background network errors gracefu
     assert.ok(errorLogs.some((msg) => msg.includes('GitHub API connection refused')));
     assert.ok(errorLogs.some((msg) => msg.includes('Manifest 404')));
 });
+
+// Test 12: NoopUpdaterStrategy fulfills full AppUpdaterStrategy interface and returns safe fallbacks
+test('Test 12: NoopUpdaterStrategy fulfills AppUpdaterStrategy interface with fallback responses and clean dispose', async () => {
+    const noop = new NoopUpdaterStrategy();
+
+    const checkResult = await noop.checkForUpdates();
+    assert.deepEqual(checkResult, {
+        attempted: true,
+        available: false,
+        fallbackReason: 'unsupported-platform'
+    });
+
+    const downloadResult = await noop.downloadUpdate({ version: '2.0.6' });
+    assert.deepEqual(downloadResult, {
+        ok: false,
+        reason: 'unsupported-platform'
+    });
+
+    const installResult = await noop.installDownloadedUpdateNow({ version: '2.0.6' });
+    assert.deepEqual(installResult, {
+        ok: false,
+        reason: 'unsupported-platform'
+    });
+
+    const scheduleResult = await noop.scheduleInstallOnNextLaunch({ version: '2.0.6' });
+    assert.deepEqual(scheduleResult, {
+        ok: false,
+        reason: 'unsupported-platform'
+    });
+
+    const prepareResult = await noop.prepareDeferredInstallOnLaunch();
+    assert.deepEqual(prepareResult, { pending: false });
+
+    const beginResult = await noop.beginDeferredInstallOnLaunch();
+    assert.deepEqual(beginResult, { ok: false, reason: 'unsupported' });
+
+    const runResult = await noop.runDeferredInstallOnLaunch();
+    assert.deepEqual(runResult, { ok: false, reason: 'unsupported' });
+
+    const summary = noop.summarizeUpdateState({
+        available: true,
+        version: '2.0.6',
+        releaseName: 'Test'
+    });
+    assert.equal(summary.available, true);
+    assert.equal(summary.version, '2.0.6');
+    assert.equal(summary.releaseName, 'Test');
+
+    assert.doesNotThrow(() => noop.dispose());
+});
+
+// Test 13: NsisUpdaterStrategyAdapter correctly delegates all operations to underlying service
+test('Test 13: NsisUpdaterStrategyAdapter delegates all operations to underlying service and disposes cleanly', async () => {
+    const calls = [];
+    const mockService = {
+        checkForUpdates: async () => {
+            calls.push('checkForUpdates');
+            return { available: true, version: '2.1.0' };
+        },
+        downloadUpdate: async (meta) => {
+            calls.push(['downloadUpdate', meta]);
+            return { ok: true };
+        },
+        installDownloadedUpdateNow: async (meta) => {
+            calls.push(['installDownloadedUpdateNow', meta]);
+            return { ok: true };
+        },
+        scheduleInstallOnNextLaunch: async (meta) => {
+            calls.push(['scheduleInstallOnNextLaunch', meta]);
+            return { ok: true };
+        },
+        prepareDeferredInstallOnLaunch: async () => {
+            calls.push('prepareDeferredInstallOnLaunch');
+            return { pending: true };
+        },
+        beginDeferredInstallOnLaunch: async () => {
+            calls.push('beginDeferredInstallOnLaunch');
+            return { ok: true };
+        },
+        runDeferredInstallOnLaunch: async () => {
+            calls.push('runDeferredInstallOnLaunch');
+            return { ok: true };
+        },
+        summarizeUpdateState: (u) => ({ ...u, summarized: true })
+    };
+
+    const adapter = new NsisUpdaterStrategyAdapter(mockService);
+    assert.equal(adapter.getService(), mockService);
+
+    const check = await adapter.checkForUpdates();
+    assert.equal(check.version, '2.1.0');
+
+    const download = await adapter.downloadUpdate({ version: '2.1.0' });
+    assert.equal(download.ok, true);
+
+    const install = await adapter.installDownloadedUpdateNow({ version: '2.1.0' });
+    assert.equal(install.ok, true);
+
+    const schedule = await adapter.scheduleInstallOnNextLaunch({ version: '2.1.0' });
+    assert.equal(schedule.ok, true);
+
+    const prep = await adapter.prepareDeferredInstallOnLaunch();
+    assert.equal(prep.pending, true);
+
+    const begin = await adapter.beginDeferredInstallOnLaunch();
+    assert.equal(begin.ok, true);
+
+    const run = await adapter.runDeferredInstallOnLaunch();
+    assert.equal(run.ok, true);
+
+    const summary = adapter.summarizeUpdateState({ available: true });
+    assert.equal(summary.summarized, true);
+
+    assert.doesNotThrow(() => adapter.dispose());
+    assert.ok(calls.includes('checkForUpdates'));
+});
+
+// Test 14: createAppUpdaterStrategy factory creates appropriate strategy based on platform
+test('Test 14: createAppUpdaterStrategy returns NsisUpdaterStrategyAdapter for win32, MacUpdaterStrategyAdapter for darwin, and NoopUpdaterStrategy for unsupported platforms', () => {
+    const winStrategy = createAppUpdaterStrategy({}, 'win32');
+    assert.ok(winStrategy instanceof NsisUpdaterStrategyAdapter);
+
+    const darwinStrategy = createAppUpdaterStrategy({}, 'darwin');
+    assert.ok(darwinStrategy instanceof MacUpdaterStrategyAdapter);
+
+    const linuxStrategy = createAppUpdaterStrategy({}, 'linux');
+    assert.ok(linuxStrategy instanceof NoopUpdaterStrategy);
+});
+
+// Test 15: createAppUpdateServices with injected strategy, default fallbacks, and dispose delegation
+test('Test 15: createAppUpdateServices respects injected updaterStrategy, provides deferred fallbacks, and delegates dispose', async () => {
+    let disposed = false;
+    class CustomStrategy extends NoopUpdaterStrategy {
+        dispose() {
+            disposed = true;
+        }
+    }
+
+    const mockApp = {
+        getVersion: () => '2.0.5',
+        getPath: () => 'C:\\mock\\userData',
+        isPackaged: true
+    };
+
+    const customStrategy = new CustomStrategy();
+    const services = createAppUpdateServices({
+        app: mockApp,
+        broadcastStatus: () => {},
+        compareVersions: () => 0,
+        openExternalUrl: () => {},
+        startupNetworkTimeoutMs: 1000,
+        updaterStrategy: customStrategy
+    });
+
+    const prep = await services.prepareDeferredInstallOnLaunch();
+    assert.deepEqual(prep, { pending: false });
+
+    const begin = await services.beginDeferredInstallOnLaunch();
+    assert.deepEqual(begin, { ok: false, reason: 'unsupported' });
+
+    const run = await services.runDeferredInstallOnLaunch();
+    assert.deepEqual(run, { ok: false, reason: 'unsupported' });
+
+    services.dispose();
+    assert.equal(disposed, true);
+});
+
+// Test 16: Backward compatibility for context.nsisUpdaterService and context.updaterStrategy in check-service, download-install, and helpers
+test('Test 16: backward compatibility allows check-service, download-install, and helpers to work with nsisUpdaterService, updaterStrategy, or fallback', async () => {
+    // 16a. Using updaterStrategy directly
+    const strategyContext = {
+        app: { getVersion: () => '2.0.5', isPackaged: true },
+        latestKnownUpdate: null,
+        appendUpdateLog: async () => {},
+        updaterStrategy: {
+            checkForUpdates: async () => ({
+                available: true,
+                version: '2.0.7',
+                releaseName: 'v2.0.7',
+                downloadable: true,
+                downloadReady: false
+            }),
+            downloadUpdate: async () => ({ ok: true }),
+            installDownloadedUpdateNow: async () => ({ ok: true }),
+            scheduleInstallOnNextLaunch: async () => ({ ok: true }),
+            summarizeUpdateState: (u) => u
+        },
+        enrichUpdateInfo: async (u) => u,
+        summarizeAppUpdate: (u) => u
+    };
+
+    const res1 = await checkForAppUpdate(strategyContext);
+    assert.equal(res1.available, true);
+    assert.equal(res1.version, '2.0.7');
+
+    const dlRes = await startBackgroundDownload(strategyContext);
+    assert.equal(dlRes.ok, true);
+
+    const instRes = await restartAndInstallDownloadedUpdate(strategyContext);
+    assert.equal(instRes.ok, true);
+
+    const schedRes = await scheduleInstallOnNextLaunch(strategyContext);
+    assert.equal(schedRes.ok, true);
+
+    // 16b. Using fallback when neither is provided
+    const emptyContext = {
+        app: { getVersion: () => '2.0.5', isPackaged: true },
+        latestKnownUpdate: null,
+        appendUpdateLog: async () => {},
+        enrichUpdateInfo: async (u) => u,
+        summarizeAppUpdate: (u) => u
+    };
+
+    const res2 = await checkForAppUpdate(emptyContext);
+    assert.equal(res2.available, false);
+    assert.equal(res2.fallbackReason, 'unsupported-platform');
+
+    // 16c. summarizeAppUpdate helper with updaterStrategy
+    const summary = summarizeAppUpdate(strategyContext, { available: true, version: '2.0.7' });
+    assert.equal(summary.available, true);
+});
+
+// Test 17: pickExpectedSha512 extracts sha512 for .exe, .dmg, and .zip artifacts
+test('Test 17: pickExpectedSha512 extracts sha512 for .exe, .dmg, and .zip artifacts', () => {
+    const exeInfo = {
+        files: [
+            { url: 'https://example.com/app.exe', sha512: 'hash-exe-123' },
+            { url: 'https://example.com/app.blockmap', sha512: 'blockmap-hash' }
+        ]
+    };
+    assert.equal(pickExpectedSha512(exeInfo), 'hash-exe-123');
+
+    const dmgInfo = {
+        files: [
+            { url: 'https://example.com/app.dmg', sha512: 'hash-dmg-456' },
+            { url: 'https://example.com/app.dmg.blockmap', sha512: 'blockmap-hash' }
+        ]
+    };
+    assert.equal(pickExpectedSha512(dmgInfo), 'hash-dmg-456');
+
+    const zipInfo = {
+        files: [
+            { url: 'https://example.com/app-mac.zip', sha512: 'hash-zip-789' }
+        ]
+    };
+    assert.equal(pickExpectedSha512(zipInfo), 'hash-zip-789');
+
+    const fallbackInfo = {
+        sha512: 'root-hash-999'
+    };
+    assert.equal(pickExpectedSha512(fallbackInfo), 'root-hash-999');
+});
+

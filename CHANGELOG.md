@@ -4,6 +4,31 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.0] - working
+
+### What Changed
+- macOS engine support: scans `.app` bundles directly, reads Mach-O headers and Info.plist metadata, and detects game engines (Unity, Ren'Py, RPG Maker, Godot, Unreal) out of the box.
+- Mac save discovery: finds saves automatically in `~/Library/Application Support/` and inside app bundles, so you do not have to dig around for save folders.
+- Safer playtime tracking: the background tracker now writes data atomically to disk so your playtime records never get corrupted if the app closes abruptly.
+
+*(Note: The core engine and build scripts are wired for macOS now. I do not daily drive a Mac, so testing and PRs from Mac users are very welcome.)*
+
+### For the Nerds
+- [engine] Added in-memory and bounded file slice Mach-O binary inspector supporting 32-bit, 64-bit, and Universal FAT headers with Java `.class` magic collision defense.
+- [engine] Built headless XML and binary `bplist00` property list deserializers with cycle detection, depth limits, and prototype pollution guards, exposed via a unified `PlistParser` facade.
+- [engine] Added macOS `.app` bundle inspection and engine classification for Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with architecture detection (`arm64`, `x64`, `fat`).
+- [engine] Added `resolveBundleRoot` and stem sanitization to scope save resolvers and directory traversals to the outer `.app` bundle rather than internal `Contents/MacOS/` paths.
+- [resolver] Implemented headless standard macOS Application Support save resolvers for Unity, Ren'Py, Godot, and Unreal Engine games, with strict path containment checks.
+- [resolver] Implemented in-bundle and WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, Unity PlayerPrefs, and TyranoBuilder on macOS.
+- [resolver] Added `IEnvironmentPaths` MultiOS interface (`getAppSupportDir`, `getCachesDir`, `getPreferencesDir`) across engine and main process providers.
+- [scanner] Updated library scanner to treat `.app` directories as atomic leaves, pruning internal `Contents/` recursion and ranking native bundles with 6-tier Darwin priority.
+- [playtime] Implemented atomic persistence with monotonic temporary files, retry backoff, and strict file sync in the Rust playtime helper.
+- [playtime] Decoupled process tree traversal into a pure algorithm trait and added macOS `libproc` C FFI bindings with dynamic buffer sizing.
+- [updater] Implemented `AppUpdaterStrategy` interface seam with `NsisUpdaterStrategyAdapter` on Windows and `MacUpdaterStrategyAdapter` on macOS supporting DMG mounting, SHA-512 verification, and cleanup in `try...finally`.
+- [packaging] Configured `electron-builder` macOS targets (`dmg`, `zip`) with native playtime helper extraResources, and added MultiOS build asset classifier scripts.
+
+---
+
 ## [2.1.2] - 2026-09-01 — released
 
 ### What Changed

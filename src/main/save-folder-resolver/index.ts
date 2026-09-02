@@ -37,12 +37,15 @@ function mapEngineType(matchedStrategy?: string, engineProfileType?: GameEngineT
     if (!matchedStrategy) return 'unknown';
     switch (matchedStrategy) {
         case 'rpg-maker-mv-mz':
+        case 'rpgmaker-bundle-data':
             return 'rpg-mv-mz';
         case 'rpg-maker-rgss':
             return 'rpg-vxace';
         case 'renpy-pickle':
+        case 'renpy-appsupport-saves':
             return 'renpy';
         case 'unity':
+        case 'unity-appsupport-playerprefs':
             return 'unity';
         case 'unreal-sav':
             return 'unreal';
@@ -53,6 +56,7 @@ function mapEngineType(matchedStrategy?: string, engineProfileType?: GameEngineT
         case 'bakin-sgs':
             return 'bakin';
         case 'godot':
+        case 'godot-appsupport-user':
             return 'godot';
         case 'gamemaker-appdata':
             return 'gamemaker';
@@ -87,7 +91,9 @@ export class SaveFolderResolver {
                         source: 'override'
                     };
                 }
-            } catch {}
+            } catch (error) {
+                console.warn('[SAVE-RESOLVER][ERROR]', error);
+            }
         }
 
         // 2. Create unified FileSystem bridge
@@ -146,13 +152,15 @@ export class SaveFolderResolver {
                 const paths = this.fs.getWineAppDataPaths ? await this.fs.getWineAppDataPaths(prefix, type) : [];
                 return paths || [];
             },
+            getMacApplicationSupportHome: () => (this.fs.getMacApplicationSupportHome ? this.fs.getMacApplicationSupportHome() : ''),
+            getMacPreferencesHome: () => (this.fs.getMacPreferencesHome ? this.fs.getMacPreferencesHome() : ''),
         };
 
         let profile: GameEngineProfile | null = null;
         try {
             profile = await YumeEngine.inspectExecutable(exePath, unifiedFs);
-        } catch {
-            // Unreadable or non-existent binary paths gracefully fall back
+        } catch (error) {
+            console.warn('[SAVE-RESOLVER][ERROR]', error);
         }
 
         const engineType = profileToEngineType(profile);
@@ -180,8 +188,8 @@ export class SaveFolderResolver {
                     source: mappedSource
                 };
             }
-        } catch {
-            // Resolution boundary containment
+        } catch (error) {
+            console.warn('[SAVE-RESOLVER][ERROR]', error);
         }
 
         console.log(`[SAVE-RESOLVER][FAILED] No save folder found for ${exePath}`);

@@ -7,6 +7,7 @@ import {
     shouldIncludePrereleaseReleases
 } from './release-utils';
 import { APP_UPDATE_RELEASE_PAGE_URL } from './feed-resolver';
+import { AppUpdaterStrategy, NoopUpdaterStrategy, NsisUpdaterStrategyAdapter } from './updater-strategy';
 
 export const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 
@@ -25,8 +26,28 @@ export async function logDebug(context: any, message: string): Promise<void> {
     await appendVerboseUpdateLog(context, `debug ${message}`);
 }
 
+export function getEffectiveUpdaterStrategy(context: any): AppUpdaterStrategy {
+    if (!context) return new NoopUpdaterStrategy();
+    if (context.updaterStrategy) return context.updaterStrategy;
+    if (context.nsisUpdaterService) {
+        const strategy = context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter
+            ? context.nsisUpdaterService
+            : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService);
+        if (typeof context === 'object') {
+            context.updaterStrategy = strategy;
+        }
+        return strategy;
+    }
+    const fallback = new NoopUpdaterStrategy();
+    if (typeof context === 'object') {
+        context.updaterStrategy = fallback;
+    }
+    return fallback;
+}
+
 export function summarizeAppUpdate(context: any, update: any): any {
-    return context.nsisUpdaterService.summarizeUpdateState({
+    const updater = getEffectiveUpdaterStrategy(context);
+    return updater.summarizeUpdateState({
         available: !!update?.available,
         canSelfUpdate: !!update?.canSelfUpdate,
         deferredUntilNextLaunch: !!update?.deferredUntilNextLaunch,
@@ -61,7 +82,7 @@ export async function enrichUpdateInfo(context: any, update: any, runtimeStrateg
         return enriched;
     }
 
-    if (runtimeStrategy.channel === 'nsis') {
+    if (runtimeStrategy.channel === 'nsis' || runtimeStrategy.channel === 'mac') {
         try {
             const newerReleases = await context.resolver.resolveNewerReleases(
                 context.app.getVersion(),

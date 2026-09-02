@@ -9,6 +9,7 @@ import type {
   ResolvedSaveLocation,
 } from '../types.js';
 import { dirName, getExeStem } from './path-utils.js';
+import { resolveBundleRoot } from '../bundle/app-bundle-inspector.js';
 import {
   deepenSaveFolder,
   heuristicSaveScan,
@@ -58,49 +59,52 @@ export async function resolveSaveDirectory(
     };
   }
 
-  const exeDir = dirName(exePath);
-  const exeStem = getExeStem(exePath);
+  const bundleRoot = resolveBundleRoot(exePath);
+  const effectiveDir = bundleRoot || dirName(exePath);
+  const exeStem = getExeStem(exePath, bundleRoot);
   let result: ResolvedSaveLocation | null = null;
 
   // 2. Deterministic Resolution by Engine Family / Save Strategy
   const family = profile?.family;
   const strategy = profile?.saveStrategy;
 
-  if (family === 'rpg-maker' || strategy === 'rpg-maker-mv-mz' || strategy === 'rpg-maker-rgss') {
-    result = await resolveRpgMakerSave(exeDir, profile, fs);
-  } else if (family === 'renpy' || strategy === 'renpy-pickle') {
-    result = await resolveRenPySave(exeDir, exeStem, fs);
-  } else if (family === 'unity') {
-    result = await resolveUnitySave(exeDir, exeStem, fs);
+  if (family === 'rpg-maker' || strategy === 'rpg-maker-mv-mz' || strategy === 'rpg-maker-rgss' || strategy === 'rpgmaker-bundle-data') {
+    result = await resolveRpgMakerSave(effectiveDir, profile, fs);
+  } else if (family === 'renpy' || strategy === 'renpy-pickle' || strategy === 'renpy-appsupport-saves') {
+    result = await resolveRenPySave(effectiveDir, exeStem, fs);
+  } else if (family === 'unity' || strategy === 'unity-appsupport-playerprefs') {
+    result = await resolveUnitySave(effectiveDir, exeStem, fs);
   } else if (family === 'unreal' || strategy === 'unreal-sav') {
-    result = await resolveUnrealSave(exeDir, exeStem, fs);
+    result = await resolveUnrealSave(effectiveDir, exeStem, fs);
   } else if (family === 'wolf-rpg' || strategy === 'wolf-sav') {
-    result = await resolveWolfRpgSave(exeDir, fs);
-  } else if (family === 'godot' || strategy === 'godot') {
-    result = await resolveGodotSave(exeDir, exeStem, fs);
+    result = await resolveWolfRpgSave(effectiveDir, fs);
+  } else if (family === 'godot' || strategy === 'godot' || strategy === 'godot-appsupport-user') {
+    result = await resolveGodotSave(effectiveDir, exeStem, fs);
   } else if (family === 'flash') {
-    result = await resolveFlashSave(exeDir, exeStem, fs);
+    result = await resolveFlashSave(effectiveDir, exeStem, fs);
   } else if (family === 'gamemaker' || strategy === 'gamemaker-appdata') {
-    result = await resolveGameMakerSave(exeDir, exeStem, fs);
+    result = await resolveGameMakerSave(effectiveDir, exeStem, fs);
   } else if (family === 'tyranobuilder') {
-    result = await resolveTyranoBuilderSave(exeDir, fs);
+    result = await resolveTyranoBuilderSave(effectiveDir, fs);
   } else if (family === 'kirikiri') {
-    result = await resolveKirikiriSave(exeDir, exeStem, fs);
+    result = await resolveKirikiriSave(effectiveDir, exeStem, fs);
+  } else if (family === 'html-webgl' || profile?.runtime === 'nwjs') {
+    result = (await resolveRpgMakerSave(effectiveDir, profile, fs)) || (await resolveTyranoBuilderSave(effectiveDir, fs));
   }
 
   // 3. Check User Profile / Documents / Saved Games
   if (!result && exeStem && exeStem.length >= 3) {
-    result = await resolveUserProfileSave(exeDir, exeStem, fs);
+    result = await resolveUserProfileSave(effectiveDir, exeStem, fs);
   }
 
   // 4. Heuristic File System Scan in Game Directory Fallback
   if (!result) {
-    result = await heuristicSaveScan(exeDir, fs, 0);
+    result = await heuristicSaveScan(effectiveDir, fs, 0);
   }
 
   // 5. AppData Fuzzy Matching Fallback
   if (!result) {
-    result = await appDataFuzzyMatch(exeDir, exeStem, fs);
+    result = await appDataFuzzyMatch(effectiveDir, exeStem, fs);
   }
 
   // 6. Deepen Folder Path if Found

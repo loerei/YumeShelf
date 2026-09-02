@@ -8,9 +8,12 @@ export interface PortableEnvironment {
     portableDir: string;
 }
 
+export type UpdateChannel = 'nsis' | 'mac' | 'development' | 'portable-legacy';
+export type UpdateArtifactKind = 'nsis-installer' | 'mac-dmg' | 'mac-zip' | 'portable-exe';
+
 export interface RuntimeUpdateStrategy {
-    artifactKind: 'nsis-installer' | 'portable-exe';
-    channel: 'nsis' | 'development' | 'portable-legacy';
+    artifactKind: UpdateArtifactKind;
+    channel: UpdateChannel;
     manualFallbackReason: 'manual-installer-required' | 'not-packaged' | null;
     supportsInPlaceApply: boolean;
     supportsUpdater: boolean;
@@ -30,6 +33,15 @@ export function readPortableEnvironment(): PortableEnvironment {
 
 export function resolveRuntimeUpdateStrategy(app: any, isFakeVersionRun: () => boolean): RuntimeUpdateStrategy {
     if (app.isPackaged) {
+        if (process.platform === 'darwin') {
+            return {
+                artifactKind: 'mac-dmg',
+                channel: 'mac',
+                manualFallbackReason: null,
+                supportsInPlaceApply: true,
+                supportsUpdater: true
+            };
+        }
         return {
             artifactKind: 'nsis-installer',
             channel: 'nsis',

@@ -2,10 +2,13 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const {
+    getBuildOutputDir,
     getNsisApplicationOutputDir,
     getNsisChecksumOutputDir,
     getLinuxApplicationOutputDir,
     getLinuxChecksumOutputDir,
+    getMacApplicationOutputDir,
+    getMacChecksumOutputDir,
     getPortableApplicationOutputDir,
     getPortableChecksumOutputDir,
     resolveNewestInstallerArtifactPath
@@ -15,40 +18,46 @@ function sha256File(filePath) {
     return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
-function resolveChecksumPath(inputPath) {
+function resolveChecksumPath(inputPath, buildOutputDir = getBuildOutputDir()) {
     const absoluteInputPath = path.resolve(inputPath);
     const inputDir = path.dirname(absoluteInputPath);
     const fileName = path.basename(absoluteInputPath);
 
-    if (inputDir === getNsisApplicationOutputDir()) {
-        return path.join(getNsisChecksumOutputDir(), `${fileName}.sha256`);
+    if (inputDir === getNsisApplicationOutputDir(buildOutputDir)) {
+        return path.join(getNsisChecksumOutputDir(buildOutputDir), `${fileName}.sha256`);
     }
 
-    if (inputDir === getLinuxApplicationOutputDir()) {
-        return path.join(getLinuxChecksumOutputDir(), `${fileName}.sha256`);
+    if (inputDir === getLinuxApplicationOutputDir(buildOutputDir)) {
+        return path.join(getLinuxChecksumOutputDir(buildOutputDir), `${fileName}.sha256`);
     }
 
-    if (inputDir === getPortableApplicationOutputDir()) {
-        return path.join(getPortableChecksumOutputDir(), `${fileName}.sha256`);
+    if (inputDir === getMacApplicationOutputDir(buildOutputDir)) {
+        return path.join(getMacChecksumOutputDir(buildOutputDir), `${fileName}.sha256`);
+    }
+
+    if (inputDir === getPortableApplicationOutputDir(buildOutputDir)) {
+        return path.join(getPortableChecksumOutputDir(buildOutputDir), `${fileName}.sha256`);
     }
 
     return `${absoluteInputPath}.sha256`;
 }
 
-function writeChecksumForFile(inputPath) {
+function writeChecksumForFile(inputPath, buildOutputDir = getBuildOutputDir()) {
     const digest = sha256File(inputPath);
-    const checksumPath = resolveChecksumPath(inputPath);
+    const checksumPath = resolveChecksumPath(inputPath, buildOutputDir);
     fs.mkdirSync(path.dirname(checksumPath), { recursive: true });
     const line = `${digest}  ${path.basename(inputPath)}\n`;
     fs.writeFileSync(checksumPath, line, 'utf8');
     console.log(`Wrote checksum file: ${checksumPath}`);
+    return checksumPath;
 }
 
-function collectApplicationBinaries() {
+function collectApplicationBinaries(buildOutputDir = getBuildOutputDir()) {
     const directories = [
-        getNsisApplicationOutputDir(),
-        getLinuxApplicationOutputDir(),
-        getPortableApplicationOutputDir()
+        getNsisApplicationOutputDir(buildOutputDir),
+        getLinuxApplicationOutputDir(buildOutputDir),
+        getMacApplicationOutputDir(buildOutputDir),
+        getPortableApplicationOutputDir(buildOutputDir)
     ];
 
     const targets = [];
@@ -68,30 +77,48 @@ function collectApplicationBinaries() {
     return targets;
 }
 
-function main() {
+function main(buildOutputDir = getBuildOutputDir()) {
     const explicitPath = process.argv[2];
     if (explicitPath) {
         const resolved = path.resolve(explicitPath);
         if (!fs.existsSync(resolved)) {
             throw new Error(`Release installer was not found: ${resolved}`);
         }
-        writeChecksumForFile(resolved);
+        writeChecksumForFile(resolved, buildOutputDir);
         return;
     }
 
-    const discoveredTargets = collectApplicationBinaries();
+    const discoveredTargets = collectApplicationBinaries(buildOutputDir);
     if (discoveredTargets.length > 0) {
         for (const target of discoveredTargets) {
-            writeChecksumForFile(target);
+            writeChecksumForFile(target, buildOutputDir);
         }
         return;
     }
 
-    const fallbackPath = resolveNewestInstallerArtifactPath();
-    if (!fs.existsSync(fallbackPath)) {
-        throw new Error(`Release installer was not found: ${fallbackPath}`);
+    let fallbackPath = null;
+    try {
+        fallbackPath = resolveNewestInstallerArtifactPath(buildOutputDir);
+    } catch {
+        fallbackPath = null;
     }
-    writeChecksumForFile(fallbackPath);
+
+    if (fallbackPath && fs.existsSync(fallbackPath)) {
+        writeChecksumForFile(fallbackPath, buildOutputDir);
+        return;
+    }
+
+    console.log('[write-release-checksum] No application binaries found to checksum.');
 }
 
-main();
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    sha256File,
+    resolveChecksumPath,
+    writeChecksumForFile,
+    collectApplicationBinaries,
+    writeReleaseChecksums: main
+};

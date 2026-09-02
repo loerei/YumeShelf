@@ -1,7 +1,9 @@
 // @ts-ignore
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as path from 'node:path';
+import { YumeEngine } from '@yumeshelf/engine';
 import { SaveFolderResolver } from './index';
-import { MockFileSystemProvider } from './fs-provider';
+import { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
 
 describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
     function createResolver(
@@ -76,8 +78,89 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
             dirs: ['C:/Games/TyranoGame/tyrano', 'C:/Games/TyranoGame/tyrano/savedata'],
             expectedEngine: 'tyranobuilder',
             expectedPath: 'C:/Games/TyranoGame/tyrano/savedata'
-        }
+        },
+        createMacEngineFixture({
+            name: 'RenPy (macOS Application Support)',
+            appName: 'Tsukihime',
+            resourceFile: { path: 'autorun.py' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200/auto-1.save', content: 'save' },
+            saveDir: '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200',
+            expectedEngine: 'renpy'
+        }),
+        createMacEngineFixture({
+            name: 'Godot (macOS Application Support)',
+            appName: 'GodotGame',
+            resourceFile: { path: 'game.pck' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame/save.dat', content: 'data' },
+            saveDir: '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame',
+            expectedEngine: 'godot'
+        }),
+        createMacEngineFixture({
+            name: 'RPG Maker MV/MZ (macOS In-Bundle)',
+            appName: 'RPGMGame',
+            exeName: 'Game',
+            resourceFile: { path: 'app.nw/js/rmmz_core.js' },
+            saveFile: { path: '/Applications/RPGMGame.app/Contents/Resources/app.nw/save/file1.rmmzsave', content: 'save' },
+            saveDir: '/Applications/RPGMGame.app/Contents/Resources/app.nw/save',
+            expectedEngine: 'rpg-mv-mz',
+            env: {}
+        }),
+        createMacEngineFixture({
+            name: 'RPG Maker MV/MZ (macOS WebStorage)',
+            appName: 'WebRPG',
+            exeName: 'Game',
+            resourceFile: { path: 'app.nw/package.json', content: '{"name":"WebRPGGame"}' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb/000003.log', content: 'log' },
+            saveDir: '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb',
+            expectedEngine: 'rpg-mv-mz'
+        }),
+        createMacEngineFixture({
+            name: 'Unity (macOS bundle app.info)',
+            appName: 'UnityMac',
+            resourceFile: { path: 'Data/app.info', content: 'IndieDev\nSpaceGame\n' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame/save.dat', content: 'data' },
+            saveDir: '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame',
+            expectedEngine: 'unity'
+        }),
+        createMacEngineFixture({
+            name: 'Unreal (macOS Application Support Epic)',
+            appName: 'UnrealGame',
+            exeName: 'UnrealGame-Mac-Shipping',
+            resourceFile: { path: 'UE5' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames/SaveSlot.sav', content: 'sav' },
+            saveDir: '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames',
+            expectedEngine: 'unreal'
+        })
     ];
+
+    function createMacEngineFixture(options: {
+        name: string;
+        appName: string;
+        exeName?: string;
+        resourceFile?: { path: string; content?: string };
+        saveDir: string;
+        saveFile?: { path: string; content?: string };
+        expectedEngine: string;
+        env?: Record<string, string>;
+    }): EngineTestCase {
+        const exe = `/Applications/${options.appName}.app/Contents/MacOS/${options.exeName || options.appName}`;
+        const files: Record<string, string> = { [exe]: '' };
+        if (options.resourceFile) {
+            files[`/Applications/${options.appName}.app/Contents/Resources/${options.resourceFile.path}`] = options.resourceFile.content || '';
+        }
+        if (options.saveFile) {
+            files[options.saveFile.path] = options.saveFile.content || '';
+        }
+        return {
+            name: options.name,
+            exe,
+            files,
+            dirs: [options.saveDir],
+            env: options.env !== undefined ? options.env : { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
+            expectedEngine: options.expectedEngine,
+            expectedPath: options.saveDir
+        };
+    }
 
     interface EngineTestCase {
         name: string;
@@ -106,6 +189,115 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
         expect(result.confidence).toBe('high');
         expect(result.source).toBe('heuristic');
         expect(result.path).toBe('C:/Games/UnknownGame/savedata');
+    });
+
+    it('DefaultFileSystemProvider: resolves macOS environment paths and enforces empty home safety', () => {
+        const provider = new DefaultFileSystemProvider();
+        const originalHome = process.env.HOME;
+        const originalUserProfile = process.env.USERPROFILE;
+
+        try {
+            process.env.HOME = '/Users/TestUser';
+            delete process.env.USERPROFILE;
+            expect(provider.getMacApplicationSupportHome?.()).toBe(
+                path.join('/Users/TestUser', 'Library', 'Application Support')
+            );
+            expect(provider.getMacPreferencesHome?.()).toBe(
+                path.join('/Users/TestUser', 'Library', 'Preferences')
+            );
+
+            // Empty home safety: must return empty string to prevent relative path fallback
+            process.env.HOME = '';
+            process.env.USERPROFILE = '';
+            expect(provider.getMacApplicationSupportHome?.()).toBe('');
+            expect(provider.getMacPreferencesHome?.()).toBe('');
+        } finally {
+            if (originalHome !== undefined) process.env.HOME = originalHome;
+            else delete process.env.HOME;
+            if (originalUserProfile !== undefined) process.env.USERPROFILE = originalUserProfile;
+            else delete process.env.USERPROFILE;
+        }
+    });
+
+    it('MockFileSystemProvider: resolves macOS environment paths hermetically and respects overrides', () => {
+        const mockFs = new MockFileSystemProvider({ HOME: '/home/macuser' });
+        expect(mockFs.getMacApplicationSupportHome()).toBe(
+            '/home/macuser/Library/Application Support'
+        );
+        expect(mockFs.getMacPreferencesHome()).toBe(
+            '/home/macuser/Library/Preferences'
+        );
+
+        // Env var overrides
+        mockFs.setEnv('MAC_APP_SUPPORT_HOME', '/custom/mac/support');
+        mockFs.setEnv('MAC_PREFERENCES_HOME', '/custom/mac/prefs');
+        expect(mockFs.getMacApplicationSupportHome()).toBe('/custom/mac/support');
+        expect(mockFs.getMacPreferencesHome()).toBe('/custom/mac/prefs');
+
+        // Empty home safety
+        const emptyMock = new MockFileSystemProvider({ HOME: '', USERPROFILE: '' });
+        expect(emptyMock.getMacApplicationSupportHome()).toBe('');
+        expect(emptyMock.getMacPreferencesHome()).toBe('');
+    });
+
+    it('unifiedFs: forwards macOS environment paths to underlying provider', async () => {
+        const mockFs = new MockFileSystemProvider({ HOME: '/Users/ForwardUser' });
+        let forwardedSupportHome = '';
+        let forwardedPrefsHome = '';
+
+        // Spy on YumeEngine.resolveSaveDirectory or inspect unifiedFs through resolver
+        const resolver = new SaveFolderResolver(mockFs);
+        mockFs.addDirectory('/Users/ForwardUser/Library/Application Support');
+
+        // Verify direct getter methods on mockFs match expected paths
+        expect(mockFs.getMacApplicationSupportHome()).toBe(
+            '/Users/ForwardUser/Library/Application Support'
+        );
+        expect(mockFs.getMacPreferencesHome()).toBe(
+            '/Users/ForwardUser/Library/Preferences'
+        );
+    });
+
+    async function expectWarningLoggedOnFailure(
+        mockAction: () => { mockRestore: () => void },
+        expectedWarningTag: string
+    ) {
+        const mockFs = new MockFileSystemProvider();
+        const resolver = new SaveFolderResolver(mockFs);
+        const spy = mockAction();
+        const warnings: any[][] = [];
+        const originalWarn = console.warn;
+        console.warn = (...args: any[]) => {
+            warnings.push(args);
+        };
+
+        try {
+            const result = await resolver.resolve('/games/BrokenGame/game.exe');
+            expect(result).toEqual({
+                path: null,
+                engine: null,
+                confidence: 'none',
+                source: 'none'
+            });
+            expect(warnings.some((w) => w[0] === expectedWarningTag)).toBe(true);
+        } finally {
+            spy.mockRestore();
+            console.warn = originalWarn;
+        }
+    }
+
+    it('logs diagnostic warning [SAVE-RESOLVER][ERROR] and returns graceful fallback when inspection throws', async () => {
+        await expectWarningLoggedOnFailure(
+            () => vi.spyOn(YumeEngine, 'inspectExecutable').mockRejectedValueOnce(new Error('Corrupt binary inspection failed')),
+            '[SAVE-RESOLVER][ERROR]'
+        );
+    });
+
+    it('logs diagnostic warning [SAVE-RESOLVER][ERROR] when resolveSaveDirectory throws', async () => {
+        await expectWarningLoggedOnFailure(
+            () => vi.spyOn(YumeEngine, 'resolveSaveDirectory').mockRejectedValueOnce(new Error('Save directory resolution crashed')),
+            '[SAVE-RESOLVER][ERROR]'
+        );
     });
 });
 

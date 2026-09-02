@@ -2,12 +2,15 @@ import { resolveRuntimeUpdateStrategy } from './runtime-strategy';
 import { isFakeVersionRun } from '../nsis-updater';
 import { APP_UPDATE_RELEASE_PAGE_URL } from './feed-resolver';
 import { isNetworkLikeError } from '../core/shared-io';
+import { AppUpdaterStrategy } from './updater-strategy';
+import { getEffectiveUpdaterStrategy } from './helpers';
 
 export interface AppUpdateCheckContext {
     app: any;
     latestKnownUpdate: any;
     appendUpdateLog(message: string): Promise<void>;
-    nsisUpdaterService: any;
+    nsisUpdaterService?: any;
+    updaterStrategy?: AppUpdaterStrategy;
     enrichUpdateInfo(update: any, runtimeStrategy: any): Promise<any>;
     summarizeAppUpdate(update: any): any;
     broadcastStatus?: (payload: any) => void;
@@ -46,7 +49,8 @@ export async function checkForAppUpdate(context: AppUpdateCheckContext): Promise
             return context.latestKnownUpdate;
         }
 
-        const update = await context.nsisUpdaterService.checkForUpdates();
+        const updater = getEffectiveUpdaterStrategy(context);
+        const update = await updater.checkForUpdates();
         if (!update.available) {
             context.latestKnownUpdate = {
                 ...initial,
@@ -54,6 +58,7 @@ export async function checkForAppUpdate(context: AppUpdateCheckContext): Promise
                 deferredUntilNextLaunch: !!update.deferredUntilNextLaunch,
                 downloadable: !!update.downloadable,
                 downloadReady: !!update.downloadReady,
+                fallbackReason: update.fallbackReason || null,
                 releaseName: update.releaseName || '',
                 releaseNotes: update.releaseNotes || '',
                 releaseUrl: update.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL,

@@ -31,11 +31,14 @@ import {
     NsisUpdaterStrategyAdapter
 } from './app-updates/updater-strategy';
 
-export {
+export type {
     AppUpdateCheckResult,
     AppUpdaterActionResult,
     AppUpdaterStrategy,
-    AppUpdaterStrategyOptions,
+    AppUpdaterStrategyOptions
+} from './app-updates/updater-strategy';
+
+export {
     createAppUpdaterStrategy,
     MacUpdaterStrategyAdapter,
     NoopUpdaterStrategy,

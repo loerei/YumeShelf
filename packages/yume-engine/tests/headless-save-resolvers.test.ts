@@ -910,7 +910,7 @@ describe('macOS Application Support save resolvers (Ticket 02.2.1.2.1)', () => {
       family: 'unity',
       arch: 'arm64',
       runtime: 'native',
-      saveStrategy: 'unity',
+      saveStrategy: 'custom',
       detectedBy: 'unity-rule',
     };
 

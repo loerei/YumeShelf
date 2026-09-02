@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.0] - working
+## [2.2.0] - 2026-09-02 — released
 
 ### What Changed
 - macOS engine support: scans `.app` bundles directly, reads Mach-O headers and Info.plist metadata, and detects game engines (Unity, Ren'Py, RPG Maker, Godot, Unreal) out of the box.

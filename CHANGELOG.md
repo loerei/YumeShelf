@@ -12,7 +12,8 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### For the Nerds
 - [engine] Exported canonical `PlatformType`, `MachOInspectionResult`, and `AppBundleInspectionResult` types in `@yumeshelf/engine`.
 - [engine] Implemented in-memory `MachOInspector` in `packages/yume-engine/src/binary/` supporting 32-bit, 64-bit, and Universal FAT binary headers with Java `.class` collision defense and bounds checking.
-- [tests] Added synthetic buffer unit test suite in `packages/yume-engine/tests/macho-inspector.test.ts`.
+- [engine] Implemented `MachOInspector.fromPath` with bounded $\le 4\text{KB}$ file slice reading, file handle resource cleanup in `try...finally`, and exposed `YumeEngine.inspectMachOFile` facade.
+- [tests] Added synthetic buffer and filesystem mock unit test suites in `packages/yume-engine/tests/macho-inspector.test.ts`.
 
 ---
 

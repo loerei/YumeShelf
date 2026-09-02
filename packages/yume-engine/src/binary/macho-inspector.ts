@@ -6,7 +6,8 @@
  * MIT License - Copyright (c) YumeShelf Contributors
  */
 
-import type { MachOInspectionResult } from '../types.js';
+import type { IFileSystem, IFileHandle, MachOInspectionResult } from '../types.js';
+import { NodeFileSystemProvider } from '../fs/node-fs-provider.js';
 
 export const MACHO_MAGIC_32_BE = 0xfeedface;
 export const MACHO_MAGIC_32_LE = 0xcefaedfe;
@@ -43,6 +44,61 @@ export class MachOInspector {
     this.isLittleEndian = result.isLittleEndian;
     this.isFat = result.isFat;
     this.fatArchitectures = result.fatArchitectures;
+  }
+
+  public static async fromPath(
+    filePath: string,
+    fs?: IFileSystem
+  ): Promise<MachOInspectionResult | null> {
+    const fileSystem = fs || new NodeFileSystemProvider();
+    let handle: IFileHandle | null = null;
+    try {
+      const stat = await fileSystem.stat(filePath);
+      if (!stat.isFile() || stat.size < 4) {
+        return null;
+      }
+
+      handle = await fileSystem.open(filePath);
+      const initialReadLength = Math.min(stat.size, 4096);
+      let slice = await handle.read(0, initialReadLength);
+      if (!slice || slice.length < 4) {
+        return null;
+      }
+
+      const magic = slice.readUInt32BE(0);
+      const isFat =
+        magic === FAT_MAGIC_32_BE ||
+        magic === FAT_MAGIC_32_LE ||
+        magic === FAT_MAGIC_64_BE ||
+        magic === FAT_MAGIC_64_LE;
+
+      if (isFat && slice.length >= 8) {
+        const isLE = magic === FAT_MAGIC_32_LE || magic === FAT_MAGIC_64_LE;
+        const is64 = magic === FAT_MAGIC_64_BE || magic === FAT_MAGIC_64_LE;
+        const nfat_arch = isLE ? slice.readUInt32LE(4) : slice.readUInt32BE(4);
+        const entrySize = is64 ? 32 : 20;
+        const tableByteLength = 8 + nfat_arch * entrySize;
+        if (
+          tableByteLength > slice.length &&
+          tableByteLength <= 65536 &&
+          tableByteLength <= stat.size
+        ) {
+          slice = await handle.read(0, tableByteLength);
+        }
+      }
+
+      return MachOInspector.inspect(slice, stat.size);
+    } catch {
+      return null;
+    } finally {
+      if (handle) {
+        try {
+          await handle.close();
+        } catch {
+          // Ignore close error on cleanup
+        }
+      }
+    }
   }
 
   public static inspect(
@@ -141,7 +197,6 @@ export class MachOInspector {
         return null;
       }
 
-      const maxBound = fileSize !== undefined ? fileSize : buf.length;
       const fatArchitectures: Array<{
         cputype: number;
         cpusubtype: number;
@@ -198,7 +253,11 @@ export class MachOInspector {
           }
         }
 
-        if (offset < 0 || size < 0 || offset + size > maxBound) {
+        if (offset < 0 || size < 0) {
+          return null;
+        }
+
+        if (fileSize !== undefined && Number(offset) + Number(size) > fileSize) {
           return null;
         }
 

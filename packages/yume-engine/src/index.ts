@@ -13,11 +13,13 @@ import type {
   FileSystemProvider,
   GameEngineProfile,
   IFileSystem,
+  MachOInspectionResult,
   ResolvedSaveLocation,
   SaveCodecContext,
 } from './types.js';
 import { SaveCodecError } from './types.js';
 import { PEInspector } from './pe/pe-inspector.js';
+import { MachOInspector } from './binary/index.js';
 import { defaultRuleRegistry } from './rules/engine-rule-registry.js';
 import { formatEngineName } from './rules/engine-formatter.js';
 import { resolveSaveDirectory, type ResolveSaveOptions } from './save-resolvers/index.js';
@@ -68,6 +70,13 @@ export class YumeEngine {
 
   static formatEngineName(profile?: GameEngineProfile | null): string | undefined {
     return formatEngineName(profile);
+  }
+
+  static async inspectMachOFile(
+    filePath: string,
+    fs?: IFileSystem
+  ): Promise<MachOInspectionResult | null> {
+    return MachOInspector.fromPath(filePath, fs);
   }
 
   static async calculateDirectorySize(

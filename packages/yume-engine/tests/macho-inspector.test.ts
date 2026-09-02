@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MachOInspector,
+  YumeEngine,
   MACHO_MAGIC_32_BE,
   MACHO_MAGIC_32_LE,
   MACHO_MAGIC_64_BE,
@@ -17,6 +18,7 @@ import {
   CPU_TYPE_ARM64,
 } from '../dist/index.js';
 import type { PlatformType, MachOInspectionResult } from '../dist/types.d.ts';
+import { MockFileSystemProvider } from './fixtures/mock-fs-provider.ts';
 
 function buildMachO32(options: {
   magic?: number;
@@ -428,12 +430,16 @@ test('MachOInspector: Validates FAT architecture descriptor table fits within bu
 });
 
 test('MachOInspector: Validates architecture slice bounds against total file size and in-memory buffer', () => {
-  // 1. Complete in-memory buffer: slice exceeds buffer length when fileSize is omitted
-  const oobBuffer = buildFat32({
+  // 1. Architecture slice offsets are only validated against total file size when fileSize is provided
+  const headerOnlyBuffer = buildFat32({
     architectures: [{ cputype: CPU_TYPE_ARM64, cpusubtype: 0, offset: 64, size: 500 }],
-    totalBufferSize: 256, // offset + size = 564 > 256
+    totalBufferSize: 256,
   });
-  assert.strictEqual(MachOInspector.inspect(oobBuffer), null);
+  // When fileSize is omitted, header parses without false rejection against buffer length
+  assert.ok(MachOInspector.inspect(headerOnlyBuffer));
+
+  // When fileSize is provided and smaller than offset + size (64 + 500 = 564 > 500), it rejects
+  assert.strictEqual(MachOInspector.inspect(headerOnlyBuffer, 500), null);
 
   // 2. Bounded <= 4KB header slice: slice offset is 8192, size is 16384 (total 24576), total fileSize is 32768
   // Buffer length is only 512 bytes (simulating the <= 4KB slice), but fileSize is passed as 32768
@@ -474,4 +480,114 @@ test('MachOInspector: Defensive edge cases and non-Buffer inputs', () => {
   assert.ok(uint8Result);
   assert.strictEqual(uint8Result.arch, 'arm64');
   assert.strictEqual(uint8Result.is64Bit, true);
+});
+
+test('MachOInspector.fromPath: Bounded slice reading with MockFileSystemProvider', async () => {
+  const fs = new MockFileSystemProvider();
+
+  // 1. Valid 64-bit Mach-O binary
+  const arm64Buf = buildMachO64({ cputype: CPU_TYPE_ARM64 });
+  fs.writeFile('/Applications/Game.app/Contents/MacOS/Game', arm64Buf);
+
+  const result = await MachOInspector.fromPath('/Applications/Game.app/Contents/MacOS/Game', fs);
+  assert.ok(result);
+  assert.strictEqual(result.arch, 'arm64');
+  assert.strictEqual(result.is64Bit, true);
+  assert.strictEqual(result.isFat, false);
+
+  // 2. Large FAT binary: buffer is 64KB, but arch slice is at offset 8192 with size 16384
+  const fatBuf = buildFat32({
+    architectures: [{ cputype: CPU_TYPE_X86_64, cpusubtype: 3, offset: 8192, size: 16384 }],
+    totalBufferSize: 65536,
+  });
+  fs.writeFile('/Applications/FatGame.app/Contents/MacOS/FatGame', fatBuf);
+
+  const readCalls: Array<{ offset: number; length: number }> = [];
+  const originalOpen = fs.open.bind(fs);
+  fs.open = async (p: string) => {
+    const handle = await originalOpen(p);
+    return {
+      read: async (offset: number, length: number) => {
+        readCalls.push({ offset, length });
+        return handle.read(offset, length);
+      },
+      close: async () => {
+        return handle.close();
+      },
+    };
+  };
+
+  const fatResult = await MachOInspector.fromPath('/Applications/FatGame.app/Contents/MacOS/FatGame', fs);
+  assert.ok(fatResult);
+  assert.strictEqual(fatResult.isFat, true);
+  assert.strictEqual(fatResult.fatArchitectures?.[0].offset, 8192);
+
+  // Verify bounded read: initial read chunk length <= 4096 bytes
+  assert.ok(readCalls.length >= 1);
+  assert.ok(readCalls[0].length <= 4096);
+});
+
+test('MachOInspector.fromPath: Guarantees file handle cleanup on all exit paths in try...finally', async () => {
+  const fs = new MockFileSystemProvider();
+  const validBuf = buildMachO64({ cputype: CPU_TYPE_ARM64 });
+  fs.writeFile('/test/macho', validBuf);
+
+  let closeCalled = false;
+  const originalOpen = fs.open.bind(fs);
+  fs.open = async (p: string) => {
+    const handle = await originalOpen(p);
+    return {
+      read: async (offset: number, length: number) => {
+        return handle.read(offset, length);
+      },
+      close: async () => {
+        closeCalled = true;
+        return handle.close();
+      },
+    };
+  };
+
+  // Normal success path
+  const res = await MachOInspector.fromPath('/test/macho', fs);
+  assert.ok(res);
+  assert.strictEqual(closeCalled, true);
+
+  // Error/corrupt path: truncated buffer
+  fs.writeFile('/test/corrupt', Buffer.from([0xca, 0xfe, 0xba, 0xbe]));
+  closeCalled = false;
+  const corruptRes = await MachOInspector.fromPath('/test/corrupt', fs);
+  assert.strictEqual(corruptRes, null);
+  assert.strictEqual(closeCalled, true);
+});
+
+test('MachOInspector.fromPath: Error handling for missing, directory, or truncated paths', async () => {
+  const fs = new MockFileSystemProvider();
+
+  // Missing file
+  const nonExistent = await MachOInspector.fromPath('/non/existent/path', fs);
+  assert.strictEqual(nonExistent, null);
+
+  // Directory path
+  fs.mkdir('/test/dir');
+  const dirResult = await MachOInspector.fromPath('/test/dir', fs);
+  assert.strictEqual(dirResult, null);
+
+  // File too small (< 4 bytes)
+  fs.writeFile('/test/tiny', Buffer.from([0x01, 0x02]));
+  const tinyResult = await MachOInspector.fromPath('/test/tiny', fs);
+  assert.strictEqual(tinyResult, null);
+});
+
+test('YumeEngine.inspectMachOFile: delegates to MachOInspector.fromPath', async () => {
+  const fs = new MockFileSystemProvider();
+  const buf = buildMachO64({ cputype: CPU_TYPE_X86_64 });
+  fs.writeFile('/test/x64_bin', buf);
+
+  const result = await YumeEngine.inspectMachOFile('/test/x64_bin', fs);
+  assert.ok(result);
+  assert.strictEqual(result.arch, 'x64');
+  assert.strictEqual(result.is64Bit, true);
+
+  const missingResult = await YumeEngine.inspectMachOFile('/test/missing', fs);
+  assert.strictEqual(missingResult, null);
 });

@@ -26,8 +26,27 @@ export async function logDebug(context: any, message: string): Promise<void> {
     await appendVerboseUpdateLog(context, `debug ${message}`);
 }
 
+export function getEffectiveUpdaterStrategy(context: any): AppUpdaterStrategy {
+    if (!context) return new NoopUpdaterStrategy();
+    if (context.updaterStrategy) return context.updaterStrategy;
+    if (context.nsisUpdaterService) {
+        const strategy = context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter
+            ? context.nsisUpdaterService
+            : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService);
+        if (typeof context === 'object') {
+            context.updaterStrategy = strategy;
+        }
+        return strategy;
+    }
+    const fallback = new NoopUpdaterStrategy();
+    if (typeof context === 'object') {
+        context.updaterStrategy = fallback;
+    }
+    return fallback;
+}
+
 export function summarizeAppUpdate(context: any, update: any): any {
-    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    const updater = getEffectiveUpdaterStrategy(context);
     return updater.summarizeUpdateState({
         available: !!update?.available,
         canSelfUpdate: !!update?.canSelfUpdate,

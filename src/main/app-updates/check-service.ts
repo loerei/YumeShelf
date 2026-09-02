@@ -2,7 +2,8 @@ import { resolveRuntimeUpdateStrategy } from './runtime-strategy';
 import { isFakeVersionRun } from '../nsis-updater';
 import { APP_UPDATE_RELEASE_PAGE_URL } from './feed-resolver';
 import { isNetworkLikeError } from '../core/shared-io';
-import { AppUpdaterStrategy, NoopUpdaterStrategy, NsisUpdaterStrategyAdapter } from './updater-strategy';
+import { AppUpdaterStrategy } from './updater-strategy';
+import { getEffectiveUpdaterStrategy } from './helpers';
 
 export interface AppUpdateCheckContext {
     app: any;
@@ -48,7 +49,7 @@ export async function checkForAppUpdate(context: AppUpdateCheckContext): Promise
             return context.latestKnownUpdate;
         }
 
-        const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+        const updater = getEffectiveUpdaterStrategy(context);
         const update = await updater.checkForUpdates();
         if (!update.available) {
             context.latestKnownUpdate = {

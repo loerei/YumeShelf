@@ -1,8 +1,6 @@
 import * as path from 'node:path';
 import { ensureDir } from './core/shared-io';
 import { compareAppReleaseVersions } from './app-updates/release-utils';
-import { createNsisUpdaterService } from './nsis-updater';
-
 // Import modular submodules
 import { setupFeedResolver, APP_UPDATE_RELEASE_PAGE_URL } from './app-updates/feed-resolver';
 import { setupPostUpdateMarker } from './app-updates/post-update';
@@ -27,7 +25,6 @@ import {
     AppUpdaterStrategy,
     AppUpdaterStrategyOptions,
     createAppUpdaterStrategy,
-    MacUpdaterStrategyAdapter,
     NsisUpdaterStrategyAdapter
 } from './app-updates/updater-strategy';
 

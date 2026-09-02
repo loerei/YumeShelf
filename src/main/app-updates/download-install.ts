@@ -1,4 +1,4 @@
-import { AppUpdaterStrategy, NoopUpdaterStrategy, NsisUpdaterStrategyAdapter } from './updater-strategy';
+import { getEffectiveUpdaterStrategy } from './helpers';
 
 export async function startBackgroundDownload(context: any): Promise<any> {
     const update = context.latestKnownUpdate || await context.checkForAppUpdate();
@@ -14,7 +14,7 @@ export async function startBackgroundDownload(context: any): Promise<any> {
         };
     }
 
-    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    const updater = getEffectiveUpdaterStrategy(context);
     const result = await updater.downloadUpdate({
         releaseName: update.releaseName,
         releaseNotes: update.releaseNotes,
@@ -51,7 +51,7 @@ export async function restartAndInstallDownloadedUpdate(context: any): Promise<a
     if (!update?.available) {
         return { ok: false, reason: 'no-update' };
     }
-    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    const updater = getEffectiveUpdaterStrategy(context);
     const result = await updater.installDownloadedUpdateNow({
         fromVersion: context.app.getVersion(),
         releaseName: update.releaseName,
@@ -72,7 +72,7 @@ export async function scheduleInstallOnNextLaunch(context: any): Promise<any> {
         return { ok: false, reason: 'no-update' };
     }
 
-    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    const updater = getEffectiveUpdaterStrategy(context);
     if (typeof updater.scheduleInstallOnNextLaunch !== 'function') {
         return { ok: false, reason: 'unsupported' };
     }

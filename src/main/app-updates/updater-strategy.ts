@@ -73,6 +73,38 @@ export function pickExpectedSha512(updateInfo: any): string | null {
     return typeof sha === 'string' && sha.trim() ? sha.trim() : null;
 }
 
+export const UNSUPPORTED_ACTION_RESULT: AppUpdaterActionResult = Object.freeze({
+    ok: false,
+    reason: 'unsupported-platform'
+});
+
+export const defaultDeferredInstallLifecycle = {
+    async prepareDeferredInstallOnLaunch(): Promise<any> {
+        return { pending: false };
+    },
+    async beginDeferredInstallOnLaunch(): Promise<any> {
+        return { ok: false, reason: 'unsupported' };
+    },
+    async runDeferredInstallOnLaunch(): Promise<any> {
+        return { ok: false, reason: 'unsupported' };
+    }
+};
+
+export function formatDefaultAppUpdateSummary(update: any, defaultReleaseUrl: string = ''): any {
+    return {
+        available: !!update?.available,
+        canSelfUpdate: !!update?.canSelfUpdate,
+        deferredUntilNextLaunch: !!update?.deferredUntilNextLaunch,
+        downloadable: !!update?.downloadable,
+        downloadReady: !!update?.downloadReady,
+        releaseName: String(update?.releaseName || ''),
+        releaseNotes: String(update?.releaseNotes || ''),
+        releaseUrl: String(update?.releaseUrl || defaultReleaseUrl || ''),
+        selfApplicable: !!update?.selfApplicable,
+        version: String(update?.version || '')
+    };
+}
+
 export class NoopUpdaterStrategy implements AppUpdaterStrategy {
     async checkForUpdates(): Promise<AppUpdateCheckResult> {
         return {
@@ -83,51 +115,31 @@ export class NoopUpdaterStrategy implements AppUpdaterStrategy {
     }
 
     async downloadUpdate(_releaseMetadata?: any): Promise<AppUpdaterActionResult> {
-        return {
-            ok: false,
-            reason: 'unsupported-platform'
-        };
+        return UNSUPPORTED_ACTION_RESULT;
     }
 
     async installDownloadedUpdateNow(_releaseMetadata?: any): Promise<AppUpdaterActionResult> {
-        return {
-            ok: false,
-            reason: 'unsupported-platform'
-        };
+        return UNSUPPORTED_ACTION_RESULT;
     }
 
     async scheduleInstallOnNextLaunch(_releaseMetadata?: any): Promise<AppUpdaterActionResult> {
-        return {
-            ok: false,
-            reason: 'unsupported-platform'
-        };
+        return UNSUPPORTED_ACTION_RESULT;
     }
 
     async prepareDeferredInstallOnLaunch(): Promise<any> {
-        return { pending: false };
+        return defaultDeferredInstallLifecycle.prepareDeferredInstallOnLaunch();
     }
 
     async beginDeferredInstallOnLaunch(): Promise<any> {
-        return { ok: false, reason: 'unsupported' };
+        return defaultDeferredInstallLifecycle.beginDeferredInstallOnLaunch();
     }
 
     async runDeferredInstallOnLaunch(): Promise<any> {
-        return { ok: false, reason: 'unsupported' };
+        return defaultDeferredInstallLifecycle.runDeferredInstallOnLaunch();
     }
 
     summarizeUpdateState(update: any): any {
-        return {
-            available: !!update?.available,
-            canSelfUpdate: !!update?.canSelfUpdate,
-            deferredUntilNextLaunch: !!update?.deferredUntilNextLaunch,
-            downloadable: !!update?.downloadable,
-            downloadReady: !!update?.downloadReady,
-            releaseName: String(update?.releaseName || ''),
-            releaseNotes: String(update?.releaseNotes || ''),
-            releaseUrl: String(update?.releaseUrl || ''),
-            selfApplicable: !!update?.selfApplicable,
-            version: String(update?.version || '')
-        };
+        return formatDefaultAppUpdateSummary(update);
     }
 
     dispose(): void {
@@ -136,7 +148,7 @@ export class NoopUpdaterStrategy implements AppUpdaterStrategy {
 }
 
 export class NsisUpdaterStrategyAdapter implements AppUpdaterStrategy {
-    private service: any;
+    private readonly service: any;
 
     constructor(serviceOrOptions?: any) {
         if (serviceOrOptions && typeof serviceOrOptions.checkForUpdates === 'function') {

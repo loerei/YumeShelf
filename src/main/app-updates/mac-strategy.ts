@@ -13,6 +13,8 @@ import {
     AppUpdaterActionResult,
     AppUpdaterStrategy,
     AppUpdaterStrategyOptions,
+    defaultDeferredInstallLifecycle,
+    formatDefaultAppUpdateSummary,
     pickExpectedSha512
 } from './updater-strategy';
 
@@ -51,8 +53,45 @@ export function parseMountPointFromHdiutil(stdout: string): string | null {
             return line.slice(volumeIndex).trim();
         }
     }
-    const directMatch = stdout.match(/\/Volumes\/[^\r\n]+/);
+    const directMatch = /\/Volumes\/[^\r\n]+/.exec(stdout);
     return directMatch ? directMatch[0].trim() : null;
+}
+
+export function createDownloadProgressTracker(
+    contentLength: number,
+    updateInfo: any,
+    emitStatus: (payload: any) => void,
+    summarizeUpdateState: (update: any) => any,
+    nowFn: () => number = Date.now
+) {
+    let downloadedBytes = 0;
+    let lastProgressTime = nowFn();
+    let lastDownloadedBytes = 0;
+
+    return {
+        onChunk(chunkLength: number) {
+            downloadedBytes += chunkLength;
+            const now = nowFn();
+            const elapsed = (now - lastProgressTime) / 1000;
+            if (elapsed >= 0.5) {
+                const bytesPerSecond = elapsed > 0 ? Math.round((downloadedBytes - lastDownloadedBytes) / elapsed) : 0;
+                try {
+                    emitStatus({
+                        phase: 'download-progress',
+                        downloaded: downloadedBytes,
+                        total: contentLength,
+                        bytesPerSecond,
+                        update: summarizeUpdateState(updateInfo)
+                    });
+                } catch {}
+                lastProgressTime = now;
+                lastDownloadedBytes = downloadedBytes;
+            }
+        },
+        getDownloadedBytes() {
+            return downloadedBytes;
+        }
+    };
 }
 
 export async function computeFileSha512(filePath: string): Promise<{ base64: string; hex: string }> {
@@ -72,9 +111,9 @@ export async function computeFileSha512(filePath: string): Promise<{ base64: str
 }
 
 export class MacUpdaterStrategyAdapter implements AppUpdaterStrategy {
-    private options: AppUpdaterStrategyOptions;
-    private abortController: AbortController;
-    private activeTimers: Set<NodeJS.Timeout>;
+    private readonly options: AppUpdaterStrategyOptions;
+    private readonly abortController: AbortController;
+    private readonly activeTimers: Set<NodeJS.Timeout>;
     private latestKnownUpdate: AppUpdateCheckResult | null = null;
     private downloadedArtifactPath: string | null = null;
     private downloadedArtifactSha512: string | null = null;
@@ -138,9 +177,10 @@ export class MacUpdaterStrategyAdapter implements AppUpdaterStrategy {
 
             let manifestUrl = '';
             if (feedOverride?.url) {
+                const cleanBaseUrl = feedOverride.url.endsWith('/') ? feedOverride.url.slice(0, -1) : feedOverride.url;
                 manifestUrl = feedOverride.url.endsWith('.yml')
                     ? feedOverride.url
-                    : `${feedOverride.url.replace(/\/+$/, '')}/latest-mac.yml`;
+                    : `${cleanBaseUrl}/latest-mac.yml`;
             } else if (this.options.feedUrl) {
                 manifestUrl = this.options.feedUrl;
             } else {
@@ -229,7 +269,7 @@ export class MacUpdaterStrategyAdapter implements AppUpdaterStrategy {
 
     async downloadUpdate(releaseMetadata?: any): Promise<AppUpdaterActionResult> {
         let updateInfo = releaseMetadata || this.latestKnownUpdate;
-        if (!updateInfo || !updateInfo.artifactUrl) {
+        if (!updateInfo?.artifactUrl) {
             const check = await this.checkForUpdates();
             if (!check.available || !check.artifactUrl) {
                 return { ok: false, reason: 'no-update-available' };
@@ -293,9 +333,12 @@ export class MacUpdaterStrategyAdapter implements AppUpdaterStrategy {
                 }
 
                 const contentLength = Number(response.headers.get('content-length')) || 0;
-                let downloadedBytes = 0;
-                let lastProgressTime = Date.now();
-                let lastDownloadedBytes = 0;
+                const progressTracker = createDownloadProgressTracker(
+                    contentLength,
+                    updateInfo,
+                    payload => this.emitStatus(payload),
+                    update => this.summarizeUpdateState(update)
+                );
 
                 if (response.body && typeof (response.body as any).getReader === 'function') {
                     const reader = (response.body as any).getReader();
@@ -307,21 +350,7 @@ export class MacUpdaterStrategyAdapter implements AppUpdaterStrategy {
                             resetTimeout();
                             if (value) {
                                 await fileHandle.write(value);
-                                downloadedBytes += value.length;
-                                const now = Date.now();
-                                const elapsed = (now - lastProgressTime) / 1000;
-                                if (elapsed >= 0.5) {
-                                    const bytesPerSecond = elapsed > 0 ? Math.round((downloadedBytes - lastDownloadedBytes) / elapsed) : 0;
-                                    this.emitStatus({
-                                        phase: 'download-progress',
-                                        downloaded: downloadedBytes,
-                                        total: contentLength,
-                                        bytesPerSecond,
-                                        update: this.summarizeUpdateState(updateInfo)
-                                    });
-                                    lastProgressTime = now;
-                                    lastDownloadedBytes = downloadedBytes;
-                                }
+                                progressTracker.onChunk(value.length);
                             }
                         }
                     } finally {
@@ -332,21 +361,7 @@ export class MacUpdaterStrategyAdapter implements AppUpdaterStrategy {
                         const outStream = fsSync.createWriteStream(tempPath);
                         (response.body as any).on('data', (chunk: Buffer) => {
                             resetTimeout();
-                            downloadedBytes += chunk.length;
-                            const now = Date.now();
-                            const elapsed = (now - lastProgressTime) / 1000;
-                            if (elapsed >= 0.5) {
-                                const bytesPerSecond = elapsed > 0 ? Math.round((downloadedBytes - lastDownloadedBytes) / elapsed) : 0;
-                                this.emitStatus({
-                                    phase: 'download-progress',
-                                    downloaded: downloadedBytes,
-                                    total: contentLength,
-                                    bytesPerSecond,
-                                    update: this.summarizeUpdateState(updateInfo)
-                                });
-                                lastProgressTime = now;
-                                lastDownloadedBytes = downloadedBytes;
-                            }
+                            progressTracker.onChunk(chunk.length);
                         });
                         (response.body as any).on('error', reject);
                         outStream.on('error', reject);
@@ -518,30 +533,19 @@ export class MacUpdaterStrategyAdapter implements AppUpdaterStrategy {
     }
 
     async prepareDeferredInstallOnLaunch(): Promise<any> {
-        return { pending: false };
+        return defaultDeferredInstallLifecycle.prepareDeferredInstallOnLaunch();
     }
 
     async beginDeferredInstallOnLaunch(): Promise<any> {
-        return { ok: false, reason: 'unsupported' };
+        return defaultDeferredInstallLifecycle.beginDeferredInstallOnLaunch();
     }
 
     async runDeferredInstallOnLaunch(): Promise<any> {
-        return { ok: false, reason: 'unsupported' };
+        return defaultDeferredInstallLifecycle.runDeferredInstallOnLaunch();
     }
 
     summarizeUpdateState(update: any): any {
-        return {
-            available: !!update?.available,
-            canSelfUpdate: !!update?.canSelfUpdate,
-            deferredUntilNextLaunch: !!update?.deferredUntilNextLaunch,
-            downloadable: !!update?.downloadable,
-            downloadReady: !!update?.downloadReady,
-            releaseName: String(update?.releaseName || ''),
-            releaseNotes: String(update?.releaseNotes || ''),
-            releaseUrl: String(update?.releaseUrl || this.options.releasePageUrl || APP_UPDATE_RELEASE_PAGE_URL),
-            selfApplicable: !!update?.selfApplicable,
-            version: String(update?.version || '')
-        };
+        return formatDefaultAppUpdateSummary(update, this.options.releasePageUrl || APP_UPDATE_RELEASE_PAGE_URL);
     }
 
     getDownloadedArtifactPath(): string | null {

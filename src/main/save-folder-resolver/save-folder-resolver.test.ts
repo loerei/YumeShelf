@@ -79,96 +79,88 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
             expectedEngine: 'tyranobuilder',
             expectedPath: 'C:/Games/TyranoGame/tyrano/savedata'
         },
-        {
+        createMacEngineFixture({
             name: 'RenPy (macOS Application Support)',
-            exe: '/Applications/Tsukihime.app/Contents/MacOS/Tsukihime',
-            files: {
-                '/Applications/Tsukihime.app/Contents/MacOS/Tsukihime': '',
-                '/Applications/Tsukihime.app/Contents/Resources/autorun.py': '',
-                '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200/auto-1.save': 'save'
-            },
-            dirs: [
-                '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200'
-            ],
-            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
-            expectedEngine: 'renpy',
-            expectedPath: '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200'
-        },
-        {
+            appName: 'Tsukihime',
+            resourceFile: { path: 'autorun.py' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200/auto-1.save', content: 'save' },
+            saveDir: '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200',
+            expectedEngine: 'renpy'
+        }),
+        createMacEngineFixture({
             name: 'Godot (macOS Application Support)',
-            exe: '/Applications/GodotGame.app/Contents/MacOS/GodotGame',
-            files: {
-                '/Applications/GodotGame.app/Contents/MacOS/GodotGame': '',
-                '/Applications/GodotGame.app/Contents/Resources/game.pck': '',
-                '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame/save.dat': 'data'
-            },
-            dirs: [
-                '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame'
-            ],
-            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
-            expectedEngine: 'godot',
-            expectedPath: '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame'
-        },
-        {
+            appName: 'GodotGame',
+            resourceFile: { path: 'game.pck' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame/save.dat', content: 'data' },
+            saveDir: '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame',
+            expectedEngine: 'godot'
+        }),
+        createMacEngineFixture({
             name: 'RPG Maker MV/MZ (macOS In-Bundle)',
-            exe: '/Applications/RPGMGame.app/Contents/MacOS/Game',
-            files: {
-                '/Applications/RPGMGame.app/Contents/MacOS/Game': '',
-                '/Applications/RPGMGame.app/Contents/Resources/app.nw/js/rmmz_core.js': '',
-                '/Applications/RPGMGame.app/Contents/Resources/app.nw/save/file1.rmmzsave': 'save'
-            },
-            dirs: [
-                '/Applications/RPGMGame.app/Contents/Resources/app.nw/save'
-            ],
+            appName: 'RPGMGame',
+            exeName: 'Game',
+            resourceFile: { path: 'app.nw/js/rmmz_core.js' },
+            saveFile: { path: '/Applications/RPGMGame.app/Contents/Resources/app.nw/save/file1.rmmzsave', content: 'save' },
+            saveDir: '/Applications/RPGMGame.app/Contents/Resources/app.nw/save',
             expectedEngine: 'rpg-mv-mz',
-            expectedPath: '/Applications/RPGMGame.app/Contents/Resources/app.nw/save'
-        },
-        {
+            env: {}
+        }),
+        createMacEngineFixture({
             name: 'RPG Maker MV/MZ (macOS WebStorage)',
-            exe: '/Applications/WebRPG.app/Contents/MacOS/Game',
-            files: {
-                '/Applications/WebRPG.app/Contents/MacOS/Game': '',
-                '/Applications/WebRPG.app/Contents/Resources/app.nw/package.json': '{"name":"WebRPGGame"}',
-                '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb/000003.log': 'log'
-            },
-            dirs: [
-                '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb'
-            ],
-            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
-            expectedEngine: 'rpg-mv-mz',
-            expectedPath: '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb'
-        },
-        {
+            appName: 'WebRPG',
+            exeName: 'Game',
+            resourceFile: { path: 'app.nw/package.json', content: '{"name":"WebRPGGame"}' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb/000003.log', content: 'log' },
+            saveDir: '/Users/MacUser/Library/Application Support/WebRPGGame/Default/Local Storage/leveldb',
+            expectedEngine: 'rpg-mv-mz'
+        }),
+        createMacEngineFixture({
             name: 'Unity (macOS bundle app.info)',
-            exe: '/Applications/UnityMac.app/Contents/MacOS/UnityMac',
-            files: {
-                '/Applications/UnityMac.app/Contents/MacOS/UnityMac': '',
-                '/Applications/UnityMac.app/Contents/Resources/Data/app.info': 'IndieDev\nSpaceGame\n',
-                '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame/save.dat': 'data'
-            },
-            dirs: [
-                '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame'
-            ],
-            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
-            expectedEngine: 'unity',
-            expectedPath: '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame'
-        },
-        {
+            appName: 'UnityMac',
+            resourceFile: { path: 'Data/app.info', content: 'IndieDev\nSpaceGame\n' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame/save.dat', content: 'data' },
+            saveDir: '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame',
+            expectedEngine: 'unity'
+        }),
+        createMacEngineFixture({
             name: 'Unreal (macOS Application Support Epic)',
-            exe: '/Applications/UnrealGame.app/Contents/MacOS/UnrealGame-Mac-Shipping',
-            files: {
-                '/Applications/UnrealGame.app/Contents/MacOS/UnrealGame-Mac-Shipping': '',
-                '/Applications/UnrealGame.app/Contents/UE5': '',
-                '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames/SaveSlot.sav': 'sav'
-            },
-            dirs: [
-                '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames'
-            ],
-            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
-            expectedEngine: 'unreal',
-            expectedPath: '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames'
-        }
+            appName: 'UnrealGame',
+            exeName: 'UnrealGame-Mac-Shipping',
+            resourceFile: { path: 'UE5' },
+            saveFile: { path: '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames/SaveSlot.sav', content: 'sav' },
+            saveDir: '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames',
+            expectedEngine: 'unreal'
+        })
     ];
+
+    function createMacEngineFixture(options: {
+        name: string;
+        appName: string;
+        exeName?: string;
+        resourceFile?: { path: string; content?: string };
+        saveDir: string;
+        saveFile?: { path: string; content?: string };
+        expectedEngine: string;
+        env?: Record<string, string>;
+    }): EngineTestCase {
+        const exe = `/Applications/${options.appName}.app/Contents/MacOS/${options.exeName || options.appName}`;
+        const files: Record<string, string> = { [exe]: '' };
+        if (options.resourceFile) {
+            files[`/Applications/${options.appName}.app/Contents/Resources/${options.resourceFile.path}`] = options.resourceFile.content || '';
+        }
+        if (options.saveFile) {
+            files[options.saveFile.path] = options.saveFile.content || '';
+        }
+        return {
+            name: options.name,
+            exe,
+            files,
+            dirs: [options.saveDir],
+            env: options.env !== undefined ? options.env : { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
+            expectedEngine: options.expectedEngine,
+            expectedPath: options.saveDir
+        };
+    }
 
     interface EngineTestCase {
         name: string;
@@ -266,11 +258,13 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
         );
     });
 
-    it('logs diagnostic warning [SAVE-RESOLVER][ERROR] and returns graceful fallback when inspection throws', async () => {
+    async function expectWarningLoggedOnFailure(
+        mockAction: () => { mockRestore: () => void },
+        expectedWarningTag: string
+    ) {
         const mockFs = new MockFileSystemProvider();
         const resolver = new SaveFolderResolver(mockFs);
-
-        const inspectSpy = vi.spyOn(YumeEngine, 'inspectExecutable').mockRejectedValueOnce(new Error('Corrupt binary inspection failed'));
+        const spy = mockAction();
         const warnings: any[][] = [];
         const originalWarn = console.warn;
         console.warn = (...args: any[]) => {
@@ -279,47 +273,31 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
 
         try {
             const result = await resolver.resolve('/games/BrokenGame/game.exe');
-
             expect(result).toEqual({
                 path: null,
                 engine: null,
                 confidence: 'none',
                 source: 'none'
             });
-
-            expect(warnings.some((w) => w[0] === '[SAVE-RESOLVER][ERROR]')).toBe(true);
+            expect(warnings.some((w) => w[0] === expectedWarningTag)).toBe(true);
         } finally {
-            inspectSpy.mockRestore();
+            spy.mockRestore();
             console.warn = originalWarn;
         }
+    }
+
+    it('logs diagnostic warning [SAVE-RESOLVER][ERROR] and returns graceful fallback when inspection throws', async () => {
+        await expectWarningLoggedOnFailure(
+            () => vi.spyOn(YumeEngine, 'inspectExecutable').mockRejectedValueOnce(new Error('Corrupt binary inspection failed')),
+            '[SAVE-RESOLVER][ERROR]'
+        );
     });
 
     it('logs diagnostic warning [SAVE-RESOLVER][ERROR] when resolveSaveDirectory throws', async () => {
-        const mockFs = new MockFileSystemProvider();
-        const resolver = new SaveFolderResolver(mockFs);
-
-        const resolveSpy = vi.spyOn(YumeEngine, 'resolveSaveDirectory').mockRejectedValueOnce(new Error('Save directory resolution crashed'));
-        const warnings: any[][] = [];
-        const originalWarn = console.warn;
-        console.warn = (...args: any[]) => {
-            warnings.push(args);
-        };
-
-        try {
-            const result = await resolver.resolve('/games/BrokenGame/game.exe');
-
-            expect(result).toEqual({
-                path: null,
-                engine: null,
-                confidence: 'none',
-                source: 'none'
-            });
-
-            expect(warnings.some((w) => w[0] === '[SAVE-RESOLVER][ERROR]')).toBe(true);
-        } finally {
-            resolveSpy.mockRestore();
-            console.warn = originalWarn;
-        }
+        await expectWarningLoggedOnFailure(
+            () => vi.spyOn(YumeEngine, 'resolveSaveDirectory').mockRejectedValueOnce(new Error('Save directory resolution crashed')),
+            '[SAVE-RESOLVER][ERROR]'
+        );
     });
 });
 

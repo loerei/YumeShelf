@@ -337,9 +337,15 @@ export function pickPreferredExecutable(
         const matchesFolder = (e: ExecutableCandidate) => {
             if (!folderName) return false;
             const lowerName = e.name.toLowerCase();
-            const stem = lowerName.endsWith('.app')
-                ? lowerName.slice(0, -4)
-                : (path.extname(lowerName) ? lowerName.slice(0, -path.extname(lowerName).length) : lowerName);
+            let stem = lowerName;
+            if (lowerName.endsWith('.app')) {
+                stem = lowerName.slice(0, -4);
+            } else {
+                const ext = path.extname(lowerName);
+                if (ext) {
+                    stem = lowerName.slice(0, -ext.length);
+                }
+            }
             return stem === folderName || lowerName.includes(folderName) || folderName.includes(stem);
         };
 

@@ -81,13 +81,13 @@ export class DefaultFileSystemProvider implements FileSystemProvider {
 
     getMacApplicationSupportHome(): string {
         const home = this.getHomeDir();
-        if (!home || !home.trim()) return '';
+        if (!home?.trim()) return '';
         return path.join(home, 'Library', 'Application Support');
     }
 
     getMacPreferencesHome(): string {
         const home = this.getHomeDir();
-        if (!home || !home.trim()) return '';
+        if (!home?.trim()) return '';
         return path.join(home, 'Library', 'Preferences');
     }
 

@@ -35,6 +35,7 @@ import {
 export type * from './types.js';
 export { SaveCodecError } from './types.js';
 export * from './pe/index.js';
+export * from './binary/index.js';
 export * from './rules/index.js';
 export * from './save-resolvers/index.js';
 export * from './save-codecs/index.js';

@@ -4,6 +4,18 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.0] - working
+
+### What Changed
+- Added preliminary support for inspecting macOS application binaries and Universal FAT executables in the core engine.
+
+### For the Nerds
+- [engine] Exported canonical `PlatformType`, `MachOInspectionResult`, and `AppBundleInspectionResult` types in `@yumeshelf/engine`.
+- [engine] Implemented in-memory `MachOInspector` in `packages/yume-engine/src/binary/` supporting 32-bit, 64-bit, and Universal FAT binary headers with Java `.class` collision defense and bounds checking.
+- [tests] Added synthetic buffer unit test suite in `packages/yume-engine/tests/macho-inspector.test.ts`.
+
+---
+
 ## [2.1.2] - 2026-09-01 — released
 
 ### What Changed

@@ -3,6 +3,26 @@
  * Core types and interfaces for YumeEngine (@yumeshelf/engine)
  */
 
+export type PlatformType = 'windows' | 'linux' | 'macos';
+
+export interface MachOInspectionResult {
+  magic: number;
+  arch: 'x64' | 'arm64' | 'x86' | 'fat' | 'unknown';
+  is64Bit: boolean;
+  isLittleEndian: boolean;
+  isFat: boolean;
+  fatArchitectures?: Array<{ cputype: number; cpusubtype: number; offset: number; size: number }>;
+}
+
+export interface AppBundleInspectionResult {
+  bundlePath: string;
+  executablePath: string | null;
+  executableName: string | null;
+  bundleIdentifier: string | null;
+  bundleName: string | null;
+  displayName: string | null;
+}
+
 export interface IFileHandle {
   read(offset: number, length: number): Promise<Buffer>;
   close(): Promise<void>;
@@ -88,7 +108,7 @@ export interface GameEngineProfile {
     | 'native'
     | 'unknown';
   variant?: 'mono' | 'il2cpp' | 'mv' | 'mz' | 'vx-ace' | 'vx' | 'xp' | '2000-2003' | 'ue4-ue5' | 'studio' | 'xp3' | 'standard' | string;
-  arch: 'x64' | 'x86' | 'unknown';
+  arch: 'x64' | 'arm64' | 'x86' | 'fat' | 'unknown';
   runtime:
     | 'native'
     | 'nwjs'
@@ -114,6 +134,10 @@ export interface GameEngineProfile {
     | 'rags-save'
     | 'adrift-save'
     | 'tads-save'
+    | 'unity-appsupport-playerprefs'
+    | 'rpgmaker-bundle-data'
+    | 'renpy-appsupport-saves'
+    | 'godot-appsupport-user'
     | 'custom'
     | 'unknown';
   detectedBy: string;

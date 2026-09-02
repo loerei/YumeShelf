@@ -698,4 +698,255 @@ describe('Headless Save Resolvers (YumeEngine.resolveSaveDirectory)', () => {
       assert.deepEqual(result.files, ['auto-1.save']);
     });
   });
+
+describe('macOS Application Support save resolvers (Ticket 02.2.1.2.1)', () => {
+  it('resolves RenPy save folder from ~/Library/Application Support/RenPy/<stem> on macOS', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/RenPy/Clannad-123456/1-LT1.save',
+      'renpy save data'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: "Ren'Py",
+      family: 'renpy',
+      arch: 'arm64',
+      runtime: 'python',
+      saveStrategy: 'renpy-appsupport-saves',
+      detectedBy: 'renpy-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/Clannad.app/Contents/MacOS/Clannad',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(result.path, '/Users/MacUser/Library/Application Support/RenPy/Clannad-123456');
+    assert.equal(result.confidence, 'high');
+    assert.deepEqual(result.files, ['1-LT1.save']);
+  });
+
+  it('resolves RenPy save folder from ~/Library/RenPy/<stem> on macOS', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Users/MacUser/Library/RenPy/Kanon-654321/1-LT1.save',
+      'renpy save data'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: "Ren'Py",
+      family: 'renpy',
+      arch: 'arm64',
+      runtime: 'python',
+      saveStrategy: 'renpy-pickle',
+      detectedBy: 'renpy-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/Kanon.app/Contents/MacOS/Kanon',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(result.path, '/Users/MacUser/Library/RenPy/Kanon-654321');
+    assert.equal(result.confidence, 'high');
+    assert.deepEqual(result.files, ['1-LT1.save']);
+  });
+
+  it('resolves Godot Engine save folder from ~/Library/Application Support/Godot/app_userdata/<stem> on macOS', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/Godot/app_userdata/Brotato/save.dat',
+      'godot data'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'Godot',
+      family: 'godot',
+      arch: 'arm64',
+      runtime: 'native',
+      saveStrategy: 'godot-appsupport-user',
+      detectedBy: 'godot-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/Brotato.app/Contents/MacOS/Brotato',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(result.path, '/Users/MacUser/Library/Application Support/Godot/app_userdata/Brotato');
+    assert.equal(result.confidence, 'high');
+    assert.deepEqual(result.files, ['save.dat']);
+  });
+
+  it('resolves Unreal Engine save folder from ~/Library/Application Support/Epic/<stem>/Saved/SaveGames on macOS', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/Epic/Solaris/Saved/SaveGames/Slot01.sav',
+      'unreal save'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'Unreal Engine',
+      family: 'unreal',
+      variant: 'ue4-ue5',
+      arch: 'arm64',
+      runtime: 'native',
+      saveStrategy: 'unreal-sav',
+      detectedBy: 'unreal-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/Solaris.app/Contents/MacOS/Solaris',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Users/MacUser/Library/Application Support/Epic/Solaris/Saved/SaveGames'
+    );
+    assert.equal(result.confidence, 'high');
+    assert.deepEqual(result.files, ['Slot01.sav']);
+  });
+
+  it('resolves Unity save folder from ~/Library/Application Support/<company>/<product> on macOS', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Games/UnityGame/UnityGame_Data/app.info',
+      'MyStudio\r\nCoolGame\r\n'
+    );
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/MyStudio/CoolGame/save.dat',
+      'unity save'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'Unity',
+      family: 'unity',
+      arch: 'arm64',
+      runtime: 'native',
+      saveStrategy: 'unity-appsupport-playerprefs',
+      detectedBy: 'unity-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Games/UnityGame/UnityGame.exe',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Users/MacUser/Library/Application Support/MyStudio/CoolGame'
+    );
+    assert.equal(result.confidence, 'high');
+  });
+
+  it('resolves Unity save folder from ~/Library/Application Support/unity.<company>.<product> on macOS', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+    fs.writeFile(
+      '/Games/UnityGame2/UnityGame2_Data/app.info',
+      'IndieDev\nSpaceGame\n'
+    );
+    fs.writeFile(
+      '/Users/MacUser/Library/Application Support/unity.IndieDev.SpaceGame/player.dat',
+      'unity save'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'Unity',
+      family: 'unity',
+      arch: 'arm64',
+      runtime: 'native',
+      saveStrategy: 'unity-appsupport-playerprefs',
+      detectedBy: 'unity-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Games/UnityGame2/UnityGame2.exe',
+      fs
+    );
+    assert.ok(result);
+    assert.equal(
+      result.path,
+      '/Users/MacUser/Library/Application Support/unity.IndieDev.SpaceGame'
+    );
+    assert.equal(result.confidence, 'high');
+  });
+
+  it('rejects empty or sanitized zero-length company and product names in app.info', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+    });
+    fs.writeFile(
+      '/Games/CorruptGame/CorruptGame_Data/app.info',
+      '..\r\n   %00..  \r\n'
+    );
+
+    const profile: GameEngineProfile = {
+      tag: 'Unity',
+      family: 'unity',
+      arch: 'arm64',
+      runtime: 'native',
+      saveStrategy: 'unity',
+      detectedBy: 'unity-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Games/CorruptGame/CorruptGame.exe',
+      fs
+    );
+    // Must not resolve to root Application Support or invalid path
+    assert.notEqual(result?.path, '/Users/MacUser/Library/Application Support');
+    assert.equal(result?.confidence, 'none');
+  });
+
+  it('guards against root collapse: resolved paths cannot equal appSupportHome or preferencesHome directly', async () => {
+    const fs = new MockFileSystemProvider({
+      macApplicationSupportHome: '/Users/MacUser/Library/Application Support',
+      macPreferencesHome: '/Users/MacUser/Library/Preferences',
+    });
+
+    const profile: GameEngineProfile = {
+      tag: 'Godot',
+      family: 'godot',
+      arch: 'arm64',
+      runtime: 'native',
+      saveStrategy: 'godot-appsupport-user',
+      detectedBy: 'godot-rule',
+    };
+
+    // Traversal stem attempting to reach appSupportHome or preferencesHome
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      '/Applications/../../Library/Application Support.app',
+      fs
+    );
+    assert.notEqual(result?.path, '/Users/MacUser/Library/Application Support');
+    assert.notEqual(result?.path, '/Users/MacUser/Library/Preferences');
+  });
+});
 });

@@ -37,12 +37,15 @@ function mapEngineType(matchedStrategy?: string, engineProfileType?: GameEngineT
     if (!matchedStrategy) return 'unknown';
     switch (matchedStrategy) {
         case 'rpg-maker-mv-mz':
+        case 'rpgmaker-bundle-data':
             return 'rpg-mv-mz';
         case 'rpg-maker-rgss':
             return 'rpg-vxace';
         case 'renpy-pickle':
+        case 'renpy-appsupport-saves':
             return 'renpy';
         case 'unity':
+        case 'unity-appsupport-playerprefs':
             return 'unity';
         case 'unreal-sav':
             return 'unreal';
@@ -53,6 +56,7 @@ function mapEngineType(matchedStrategy?: string, engineProfileType?: GameEngineT
         case 'bakin-sgs':
             return 'bakin';
         case 'godot':
+        case 'godot-appsupport-user':
             return 'godot';
         case 'gamemaker-appdata':
             return 'gamemaker';

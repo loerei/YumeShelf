@@ -98,3 +98,53 @@ export function normalizeForSearch(text: unknown): string {
     .replace(/[^a-z0-9]/g, '')
     .trim();
 }
+
+/**
+ * Sanitize path component (company, product, stem, bundle identifier, etc.)
+ * Strips path separators, null bytes, and traversal tokens (..).
+ * Trims whitespace.
+ */
+export function sanitizePathComponent(component: string | null | undefined): string {
+  if (!component) return '';
+  let sanitized = String(component).replace(/\0|%00/g, '').trim();
+  sanitized = sanitized.replace(/[/\\]/g, '');
+  while (sanitized.includes('..')) {
+    sanitized = sanitized.replace(/\.\./g, '');
+  }
+  return sanitized.trim();
+}
+
+/**
+ * Validates that a resolved path is strictly contained within baseDir
+ * and does not equal baseDir or any excluded root dirs (e.g. appSupportHome, preferencesHome).
+ */
+export function isStrictlyContained(
+  resolvedPath: string,
+  baseDir: string,
+  excludedDirs: (string | undefined | null)[] = []
+): boolean {
+  if (!resolvedPath || !baseDir) return false;
+  const normResolved = normalizePath(resolvedPath);
+  const normBase = normalizePath(baseDir);
+  if (!normResolved || !normBase) return false;
+
+  // Reject directory traversal
+  if (normResolved.includes('..')) return false;
+
+  // Root collapse check: cannot equal baseDir
+  if (normResolved.toLowerCase() === normBase.toLowerCase()) return false;
+
+  // Cannot equal any excluded directory
+  for (const excluded of excludedDirs) {
+    if (excluded) {
+      const normExcluded = normalizePath(excluded);
+      if (normExcluded && normResolved.toLowerCase() === normExcluded.toLowerCase()) {
+        return false;
+      }
+    }
+  }
+
+  // Must reside strictly inside baseDir
+  const basePrefix = normBase.endsWith('/') ? normBase.toLowerCase() : `${normBase.toLowerCase()}/`;
+  return normResolved.toLowerCase().startsWith(basePrefix);
+}

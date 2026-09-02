@@ -10,8 +10,13 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Added preliminary support for inspecting macOS application binaries and Universal FAT executables in the core engine.
 - Added macOS `.app` bundle layout engine classification across Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with automatic architecture detection.
 - Added bundle root resolution and path sanitization to headless save discovery pipelines, allowing save folders to be accurately located for macOS application bundles.
+- Added headless standard macOS Application Support save resolvers for Unity, Ren'Py, Godot, and Unreal Engine games.
 
 ### For the Nerds
+- [engine] Implemented standard macOS Application Support save resolvers in `packages/yume-engine/src/save-resolvers/engine-save-resolvers.ts` (`resolveRenPySave`, `resolveGodotSave`, `resolveUnrealSave`, `resolveUnitySave`) resolving `~/Library/Application Support/` and `~/Library/` paths for Unity (`<company>/<product>`, `unity.<company>.<product>`), Ren'Py (`RenPy/<stem>`), Godot (`Godot/app_userdata/<stem>`), and Unreal Engine (`Epic/<stem>/Saved/SaveGames`).
+- [engine] Added `sanitizePathComponent` and `isStrictlyContained` path helpers in `packages/yume-engine/src/save-resolvers/path-utils.ts` to enforce directory traversal prevention, non-zero name checks, containment within Application Support, and root directory collapse protection.
+- [engine] Normalized CRLF/LF line endings in `resolveUnityFromAppInfo` and added non-zero length validation on extracted company and product names.
+- [engine] Integrated macOS save strategies (`renpy-appsupport-saves`, `unity-appsupport-playerprefs`, `godot-appsupport-user`, `rpgmaker-bundle-data`) into `resolveSaveDirectory` routing and main process `mapEngineType`.
 - [engine] Integrated `resolveBundleRoot` into `resolveSaveDirectory` in `packages/yume-engine/src/save-resolvers/index.ts`, computing `effectiveDir = bundleRoot || dirName(exePath)` to scope all child save resolvers and directory scans to outer `.app` bundles instead of nested `Contents/MacOS/` paths.
 - [engine] Updated `getExeStem` in `packages/yume-engine/src/save-resolvers/path-utils.ts` with optional `bundleRoot`, trailing slash normalization, and stem sanitization stripping path separators, null bytes (`\0`, `%00`), and directory traversal sequences (`..`).
 - [engine] Exported canonical `PlatformType`, `MachOInspectionResult`, and `AppBundleInspectionResult` types in `@yumeshelf/engine`.

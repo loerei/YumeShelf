@@ -68,17 +68,17 @@ export async function resolveSaveDirectory(
   const family = profile?.family;
   const strategy = profile?.saveStrategy;
 
-  if (family === 'rpg-maker' || strategy === 'rpg-maker-mv-mz' || strategy === 'rpg-maker-rgss') {
+  if (family === 'rpg-maker' || strategy === 'rpg-maker-mv-mz' || strategy === 'rpg-maker-rgss' || strategy === 'rpgmaker-bundle-data') {
     result = await resolveRpgMakerSave(effectiveDir, profile, fs);
-  } else if (family === 'renpy' || strategy === 'renpy-pickle') {
+  } else if (family === 'renpy' || strategy === 'renpy-pickle' || strategy === 'renpy-appsupport-saves') {
     result = await resolveRenPySave(effectiveDir, exeStem, fs);
-  } else if (family === 'unity') {
+  } else if (family === 'unity' || strategy === 'unity-appsupport-playerprefs') {
     result = await resolveUnitySave(effectiveDir, exeStem, fs);
   } else if (family === 'unreal' || strategy === 'unreal-sav') {
     result = await resolveUnrealSave(effectiveDir, exeStem, fs);
   } else if (family === 'wolf-rpg' || strategy === 'wolf-sav') {
     result = await resolveWolfRpgSave(effectiveDir, fs);
-  } else if (family === 'godot' || strategy === 'godot') {
+  } else if (family === 'godot' || strategy === 'godot' || strategy === 'godot-appsupport-user') {
     result = await resolveGodotSave(effectiveDir, exeStem, fs);
   } else if (family === 'flash') {
     result = await resolveFlashSave(effectiveDir, exeStem, fs);

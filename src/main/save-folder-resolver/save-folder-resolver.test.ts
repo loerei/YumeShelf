@@ -77,6 +77,36 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
             dirs: ['C:/Games/TyranoGame/tyrano', 'C:/Games/TyranoGame/tyrano/savedata'],
             expectedEngine: 'tyranobuilder',
             expectedPath: 'C:/Games/TyranoGame/tyrano/savedata'
+        },
+        {
+            name: 'RenPy (macOS Application Support)',
+            exe: '/Applications/Tsukihime.app/Contents/MacOS/Tsukihime',
+            files: {
+                '/Applications/Tsukihime.app/Contents/MacOS/Tsukihime': '',
+                '/Applications/Tsukihime.app/Contents/Resources/autorun.py': '',
+                '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200/auto-1.save': 'save'
+            },
+            dirs: [
+                '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200'
+            ],
+            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
+            expectedEngine: 'renpy',
+            expectedPath: '/Users/MacUser/Library/Application Support/RenPy/Tsukihime-100200'
+        },
+        {
+            name: 'Godot (macOS Application Support)',
+            exe: '/Applications/GodotGame.app/Contents/MacOS/GodotGame',
+            files: {
+                '/Applications/GodotGame.app/Contents/MacOS/GodotGame': '',
+                '/Applications/GodotGame.app/Contents/Resources/game.pck': '',
+                '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame/save.dat': 'data'
+            },
+            dirs: [
+                '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame'
+            ],
+            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
+            expectedEngine: 'godot',
+            expectedPath: '/Users/MacUser/Library/Application Support/Godot/app_userdata/GodotGame'
         }
     ];
 

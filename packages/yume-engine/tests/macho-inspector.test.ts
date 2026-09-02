@@ -591,3 +591,55 @@ test('YumeEngine.inspectMachOFile: delegates to MachOInspector.fromPath', async 
   const missingResult = await YumeEngine.inspectMachOFile('/test/missing', fs);
   assert.strictEqual(missingResult, null);
 });
+
+test('YumeEngine.inspectExecutable: verifies standalone Mach-O binaries, 64-bit FAT headers, and truncated fallback handling', async () => {
+  const fs = new MockFileSystemProvider();
+
+  // 1. Standalone 64-bit Mach-O binary (ARM64)
+  const arm64Buf = buildMachO64({ cputype: CPU_TYPE_ARM64 });
+  fs.writeFile('/test/game_arm64', arm64Buf);
+
+  const arm64Profile = await YumeEngine.inspectExecutable('/test/game_arm64', fs);
+  assert.strictEqual(arm64Profile.family, 'native');
+  assert.strictEqual(arm64Profile.tag, 'Others');
+  assert.strictEqual(arm64Profile.variant, 'standard');
+  assert.strictEqual(arm64Profile.arch, 'arm64');
+  assert.strictEqual(arm64Profile.runtime, 'native');
+  assert.strictEqual(arm64Profile.saveStrategy, 'unknown');
+  assert.strictEqual(arm64Profile.detectedBy, 'Mach-O Binary');
+
+  // 2. 64-bit Universal FAT binary (0xCAFEBABF)
+  const fat64Buf = buildFat64({
+    isLittleEndian: false,
+    architectures: [
+      { cputype: CPU_TYPE_X86_64, cpusubtype: 3, offset: 128, size: 256 },
+      { cputype: CPU_TYPE_ARM64, cpusubtype: 0, offset: 512, size: 512 },
+    ],
+    totalBufferSize: 2048,
+  });
+  fs.writeFile('/test/fat64_bin', fat64Buf);
+
+  const fat64Profile = await YumeEngine.inspectExecutable('/test/fat64_bin', fs);
+  assert.strictEqual(fat64Profile.family, 'native');
+  assert.strictEqual(fat64Profile.tag, 'Others');
+  assert.strictEqual(fat64Profile.variant, 'standard');
+  assert.strictEqual(fat64Profile.arch, 'fat');
+  assert.strictEqual(fat64Profile.runtime, 'native');
+  assert.strictEqual(fat64Profile.saveStrategy, 'unknown');
+  assert.strictEqual(fat64Profile.detectedBy, 'Mach-O Binary');
+
+  // 3. Truncated Mach-O fallback handling (magic only, < 32 bytes)
+  const truncBuf = Buffer.alloc(4);
+  truncBuf.writeUInt32BE(MACHO_MAGIC_64_BE, 0);
+  fs.writeFile('/test/trunc_bin', truncBuf);
+
+  const truncProfile = await YumeEngine.inspectExecutable('/test/trunc_bin', fs);
+  assert.strictEqual(truncProfile.family, 'native');
+  assert.strictEqual(truncProfile.tag, 'Others');
+  assert.strictEqual(truncProfile.variant, 'standard');
+  assert.strictEqual(truncProfile.arch, 'unknown');
+  assert.strictEqual(truncProfile.runtime, 'native');
+  assert.strictEqual(truncProfile.saveStrategy, 'unknown');
+  assert.strictEqual(truncProfile.detectedBy, 'Mach-O Binary');
+});
+

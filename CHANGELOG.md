@@ -16,9 +16,11 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Implemented headless XML property list parser (`parseXmlPlist`, `XmlPlistParser`) in `packages/yume-engine/src/bundle/` supporting Apple's plist DTD (dictionaries, arrays, strings, integers, reals, booleans, dates, and base64 data) with UTF-8 BOM stripping, 5 MB buffer limit, recursion depth limit (64 levels), XXE and entity expansion defense, XML comments/CDATA handling, and prototype pollution protection.
 - [engine] Implemented headless binary property list deserializer (`BPlistParser`, `BinaryPlistParser`) in `packages/yume-engine/src/bundle/` supporting Apple's `bplist00` format up to 5 MB with trailer validation, cyclic reference detection, 64-level recursion depth limit, Cocoa epoch date offset (978307200s), and prototype pollution protection.
 - [engine] Implemented unified `PlistParser` facade and `parsePlist` entrypoint auto-detecting XML and binary property list formats across strings, Buffers, and Uint8Arrays.
+- [engine] Integrated standalone Mach-O binary inspection into `YumeEngine.inspectExecutable` and `YumeEngine.inspectGame`, dispatching valid Mach-O and FAT headers to `MachOInspector.fromPath` and returning canonical `GameEngineProfile` (`family: 'native'`, `tag: 'Others'`, `detectedBy: 'Mach-O Binary'`) with truncated/unreadable fallback resilience and PE `.exe` precedence.
 - [tests] Added synthetic buffer and filesystem mock unit test suites in `packages/yume-engine/tests/macho-inspector.test.ts`.
 - [tests] Added comprehensive unit test suite in `packages/yume-engine/tests/xml-plist-parser.test.ts` validating Apple `Info.plist` files, BOM stripping, malformed inputs, entity explosion payloads, buffer limit, and prototype key stripping.
 - [tests] Added unit test suites in `packages/yume-engine/tests/bplist-parser.test.ts` and `packages/yume-engine/tests/plist-parser-facade.test.ts` verifying binary deserialization, cyclic reference prevention, Cocoa epoch date decoding, and unified facade auto-detection.
+- [tests] Added unit test suite in `packages/yume-engine/tests/standalone-macho-facade.test.ts` and updated `packages/yume-engine/tests/macho-inspector.test.ts` verifying standalone Mach-O binaries, 64-bit FAT headers, truncated fallback handling, and PE fallback compatibility.
 
 ---
 

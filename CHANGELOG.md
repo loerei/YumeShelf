@@ -13,7 +13,9 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Exported canonical `PlatformType`, `MachOInspectionResult`, and `AppBundleInspectionResult` types in `@yumeshelf/engine`.
 - [engine] Implemented in-memory `MachOInspector` in `packages/yume-engine/src/binary/` supporting 32-bit, 64-bit, and Universal FAT binary headers with Java `.class` collision defense and bounds checking.
 - [engine] Implemented `MachOInspector.fromPath` with bounded $\le 4\text{KB}$ file slice reading, file handle resource cleanup in `try...finally`, and exposed `YumeEngine.inspectMachOFile` facade.
+- [engine] Implemented headless XML property list parser (`parseXmlPlist`, `XmlPlistParser`) in `packages/yume-engine/src/bundle/` supporting Apple's plist DTD (dictionaries, arrays, strings, integers, reals, booleans, dates, and base64 data) with UTF-8 BOM stripping, 5 MB buffer limit, recursion depth limit (64 levels), XXE and entity expansion defense, XML comments/CDATA handling, and prototype pollution protection.
 - [tests] Added synthetic buffer and filesystem mock unit test suites in `packages/yume-engine/tests/macho-inspector.test.ts`.
+- [tests] Added comprehensive unit test suite in `packages/yume-engine/tests/xml-plist-parser.test.ts` validating Apple `Info.plist` files, BOM stripping, malformed inputs, entity explosion payloads, buffer limit, and prototype key stripping.
 
 ---
 

@@ -43,6 +43,7 @@ export * from './save-resolvers/index.js';
 export * from './save-codecs/index.js';
 export * from './fs/index.js';
 export * from './process/index.js';
+export * from './bundle/index.js';
 
 export class YumeEngine {
   static async inspectExecutable(

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { YumeEngine, type GameEngineProfile } from '../dist/index.js';
+import { YumeEngine, getExeStem, type GameEngineProfile } from '../dist/index.js';
 import { MockFileSystemProvider } from './fixtures/mock-fs-provider.ts';
 
 describe('Headless Save Resolvers (YumeEngine.resolveSaveDirectory)', () => {
@@ -491,5 +491,211 @@ describe('Headless Save Resolvers (YumeEngine.resolveSaveDirectory)', () => {
     assert.equal(result.path, null);
     assert.equal(result.confidence, 'none');
     assert.equal(result.source, 'none');
+  });
+
+  describe('getExeStem path utilities & bundle root integration', () => {
+    it('derives stem from bundleRoot when provided, ignoring inner binary name', () => {
+      assert.equal(
+        getExeStem('/Applications/SuperGame.app/Contents/MacOS/SuperGame', '/Applications/SuperGame.app'),
+        'SuperGame'
+      );
+      assert.equal(
+        getExeStem('/Applications/SuperGame.app/Contents/MacOS/launcher', '/Applications/SuperGame.app'),
+        'SuperGame'
+      );
+      assert.equal(
+        getExeStem('C:/Games/VisualNovel.app/Contents/MacOS/main-shipping', 'C:/Games/VisualNovel.app'),
+        'VisualNovel'
+      );
+    });
+
+    it('normalizes trailing slashes on bundleRoot and exePath', () => {
+      assert.equal(
+        getExeStem('/Applications/SuperGame.app/Contents/MacOS/SuperGame', '/Applications/SuperGame.app/'),
+        'SuperGame'
+      );
+      assert.equal(
+        getExeStem('/Applications/SuperGame.app/Contents/MacOS/SuperGame', '/Applications/SuperGame.app///'),
+        'SuperGame'
+      );
+      assert.equal(
+        getExeStem('C:\\Games\\SuperGame.app\\\\', 'C:\\Games\\SuperGame.app\\\\'),
+        'SuperGame'
+      );
+      assert.equal(
+        getExeStem('/Applications/OuterGame.app/'),
+        'OuterGame'
+      );
+      assert.equal(
+        getExeStem('/Applications/OuterGame.app///'),
+        'OuterGame'
+      );
+      assert.equal(
+        getExeStem('/Games/MyGame/MyGame.exe/'),
+        'MyGame'
+      );
+      assert.equal(
+        getExeStem('C:\\Games\\MyGame\\MyGame.exe\\\\'),
+        'MyGame'
+      );
+    });
+
+    it('sanitizes null bytes and URL-encoded null bytes from stem', () => {
+      assert.equal(
+        getExeStem('/Applications/CleanGame\0.app', '/Applications/CleanGame\0.app'),
+        'CleanGame'
+      );
+      assert.equal(
+        getExeStem('/Applications/CleanGame%00.app', '/Applications/CleanGame%00.app'),
+        'CleanGame'
+      );
+      assert.equal(
+        getExeStem('/Games/My\0Game/game\0.exe'),
+        'game'
+      );
+      assert.equal(
+        getExeStem('/Games/Game%00.exe'),
+        'Game'
+      );
+      assert.equal(
+        getExeStem('Super%00Game\0 pc.exe'),
+        'SuperGame'
+      );
+    });
+
+    it('sanitizes path separators and traversal tokens (..) from stem', () => {
+      assert.equal(
+        getExeStem('/Applications/Super..Game.app', '/Applications/Super..Game.app'),
+        'SuperGame'
+      );
+      assert.equal(
+        getExeStem('../..\\..\\Evil..App.app'),
+        'EvilApp'
+      );
+      assert.equal(
+        getExeStem('..\\..\\SafeGame%00.exe'),
+        'SafeGame'
+      );
+      assert.equal(
+        getExeStem('/Applications/Nested....App.app', '/Applications/Nested....App.app'),
+        'NestedApp'
+      );
+    });
+
+    it('handles empty, whitespace, and null inputs gracefully', () => {
+      assert.equal(getExeStem('', null), '');
+      assert.equal(getExeStem('   ', undefined), '');
+      assert.equal(getExeStem('', ''), '');
+    });
+  });
+
+  describe('effectiveDir scoping for macOS .app bundles (resolveSaveDirectory)', () => {
+    it('scopes effectiveDir to outer .app root for nested Contents/MacOS binary in deterministic resolution', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Applications/RPGMZGame.app/save/file1.rpgsave', 'save 1');
+      fs.writeFile('/Applications/RPGMZGame.app/Contents/MacOS/Game', 'mach-o binary');
+
+      const profile: GameEngineProfile = {
+        tag: 'RPGM',
+        family: 'rpg-maker',
+        variant: 'mz',
+        arch: 'arm64',
+        runtime: 'nwjs',
+        saveStrategy: 'rpg-maker-mv-mz',
+        detectedBy: 'rpg-maker-rule',
+      };
+
+      // Pass inner executable path
+      const result = await YumeEngine.resolveSaveDirectory(
+        profile,
+        '/Applications/RPGMZGame.app/Contents/MacOS/Game',
+        fs
+      );
+      assert.ok(result);
+      assert.equal(result.path, '/Applications/RPGMZGame.app/save');
+      assert.equal(result.confidence, 'high');
+      assert.equal(result.source, 'deterministic');
+      assert.deepEqual(result.files, ['file1.rpgsave']);
+    });
+
+    it('scopes effectiveDir to outer .app root when passed outer .app bundle path', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Applications/RPGMVGame.app/www/save/file1.rpgsave', 'save 1');
+
+      const profile: GameEngineProfile = {
+        tag: 'RPGM',
+        family: 'rpg-maker',
+        variant: 'mv',
+        arch: 'x64',
+        runtime: 'nwjs',
+        saveStrategy: 'rpg-maker-mv-mz',
+        detectedBy: 'rpg-maker-rule',
+      };
+
+      const result = await YumeEngine.resolveSaveDirectory(
+        profile,
+        '/Applications/RPGMVGame.app',
+        fs
+      );
+      assert.ok(result);
+      assert.equal(result.path, '/Applications/RPGMVGame.app/www/save');
+      assert.equal(result.confidence, 'high');
+      assert.equal(result.source, 'deterministic');
+    });
+
+    it('scopes effectiveDir to outer .app root for heuristic scan with inner binary path', async () => {
+      const fs = new MockFileSystemProvider();
+      fs.writeFile('/Applications/IndieGame.app/savedata/slot1.sav', 'heuristic save');
+      fs.writeFile('/Applications/IndieGame.app/Contents/MacOS/launcher', 'binary');
+
+      const profile: GameEngineProfile = {
+        tag: 'Others',
+        family: 'unknown',
+        arch: 'arm64',
+        runtime: 'native',
+        saveStrategy: 'unknown',
+        detectedBy: 'fallback',
+      };
+
+      const result = await YumeEngine.resolveSaveDirectory(
+        profile,
+        '/Applications/IndieGame.app/Contents/MacOS/launcher',
+        fs
+      );
+      assert.ok(result);
+      assert.equal(result.path, '/Applications/IndieGame.app/savedata');
+      assert.equal(result.source, 'heuristic');
+      assert.equal(result.confidence, 'high');
+      assert.deepEqual(result.files, ['slot1.sav']);
+    });
+
+    it('derives bundle stem for AppData / XDG RenPy resolution from nested executable with generic binary name', async () => {
+      const fs = new MockFileSystemProvider({
+        userProfilePath: '/home/gamer',
+        xdgDataHome: '/home/gamer/.local/share',
+      });
+      // The save folder uses the .app bundle stem ("Tsukihime"), not the inner binary name ("runner")
+      fs.writeFile('/home/gamer/.local/share/renpy/Tsukihime-100200/auto-1.save', 'save');
+      fs.writeFile('/Applications/Tsukihime.app/Contents/MacOS/runner', 'binary');
+
+      const profile: GameEngineProfile = {
+        tag: "Ren'Py",
+        family: 'renpy',
+        arch: 'arm64',
+        runtime: 'python',
+        saveStrategy: 'renpy-pickle',
+        detectedBy: 'renpy-rule',
+      };
+
+      const result = await YumeEngine.resolveSaveDirectory(
+        profile,
+        '/Applications/Tsukihime.app/Contents/MacOS/runner',
+        fs
+      );
+      assert.ok(result);
+      assert.equal(result.path, '/home/gamer/.local/share/renpy/Tsukihime-100200');
+      assert.equal(result.confidence, 'high');
+      assert.deepEqual(result.files, ['auto-1.save']);
+    });
   });
 });

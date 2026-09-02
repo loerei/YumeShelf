@@ -62,12 +62,32 @@ export function baseName(p: string, ext?: string): string {
   return base;
 }
 
-export function getExeStem(exePath: string): string {
-  const base = baseName(exePath || '');
-  let stem = base.replace(/\.(exe|x86_64|x86|appimage|sh|bin)$/i, '');
-  stem = stem.replace(/-(linux|win64|win32)-shipping$/i, '');
+export function getExeStem(exePath: string, bundleRoot?: string | null): string {
+  if (!exePath && !bundleRoot) return '';
+
+  const cleanBundle = bundleRoot ? String(bundleRoot).replace(/\0|%00/g, '').trim() : null;
+  const cleanExe = exePath ? String(exePath).replace(/\0|%00/g, '').trim() : '';
+
+  let stem = '';
+  if (cleanBundle && cleanBundle.length > 0) {
+    stem = baseName(cleanBundle, '.app');
+  } else if (baseName(cleanExe).toLowerCase().endsWith('.app')) {
+    stem = baseName(cleanExe, '.app');
+  } else {
+    const base = baseName(cleanExe);
+    stem = base.replace(/\.(exe|x86_64|x86|appimage|sh|bin)$/i, '');
+    stem = stem.replace(/-(linux|win64|win32)-shipping$/i, '');
+  }
+
   stem = stem.replace(/\bv?\d+(?:\.\d+)*\b/gi, ' ').replace(/\bpc\b/gi, ' ').trim();
-  return stem;
+
+  // Sanitize stem: strip path separators, null bytes, and traversal tokens
+  stem = stem.replace(/\0|%00/g, '');
+  stem = stem.replace(/[/\\]/g, '');
+  while (stem.includes('..')) {
+    stem = stem.replace(/\.\./g, '');
+  }
+  return stem.trim();
 }
 
 export function normalizeForSearch(text: unknown): string {

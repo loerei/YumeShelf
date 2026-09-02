@@ -9,8 +9,11 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### What Changed
 - Added preliminary support for inspecting macOS application binaries and Universal FAT executables in the core engine.
 - Added macOS `.app` bundle layout engine classification across Unity, RPG Maker MV/MZ, Ren'Py, Godot, Unreal Engine, NW.js, and Electron with automatic architecture detection.
+- Added bundle root resolution and path sanitization to headless save discovery pipelines, allowing save folders to be accurately located for macOS application bundles.
 
 ### For the Nerds
+- [engine] Integrated `resolveBundleRoot` into `resolveSaveDirectory` in `packages/yume-engine/src/save-resolvers/index.ts`, computing `effectiveDir = bundleRoot || dirName(exePath)` to scope all child save resolvers and directory scans to outer `.app` bundles instead of nested `Contents/MacOS/` paths.
+- [engine] Updated `getExeStem` in `packages/yume-engine/src/save-resolvers/path-utils.ts` with optional `bundleRoot`, trailing slash normalization, and stem sanitization stripping path separators, null bytes (`\0`, `%00`), and directory traversal sequences (`..`).
 - [engine] Exported canonical `PlatformType`, `MachOInspectionResult`, and `AppBundleInspectionResult` types in `@yumeshelf/engine`.
 - [engine] Implemented in-memory `MachOInspector` in `packages/yume-engine/src/binary/` supporting 32-bit, 64-bit, and Universal FAT binary headers with Java `.class` collision defense and bounds checking.
 - [engine] Implemented `MachOInspector.fromPath` with bounded $\le 4\text{KB}$ file slice reading, file handle resource cleanup in `try...finally`, and exposed `YumeEngine.inspectMachOFile` facade.
@@ -25,6 +28,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [tests] Added comprehensive unit test suite in `packages/yume-engine/tests/xml-plist-parser.test.ts` validating Apple `Info.plist` files, BOM stripping, malformed inputs, entity explosion payloads, buffer limit, and prototype key stripping.
 - [tests] Added unit test suites in `packages/yume-engine/tests/bplist-parser.test.ts` and `packages/yume-engine/tests/plist-parser-facade.test.ts` verifying binary deserialization, cyclic reference prevention, Cocoa epoch date decoding, and unified facade auto-detection.
 - [tests] Added unit test suite in `packages/yume-engine/tests/standalone-macho-facade.test.ts` and updated `packages/yume-engine/tests/macho-inspector.test.ts` verifying standalone Mach-O binaries, 64-bit FAT headers, truncated fallback handling, and PE fallback compatibility.
+- [tests] Added unit test suite in `packages/yume-engine/tests/headless-save-resolvers.test.ts` validating `getExeStem` stem normalization, trailing slash handling, null byte stripping, and `effectiveDir` scoping for outer and inner `.app` bundle paths.
 
 ---
 

@@ -9,6 +9,7 @@
  */
 
 import type {
+  AppBundleInspectionResult,
   DirectorySizeResult,
   FileSystemProvider,
   GameEngineProfile,
@@ -20,6 +21,7 @@ import type {
 import { SaveCodecError } from './types.js';
 import { PEInspector } from './pe/pe-inspector.js';
 import { MachOInspector } from './binary/index.js';
+import { AppBundleInspector } from './bundle/index.js';
 import { defaultRuleRegistry } from './rules/engine-rule-registry.js';
 import { formatEngineName } from './rules/engine-formatter.js';
 import { resolveSaveDirectory, type ResolveSaveOptions } from './save-resolvers/index.js';
@@ -78,6 +80,13 @@ export class YumeEngine {
     fs?: IFileSystem
   ): Promise<MachOInspectionResult | null> {
     return MachOInspector.fromPath(filePath, fs);
+  }
+
+  static async inspectAppBundle(
+    bundlePath: string,
+    fs?: IFileSystem
+  ): Promise<AppBundleInspectionResult | null> {
+    return AppBundleInspector.fromPath(bundlePath, fs);
   }
 
   static async calculateDirectorySize(

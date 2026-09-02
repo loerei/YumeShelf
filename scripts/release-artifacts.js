@@ -5,6 +5,9 @@ const INSTALLER_ARTIFACT_REGEX = /^YumeShelf-Setup-(.+)\.exe$/i;
 const LINUX_APPIMAGE_REGEX = /^YumeShelf-(.+)\.AppImage$/i;
 const LINUX_TARBALL_REGEX = /^YumeShelf-(.+)\.tar\.gz$/i;
 const LINUX_ARTIFACT_REGEX = /^YumeShelf-(.+)\.(AppImage|tar\.gz)$/i;
+const MAC_DMG_REGEX = /^YumeShelf-(.+)\.dmg$/i;
+const MAC_ZIP_REGEX = /^YumeShelf-(.+)\.zip$/i;
+const MAC_ARTIFACT_REGEX = /^YumeShelf-(.+)\.(dmg|zip)$/i;
 
 function getBuildOutputDir() {
     return path.resolve(__dirname, '..', 'build_output');
@@ -46,6 +49,26 @@ function getLinuxFeedOutputDir(buildOutputDir = getBuildOutputDir()) {
     return path.join(getLinuxOutputDir(buildOutputDir), 'feed');
 }
 
+function getMacOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(buildOutputDir, 'mac');
+}
+
+function getMacApplicationOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(getMacOutputDir(buildOutputDir), 'application');
+}
+
+function getMacBlockmapOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(getMacOutputDir(buildOutputDir), 'blockmap');
+}
+
+function getMacChecksumOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(getMacOutputDir(buildOutputDir), 'sha256');
+}
+
+function getMacFeedOutputDir(buildOutputDir = getBuildOutputDir()) {
+    return path.join(getMacOutputDir(buildOutputDir), 'feed');
+}
+
 function getUnpackedOutputDir(buildOutputDir = getBuildOutputDir()) {
     return path.join(buildOutputDir, 'unpacked');
 }
@@ -78,6 +101,18 @@ function isLinuxTarballArtifactName(fileName) {
     return LINUX_TARBALL_REGEX.test(String(fileName || '').trim());
 }
 
+function isMacArtifactName(fileName) {
+    return MAC_ARTIFACT_REGEX.test(String(fileName || '').trim());
+}
+
+function isMacDmgArtifactName(fileName) {
+    return MAC_DMG_REGEX.test(String(fileName || '').trim());
+}
+
+function isMacZipArtifactName(fileName) {
+    return MAC_ZIP_REGEX.test(String(fileName || '').trim());
+}
+
 function resolveInstallerArtifactPath(version, buildOutputDir = getBuildOutputDir()) {
     return path.join(getNsisApplicationOutputDir(buildOutputDir), `YumeShelf-Setup-${version}.exe`);
 }
@@ -90,8 +125,19 @@ function resolveLinuxArtifactPaths(version, buildOutputDir = getBuildOutputDir()
     };
 }
 
+function resolveMacArtifactPaths(version, buildOutputDir = getBuildOutputDir()) {
+    const appDir = getMacApplicationOutputDir(buildOutputDir);
+    return {
+        dmg: path.join(appDir, `YumeShelf-${version}.dmg`),
+        zip: path.join(appDir, `YumeShelf-${version}.zip`)
+    };
+}
+
 function resolveNewestInstallerArtifactPath(buildOutputDir = getBuildOutputDir()) {
     const nsisApplicationOutputDir = getNsisApplicationOutputDir(buildOutputDir);
+    if (!fs.existsSync(nsisApplicationOutputDir)) {
+        throw new Error('No YumeShelf NSIS installer was found in build_output\\nsis\\application.');
+    }
     const candidates = fs.readdirSync(nsisApplicationOutputDir)
         .filter(isInstallerArtifactName)
         .map((name) => {
@@ -121,6 +167,11 @@ module.exports = {
     getLinuxApplicationOutputDir,
     getLinuxChecksumOutputDir,
     getLinuxFeedOutputDir,
+    getMacOutputDir,
+    getMacApplicationOutputDir,
+    getMacBlockmapOutputDir,
+    getMacChecksumOutputDir,
+    getMacFeedOutputDir,
     getUnpackedOutputDir,
     getPortableOutputDir,
     getPortableApplicationOutputDir,
@@ -129,7 +180,11 @@ module.exports = {
     isLinuxArtifactName,
     isLinuxAppImageArtifactName,
     isLinuxTarballArtifactName,
+    isMacArtifactName,
+    isMacDmgArtifactName,
+    isMacZipArtifactName,
     resolveInstallerArtifactPath,
     resolveLinuxArtifactPaths,
+    resolveMacArtifactPaths,
     resolveNewestInstallerArtifactPath
 };

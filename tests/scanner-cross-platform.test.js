@@ -30,21 +30,38 @@ async function writeStubFile(filePath, mode) {
 }
 
 function createMockFs(fileTree) {
-    // fileTree: map of normalized relative paths -> { isFile: boolean, isDirectory: boolean, mode?: number }
+    // fileTree: map of normalized relative or absolute paths -> { isFile?: boolean, isDirectory?: boolean, mode?: number, content?: string | Buffer, size?: number }
+    function findMeta(targetPath) {
+        const resolved = path.resolve(targetPath);
+        const rel = path.relative(process.cwd(), resolved);
+        const posix = targetPath.replace(/\\/g, '/');
+        const resolvedPosix = resolved.replace(/\\/g, '/');
+        const relPosix = rel.replace(/\\/g, '/');
+
+        return fileTree[resolved]
+            || fileTree[rel]
+            || fileTree[targetPath]
+            || fileTree[posix]
+            || fileTree[resolvedPosix]
+            || fileTree[relPosix]
+            || null;
+    }
+
     return {
         async readdir(dirPath, options) {
             const normalizedDir = path.resolve(dirPath);
             const directChildren = new Map();
 
-            for (const [relPath, meta] of Object.entries(fileTree)) {
-                const fullPath = path.resolve(relPath);
+            for (const key of Object.keys(fileTree)) {
+                const fullPath = path.resolve(key);
                 const parent = path.dirname(fullPath);
                 if (parent === normalizedDir) {
                     const name = path.basename(fullPath);
+                    const meta = findMeta(key);
                     directChildren.set(name, {
                         name,
-                        isFile: () => !!meta.isFile,
-                        isDirectory: () => !!meta.isDirectory
+                        isFile: () => !!meta?.isFile,
+                        isDirectory: () => !!meta?.isDirectory
                     });
                 }
             }
@@ -52,14 +69,46 @@ function createMockFs(fileTree) {
             return [...directChildren.values()];
         },
         async stat(filePath) {
-            const normalized = path.resolve(filePath);
-            const meta = fileTree[normalized] || fileTree[path.relative(process.cwd(), normalized)];
+            const meta = findMeta(filePath);
             if (!meta) throw new Error(`ENOENT: ${filePath}`);
+            const raw = meta.content !== undefined ? meta.content : Buffer.alloc(0);
+            const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
             return {
+                size: meta.size !== undefined ? meta.size : buf.length,
                 mode: meta.mode !== undefined ? meta.mode : (meta.isDirectory ? 0o040755 : 0o100644),
                 isFile: () => !!meta.isFile,
                 isDirectory: () => !!meta.isDirectory,
                 birthtimeMs: Date.now()
+            };
+        },
+        async readFile(filePath, encoding) {
+            const meta = findMeta(filePath);
+            if (!meta || meta.isDirectory) {
+                throw new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+            }
+            const raw = meta.content !== undefined ? meta.content : Buffer.alloc(0);
+            const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+            if (encoding) {
+                return buf.toString(encoding);
+            }
+            return buf;
+        },
+        async exists(filePath) {
+            const meta = findMeta(filePath);
+            return !!meta;
+        },
+        async open(filePath) {
+            const meta = findMeta(filePath);
+            if (!meta || meta.isDirectory) {
+                throw new Error(`ENOENT: no such file or directory, open '${filePath}'`);
+            }
+            const raw = meta.content !== undefined ? meta.content : Buffer.alloc(0);
+            const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+            return {
+                async read(offset, length) {
+                    return buf.subarray(offset, Math.min(offset + length, buf.length));
+                },
+                async close() {}
             };
         }
     };
@@ -217,3 +266,162 @@ test('collectGameCandidates deeply discovers all nested games inside category fo
     const folderNames = candidates.map(c => path.basename(c.folderPath)).sort();
     assert.deepEqual(folderNames, ['Epic Quest 1', 'Epic Quest 2', 'Epic Quest 3']);
 });
+
+test('isRecognizedExecutable correctly identifies macOS .app bundles on Darwin target', async () => {
+    const mockFs = createMockFs({
+        '/games/VisualNovel.app': { isDirectory: true },
+        '/games/VisualNovel.app/Contents': { isDirectory: true },
+        '/games/VisualNovel.app/Contents/Info.plist': {
+            isFile: true,
+            content: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>VisualNovel</string>
+</dict>
+</plist>`
+        },
+        '/games/VisualNovel.app/Contents/MacOS': { isDirectory: true },
+        '/games/VisualNovel.app/Contents/MacOS/VisualNovel': { isFile: true, content: 'mach-o-bin' }
+    });
+
+    const bundleEntry = { name: 'VisualNovel.app', isFile: () => false, isDirectory: () => true };
+    const res = await isRecognizedExecutable(bundleEntry, '/games', mockFs, 'darwin');
+    assert.equal(res.isExecutable, true);
+    assert.equal(res.platform, 'macos');
+    assert.equal(res.resolvedExePath.replace(/\\/g, '/'), '/games/VisualNovel.app/Contents/MacOS/VisualNovel');
+});
+
+test('pickPreferredExecutable passes through resolvedExePath and platform for macOS bundles', () => {
+    const candidates = [
+        {
+            name: 'Game.app',
+            platform: 'macos',
+            resolvedExePath: '/library/Game.app/Contents/MacOS/Game'
+        },
+        {
+            name: 'Game.exe',
+            platform: 'windows'
+        }
+    ];
+
+    const darwinChoice = pickPreferredExecutable('/library', candidates, 'darwin');
+    assert.equal(darwinChoice.platform, 'macos');
+    assert.equal(darwinChoice.exePath, '/library/Game.app/Contents/MacOS/Game');
+});
+
+test('collectGameCandidates intercepts .app bundles as atomic leaves and prunes recursive descent into Contents', async () => {
+    const mockFs = createMockFs({
+        '/library/Adventure.app': { isDirectory: true },
+        '/library/Adventure.app/Contents': { isDirectory: true },
+        '/library/Adventure.app/Contents/Info.plist': {
+            isFile: true,
+            content: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>AdventureBinary</string>
+</dict>
+</plist>`
+        },
+        '/library/Adventure.app/Contents/MacOS': { isDirectory: true },
+        '/library/Adventure.app/Contents/MacOS/AdventureBinary': { isFile: true, content: 'bin' },
+        '/library/Adventure.app/Contents/Resources': { isDirectory: true },
+        '/library/Adventure.app/Contents/Resources/Data': { isDirectory: true },
+        '/library/Adventure.app/Contents/Resources/Data/subgame.exe': { isFile: true, content: 'exe' }
+    });
+
+    const candidates = await collectGameCandidates(mockFs, '/library', '/library', 0, 5, 'darwin');
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].platform, 'macos');
+    assert.equal(path.basename(candidates[0].folderPath), 'Adventure.app');
+    assert.equal(candidates[0].exePath.replace(/\\/g, '/'), '/library/Adventure.app/Contents/MacOS/AdventureBinary');
+});
+
+test('collectGameCandidates preserves sibling .app bundles under Resolution Matrix Case A', async () => {
+    const mockFs = createMockFs({
+        '/library/RPGCollection': { isDirectory: true },
+        '/library/RPGCollection/GameOne.app': { isDirectory: true },
+        '/library/RPGCollection/GameOne.app/Contents': { isDirectory: true },
+        '/library/RPGCollection/GameOne.app/Contents/Info.plist': {
+            isFile: true,
+            content: `<plist><dict><key>CFBundleExecutable</key><string>GameOne</string></dict></plist>`
+        },
+        '/library/RPGCollection/GameOne.app/Contents/MacOS': { isDirectory: true },
+        '/library/RPGCollection/GameOne.app/Contents/MacOS/GameOne': { isFile: true, content: 'bin' },
+        '/library/RPGCollection/GameTwo.app': { isDirectory: true },
+        '/library/RPGCollection/GameTwo.app/Contents': { isDirectory: true },
+        '/library/RPGCollection/GameTwo.app/Contents/Info.plist': {
+            isFile: true,
+            content: `<plist><dict><key>CFBundleExecutable</key><string>GameTwo</string></dict></plist>`
+        },
+        '/library/RPGCollection/GameTwo.app/Contents/MacOS': { isDirectory: true },
+        '/library/RPGCollection/GameTwo.app/Contents/MacOS/GameTwo': { isFile: true, content: 'bin' }
+    });
+
+    const candidates = await collectGameCandidates(mockFs, '/library', '/library', 0, 5, 'darwin');
+    assert.equal(candidates.length, 2);
+    const names = candidates.map(c => path.basename(c.folderPath)).sort();
+    assert.deepEqual(names, ['GameOne.app', 'GameTwo.app']);
+    assert.equal(candidates[0].platform, 'macos');
+    assert.equal(candidates[1].platform, 'macos');
+});
+
+test('collectGameCandidates preserves native .app bundle over loose .exe under Case B on Darwin', async () => {
+    const mockFs = createMockFs({
+        '/library/MixedGame': { isDirectory: true },
+        '/library/MixedGame/Setup.exe': { isFile: true, content: 'loose installer' },
+        '/library/MixedGame/CoolGame.app': { isDirectory: true },
+        '/library/MixedGame/CoolGame.app/Contents': { isDirectory: true },
+        '/library/MixedGame/CoolGame.app/Contents/Info.plist': {
+            isFile: true,
+            content: `<plist><dict><key>CFBundleExecutable</key><string>CoolGame</string></dict></plist>`
+        },
+        '/library/MixedGame/CoolGame.app/Contents/MacOS': { isDirectory: true },
+        '/library/MixedGame/CoolGame.app/Contents/MacOS/CoolGame': { isFile: true, content: 'bin' }
+    });
+
+    const candidates = await collectGameCandidates(mockFs, '/library', '/library', 0, 5, 'darwin');
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].platform, 'macos');
+    assert.equal(path.basename(candidates[0].folderPath), 'CoolGame.app');
+});
+
+test('collectGameCandidates falls back to canonical binary path when Info.plist lacks executablePath', async () => {
+    const mockFs = createMockFs({
+        '/library/FallbackGame.app': { isDirectory: true },
+        '/library/FallbackGame.app/Contents': { isDirectory: true },
+        '/library/FallbackGame.app/Contents/MacOS': { isDirectory: true },
+        '/library/FallbackGame.app/Contents/MacOS/FallbackGame': { isFile: true, content: 'bin' }
+    });
+
+    const candidates = await collectGameCandidates(mockFs, '/library', '/library', 0, 5, 'darwin');
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].platform, 'macos');
+    assert.equal(candidates[0].exePath.replace(/\\/g, '/'), '/library/FallbackGame.app/Contents/MacOS/FallbackGame');
+});
+
+test('collectGameCandidates logs standardized diagnostic warning and skips unresolvable .app bundle', async () => {
+    const mockFs = createMockFs({
+        '/library/Broken.app': { isDirectory: true },
+        '/library/Broken.app/Contents': { isDirectory: true }
+    });
+
+    const warnings = [];
+    const origWarn = console.warn;
+    console.warn = (...args) => {
+        warnings.push(args.join(' '));
+    };
+
+    try {
+        const candidates = await collectGameCandidates(mockFs, '/library', '/library', 0, 5, 'darwin');
+        assert.equal(candidates.length, 0);
+        assert.equal(warnings.length, 1);
+        assert.match(warnings[0], /\[SCANNER\]\[WARN\] Unresolvable \.app bundle at ".*Broken\.app": executable missing or unreadable/);
+    } finally {
+        console.warn = origWarn;
+    }
+});
+

@@ -1,5 +1,12 @@
 import * as path from 'node:path';
 import { TitleCleaningPipeline } from './title-pipeline';
+import {
+    AppBundleInspector,
+    NodeFileSystemProvider,
+    type IFileSystem,
+    type IFileHandle,
+    type PlatformType
+} from '@yumeshelf/engine';
 
 export const DEFAULT_LIBRARY_MAX_DEPTH = 5;
 export const MIN_LIBRARY_MAX_DEPTH = 0;
@@ -117,17 +124,128 @@ export function getLeafFolderName(folderPath: string): string {
     return path.basename(normalized);
 }
 
+export function adaptFileSystem(fs: any): IFileSystem {
+    if (!fs) {
+        return new NodeFileSystemProvider();
+    }
+    return {
+        async stat(filePath: string) {
+            return fs.stat(filePath);
+        },
+        async readdir(dirPath: string) {
+            return fs.readdir(dirPath);
+        },
+        async exists(filePath: string): Promise<boolean> {
+            if (typeof fs.exists === 'function') {
+                return fs.exists(filePath);
+            }
+            if (typeof fs.access === 'function') {
+                try {
+                    await fs.access(filePath);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+            try {
+                await fs.stat(filePath);
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        async readFile(filePath: string, encoding?: BufferEncoding): Promise<string | Buffer> {
+            if (typeof fs.readFile === 'function') {
+                return fs.readFile(filePath, encoding);
+            }
+            if (typeof fs.open === 'function') {
+                const handle = await fs.open(filePath, 'r');
+                try {
+                    if (typeof handle.readFile === 'function') {
+                        return await handle.readFile({ encoding });
+                    }
+                    const stat = await fs.stat(filePath);
+                    const size = typeof stat.size === 'number' ? stat.size : 0;
+                    if (typeof handle.read === 'function') {
+                        const readResult = await handle.read(0, size);
+                        const buf = Buffer.isBuffer(readResult) ? readResult : Buffer.alloc(0);
+                        return encoding ? buf.toString(encoding) : buf;
+                    }
+                } finally {
+                    await handle.close?.();
+                }
+            }
+            throw new Error(`readFile is not supported by provided fs`);
+        },
+        async open(filePath: string): Promise<IFileHandle> {
+            if (typeof fs.open === 'function') {
+                const handle = await fs.open(filePath, 'r');
+                if (typeof handle.read === 'function') {
+                    return {
+                        read: async (offset: number, length: number): Promise<Buffer> => {
+                            if (handle.read.length === 2) {
+                                return handle.read(offset, length);
+                            }
+                            const buf = Buffer.alloc(length);
+                            const { bytesRead } = await handle.read(buf, 0, length, offset);
+                            return buf.subarray(0, bytesRead);
+                        },
+                        close: async (): Promise<void> => {
+                            await handle.close?.();
+                        }
+                    };
+                }
+            }
+            if (typeof fs.readFile === 'function') {
+                const content = await fs.readFile(filePath);
+                const buf = Buffer.isBuffer(content) ? content : Buffer.from(content);
+                return {
+                    read: async (offset: number, length: number): Promise<Buffer> => {
+                        return buf.subarray(offset, Math.min(offset + length, buf.length));
+                    },
+                    close: async (): Promise<void> => {}
+                };
+            }
+            throw new Error(`open is not supported by provided fs`);
+        }
+    };
+}
+
 export interface ExecutableCandidate {
     name: string;
-    platform: 'windows' | 'linux';
+    platform: PlatformType;
+    resolvedExePath?: string;
 }
 
 export async function isRecognizedExecutable(
-    entry: { name: string; isFile: () => boolean },
+    entry: { name: string; isFile: () => boolean; isDirectory?: () => boolean },
     folderPath: string,
     fs: any,
     targetPlatform: NodeJS.Platform = process.platform
-): Promise<{ isExecutable: boolean; platform: 'windows' | 'linux' }> {
+): Promise<{ isExecutable: boolean; platform: PlatformType; resolvedExePath?: string }> {
+    if (targetPlatform === 'darwin' && typeof entry.isDirectory === 'function' && entry.isDirectory() && entry.name.toLowerCase().endsWith('.app')) {
+        const bundlePath = path.join(folderPath, entry.name);
+        const adaptedFs = adaptFileSystem(fs);
+        let bundleInfo: any = null;
+        try {
+            bundleInfo = await AppBundleInspector.fromPath(bundlePath, adaptedFs);
+        } catch {
+            bundleInfo = null;
+        }
+        let resolvedExePath = bundleInfo?.executablePath || undefined;
+        if (!resolvedExePath) {
+            const fallbackPath = path.join(bundlePath, 'Contents', 'MacOS', path.basename(entry.name, '.app'));
+            try {
+                if (await adaptedFs.exists(fallbackPath)) {
+                    resolvedExePath = fallbackPath;
+                }
+            } catch {
+                // ignore
+            }
+        }
+        return { isExecutable: true, platform: 'macos', resolvedExePath };
+    }
+
     if (!entry.isFile()) return { isExecutable: false, platform: 'windows' };
 
     const name = entry.name.toLowerCase();
@@ -145,6 +263,9 @@ export async function isRecognizedExecutable(
 
     const ext = path.extname(name);
     if (!ext && targetPlatform !== 'win32') {
+        if (targetPlatform === 'darwin' && typeof fs?.open !== 'function' && typeof fs?.readFile !== 'function') {
+            return { isExecutable: false, platform: 'windows' };
+        }
         try {
             const fullPath = path.join(folderPath, entry.name);
             const stats = await fs.stat(fullPath);
@@ -161,7 +282,7 @@ export function pickPreferredExecutable(
     currentPath: string,
     executableEntries: ExecutableCandidate[],
     targetPlatform: NodeJS.Platform = process.platform
-): { exePath: string; platform: 'windows' | 'linux' } | null {
+): { exePath: string; platform: PlatformType } | null {
     if (executableEntries.length === 0) return null;
 
     const folderName = path.basename(currentPath).toLowerCase();
@@ -181,13 +302,18 @@ export function pickPreferredExecutable(
     const pool = nonConfig.length > 0 ? nonConfig : executableEntries;
 
     const isHostNative = (candidate: ExecutableCandidate) => {
-        return targetPlatform === 'win32' ? candidate.platform === 'windows' : candidate.platform === 'linux';
+        if (targetPlatform === 'win32') return candidate.platform === 'windows';
+        if (targetPlatform === 'darwin') return candidate.platform === 'macos';
+        return candidate.platform === 'linux';
     };
 
     const isNativeStandard = (name: string) => {
         const lower = name.toLowerCase();
         if (targetPlatform === 'win32') {
             return lower === 'game.exe';
+        }
+        if (targetPlatform === 'darwin') {
+            return lower.endsWith('.app') || lower === 'start.sh' || lower === 'launch.sh';
         }
         return (
             lower === 'game.x86_64' || lower === 'start.sh' || 
@@ -196,26 +322,31 @@ export function pickPreferredExecutable(
         );
     };
 
+    const formatResult = (preferred: ExecutableCandidate) => ({
+        exePath: preferred.resolvedExePath || path.join(currentPath, preferred.name),
+        platform: preferred.platform
+    });
+
     // Tier 1: Host-Native matching folder base name
     const tier1 = pool.find(e => isHostNative(e) && e.name.toLowerCase().includes(folderName));
-    if (tier1) return { exePath: path.join(currentPath, tier1.name), platform: tier1.platform };
+    if (tier1) return formatResult(tier1);
 
     // Tier 2: Host-Native standard or first native candidate
     const tier2Standard = pool.find(e => isHostNative(e) && isNativeStandard(e.name));
-    if (tier2Standard) return { exePath: path.join(currentPath, tier2Standard.name), platform: tier2Standard.platform };
+    if (tier2Standard) return formatResult(tier2Standard);
     const tier2First = pool.find(e => isHostNative(e));
-    if (tier2First) return { exePath: path.join(currentPath, tier2First.name), platform: tier2First.platform };
+    if (tier2First) return formatResult(tier2First);
 
     // Tier 3: Cross-platform matching folder base name
     const tier3 = pool.find(e => e.name.toLowerCase().includes(folderName));
-    if (tier3) return { exePath: path.join(currentPath, tier3.name), platform: tier3.platform };
+    if (tier3) return formatResult(tier3);
 
     // Tier 4: Cross-platform standard or first candidate
     const tier4Standard = pool.find(e => e.name.toLowerCase() === 'game.exe');
-    if (tier4Standard) return { exePath: path.join(currentPath, tier4Standard.name), platform: tier4Standard.platform };
+    if (tier4Standard) return formatResult(tier4Standard);
 
     const first = pool[0];
-    return { exePath: path.join(currentPath, first.name), platform: first.platform };
+    return formatResult(first);
 }
 
 export function getSmartName(exePath: string, topName: string): string {
@@ -236,7 +367,7 @@ export function shouldPromoteWrapperDirectory(currentPath: string, childFolderPa
 export interface CandidateGame {
     folderPath: string;
     exePath: string;
-    platform: 'windows' | 'linux';
+    platform: PlatformType;
 }
 
 export async function collectGameCandidates(
@@ -247,6 +378,10 @@ export async function collectGameCandidates(
     maxDepth: number,
     targetPlatform: NodeJS.Platform = process.platform
 ): Promise<CandidateGame[]> {
+    if (currentPath.length > 4 && currentPath.toLowerCase().endsWith('.app')) {
+        return [];
+    }
+
     let entries: any[];
     try {
         entries = await fs.readdir(currentPath, { withFileTypes: true });
@@ -259,20 +394,79 @@ export async function collectGameCandidates(
     // 1. Recurse into child directories first up to maxDepth
     let nestedCandidates: CandidateGame[] = [];
     if (depth < maxDepth) {
-        const childDirectories = entries.filter((entry) => entry.isDirectory());
+        const childDirectories = entries.filter((entry) => typeof entry.isDirectory === 'function' ? entry.isDirectory() : !!entry.isDirectory);
+        const appBundles: any[] = [];
+        const normalDirs: any[] = [];
+
+        for (const dir of childDirectories) {
+            if (typeof dir.name === 'string' && dir.name.length > 4 && dir.name.toLowerCase().endsWith('.app')) {
+                appBundles.push(dir);
+            } else {
+                normalDirs.push(dir);
+            }
+        }
+
+        const adaptedFs = adaptFileSystem(fs);
+        const bundleCandidates: CandidateGame[] = [];
+        for (const bundleEntry of appBundles) {
+            const bundlePath = path.join(currentPath, bundleEntry.name);
+            let resolvedExePath: string | null = null;
+            try {
+                const bundleInfo = await AppBundleInspector.fromPath(bundlePath, adaptedFs);
+                resolvedExePath = bundleInfo?.executablePath || null;
+            } catch {
+                resolvedExePath = null;
+            }
+
+            if (!resolvedExePath) {
+                const fallbackExe = path.join(bundlePath, 'Contents', 'MacOS', path.basename(bundlePath, '.app'));
+                try {
+                    if (await adaptedFs.exists(fallbackExe)) {
+                        resolvedExePath = fallbackExe;
+                    }
+                } catch {
+                    // ignore
+                }
+            }
+
+            if (resolvedExePath) {
+                bundleCandidates.push({
+                    folderPath: bundlePath,
+                    exePath: resolvedExePath,
+                    platform: 'macos'
+                });
+            } else {
+                console.warn(`[SCANNER][WARN] Unresolvable .app bundle at "${bundlePath}": executable missing or unreadable`);
+            }
+        }
+
         const nestedGroups = await Promise.all(
-            childDirectories.map((entry) => collectGameCandidates(fs, libraryPath, path.join(currentPath, entry.name), depth + 1, maxDepth, targetPlatform))
+            normalDirs.map((entry) => collectGameCandidates(fs, libraryPath, path.join(currentPath, entry.name), depth + 1, maxDepth, targetPlatform))
         );
-        nestedCandidates = nestedGroups.flat();
+        nestedCandidates = [...nestedGroups.flat(), ...bundleCandidates];
     }
 
-    // 2. Check direct executables in the current directory
+    // 2. Check direct executables in the current directory (filtering out .app bundles to avoid duplicate I/O)
     let directCandidate: CandidateGame | null = null;
     if (!isRoot) {
+        const candidateEntries = entries.filter((entry) => {
+            const isDir = typeof entry.isDirectory === 'function' ? entry.isDirectory() : (entry.isDirectory ?? !entry.isFile?.());
+            const isBundle = isDir && typeof entry.name === 'string' && entry.name.length > 4 && entry.name.toLowerCase().endsWith('.app');
+            return !isBundle;
+        });
+
         const recognizedList = await Promise.all(
-            entries.map(async (entry) => {
+            candidateEntries.map(async (entry): Promise<ExecutableCandidate | null> => {
                 const rec = await isRecognizedExecutable(entry, currentPath, fs, targetPlatform);
-                return rec.isExecutable ? { name: entry.name, platform: rec.platform } : null;
+                if (!rec.isExecutable) return null;
+                const candidate: ExecutableCandidate = {
+                    name: entry.name,
+                    platform: rec.platform
+                };
+                if (rec.resolvedExePath) {
+                    candidate.resolvedExePath = rec.resolvedExePath;
+                }
+                return candidate;
             })
         );
         const executableEntries = recognizedList.filter((e): e is ExecutableCandidate => e !== null);
@@ -300,8 +494,13 @@ export async function collectGameCandidates(
     if (nestedCandidates.length === 1) {
         // If current directory HAS its own top-level executable (e.g. Acmesia/akumesia.exe),
         // the top-level launcher in the game root ALWAYS takes precedence over sub-engine binaries in data/!
+        // Exception: On Darwin, native .app bundles take precedence over non-native executables (e.g. loose .exe)
         if (directCandidate) {
-            return [directCandidate];
+            const isNativeMacPreserved = targetPlatform === 'darwin' && nestedCandidates[0].platform === 'macos' && directCandidate.platform !== 'macos';
+            if (!isNativeMacPreserved) {
+                return [directCandidate];
+            }
+            return nestedCandidates;
         }
         // If current directory has NO executable, promote wrapper (e.g. Game/bin -> Game)
         if (!isRoot && shouldPromoteWrapperDirectory(currentPath, nestedCandidates[0].folderPath, libraryPath, targetPlatform)) {

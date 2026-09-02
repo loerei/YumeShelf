@@ -44,6 +44,16 @@ export interface DirectorySizeResult {
 }
 
 export interface IEnvironmentPaths {
+  getHomeDir(): string;
+  getAppData(): string;
+  getLocalAppData(): string;
+  getDocuments(): string;
+  getSavedGames(): string;
+  getWinePrefixes?(exeDir?: string): Promise<string[]> | string[];
+  getAppSupportDir(): string;
+  getCachesDir(): string;
+  getPreferencesDir(): string;
+
   getAppDataPath(): string;
   getLocalAppDataPath(): string;
   getUserProfilePath(): string;
@@ -53,6 +63,8 @@ export interface IEnvironmentPaths {
   getWineAppDataPaths?(prefix: string, type?: 'Roaming' | 'Local' | 'LocalLow'): Promise<string[]> | string[];
   getXdgDataHome?(): string;
   getXdgConfigHome?(): string;
+  getMacApplicationSupportHome?(): string;
+  getMacPreferencesHome?(): string;
 }
 
 export interface FileSystemProvider extends IFileSystem, IEnvironmentPaths {}

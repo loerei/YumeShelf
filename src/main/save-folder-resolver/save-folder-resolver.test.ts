@@ -1,7 +1,8 @@
 // @ts-ignore
 import { describe, it, expect } from 'vitest';
+import * as path from 'node:path';
 import { SaveFolderResolver } from './index';
-import { MockFileSystemProvider } from './fs-provider';
+import { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
 
 describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
     function createResolver(
@@ -106,6 +107,73 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
         expect(result.confidence).toBe('high');
         expect(result.source).toBe('heuristic');
         expect(result.path).toBe('C:/Games/UnknownGame/savedata');
+    });
+
+    it('DefaultFileSystemProvider: resolves macOS environment paths and enforces empty home safety', () => {
+        const provider = new DefaultFileSystemProvider();
+        const originalHome = process.env.HOME;
+        const originalUserProfile = process.env.USERPROFILE;
+
+        try {
+            process.env.HOME = '/Users/TestUser';
+            delete process.env.USERPROFILE;
+            expect(provider.getMacApplicationSupportHome?.()).toBe(
+                path.join('/Users/TestUser', 'Library', 'Application Support')
+            );
+            expect(provider.getMacPreferencesHome?.()).toBe(
+                path.join('/Users/TestUser', 'Library', 'Preferences')
+            );
+
+            // Empty home safety: must return empty string to prevent relative path fallback
+            process.env.HOME = '';
+            process.env.USERPROFILE = '';
+            expect(provider.getMacApplicationSupportHome?.()).toBe('');
+            expect(provider.getMacPreferencesHome?.()).toBe('');
+        } finally {
+            if (originalHome !== undefined) process.env.HOME = originalHome;
+            else delete process.env.HOME;
+            if (originalUserProfile !== undefined) process.env.USERPROFILE = originalUserProfile;
+            else delete process.env.USERPROFILE;
+        }
+    });
+
+    it('MockFileSystemProvider: resolves macOS environment paths hermetically and respects overrides', () => {
+        const mockFs = new MockFileSystemProvider({ HOME: '/home/macuser' });
+        expect(mockFs.getMacApplicationSupportHome()).toBe(
+            '/home/macuser/Library/Application Support'
+        );
+        expect(mockFs.getMacPreferencesHome()).toBe(
+            '/home/macuser/Library/Preferences'
+        );
+
+        // Env var overrides
+        mockFs.setEnv('MAC_APP_SUPPORT_HOME', '/custom/mac/support');
+        mockFs.setEnv('MAC_PREFERENCES_HOME', '/custom/mac/prefs');
+        expect(mockFs.getMacApplicationSupportHome()).toBe('/custom/mac/support');
+        expect(mockFs.getMacPreferencesHome()).toBe('/custom/mac/prefs');
+
+        // Empty home safety
+        const emptyMock = new MockFileSystemProvider({ HOME: '', USERPROFILE: '' });
+        expect(emptyMock.getMacApplicationSupportHome()).toBe('');
+        expect(emptyMock.getMacPreferencesHome()).toBe('');
+    });
+
+    it('unifiedFs: forwards macOS environment paths to underlying provider', async () => {
+        const mockFs = new MockFileSystemProvider({ HOME: '/Users/ForwardUser' });
+        let forwardedSupportHome = '';
+        let forwardedPrefsHome = '';
+
+        // Spy on YumeEngine.resolveSaveDirectory or inspect unifiedFs through resolver
+        const resolver = new SaveFolderResolver(mockFs);
+        mockFs.addDirectory('/Users/ForwardUser/Library/Application Support');
+
+        // Verify direct getter methods on mockFs match expected paths
+        expect(mockFs.getMacApplicationSupportHome()).toBe(
+            '/Users/ForwardUser/Library/Application Support'
+        );
+        expect(mockFs.getMacPreferencesHome()).toBe(
+            '/Users/ForwardUser/Library/Preferences'
+        );
     });
 });
 

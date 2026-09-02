@@ -35,4 +35,6 @@ export interface FileSystemProvider {
     getXdgDataHome(): string;
     getWinePrefixRoots(exeDir?: string): Promise<string[]>;
     getWineAppDataPaths(prefix: string, type: 'Roaming' | 'Local' | 'LocalLow'): Promise<string[]>;
+    getMacApplicationSupportHome?(): string;
+    getMacPreferencesHome?(): string;
 }

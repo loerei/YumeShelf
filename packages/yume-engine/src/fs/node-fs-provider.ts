@@ -50,6 +50,53 @@ export class NodeFileSystemProvider implements FileSystemProvider {
     }
   }
 
+  getHomeDir(): string {
+    return process.env.HOME || process.env.USERPROFILE || (os.homedir ? os.homedir() : '') || '';
+  }
+
+  getAppData(): string {
+    return this.getAppDataPath();
+  }
+
+  getLocalAppData(): string {
+    return this.getLocalAppDataPath();
+  }
+
+  getDocuments(): string {
+    return this.getDocumentsPath();
+  }
+
+  getSavedGames(): string {
+    return this.getSavedGamesPath();
+  }
+
+  async getWinePrefixes(exeDir?: string): Promise<string[]> {
+    return this.getWinePrefixRoots(exeDir);
+  }
+
+  getAppSupportDir(): string {
+    return this.getMacApplicationSupportHome();
+  }
+
+  getCachesDir(): string {
+    const home = os.homedir();
+    return home ? path.join(home, 'Library', 'Caches') : '';
+  }
+
+  getPreferencesDir(): string {
+    return this.getMacPreferencesHome();
+  }
+
+  getMacApplicationSupportHome(): string {
+    const home = os.homedir();
+    return home ? path.join(home, 'Library', 'Application Support') : '';
+  }
+
+  getMacPreferencesHome(): string {
+    const home = os.homedir();
+    return home ? path.join(home, 'Library', 'Preferences') : '';
+  }
+
   getAppDataPath(): string {
     return process.env.APPDATA || (os.homedir() ? path.join(os.homedir(), '.config') : '');
   }

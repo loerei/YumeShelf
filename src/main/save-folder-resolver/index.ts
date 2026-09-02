@@ -146,6 +146,8 @@ export class SaveFolderResolver {
                 const paths = this.fs.getWineAppDataPaths ? await this.fs.getWineAppDataPaths(prefix, type) : [];
                 return paths || [];
             },
+            getMacApplicationSupportHome: () => (this.fs.getMacApplicationSupportHome ? this.fs.getMacApplicationSupportHome() : ''),
+            getMacPreferencesHome: () => (this.fs.getMacPreferencesHome ? this.fs.getMacPreferencesHome() : ''),
         };
 
         let profile: GameEngineProfile | null = null;

@@ -23,6 +23,9 @@ export interface MockFileSystemOptions {
   wineAppDataPaths?: string[];
   xdgDataHome?: string;
   xdgConfigHome?: string;
+  macApplicationSupportHome?: string;
+  macPreferencesHome?: string;
+  [key: string]: any;
 }
 
 export class MockFileSystemProvider implements FileSystemProvider {
@@ -38,6 +41,8 @@ export class MockFileSystemProvider implements FileSystemProvider {
   private wineAppDataPaths: string[];
   private xdgDataHome: string;
   private xdgConfigHome: string;
+  private macApplicationSupportHome: string;
+  private macPreferencesHome: string;
 
   constructor(options: MockFileSystemOptions = {}) {
     this.appDataPath = options.appDataPath ?? 'C:/Users/MockUser/AppData/Roaming';
@@ -49,12 +54,20 @@ export class MockFileSystemProvider implements FileSystemProvider {
     this.wineAppDataPaths = options.wineAppDataPaths ?? ['/home/mockuser/.wine/drive_c/users/mockuser/AppData/Roaming'];
     this.xdgDataHome = options.xdgDataHome ?? '/home/mockuser/.local/share';
     this.xdgConfigHome = options.xdgConfigHome ?? '/home/mockuser/.config';
+    this.macApplicationSupportHome = options.macApplicationSupportHome ?? '/Users/MockUser/Library/Application Support';
+    this.macPreferencesHome = options.macPreferencesHome ?? '/Users/MockUser/Library/Preferences';
 
     this.ensureDirectory(this.appDataPath);
     this.ensureDirectory(this.localAppDataPath);
     this.ensureDirectory(this.userProfilePath);
     this.ensureDirectory(this.documentsPath);
     this.ensureDirectory(this.savedGamesPath);
+    if (this.macApplicationSupportHome) {
+      this.ensureDirectory(this.macApplicationSupportHome);
+    }
+    if (this.macPreferencesHome) {
+      this.ensureDirectory(this.macPreferencesHome);
+    }
   }
 
   // --- Test Setup Helpers ---
@@ -277,5 +290,59 @@ export class MockFileSystemProvider implements FileSystemProvider {
 
   setXdgConfigHome(p: string): void {
     this.xdgConfigHome = p;
+  }
+
+  getMacApplicationSupportHome(): string {
+    return this.macApplicationSupportHome;
+  }
+
+  setMacApplicationSupportHome(p: string): void {
+    this.macApplicationSupportHome = p;
+    if (p) this.ensureDirectory(p);
+  }
+
+  getMacPreferencesHome(): string {
+    return this.macPreferencesHome;
+  }
+
+  setMacPreferencesHome(p: string): void {
+    this.macPreferencesHome = p;
+    if (p) this.ensureDirectory(p);
+  }
+
+  getAppSupportDir(): string {
+    return this.macApplicationSupportHome;
+  }
+
+  getCachesDir(): string {
+    return this.userProfilePath ? `${this.userProfilePath}/Library/Caches` : '';
+  }
+
+  getPreferencesDir(): string {
+    return this.macPreferencesHome;
+  }
+
+  getHomeDir(): string {
+    return this.userProfilePath;
+  }
+
+  getAppData(): string {
+    return this.appDataPath;
+  }
+
+  getLocalAppData(): string {
+    return this.localAppDataPath;
+  }
+
+  getDocuments(): string {
+    return this.documentsPath;
+  }
+
+  getSavedGames(): string {
+    return this.savedGamesPath;
+  }
+
+  getWinePrefixes(): string[] {
+    return this.winePrefixRoots;
   }
 }

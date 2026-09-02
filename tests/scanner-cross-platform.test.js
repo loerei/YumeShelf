@@ -105,7 +105,18 @@ function createMockFs(fileTree) {
             const raw = meta.content !== undefined ? meta.content : Buffer.alloc(0);
             const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
             return {
-                async read(offset, length) {
+                async read(arg1, arg2, arg3, arg4) {
+                    if (Buffer.isBuffer(arg1)) {
+                        const buffer = arg1;
+                        const offset = arg2 || 0;
+                        const length = arg3 !== undefined ? arg3 : buffer.length;
+                        const position = arg4 !== undefined ? arg4 : 0;
+                        const slice = buf.subarray(position, Math.min(position + length, buf.length));
+                        slice.copy(buffer, offset);
+                        return { bytesRead: slice.length, buffer };
+                    }
+                    const offset = arg1;
+                    const length = arg2;
                     return buf.subarray(offset, Math.min(offset + length, buf.length));
                 },
                 async close() {}
@@ -423,5 +434,186 @@ test('collectGameCandidates logs standardized diagnostic warning and skips unres
     } finally {
         console.warn = origWarn;
     }
+});
+
+function makeMachOBinary(arch = 'x64') {
+    const buf = Buffer.alloc(64);
+    buf.writeUInt32BE(0xfeedfacf, 0); // 64-bit Mach-O BE magic
+    if (arch === 'arm64') {
+        buf.writeInt32BE(0x0100000c, 4); // CPU_TYPE_ARM64
+    } else {
+        buf.writeInt32BE(0x01000007, 4); // CPU_TYPE_X86_64
+    }
+    return buf;
+}
+
+test('pickPreferredExecutable implements 6-tier Darwin candidate ranking', () => {
+    // Tier 1: Host-native .app bundle matching folder base name vs Tier 2: other .app bundle
+    const tier1VsTier2 = [
+        { name: 'Other.app', platform: 'macos', resolvedExePath: '/library/MyGame/Other.app/Contents/MacOS/Other' },
+        { name: 'MyGame.app', platform: 'macos', resolvedExePath: '/library/MyGame/MyGame.app/Contents/MacOS/MyGame' }
+    ];
+    const pick1 = pickPreferredExecutable('/library/MyGame', tier1VsTier2, 'darwin');
+    assert.equal(pick1.platform, 'macos');
+    assert.equal(pick1.exePath, '/library/MyGame/MyGame.app/Contents/MacOS/MyGame');
+
+    // Tier 2: Any host-native .app bundle vs Tier 3: Standalone Mach-O matching folder base name
+    const tier2VsTier3 = [
+        { name: 'MyGame', platform: 'macos' },
+        { name: 'Unrelated.app', platform: 'macos', resolvedExePath: '/library/MyGame/Unrelated.app/Contents/MacOS/Unrelated' }
+    ];
+    const pick2 = pickPreferredExecutable('/library/MyGame', tier2VsTier3, 'darwin');
+    assert.equal(pick2.platform, 'macos');
+    assert.equal(pick2.exePath, '/library/MyGame/Unrelated.app/Contents/MacOS/Unrelated');
+
+    // Tier 3: Standalone Mach-O matching folder base name vs Tier 4: Any standalone Mach-O binary
+    const tier3VsTier4 = [
+        { name: 'engine_bin', platform: 'macos' },
+        { name: 'MyGame', platform: 'macos' }
+    ];
+    const pick3 = pickPreferredExecutable('/library/MyGame', tier3VsTier4, 'darwin');
+    assert.equal(pick3.platform, 'macos');
+    assert.equal(path.basename(pick3.exePath), 'MyGame');
+
+    // Tier 4: Any standalone Mach-O binary vs Tier 5: Host-native launcher scripts
+    const tier4VsTier5 = [
+        { name: 'start.sh', platform: 'linux' },
+        { name: 'launch.sh', platform: 'linux' },
+        { name: 'standalone_bin', platform: 'macos' }
+    ];
+    const pick4 = pickPreferredExecutable('/library/CoolGame', tier4VsTier5, 'darwin');
+    assert.equal(pick4.platform, 'macos');
+    assert.equal(path.basename(pick4.exePath), 'standalone_bin');
+
+    // Tier 5: Host-native launcher scripts (start.sh, launch.sh) vs Tier 6: Cross-platform fallback (.exe, Linux binaries)
+    const tier5VsTier6 = [
+        { name: 'CoolGame.exe', platform: 'windows' },
+        { name: 'CoolGame.x86_64', platform: 'linux' },
+        { name: 'start.sh', platform: 'linux' }
+    ];
+    const pick5 = pickPreferredExecutable('/library/CoolGame', tier5VsTier6, 'darwin');
+    assert.equal(path.basename(pick5.exePath), 'start.sh');
+
+    // Tier 5 with launch.sh
+    const tier5Launch = [
+        { name: 'CoolGame.exe', platform: 'windows' },
+        { name: 'launch.sh', platform: 'linux' }
+    ];
+    const pick5Launch = pickPreferredExecutable('/library/CoolGame', tier5Launch, 'darwin');
+    assert.equal(path.basename(pick5Launch.exePath), 'launch.sh');
+
+    // Tier 6: Cross-platform fallback matching folder base name
+    const tier6Match = [
+        { name: 'unrelated.x86_64', platform: 'linux' },
+        { name: 'CoolGame.exe', platform: 'windows' }
+    ];
+    const pick6Match = pickPreferredExecutable('/library/CoolGame', tier6Match, 'darwin');
+    assert.equal(path.basename(pick6Match.exePath), 'CoolGame.exe');
+    assert.equal(pick6Match.platform, 'windows');
+
+    // Tier 6: Cross-platform fallback standard game.exe
+    const tier6Standard = [
+        { name: 'unrelated.x86_64', platform: 'linux' },
+        { name: 'game.exe', platform: 'windows' }
+    ];
+    const pick6Standard = pickPreferredExecutable('/library/RandomFolder', tier6Standard, 'darwin');
+    assert.equal(path.basename(pick6Standard.exePath), 'game.exe');
+    assert.equal(pick6Standard.platform, 'windows');
+});
+
+test('pickPreferredExecutable handles composite ranking across multi-platform libraries with both .exe and .app', () => {
+    const candidates = [
+        { name: 'FantasyGame.exe', platform: 'windows' },
+        { name: 'FantasyGame.app', platform: 'macos', resolvedExePath: '/games/Fantasy/FantasyGame.app/Contents/MacOS/FantasyGame' }
+    ];
+
+    // On Darwin: prefers native macOS .app bundle
+    const macChoice = pickPreferredExecutable('/games/Fantasy', candidates, 'darwin');
+    assert.equal(macChoice.platform, 'macos');
+    assert.equal(macChoice.exePath, '/games/Fantasy/FantasyGame.app/Contents/MacOS/FantasyGame');
+
+    // On Windows: prefers Windows .exe
+    const winChoice = pickPreferredExecutable('C:\\games\\Fantasy', candidates, 'win32');
+    assert.equal(winChoice.platform, 'windows');
+    assert.equal(path.basename(winChoice.exePath), 'FantasyGame.exe');
+});
+
+test('isRecognizedExecutable validates Darwin POSIX mode checks and extensionless Mach-O detection', async () => {
+    const machOBuf = makeMachOBinary('x64');
+    const mockFs = createMockFs({
+        '/games/MachOGame': { isDirectory: true },
+        '/games/MachOGame/MachOBinary': {
+            isFile: true,
+            mode: 0o100755,
+            content: machOBuf
+        },
+        '/games/MachOGame/NonExecutableMachO': {
+            isFile: true,
+            mode: 0o100644,
+            content: machOBuf
+        },
+        '/games/MachOGame/ScriptWithExecMode': {
+            isFile: true,
+            mode: 0o100755,
+            content: '#!/bin/sh\necho "not a macho"'
+        }
+    });
+
+    const execEntry = { name: 'MachOBinary', isFile: () => true };
+    const nonExecEntry = { name: 'NonExecutableMachO', isFile: () => true };
+    const scriptEntry = { name: 'ScriptWithExecMode', isFile: () => true };
+
+    // Valid Mach-O with 0o111 execute bit -> recognized as macos
+    const res1 = await isRecognizedExecutable(execEntry, '/games/MachOGame', mockFs, 'darwin');
+    assert.deepEqual(res1, { isExecutable: true, platform: 'macos' });
+
+    // Valid Mach-O content but lacking 0o111 execute mode bit -> rejected
+    const res2 = await isRecognizedExecutable(nonExecEntry, '/games/MachOGame', mockFs, 'darwin');
+    assert.deepEqual(res2, { isExecutable: false, platform: 'windows' });
+
+    // Has 0o111 execute mode bit but header is NOT Mach-O -> rejected
+    const res3 = await isRecognizedExecutable(scriptEntry, '/games/MachOGame', mockFs, 'darwin');
+    assert.deepEqual(res3, { isExecutable: false, platform: 'windows' });
+});
+
+test('isRecognizedExecutable safely handles deficient fs lacking open and readFile without host I/O leakage on Darwin', async () => {
+    const statOnlyFs = {
+        async stat(p) {
+            return {
+                mode: 0o100755,
+                isFile: () => true
+            };
+        }
+    };
+
+    const entry = { name: 'SomeBinary', isFile: () => true };
+
+    // When fs lacks both open and readFile, returns { isExecutable: false, platform: 'windows' }
+    const res = await isRecognizedExecutable(entry, '/games/Test', statOnlyFs, 'darwin');
+    assert.deepEqual(res, { isExecutable: false, platform: 'windows' });
+
+    // When fs is null / empty
+    const resEmpty = await isRecognizedExecutable(entry, '/games/Test', {}, 'darwin');
+    assert.deepEqual(resEmpty, { isExecutable: false, platform: 'windows' });
+});
+
+test('collectGameCandidates excludes .app bundle directories from Step 2 direct candidate ranking', async () => {
+    const mockFs = createMockFs({
+        '/library/GameFolder': { isDirectory: true },
+        '/library/GameFolder/Game.app': { isDirectory: true },
+        '/library/GameFolder/Game.app/Contents': { isDirectory: true },
+        '/library/GameFolder/Game.app/Contents/Info.plist': {
+            isFile: true,
+            content: `<plist><dict><key>CFBundleExecutable</key><string>Game</string></dict></plist>`
+        },
+        '/library/GameFolder/Game.app/Contents/MacOS': { isDirectory: true },
+        '/library/GameFolder/Game.app/Contents/MacOS/Game': { isFile: true, content: 'bin' }
+    });
+
+    const candidates = await collectGameCandidates(mockFs, '/library', '/library', 0, 5, 'darwin');
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].folderPath.replace(/\\/g, '/'), '/library/GameFolder/Game.app');
+    assert.equal(candidates[0].exePath.replace(/\\/g, '/'), '/library/GameFolder/Game.app/Contents/MacOS/Game');
+    assert.equal(candidates[0].platform, 'macos');
 });
 

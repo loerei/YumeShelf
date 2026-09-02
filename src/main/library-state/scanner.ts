@@ -3,6 +3,7 @@ import { TitleCleaningPipeline } from './title-pipeline';
 import {
     AppBundleInspector,
     NodeFileSystemProvider,
+    YumeEngine,
     type IFileSystem,
     type IFileHandle,
     type PlatformType
@@ -223,7 +224,7 @@ export async function isRecognizedExecutable(
     fs: any,
     targetPlatform: NodeJS.Platform = process.platform
 ): Promise<{ isExecutable: boolean; platform: PlatformType; resolvedExePath?: string }> {
-    if (targetPlatform === 'darwin' && typeof entry.isDirectory === 'function' && entry.isDirectory() && entry.name.toLowerCase().endsWith('.app')) {
+    if (targetPlatform === 'darwin' && typeof entry.isDirectory === 'function' && entry.isDirectory() && (entry.name.endsWith('.app') || entry.name.toLowerCase().endsWith('.app'))) {
         const bundlePath = path.join(folderPath, entry.name);
         const adaptedFs = adaptFileSystem(fs);
         let bundleInfo: any = null;
@@ -263,9 +264,24 @@ export async function isRecognizedExecutable(
 
     const ext = path.extname(name);
     if (!ext && targetPlatform !== 'win32') {
-        if (targetPlatform === 'darwin' && typeof fs?.open !== 'function' && typeof fs?.readFile !== 'function') {
+        if (targetPlatform === 'darwin') {
+            if (typeof fs?.open !== 'function' && typeof fs?.readFile !== 'function') {
+                return { isExecutable: false, platform: 'windows' };
+            }
+            try {
+                const fullPath = path.join(folderPath, entry.name);
+                const stats = await fs.stat(fullPath);
+                if (stats && typeof stats.mode === 'number' && (stats.mode & 0o111) !== 0) {
+                    const adaptedFs = adaptFileSystem(fs);
+                    const macho = await YumeEngine.inspectMachOFile(fullPath, adaptedFs);
+                    if (macho) {
+                        return { isExecutable: true, platform: 'macos' };
+                    }
+                }
+            } catch {}
             return { isExecutable: false, platform: 'windows' };
         }
+
         try {
             const fullPath = path.join(folderPath, entry.name);
             const stats = await fs.stat(fullPath);
@@ -301,9 +317,62 @@ export function pickPreferredExecutable(
     const nonConfig = executableEntries.filter(e => !isConfigOrSetup(e.name));
     const pool = nonConfig.length > 0 ? nonConfig : executableEntries;
 
+    const formatResult = (preferred: ExecutableCandidate) => ({
+        exePath: preferred.resolvedExePath || path.join(currentPath, preferred.name),
+        platform: preferred.platform
+    });
+
+    if (targetPlatform === 'darwin') {
+        const isAppBundle = (e: ExecutableCandidate) =>
+            e.platform === 'macos' && (e.name.endsWith('.app') || e.name.toLowerCase().endsWith('.app'));
+
+        const isStandaloneMachO = (e: ExecutableCandidate) =>
+            e.platform === 'macos' && !(e.name.endsWith('.app') || e.name.toLowerCase().endsWith('.app'));
+
+        const isLauncherScript = (e: ExecutableCandidate) => {
+            const lower = e.name.toLowerCase();
+            return lower === 'start.sh' || lower === 'launch.sh';
+        };
+
+        const matchesFolder = (e: ExecutableCandidate) => {
+            if (!folderName) return false;
+            const lowerName = e.name.toLowerCase();
+            const stem = lowerName.endsWith('.app')
+                ? lowerName.slice(0, -4)
+                : (path.extname(lowerName) ? lowerName.slice(0, -path.extname(lowerName).length) : lowerName);
+            return stem === folderName || lowerName.includes(folderName) || folderName.includes(stem);
+        };
+
+        // Tier 1: Host-native .app bundle matching folder base name
+        const tier1 = pool.find(e => isAppBundle(e) && matchesFolder(e));
+        if (tier1) return formatResult(tier1);
+
+        // Tier 2: Any host-native .app bundle
+        const tier2 = pool.find(e => isAppBundle(e));
+        if (tier2) return formatResult(tier2);
+
+        // Tier 3: Standalone Mach-O binary matching folder base name
+        const tier3 = pool.find(e => isStandaloneMachO(e) && matchesFolder(e));
+        if (tier3) return formatResult(tier3);
+
+        // Tier 4: Any standalone Mach-O binary
+        const tier4 = pool.find(e => isStandaloneMachO(e));
+        if (tier4) return formatResult(tier4);
+
+        // Tier 5: Host-native launcher scripts (start.sh, launch.sh)
+        const tier5 = pool.find(e => isLauncherScript(e));
+        if (tier5) return formatResult(tier5);
+
+        // Tier 6: Cross-platform fallback (.exe, Linux binaries)
+        const tier6Matching = pool.find(e => matchesFolder(e));
+        if (tier6Matching) return formatResult(tier6Matching);
+        const tier6Standard = pool.find(e => e.name.toLowerCase() === 'game.exe');
+        if (tier6Standard) return formatResult(tier6Standard);
+        return formatResult(pool[0]);
+    }
+
     const isHostNative = (candidate: ExecutableCandidate) => {
         if (targetPlatform === 'win32') return candidate.platform === 'windows';
-        if (targetPlatform === 'darwin') return candidate.platform === 'macos';
         return candidate.platform === 'linux';
     };
 
@@ -312,20 +381,12 @@ export function pickPreferredExecutable(
         if (targetPlatform === 'win32') {
             return lower === 'game.exe';
         }
-        if (targetPlatform === 'darwin') {
-            return lower.endsWith('.app') || lower === 'start.sh' || lower === 'launch.sh';
-        }
         return (
             lower === 'game.x86_64' || lower === 'start.sh' || 
             lower === 'run.sh' || lower === 'launch.sh' || 
             lower === 'apprun' || lower === 'game.appimage' || lower === 'game.sh'
         );
     };
-
-    const formatResult = (preferred: ExecutableCandidate) => ({
-        exePath: preferred.resolvedExePath || path.join(currentPath, preferred.name),
-        platform: preferred.platform
-    });
 
     // Tier 1: Host-Native matching folder base name
     const tier1 = pool.find(e => isHostNative(e) && e.name.toLowerCase().includes(folderName));

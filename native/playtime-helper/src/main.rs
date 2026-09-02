@@ -7,6 +7,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -111,6 +112,136 @@ fn parse_args() -> Result<HelperConfig> {
     })
 }
 
+static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn default_temp_path_generator(dest_path: &Path, _attempt: u32) -> PathBuf {
+    let pid = std::process::id();
+    let ts = now_ms();
+    let cnt = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let mut temp_name = dest_path.as_os_str().to_os_string();
+    temp_name.push(format!(".tmp.{}.{}_{}", pid, ts, cnt));
+    PathBuf::from(temp_name)
+}
+
+pub fn write_atomic(dest_path: &Path, content: &str) -> Result<()> {
+    write_atomic_impl(
+        dest_path,
+        content,
+        default_temp_path_generator,
+        |attempt| {
+            let delay_ms = ((now_ms() ^ (attempt as u64)) % 5 + 1) * (attempt as u64 + 1);
+            Duration::from_millis(delay_ms)
+        },
+    )
+}
+
+#[cfg(test)]
+pub fn write_atomic_with_retry_config<G, D>(
+    dest_path: &Path,
+    content: &str,
+    temp_path_gen: G,
+    backoff: D,
+) -> Result<()>
+where
+    G: FnMut(&Path, u32) -> PathBuf,
+    D: FnMut(u32) -> Duration,
+{
+    write_atomic_impl(dest_path, content, temp_path_gen, backoff)
+}
+
+fn write_atomic_impl<G, D>(
+    dest_path: &Path,
+    content: &str,
+    mut temp_path_gen: G,
+    mut backoff: D,
+) -> Result<()>
+where
+    G: FnMut(&Path, u32) -> PathBuf,
+    D: FnMut(u32) -> Duration,
+{
+    if let Some(parent) = dest_path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create parent directories for {}", dest_path.display()))?;
+        }
+    }
+
+    let mut opened: Option<(PathBuf, std::fs::File)> = None;
+
+    for attempt in 0..10 {
+        let candidate = temp_path_gen(dest_path, attempt);
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+
+        match options.open(&candidate) {
+            Ok(file) => {
+                opened = Some((candidate, file));
+                break;
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                let delay = backoff(attempt);
+                if !delay.is_zero() {
+                    thread::sleep(delay);
+                }
+                continue;
+            }
+            Err(err) => {
+                return Err(anyhow::Error::from(err).context(format!(
+                    "failed to create temporary file {} for {}",
+                    candidate.display(),
+                    dest_path.display()
+                )));
+            }
+        }
+    }
+
+    let (temp_path, file) = match opened {
+        Some(pair) => pair,
+        None => {
+            return Err(anyhow::Error::from(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "failed to create unique temporary file after 10 attempts",
+            ))
+            .context(format!(
+                "failed to create temporary file for {}",
+                dest_path.display()
+            )));
+        }
+    };
+
+    let write_and_sync = || -> Result<()> {
+        let mut f = file;
+        f.write_all(content.as_bytes())
+            .with_context(|| format!("failed to write content to temp file {}", temp_path.display()))?;
+        f.flush()
+            .with_context(|| format!("failed to flush temp file {}", temp_path.display()))?;
+        f.sync_all()
+            .with_context(|| format!("failed to sync temp file {}", temp_path.display()))?;
+        Ok(())
+    };
+
+    if let Err(err) = write_and_sync() {
+        let _ = fs::remove_file(&temp_path);
+        return Err(err);
+    }
+
+    if let Err(err) = fs::rename(&temp_path, dest_path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(anyhow::Error::from(err).context(format!(
+            "failed to rename temp file {} to {}",
+            temp_path.display(),
+            dest_path.display()
+        )));
+    }
+
+    Ok(())
+}
+
 fn append_log(log_path: &Path, message: impl AsRef<str>) {
     if let Some(parent) = log_path.parent() {
         let _ = fs::create_dir_all(parent);
@@ -130,7 +261,7 @@ fn read_journal(journal_path: &Path) -> Result<SessionJournal> {
 
 fn write_journal(journal_path: &Path, journal: &SessionJournal) -> Result<()> {
     let payload = serde_json::to_string_pretty(journal)?;
-    fs::write(journal_path, format!("{payload}\n"))
+    write_atomic(journal_path, &format!("{payload}\n"))
         .with_context(|| format!("failed to write journal {}", journal_path.display()))?;
     Ok(())
 }
@@ -165,7 +296,7 @@ fn update_db_finalize(db_path: &Path, game_key: &str, accrued_ms: u64, ended_at:
     game_object.insert("lastPlayed".to_string(), Value::from(ended_at));
 
     let payload = serde_json::to_string_pretty(&db_value)?;
-    fs::write(db_path, format!("{payload}\n"))
+    write_atomic(db_path, &format!("{payload}\n"))
         .with_context(|| format!("failed to persist db {}", db_path.display()))?;
     Ok(())
 }
@@ -645,7 +776,14 @@ fn run_attach_mode(config: &HelperConfig) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let config = parse_args()?;
+    let config = match parse_args() {
+        Ok(c) => c,
+        Err(err) => {
+            eprintln!("[playtime-helper][FATAL] argument parsing failed: {err:#}");
+            return Err(err);
+        }
+    };
+
     append_log(
         &config.log_path,
         format!(
@@ -659,10 +797,19 @@ fn main() -> Result<()> {
         ),
     );
 
-    match config.mode {
+    let result = match config.mode {
         HelperMode::Launch => run_launch_mode(&config),
         HelperMode::Attach => run_attach_mode(&config),
+    };
+
+    if let Err(ref err) = result {
+        append_log(
+            &config.log_path,
+            format!("helper terminated with runtime error: {err:#}"),
+        );
     }
+
+    result
 }
 
 #[cfg(test)]
@@ -693,5 +840,236 @@ mod tests {
         assert_eq!(parse_proc_stat_line("invalid content"), None);
         assert_eq!(parse_proc_stat_line("1234 no_parens S 1"), None);
         assert_eq!(parse_proc_stat_line("abc (comm) S 1"), None);
+    }
+
+    #[test]
+    fn test_write_atomic_creates_file_and_parent_directories() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "yumeshelf_test_parent_{}_{}",
+            now_ms(),
+            TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        let dest_path = temp_dir.join("nested").join("sub").join("data.json");
+
+        assert!(!dest_path.parent().unwrap().exists());
+        let res = write_atomic(&dest_path, "{\"success\": true}");
+        assert!(res.is_ok());
+        assert!(dest_path.exists());
+        assert_eq!(
+            fs::read_to_string(&dest_path).unwrap(),
+            "{\"success\": true}"
+        );
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_write_atomic_overwrites_existing_file_durably() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "yumeshelf_test_overwrite_{}_{}",
+            now_ms(),
+            TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let dest_path = temp_dir.join("state.json");
+
+        write_atomic(&dest_path, "initial").unwrap();
+        assert_eq!(fs::read_to_string(&dest_path).unwrap(), "initial");
+
+        write_atomic(&dest_path, "overwritten").unwrap();
+        assert_eq!(fs::read_to_string(&dest_path).unwrap(), "overwritten");
+
+        let entries: Vec<_> = fs::read_dir(&temp_dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].to_str().unwrap(), "state.json");
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_write_atomic_collision_retry_success() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "yumeshelf_test_retry_{}_{}",
+            now_ms(),
+            TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let dest_path = temp_dir.join("dest.json");
+
+        let col0 = temp_dir.join("col_0.tmp");
+        let col1 = temp_dir.join("col_1.tmp");
+        let col2 = temp_dir.join("col_2.tmp");
+        let candidate3 = temp_dir.join("col_3.tmp");
+
+        fs::write(&col0, "occupied 0").unwrap();
+        fs::write(&col1, "occupied 1").unwrap();
+        fs::write(&col2, "occupied 2").unwrap();
+
+        let mut attempt_count = 0;
+        let res = write_atomic_with_retry_config(
+            &dest_path,
+            "atomic content",
+            |_dest, attempt| {
+                attempt_count += 1;
+                match attempt {
+                    0 => col0.clone(),
+                    1 => col1.clone(),
+                    2 => col2.clone(),
+                    _ => candidate3.clone(),
+                }
+            },
+            |_attempt| Duration::from_millis(0),
+        );
+
+        assert!(res.is_ok());
+        assert_eq!(attempt_count, 4);
+        assert_eq!(fs::read_to_string(&dest_path).unwrap(), "atomic content");
+        assert!(!candidate3.exists());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_write_atomic_collision_exhaustion_cleans_up_and_errors() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "yumeshelf_test_exhaust_{}_{}",
+            now_ms(),
+            TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let dest_path = temp_dir.join("dest.json");
+
+        let mut collision_files = Vec::new();
+        for i in 0..10 {
+            let p = temp_dir.join(format!("col_{}.tmp", i));
+            fs::write(&p, format!("occupied {}", i)).unwrap();
+            collision_files.push(p);
+        }
+
+        let mut attempt_count = 0;
+        let res = write_atomic_with_retry_config(
+            &dest_path,
+            "should fail",
+            |_dest, attempt| {
+                attempt_count += 1;
+                collision_files[attempt as usize % 10].clone()
+            },
+            |_attempt| Duration::from_millis(0),
+        );
+
+        assert!(res.is_err());
+        assert_eq!(attempt_count, 10);
+        let err_str = format!("{:#}", res.unwrap_err());
+        assert!(err_str.contains("failed to create unique temporary file after 10 attempts"));
+        assert!(!dest_path.exists());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_write_atomic_cleans_up_temp_on_failure() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "yumeshelf_test_cleanup_{}_{}",
+            now_ms(),
+            TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        // Create a directory where the destination file is expected to be; rename will fail
+        let invalid_dest = temp_dir.join("existing_dir");
+        fs::create_dir_all(&invalid_dest).unwrap();
+
+        let temp_candidate = temp_dir.join("test_temp_candidate.tmp");
+        let candidate_clone = temp_candidate.clone();
+
+        let res = write_atomic_with_retry_config(
+            &invalid_dest,
+            "content",
+            move |_dest, _attempt| candidate_clone.clone(),
+            |_attempt| Duration::from_millis(0),
+        );
+
+        assert!(res.is_err());
+        assert!(!temp_candidate.exists());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_write_atomic_unix_permissions_mode_0o600() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp_dir = std::env::temp_dir().join(format!(
+            "yumeshelf_test_perm_{}_{}",
+            now_ms(),
+            TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        let file_path = temp_dir.join("secret.json");
+        write_atomic(&file_path, "{\"secret\": true}").unwrap();
+        let metadata = fs::metadata(&file_path).unwrap();
+        let permissions = metadata.permissions();
+        assert_eq!(permissions.mode() & 0o777, 0o600);
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_write_journal_and_update_db_finalize_use_write_atomic() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "yumeshelf_test_db_{}_{}",
+            now_ms(),
+            TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let db_path = temp_dir.join("library.json");
+        let journal_path = temp_dir.join("session.journal.json");
+
+        let initial_db = r#"{
+            "games": {
+                "game-123": {
+                    "title": "Test Game",
+                    "playtime": 1000,
+                    "lastPlayed": 500
+                }
+            }
+        }"#;
+        write_atomic(&db_path, initial_db).unwrap();
+
+        update_db_finalize(&db_path, "game-123", 4000, 10000).unwrap();
+
+        let updated_content = fs::read_to_string(&db_path).unwrap();
+        let val: Value = serde_json::from_str(&updated_content).unwrap();
+        assert_eq!(val["games"]["game-123"]["playtime"], 5000);
+        assert_eq!(val["games"]["game-123"]["lastPlayed"], 10000);
+
+        let journal = SessionJournal {
+            schema_version: 1,
+            session_id: "sess-1".to_string(),
+            game_key: "game-123".to_string(),
+            exe_path: "game.exe".to_string(),
+            cwd: ".".to_string(),
+            mode: "launch".to_string(),
+            helper_pid: 111,
+            root_pid: 222,
+            started_at: 1000,
+            last_heartbeat_at: 2000,
+            accrued_ms: 1000,
+            status: "running".to_string(),
+            ended_at: None,
+            failure_reason: None,
+            runner: None,
+            runner_args: None,
+            env: None,
+        };
+
+        write_journal(&journal_path, &journal).unwrap();
+        let read_back = read_journal(&journal_path).unwrap();
+        assert_eq!(read_back.session_id, "sess-1");
+        assert_eq!(read_back.game_key, "game-123");
+        assert_eq!(read_back.accrued_ms, 1000);
+
+        let _ = fs::remove_dir_all(&temp_dir);
     }
 }

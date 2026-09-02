@@ -23,18 +23,39 @@ import {
     scheduleInstallOnNextLaunch
 } from './app-updates/download-install';
 
+import {
+    AppUpdaterStrategy,
+    AppUpdaterStrategyOptions,
+    createAppUpdaterStrategy,
+    NsisUpdaterStrategyAdapter
+} from './app-updates/updater-strategy';
+
+export {
+    AppUpdateCheckResult,
+    AppUpdaterActionResult,
+    AppUpdaterStrategy,
+    AppUpdaterStrategyOptions,
+    createAppUpdaterStrategy,
+    NoopUpdaterStrategy,
+    NsisUpdaterStrategyAdapter
+} from './app-updates/updater-strategy';
+
 export interface AppUpdateServicesOptions {
     app: any;
     broadcastStatus: (payload: any) => void;
     compareVersions: (left: string, right: string) => number;
     openExternalUrl: (url: string) => Promise<void> | void;
     startupNetworkTimeoutMs: number;
+    updaterStrategy?: AppUpdaterStrategy;
+    updaterOptions?: AppUpdaterStrategyOptions;
+    platform?: NodeJS.Platform;
 }
 
 export interface AppUpdateServices {
     beginDeferredInstallOnLaunch(): Promise<any>;
     checkForAppUpdate(): Promise<any>;
     consumePostUpdateMarker(): Promise<any>;
+    dispose(): void;
     logDebug(message: string): Promise<void>;
     openAppUpdateDownloadPage(): Promise<{ ok: boolean; releaseUrl: string }>;
     prepareDeferredInstallOnLaunch(): Promise<any>;
@@ -44,13 +65,16 @@ export interface AppUpdateServices {
     startBackgroundDownload(): Promise<any>;
 }
 
-export function createAppUpdateServices({
-    app,
-    broadcastStatus,
-    compareVersions,
-    openExternalUrl,
-    startupNetworkTimeoutMs
-}: AppUpdateServicesOptions): AppUpdateServices {
+export function createAppUpdateServices(options: AppUpdateServicesOptions): AppUpdateServices {
+    const {
+        app,
+        broadcastStatus,
+        compareVersions,
+        openExternalUrl,
+        startupNetworkTimeoutMs,
+        platform = process.platform
+    } = options;
+
     const updateCacheDir = path.join(app.getPath('userData'), 'app-update-cache');
     const postUpdateMarkerFile = path.join(updateCacheDir, 'post-update.json');
     const updateLogFile = path.join(updateCacheDir, 'portable-update.log');
@@ -66,6 +90,7 @@ export function createAppUpdateServices({
         updateLogFile,
         latestKnownUpdate: null,
         resolver: null,
+        updaterStrategy: null,
         nsisUpdaterService: null,
         consumePostUpdateMarker: null,
 
@@ -99,7 +124,7 @@ export function createAppUpdateServices({
     });
     context.consumePostUpdateMarker = consumePostUpdateMarker;
 
-    context.nsisUpdaterService = createNsisUpdaterService({
+    const defaultUpdaterOptions: AppUpdaterStrategyOptions = {
         app,
         appendUpdateLog: context.appendUpdateLog,
         broadcastStatus,
@@ -108,8 +133,15 @@ export function createAppUpdateServices({
         releasePageUrl: APP_UPDATE_RELEASE_PAGE_URL,
         resolveFeedOverride: context.resolver.resolvePackagedFeedOverride,
         updateCacheDir,
-        postUpdateMarkerFile
-    });
+        postUpdateMarkerFile,
+        ...options.updaterOptions
+    };
+
+    const updater: AppUpdaterStrategy = options.updaterStrategy || createAppUpdaterStrategy(defaultUpdaterOptions, platform);
+    context.updaterStrategy = updater;
+    if (updater instanceof NsisUpdaterStrategyAdapter) {
+        context.nsisUpdaterService = updater.getService();
+    }
 
     async function openAppUpdateDownloadPage(): Promise<{ ok: boolean; releaseUrl: string }> {
         const releaseUrl = context.latestKnownUpdate?.releaseUrl || APP_UPDATE_RELEASE_PAGE_URL;
@@ -118,14 +150,19 @@ export function createAppUpdateServices({
     }
 
     return {
-        beginDeferredInstallOnLaunch: () => context.nsisUpdaterService.beginDeferredInstallOnLaunch(),
+        beginDeferredInstallOnLaunch: () => typeof updater.beginDeferredInstallOnLaunch === 'function' ? updater.beginDeferredInstallOnLaunch() : Promise.resolve({ ok: false, reason: 'unsupported' }),
         checkForAppUpdate: () => context.checkForAppUpdate(),
         consumePostUpdateMarker: context.consumePostUpdateMarker,
+        dispose: () => {
+            if (typeof updater.dispose === 'function') {
+                updater.dispose();
+            }
+        },
         logDebug: context.logDebug,
         openAppUpdateDownloadPage,
-        prepareDeferredInstallOnLaunch: () => context.nsisUpdaterService.prepareDeferredInstallOnLaunch(),
+        prepareDeferredInstallOnLaunch: () => typeof updater.prepareDeferredInstallOnLaunch === 'function' ? updater.prepareDeferredInstallOnLaunch() : Promise.resolve({ pending: false }),
         restartAndInstallDownloadedUpdate: () => restartAndInstallDownloadedUpdate(context),
-        runDeferredInstallOnLaunch: () => context.nsisUpdaterService.runDeferredInstallOnLaunch(),
+        runDeferredInstallOnLaunch: () => typeof updater.runDeferredInstallOnLaunch === 'function' ? updater.runDeferredInstallOnLaunch() : Promise.resolve({ ok: false, reason: 'unsupported' }),
         scheduleInstallOnNextLaunch: () => scheduleInstallOnNextLaunch(context),
         startBackgroundDownload: () => startBackgroundDownload(context)
     };

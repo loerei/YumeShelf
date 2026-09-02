@@ -7,6 +7,7 @@ import {
     shouldIncludePrereleaseReleases
 } from './release-utils';
 import { APP_UPDATE_RELEASE_PAGE_URL } from './feed-resolver';
+import { AppUpdaterStrategy, NoopUpdaterStrategy, NsisUpdaterStrategyAdapter } from './updater-strategy';
 
 export const VERBOSE_UPDATE_LOG = process.env.YUMESHELF_UPDATE_DEBUG === '1';
 
@@ -26,7 +27,8 @@ export async function logDebug(context: any, message: string): Promise<void> {
 }
 
 export function summarizeAppUpdate(context: any, update: any): any {
-    return context.nsisUpdaterService.summarizeUpdateState({
+    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    return updater.summarizeUpdateState({
         available: !!update?.available,
         canSelfUpdate: !!update?.canSelfUpdate,
         deferredUntilNextLaunch: !!update?.deferredUntilNextLaunch,
@@ -61,7 +63,7 @@ export async function enrichUpdateInfo(context: any, update: any, runtimeStrateg
         return enriched;
     }
 
-    if (runtimeStrategy.channel === 'nsis') {
+    if (runtimeStrategy.channel === 'nsis' || runtimeStrategy.channel === 'mac') {
         try {
             const newerReleases = await context.resolver.resolveNewerReleases(
                 context.app.getVersion(),

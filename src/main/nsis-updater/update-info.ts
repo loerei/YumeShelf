@@ -21,7 +21,7 @@ export function pickExpectedSha512(updateInfo: any): string | null {
     const files = Array.isArray(updateInfo?.files) ? updateInfo.files : [];
     const fileEntry = files.find((entry: any) => {
         const candidate = String(entry?.url || entry?.name || entry?.path || '').toLowerCase();
-        return candidate.endsWith('.exe');
+        return candidate.endsWith('.exe') || candidate.endsWith('.dmg') || candidate.endsWith('.zip');
     }) || files[0];
     return normalizeText(fileEntry?.sha512 || updateInfo?.sha512, null);
 }

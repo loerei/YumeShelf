@@ -1,3 +1,5 @@
+import { AppUpdaterStrategy, NoopUpdaterStrategy, NsisUpdaterStrategyAdapter } from './updater-strategy';
+
 export async function startBackgroundDownload(context: any): Promise<any> {
     const update = context.latestKnownUpdate || await context.checkForAppUpdate();
     await context.appendUpdateLog(`startBackgroundDownload update=${JSON.stringify(context.summarizeAppUpdate(update))}`);
@@ -12,7 +14,8 @@ export async function startBackgroundDownload(context: any): Promise<any> {
         };
     }
 
-    const result = await context.nsisUpdaterService.downloadUpdate({
+    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    const result = await updater.downloadUpdate({
         releaseName: update.releaseName,
         releaseNotes: update.releaseNotes,
         releaseUrl: update.releaseUrl,
@@ -48,7 +51,8 @@ export async function restartAndInstallDownloadedUpdate(context: any): Promise<a
     if (!update?.available) {
         return { ok: false, reason: 'no-update' };
     }
-    const result = await context.nsisUpdaterService.installDownloadedUpdateNow({
+    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    const result = await updater.installDownloadedUpdateNow({
         fromVersion: context.app.getVersion(),
         releaseName: update.releaseName,
         releaseNotes: update.releaseNotes,
@@ -68,7 +72,12 @@ export async function scheduleInstallOnNextLaunch(context: any): Promise<any> {
         return { ok: false, reason: 'no-update' };
     }
 
-    const result = await context.nsisUpdaterService.scheduleInstallOnNextLaunch({
+    const updater: AppUpdaterStrategy = context.updaterStrategy || (context.nsisUpdaterService ? (context.nsisUpdaterService instanceof NsisUpdaterStrategyAdapter ? context.nsisUpdaterService : new NsisUpdaterStrategyAdapter(context.nsisUpdaterService)) : new NoopUpdaterStrategy());
+    if (typeof updater.scheduleInstallOnNextLaunch !== 'function') {
+        return { ok: false, reason: 'unsupported' };
+    }
+
+    const result = await updater.scheduleInstallOnNextLaunch({
         fromVersion: context.app.getVersion(),
         releaseName: update.releaseName,
         releaseNotes: update.releaseNotes,
@@ -90,3 +99,4 @@ export async function scheduleInstallOnNextLaunch(context: any): Promise<any> {
         update: context.summarizeAppUpdate(context.latestKnownUpdate)
     };
 }
+

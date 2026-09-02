@@ -12,8 +12,11 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Added bundle root resolution and path sanitization to headless save discovery pipelines, allowing save folders to be accurately located for macOS application bundles.
 - Added headless standard macOS Application Support save resolvers for Unity, Ren'Py, Godot, and Unreal Engine games.
 - Added headless in-bundle and WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, Unity PlayerPrefs, and TyranoBuilder on macOS.
+- Integrated cross-platform macOS save strategies and diagnostic error logging into the main process save folder resolver.
 
 ### For the Nerds
+- [resolver] Integrated macOS save strategies into `SaveFolderResolver` in `src/main/save-folder-resolver/index.ts`, mapping `rpgmaker-bundle-data`, `unity-appsupport-playerprefs`, `renpy-appsupport-saves`, and `godot-appsupport-user` through the engine facade.
+- [resolver] Added diagnostic error logging with `[SAVE-RESOLVER][ERROR]` in `SaveFolderResolver.resolve` catch blocks capturing failing paths and error stacks.
 - [engine] Implemented in-bundle save resolvers for RPG Maker MV/MZ (`Contents/Resources/app.nw/save/`, `Contents/Resources/save/`, `Contents/Resources/app/save/`, `Contents/Resources/app.nw/www/save/`), NW.js, and TyranoBuilder in `packages/yume-engine/src/save-resolvers/engine-save-resolvers.ts`.
 - [engine] Implemented WebStorage LocalStorage save resolvers for RPG Maker MV/MZ, NW.js, and TyranoBuilder inspecting `package.json` to resolve `~/Library/Application Support/<name>/Default/Local Storage/leveldb`.
 - [engine] Updated `resolveUnitySave` to inspect `Contents/Resources/Data/app.info` and resolve `~/Library/Application Support/<company>/<product>` with CRLF/LF normalization and non-zero token validation.
@@ -39,6 +42,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [tests] Added unit test suites in `packages/yume-engine/tests/bplist-parser.test.ts` and `packages/yume-engine/tests/plist-parser-facade.test.ts` verifying binary deserialization, cyclic reference prevention, Cocoa epoch date decoding, and unified facade auto-detection.
 - [tests] Added unit test suite in `packages/yume-engine/tests/standalone-macho-facade.test.ts` and updated `packages/yume-engine/tests/macho-inspector.test.ts` verifying standalone Mach-O binaries, 64-bit FAT headers, truncated fallback handling, and PE fallback compatibility.
 - [tests] Added unit test suite in `packages/yume-engine/tests/headless-save-resolvers.test.ts` validating `getExeStem` stem normalization, trailing slash handling, null byte stripping, and `effectiveDir` scoping for outer and inner `.app` bundle paths.
+- [tests] Added integration test suite in `tests/save-folder-resolver-cross-platform.test.js` and updated `src/main/save-folder-resolver/save-folder-resolver.test.ts` validating end-to-end macOS save discovery across Unity, RPG Maker MV/MZ, Ren'Py, Godot, and Unreal Engine games.
 
 ---
 

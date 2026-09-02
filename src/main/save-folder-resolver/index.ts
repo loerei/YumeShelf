@@ -91,7 +91,9 @@ export class SaveFolderResolver {
                         source: 'override'
                     };
                 }
-            } catch {}
+            } catch (error) {
+                console.warn('[SAVE-RESOLVER][ERROR]', error);
+            }
         }
 
         // 2. Create unified FileSystem bridge
@@ -157,8 +159,8 @@ export class SaveFolderResolver {
         let profile: GameEngineProfile | null = null;
         try {
             profile = await YumeEngine.inspectExecutable(exePath, unifiedFs);
-        } catch {
-            // Unreadable or non-existent binary paths gracefully fall back
+        } catch (error) {
+            console.warn('[SAVE-RESOLVER][ERROR]', error);
         }
 
         const engineType = profileToEngineType(profile);
@@ -186,8 +188,8 @@ export class SaveFolderResolver {
                     source: mappedSource
                 };
             }
-        } catch {
-            // Resolution boundary containment
+        } catch (error) {
+            console.warn('[SAVE-RESOLVER][ERROR]', error);
         }
 
         console.log(`[SAVE-RESOLVER][FAILED] No save folder found for ${exePath}`);

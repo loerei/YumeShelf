@@ -1,6 +1,7 @@
 // @ts-ignore
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as path from 'node:path';
+import { YumeEngine } from '@yumeshelf/engine';
 import { SaveFolderResolver } from './index';
 import { DefaultFileSystemProvider, MockFileSystemProvider } from './fs-provider';
 
@@ -151,6 +152,21 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
             env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
             expectedEngine: 'unity',
             expectedPath: '/Users/MacUser/Library/Application Support/IndieDev/SpaceGame'
+        },
+        {
+            name: 'Unreal (macOS Application Support Epic)',
+            exe: '/Applications/UnrealGame.app/Contents/MacOS/UnrealGame-Mac-Shipping',
+            files: {
+                '/Applications/UnrealGame.app/Contents/MacOS/UnrealGame-Mac-Shipping': '',
+                '/Applications/UnrealGame.app/Contents/UE5': '',
+                '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames/SaveSlot.sav': 'sav'
+            },
+            dirs: [
+                '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames'
+            ],
+            env: { MAC_APP_SUPPORT_HOME: '/Users/MacUser/Library/Application Support' },
+            expectedEngine: 'unreal',
+            expectedPath: '/Users/MacUser/Library/Application Support/Epic/UnrealGame/Saved/SaveGames'
         }
     ];
 
@@ -248,6 +264,62 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
         expect(mockFs.getMacPreferencesHome()).toBe(
             '/Users/ForwardUser/Library/Preferences'
         );
+    });
+
+    it('logs diagnostic warning [SAVE-RESOLVER][ERROR] and returns graceful fallback when inspection throws', async () => {
+        const mockFs = new MockFileSystemProvider();
+        const resolver = new SaveFolderResolver(mockFs);
+
+        const inspectSpy = vi.spyOn(YumeEngine, 'inspectExecutable').mockRejectedValueOnce(new Error('Corrupt binary inspection failed'));
+        const warnings: any[][] = [];
+        const originalWarn = console.warn;
+        console.warn = (...args: any[]) => {
+            warnings.push(args);
+        };
+
+        try {
+            const result = await resolver.resolve('/games/BrokenGame/game.exe');
+
+            expect(result).toEqual({
+                path: null,
+                engine: null,
+                confidence: 'none',
+                source: 'none'
+            });
+
+            expect(warnings.some((w) => w[0] === '[SAVE-RESOLVER][ERROR]')).toBe(true);
+        } finally {
+            inspectSpy.mockRestore();
+            console.warn = originalWarn;
+        }
+    });
+
+    it('logs diagnostic warning [SAVE-RESOLVER][ERROR] when resolveSaveDirectory throws', async () => {
+        const mockFs = new MockFileSystemProvider();
+        const resolver = new SaveFolderResolver(mockFs);
+
+        const resolveSpy = vi.spyOn(YumeEngine, 'resolveSaveDirectory').mockRejectedValueOnce(new Error('Save directory resolution crashed'));
+        const warnings: any[][] = [];
+        const originalWarn = console.warn;
+        console.warn = (...args: any[]) => {
+            warnings.push(args);
+        };
+
+        try {
+            const result = await resolver.resolve('/games/BrokenGame/game.exe');
+
+            expect(result).toEqual({
+                path: null,
+                engine: null,
+                confidence: 'none',
+                source: 'none'
+            });
+
+            expect(warnings.some((w) => w[0] === '[SAVE-RESOLVER][ERROR]')).toBe(true);
+        } finally {
+            resolveSpy.mockRestore();
+            console.warn = originalWarn;
+        }
     });
 });
 

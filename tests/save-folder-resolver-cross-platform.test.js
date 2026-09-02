@@ -156,6 +156,146 @@ test('Cross-Platform Save Resolver: AppData fuzzy matching finds Linux XDG Unity
     assert.equal(result.path, '/home/gamer/.config/unity3d/ObscureStudio/SpecialMysteryGame');
 });
 
+test('Cross-Platform Save Resolver (macOS): Unity resolves Application Support saves', async (t) => {
+    await t.test('resolves macOS Unity save folder via app.info under Application Support', async () => {
+        const fs = new MockFileSystemProvider({
+            HOME: '/Users/macgamer',
+            MAC_APP_SUPPORT_HOME: '/Users/macgamer/Library/Application Support'
+        });
+        fs.addFile('/Applications/UnityGame.app/Contents/MacOS/UnityGame');
+        fs.addFile('/Applications/UnityGame.app/Contents/Resources/Data/app.info', 'IndieDev\nSpaceOdyssey\n');
+        fs.addDirectory('/Users/macgamer/Library/Application Support/IndieDev/SpaceOdyssey');
+        fs.addFile('/Users/macgamer/Library/Application Support/IndieDev/SpaceOdyssey/save.dat', 'data');
+
+        const resolver = new SaveFolderResolver(fs);
+        const result = await resolver.resolve('/Applications/UnityGame.app/Contents/MacOS/UnityGame');
+
+        assert.equal(result.engine, 'unity');
+        assert.equal(result.confidence, 'high');
+        assert.equal(result.path, '/Users/macgamer/Library/Application Support/IndieDev/SpaceOdyssey');
+    });
+
+    await t.test('resolves macOS Unity save folder via unity.company.product directory pattern', async () => {
+        const fs = new MockFileSystemProvider({
+            HOME: '/Users/macgamer',
+            MAC_APP_SUPPORT_HOME: '/Users/macgamer/Library/Application Support'
+        });
+        fs.addFile('/Applications/SpaceFlight.app/Contents/MacOS/SpaceFlight');
+        fs.addFile('/Applications/SpaceFlight.app/Contents/Resources/Data/app.info', 'AeroCorp\nSpaceFlight\n');
+        fs.addDirectory('/Users/macgamer/Library/Application Support/unity.AeroCorp.SpaceFlight');
+        fs.addFile('/Users/macgamer/Library/Application Support/unity.AeroCorp.SpaceFlight/save.dat', 'data');
+
+        const resolver = new SaveFolderResolver(fs);
+        const result = await resolver.resolve('/Applications/SpaceFlight.app/Contents/MacOS/SpaceFlight');
+
+        assert.equal(result.engine, 'unity');
+        assert.equal(result.confidence, 'high');
+        assert.equal(result.path, '/Users/macgamer/Library/Application Support/unity.AeroCorp.SpaceFlight');
+    });
+});
+
+test('Cross-Platform Save Resolver (macOS): RPG Maker resolves In-Bundle and WebStorage saves', async (t) => {
+    await t.test('resolves macOS RPG Maker in-bundle save directory', async () => {
+        const fs = new MockFileSystemProvider({
+            HOME: '/Users/macgamer'
+        });
+        fs.addFile('/Applications/RPGMGame.app/Contents/MacOS/Game');
+        fs.addFile('/Applications/RPGMGame.app/Contents/Resources/app.nw/js/rmmz_core.js');
+        fs.addDirectory('/Applications/RPGMGame.app/Contents/Resources/app.nw/save');
+        fs.addFile('/Applications/RPGMGame.app/Contents/Resources/app.nw/save/file1.rmmzsave', 'save');
+
+        const resolver = new SaveFolderResolver(fs);
+        const result = await resolver.resolve('/Applications/RPGMGame.app/Contents/MacOS/Game');
+
+        assert.equal(result.engine, 'rpg-mv-mz');
+        assert.equal(result.confidence, 'high');
+        assert.equal(result.source, 'deterministic');
+        assert.equal(result.path, '/Applications/RPGMGame.app/Contents/Resources/app.nw/save');
+    });
+
+    await t.test('resolves macOS RPG Maker WebStorage leveldb saves via package.json name', async () => {
+        const fs = new MockFileSystemProvider({
+            HOME: '/Users/macgamer',
+            MAC_APP_SUPPORT_HOME: '/Users/macgamer/Library/Application Support'
+        });
+        fs.addFile('/Applications/WebRPG.app/Contents/MacOS/Game');
+        fs.addFile('/Applications/WebRPG.app/Contents/Resources/app.nw/package.json', JSON.stringify({ name: 'EpicQuestWeb' }));
+        fs.addDirectory('/Users/macgamer/Library/Application Support/EpicQuestWeb/Default/Local Storage/leveldb');
+        fs.addFile('/Users/macgamer/Library/Application Support/EpicQuestWeb/Default/Local Storage/leveldb/000003.log', 'log');
+
+        const resolver = new SaveFolderResolver(fs);
+        const result = await resolver.resolve('/Applications/WebRPG.app/Contents/MacOS/Game');
+
+        assert.equal(result.engine, 'rpg-mv-mz');
+        assert.equal(result.confidence, 'high');
+        assert.equal(result.source, 'appdata');
+        assert.equal(result.path, '/Users/macgamer/Library/Application Support/EpicQuestWeb/Default/Local Storage/leveldb');
+    });
+});
+
+test('Cross-Platform Save Resolver (macOS): RenPy resolves Application Support saves', async (t) => {
+    await t.test('resolves native macOS RenPy Application Support saves', async () => {
+        const fs = new MockFileSystemProvider({
+            HOME: '/Users/macgamer',
+            MAC_APP_SUPPORT_HOME: '/Users/macgamer/Library/Application Support'
+        });
+        fs.addFile('/Applications/Tsukihime.app/Contents/MacOS/Tsukihime');
+        fs.addFile('/Applications/Tsukihime.app/Contents/Resources/autorun.py');
+        fs.addDirectory('/Users/macgamer/Library/Application Support/RenPy/Tsukihime-100200');
+        fs.addFile('/Users/macgamer/Library/Application Support/RenPy/Tsukihime-100200/auto-1.save', 'save');
+
+        const resolver = new SaveFolderResolver(fs);
+        const result = await resolver.resolve('/Applications/Tsukihime.app/Contents/MacOS/Tsukihime');
+
+        assert.equal(result.engine, 'renpy');
+        assert.equal(result.confidence, 'high');
+        assert.equal(result.source, 'appdata');
+        assert.equal(result.path, '/Users/macgamer/Library/Application Support/RenPy/Tsukihime-100200');
+    });
+});
+
+test('Cross-Platform Save Resolver (macOS): Godot resolves Application Support app_userdata saves', async (t) => {
+    await t.test('resolves native macOS Godot app_userdata saves', async () => {
+        const fs = new MockFileSystemProvider({
+            HOME: '/Users/macgamer',
+            MAC_APP_SUPPORT_HOME: '/Users/macgamer/Library/Application Support'
+        });
+        fs.addFile('/Applications/GodotMacGame.app/Contents/MacOS/GodotMacGame');
+        fs.addFile('/Applications/GodotMacGame.app/Contents/Resources/game.pck');
+        fs.addDirectory('/Users/macgamer/Library/Application Support/Godot/app_userdata/GodotMacGame');
+        fs.addFile('/Users/macgamer/Library/Application Support/Godot/app_userdata/GodotMacGame/save.dat', 'data');
+
+        const resolver = new SaveFolderResolver(fs);
+        const result = await resolver.resolve('/Applications/GodotMacGame.app/Contents/MacOS/GodotMacGame');
+
+        assert.equal(result.engine, 'godot');
+        assert.equal(result.confidence, 'high');
+        assert.equal(result.source, 'appdata');
+        assert.equal(result.path, '/Users/macgamer/Library/Application Support/Godot/app_userdata/GodotMacGame');
+    });
+});
+
+test('Cross-Platform Save Resolver (macOS): Unreal resolves Epic Application Support saves', async (t) => {
+    await t.test('resolves native macOS Unreal Engine saves under Application Support/Epic', async () => {
+        const fs = new MockFileSystemProvider({
+            HOME: '/Users/macgamer',
+            MAC_APP_SUPPORT_HOME: '/Users/macgamer/Library/Application Support'
+        });
+        fs.addFile('/Applications/UnrealGame.app/Contents/MacOS/UnrealGame-Mac-Shipping');
+        fs.addFile('/Applications/UnrealGame.app/Contents/UE5');
+        fs.addDirectory('/Users/macgamer/Library/Application Support/Epic/UnrealGame/Saved/SaveGames');
+        fs.addFile('/Users/macgamer/Library/Application Support/Epic/UnrealGame/Saved/SaveGames/Save01.sav', 'data');
+
+        const resolver = new SaveFolderResolver(fs);
+        const result = await resolver.resolve('/Applications/UnrealGame.app/Contents/MacOS/UnrealGame-Mac-Shipping');
+
+        assert.equal(result.engine, 'unreal');
+        assert.equal(result.confidence, 'high');
+        assert.equal(result.source, 'appdata');
+        assert.equal(result.path, '/Users/macgamer/Library/Application Support/Epic/UnrealGame/Saved/SaveGames');
+    });
+});
+
 test('Save Editor Drivers: unityMonoBin and renpy format contracts', async () => {
     const unityMonoBin = require('../dist/main/save-editor/formats/unity-mono-bin').default;
     const renpy = require('../dist/main/save-editor/formats/renpy').default;

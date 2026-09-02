@@ -380,68 +380,137 @@ fn list_process_relations() -> Result<Vec<(u32, u32)>> {
     Ok(Vec::new())
 }
 
+pub const MAX_TREE_DEPTH: usize = 128;
+
+pub trait ProcessTreeProvider {
+    fn get_children(&self, pid: u32) -> Vec<u32>;
+    fn is_alive(&self, pid: u32) -> bool;
+}
+
+pub struct RelationsProcessTree {
+    alive: HashSet<u32>,
+    by_parent: HashMap<u32, Vec<u32>>,
+}
+
+impl RelationsProcessTree {
+    pub fn new(relations: &[(u32, u32)]) -> Self {
+        let mut alive: HashSet<u32> = HashSet::with_capacity(relations.len());
+        let mut by_parent: HashMap<u32, Vec<u32>> = HashMap::with_capacity(relations.len());
+        for &(pid, parent_pid) in relations {
+            alive.insert(pid);
+            by_parent.entry(parent_pid).or_default().push(pid);
+        }
+        Self { alive, by_parent }
+    }
+}
+
+impl ProcessTreeProvider for RelationsProcessTree {
+    fn get_children(&self, pid: u32) -> Vec<u32> {
+        self.by_parent.get(&pid).cloned().unwrap_or_default()
+    }
+
+    fn is_alive(&self, pid: u32) -> bool {
+        self.alive.contains(&pid)
+    }
+}
+
+pub fn pid_tree_has_live_members_with_provider<P: ProcessTreeProvider>(
+    root_pid: u32,
+    provider: &P,
+) -> bool {
+    if root_pid == 0 {
+        return false;
+    }
+
+    if provider.is_alive(root_pid) {
+        return true;
+    }
+
+    let mut queue = VecDeque::from([(root_pid, 0usize)]);
+    let mut visited = HashSet::new();
+
+    while let Some((current_pid, depth)) = queue.pop_front() {
+        if !visited.insert(current_pid) {
+            continue;
+        }
+
+        if provider.is_alive(current_pid) {
+            return true;
+        }
+
+        if depth >= MAX_TREE_DEPTH {
+            continue;
+        }
+
+        for child_pid in provider.get_children(current_pid) {
+            if !visited.contains(&child_pid) {
+                queue.push_back((child_pid, depth + 1));
+            }
+        }
+    }
+
+    false
+}
+
+pub fn pid_tree_has_live_members_from_relations(root_pid: u32, relations: &[(u32, u32)]) -> bool {
+    if root_pid == 0 || relations.is_empty() {
+        return false;
+    }
+    let tree = RelationsProcessTree::new(relations);
+    pid_tree_has_live_members_with_provider(root_pid, &tree)
+}
+
+pub fn get_pid_tree_members_from_relations(
+    root_pid: u32,
+    relations: &[(u32, u32)],
+) -> HashSet<u32> {
+    let mut members = HashSet::new();
+    if root_pid == 0 || relations.is_empty() {
+        return members;
+    }
+
+    let tree = RelationsProcessTree::new(relations);
+    let mut queue = VecDeque::from([(root_pid, 0usize)]);
+    let mut visited = HashSet::with_capacity(relations.len());
+
+    while let Some((current_pid, depth)) = queue.pop_front() {
+        if !visited.insert(current_pid) {
+            continue;
+        }
+
+        if tree.is_alive(current_pid) {
+            members.insert(current_pid);
+        }
+
+        if depth >= MAX_TREE_DEPTH {
+            continue;
+        }
+
+        for child_pid in tree.get_children(current_pid) {
+            if !visited.contains(&child_pid) {
+                queue.push_back((child_pid, depth + 1));
+            }
+        }
+    }
+
+    members
+}
+
 fn pid_tree_has_live_members(root_pid: u32) -> Result<bool> {
     if root_pid == 0 {
         return Ok(false);
     }
-
     let relations = list_process_relations()?;
-    let alive: HashSet<u32> = relations.iter().map(|(pid, _)| *pid).collect();
-    let mut by_parent: HashMap<u32, Vec<u32>> = HashMap::new();
-    for (pid, parent_pid) in relations {
-        by_parent.entry(parent_pid).or_default().push(pid);
-    }
-
-    let mut queue = VecDeque::from([root_pid]);
-    let mut visited = HashSet::new();
-    while let Some(current_pid) = queue.pop_front() {
-        if !visited.insert(current_pid) {
-            continue;
-        }
-        if alive.contains(&current_pid) {
-            return Ok(true);
-        }
-        if let Some(children) = by_parent.get(&current_pid) {
-            for child_pid in children {
-                queue.push_back(*child_pid);
-            }
-        }
-    }
-
-    Ok(false)
+    Ok(pid_tree_has_live_members_from_relations(root_pid, &relations))
 }
 
 #[cfg(windows)]
 fn get_pid_tree_members(root_pid: u32) -> Result<HashSet<u32>> {
-    let mut members = HashSet::new();
     if root_pid == 0 {
-        return Ok(members);
+        return Ok(HashSet::new());
     }
-
     let relations = list_process_relations()?;
-    let alive: HashSet<u32> = relations.iter().map(|(pid, _)| *pid).collect();
-    let mut by_parent: HashMap<u32, Vec<u32>> = HashMap::new();
-    for (pid, parent_pid) in relations {
-        by_parent.entry(parent_pid).or_default().push(pid);
-    }
-
-    let mut queue = VecDeque::from([root_pid]);
-    let mut visited = HashSet::new();
-    while let Some(current_pid) = queue.pop_front() {
-        if !visited.insert(current_pid) {
-            continue;
-        }
-        if alive.contains(&current_pid) {
-            members.insert(current_pid);
-        }
-        if let Some(children) = by_parent.get(&current_pid) {
-            for child_pid in children {
-                queue.push_back(*child_pid);
-            }
-        }
-    }
-
-    Ok(members)
+    Ok(get_pid_tree_members_from_relations(root_pid, &relations))
 }
 
 #[cfg(windows)]
@@ -1071,5 +1140,117 @@ mod tests {
         assert_eq!(read_back.accrued_ms, 1000);
 
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_process_tree_empty_and_zero_root() {
+        assert!(!pid_tree_has_live_members_from_relations(0, &[]));
+        assert!(!pid_tree_has_live_members_from_relations(0, &[(100, 0)]));
+        assert!(!pid_tree_has_live_members_from_relations(100, &[]));
+        assert!(get_pid_tree_members_from_relations(0, &[]).is_empty());
+        assert!(get_pid_tree_members_from_relations(100, &[]).is_empty());
+    }
+
+    #[test]
+    fn test_process_tree_root_alive() {
+        let relations = vec![(100, 1), (101, 100)];
+        assert!(pid_tree_has_live_members_from_relations(100, &relations));
+        let members = get_pid_tree_members_from_relations(100, &relations);
+        assert!(members.contains(&100));
+        assert!(members.contains(&101));
+    }
+
+    #[test]
+    fn test_process_tree_launcher_exited_child_alive() {
+        // Root launcher (PID 100) has terminated and is not in relations, but child (PID 200) is running
+        let relations = vec![(200, 100), (201, 200)];
+        assert!(pid_tree_has_live_members_from_relations(100, &relations));
+        let members = get_pid_tree_members_from_relations(100, &relations);
+        assert!(!members.contains(&100));
+        assert!(members.contains(&200));
+        assert!(members.contains(&201));
+    }
+
+    #[test]
+    fn test_process_tree_branching_and_diamond_dependencies() {
+        // Root 10 spawns 20 and 30, both spawn 40 (diamond)
+        let relations = vec![(20, 10), (30, 10), (40, 20), (40, 30)];
+        assert!(pid_tree_has_live_members_from_relations(10, &relations));
+        let members = get_pid_tree_members_from_relations(10, &relations);
+        assert_eq!(members.len(), 3);
+        assert!(members.contains(&20));
+        assert!(members.contains(&30));
+        assert!(members.contains(&40));
+    }
+
+    #[test]
+    fn test_process_tree_orphaned_and_unrelated_pids() {
+        let relations = vec![(500, 1), (501, 500), (600, 2)];
+        assert!(!pid_tree_has_live_members_from_relations(100, &relations));
+        assert!(get_pid_tree_members_from_relations(100, &relations).is_empty());
+    }
+
+    #[test]
+    fn test_process_tree_cyclic_relations_terminates_cleanly() {
+        // Cyclic graph: 100 -> 200 -> 300 -> 100
+        let relations = vec![(100, 300), (200, 100), (300, 200)];
+        assert!(pid_tree_has_live_members_from_relations(100, &relations));
+        let members = get_pid_tree_members_from_relations(100, &relations);
+        assert_eq!(members.len(), 3);
+
+        // Cyclic graph disconnected from root
+        let disconnected_relations = vec![(200, 300), (300, 200)];
+        assert!(!pid_tree_has_live_members_from_relations(100, &disconnected_relations));
+    }
+
+    #[test]
+    fn test_process_tree_deep_hierarchy_and_depth_limiting() {
+        // Chain of 150 processes: 2 is child of 1, 3 is child of 2, etc.
+        let mut relations = Vec::new();
+        for i in 2..=150 {
+            relations.push((i, i - 1));
+        }
+
+        // Live tree from root 1 (where 1 is not alive, but children are)
+        assert!(pid_tree_has_live_members_from_relations(1, &relations));
+        let members = get_pid_tree_members_from_relations(1, &relations);
+        // Traversal is capped at MAX_TREE_DEPTH = 128 from root 1
+        assert!(members.contains(&2));
+        assert!(members.contains(&128));
+        assert!(!members.contains(&135));
+    }
+
+    struct MockProcessTree {
+        alive_pids: HashSet<u32>,
+        children_map: HashMap<u32, Vec<u32>>,
+    }
+
+    impl ProcessTreeProvider for MockProcessTree {
+        fn get_children(&self, pid: u32) -> Vec<u32> {
+            self.children_map.get(&pid).cloned().unwrap_or_default()
+        }
+
+        fn is_alive(&self, pid: u32) -> bool {
+            self.alive_pids.contains(&pid)
+        }
+    }
+
+    #[test]
+    fn test_process_tree_custom_provider_trait() {
+        let mut alive_pids = HashSet::new();
+        alive_pids.insert(300);
+
+        let mut children_map = HashMap::new();
+        children_map.insert(100, vec![200]);
+        children_map.insert(200, vec![300]);
+
+        let mock = MockProcessTree {
+            alive_pids,
+            children_map,
+        };
+
+        assert!(pid_tree_has_live_members_with_provider(100, &mock));
+        assert!(!pid_tree_has_live_members_with_provider(500, &mock));
+        assert!(!pid_tree_has_live_members_with_provider(0, &mock));
     }
 }

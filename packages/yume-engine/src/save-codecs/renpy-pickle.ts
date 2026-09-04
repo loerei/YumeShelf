@@ -2143,11 +2143,12 @@ export class RenpyPickleSaveCodec {
     // 1. Primary path: Fast early exit on root dictionary SETITEMS (when earlyExit is enabled)
     if (earlyExit) {
       try {
-        const earlyResult = SandboxedPickleParser.parse(pickleBuf, {
+        const earlyResult = await SandboxedPickleParser.parseAsync(pickleBuf, {
           earlyExit: true,
           stalenessTracker: context?.options?.stalenessTracker,
           stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
           shouldCancel: context?.options?.shouldCancel,
+          onProgress: context?.options?.onProgress,
         });
 
         if (earlyResult && typeof earlyResult === 'object' && !Array.isArray(earlyResult)) {

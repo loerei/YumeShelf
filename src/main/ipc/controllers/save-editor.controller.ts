@@ -32,15 +32,21 @@ export class SaveEditorIpcController {
             return saveEditorService?.listSaveFiles(gameKey);
         });
 
-        const activeLoads = new Map<string, () => void>();
+        const activeLoads = new Map<string, Set<() => void>>();
 
         ipcMain.handle('save-editor:load-data', async (event, { gameKey, fileName, earlyExit, stalenessTimeoutMs }) => {
             console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
             const key = `${gameKey}:${fileName}`;
             let cancelled = false;
-            activeLoads.set(key, () => {
+            const cancelFn = () => {
                 cancelled = true;
-            });
+            };
+            let loadSet = activeLoads.get(key);
+            if (!loadSet) {
+                loadSet = new Set();
+                activeLoads.set(key, loadSet);
+            }
+            loadSet.add(cancelFn);
 
             try {
                 return await saveEditorService?.loadSaveData(gameKey, fileName, {
@@ -67,16 +73,24 @@ export class SaveEditorIpcController {
                     shouldCancel: () => cancelled,
                 });
             } finally {
-                activeLoads.delete(key);
+                const currentSet = activeLoads.get(key);
+                if (currentSet) {
+                    currentSet.delete(cancelFn);
+                    if (currentSet.size === 0) {
+                        activeLoads.delete(key);
+                    }
+                }
             }
         });
 
         ipcMain.handle('save-editor:cancel-load', async (_event, { gameKey, fileName }) => {
             console.log(`[IPC] save-editor:cancel-load gameKey: ${gameKey}, fileName: ${fileName}`);
             const key = `${gameKey}:${fileName}`;
-            const cancelFn = activeLoads.get(key);
-            if (cancelFn) {
-                cancelFn();
+            const cancelFns = activeLoads.get(key);
+            if (cancelFns && cancelFns.size > 0) {
+                for (const fn of cancelFns) {
+                    fn();
+                }
                 activeLoads.delete(key);
                 return { cancelled: true };
             }

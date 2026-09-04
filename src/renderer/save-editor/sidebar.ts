@@ -479,10 +479,14 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         const d = state.d || {};
         content.innerHTML = `
             <div class="loading save-load-progress-container">
-                <span class="save-load-status-text" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading save data...'}</span>
+                <span class="save-load-status-text" data-i18n="save_editor_loading"></span>
                 <button class="save-editor-popover-btn cancel-btn save-load-cancel-btn" style="display: none; margin-top: 12px; margin-inline: auto;">Cancel</button>
             </div>
         `;
+        const initialStatusText = content.querySelector('.save-load-status-text');
+        if (initialStatusText) {
+            initialStatusText.textContent = d.save_editor_loading || 'Loading save data...';
+        }
         overlay.querySelectorAll('.save-file-item').forEach(el => el.classList.remove('active'));
         element.classList.add('active');
         tabsWrapper.style.display = 'none';
@@ -492,7 +496,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         let unsubscribeProgress = null;
         if (typeof window.electronAPI?.onSaveLoadProgress === 'function') {
             unsubscribeProgress = window.electronAPI.onSaveLoadProgress((prog) => {
-                if (prog?.fileName === fileName) {
+                if (prog?.gameKey === gameKey && prog?.fileName === fileName) {
                     const statusText = content.querySelector('.save-load-status-text');
                     const cancelBtn = content.querySelector('.save-load-cancel-btn');
                     if (statusText) {

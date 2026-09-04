@@ -20,6 +20,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Standardized progress reporting interface with metric units (`{ current, total, percent, unit }`), providing `unit: 'bytes'` in Ren'Py parser.
 - [engine] Exposed explicit `earlyExit` option in `context.options.earlyExit` allowing callers to select between instant root dictionary parsing and complete rollback history traversal (`earlyExit: false`).
 - [save-editor] Added progress reporting and cancellation handling across IPC (`save-editor:load-progress`, `save-editor:cancel-load`) and Save Editor UI with byte unit metrics and configurable `earlyExit` / `stalenessTimeoutMs: 10000` policies.
+- [save-editor] Switched earlyExit decoding to asynchronous non-blocking parsing, refactored active load cancellation tracking to prevent multi-tab listener collisions, and hardened Save Editor sidebar DOM handling against markup injection.
 
 ---
 

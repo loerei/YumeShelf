@@ -4,6 +4,16 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.3] - 2026-09-04 — released
+
+### What Changed
+- Quick fix for cross-platform save path validation on Linux.
+
+### For the Nerds
+- [main] Allowed Windows drive paths on Linux without prepending working directory in save folder override validation.
+
+---
+
 ## [2.2.2] - 2026-09-04 — released
 
 ### What Changed

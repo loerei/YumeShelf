@@ -21,7 +21,6 @@ export * from './wolf-sav.js';
 export * from './renpy-pickle.js';
 export * from './bakin-sgs.js';
 export * from './unity-binary-formatter.js';
-export * from './staleness-tracker.js';
 
 export function detectSaveStrategy(fileName: string): string | null {
   if (!fileName || typeof fileName !== 'string' || fileName.trim() === '') {

@@ -16,6 +16,7 @@ import {
   BakinSgsSaveCodec,
   SandboxedPickleParser,
   StalenessTracker,
+  StalenessError,
   PickleGlobal,
   PickleInstance,
   ZipContainer,
@@ -1337,7 +1338,7 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       assert.equal(tracker.lastTime, initialTime + 2000);
     });
 
-    it('throws SaveCodecError(PARSE_FAILED) when progress stalls beyond timeoutMs', () => {
+    it('throws StalenessError when progress stalls beyond timeoutMs', () => {
       const tracker = new StalenessTracker({ timeoutMs: 2000, operationName: 'Save codec' });
       const baseTime = 10000;
       tracker.reset(50, baseTime);
@@ -1349,8 +1350,8 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       assert.throws(
         () => tracker.update(50, baseTime + 2500),
         (err: any) => {
-          assert.ok(err instanceof SaveCodecError);
-          assert.equal(err.code, 'PARSE_FAILED');
+          assert.ok(err instanceof StalenessError);
+          assert.equal(err.name, 'StalenessError');
           assert.ok(err.message.includes('Save codec stalled'));
           assert.ok(err.message.includes('2s'));
           return true;
@@ -1363,8 +1364,8 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       assert.throws(
         () => tracker.update(0, tracker.lastTime),
         (err: any) => {
-          assert.ok(err instanceof SaveCodecError);
-          assert.equal(err.code, 'PARSE_FAILED');
+          assert.ok(err instanceof StalenessError);
+          assert.equal(err.name, 'StalenessError');
           assert.ok(err.message.includes('stalled (no byte progress detected)'));
           return true;
         }
@@ -1381,7 +1382,8 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       assert.throws(
         () => tracker.update(0, tracker.lastTime + 1500),
         (err: any) => {
-          assert.ok(err instanceof SaveCodecError);
+          assert.ok(err instanceof StalenessError);
+          assert.equal(err.name, 'StalenessError');
           assert.ok(err.message.includes('RecordProcessor stalled (no records progress for 1s)'));
           return true;
         }
@@ -1403,7 +1405,31 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       assert.throws(
         () => tracker.update(0, tracker.lastTime + 2000),
         (err: any) => {
+          assert.ok(err instanceof StalenessError);
+          assert.equal(err.name, 'StalenessError');
           assert.equal(err.message, 'Custom error: CustomOp timed out after 1000ms');
+          return true;
+        }
+      );
+    });
+
+    it('supports custom errorFactory callback to throw domain-specific errors', () => {
+      const tracker = new StalenessTracker({
+        timeoutMs: 1000,
+        operationName: 'Pickle parser',
+        unit: 'item',
+        errorFactory: (timeoutMs, operationName, unit) =>
+          new SaveCodecError(
+            `Custom error: ${operationName} stalled on ${unit} (${timeoutMs}ms)`,
+            'PARSE_FAILED'
+          ),
+      });
+      assert.throws(
+        () => tracker.update(0, tracker.lastTime + 2000),
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.equal(err.message, 'Custom error: Pickle parser stalled on item (1000ms)');
           return true;
         }
       );

@@ -178,7 +178,7 @@ export interface CodecProgressUpdate {
 
 export interface SaveCodecOptions {
   stalenessTimeoutMs?: number;
-  stalenessTracker?: import('./save-codecs/staleness-tracker.js').StalenessTracker;
+  stalenessTracker?: import('./utils/staleness-tracker.js').StalenessTracker;
   earlyExit?: boolean;
   earlyExitRoots?: boolean;
   onProgress?: (progress: CodecProgressUpdate) => void;
@@ -199,7 +199,8 @@ export interface SaveCodecContext {
   converterPath?: string;
 }
 
-export type { StalenessTracker, StalenessTrackerOptions } from './save-codecs/staleness-tracker.js';
+export type { StalenessTracker, StalenessTrackerOptions } from './utils/staleness-tracker.js';
+export { StalenessError } from './utils/staleness-tracker.js';
 export type { SaveCodecErrorCode } from './saves/errors.js';
 export { SaveCodecError } from './saves/errors.js';
 export type {

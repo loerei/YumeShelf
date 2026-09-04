@@ -45,8 +45,13 @@ import {
   detectSaveStrategy,
   isSupportedSaveFile,
   listSupportedSaveExtensions,
-  StalenessTracker,
 } from './save-codecs/index.js';
+import {
+  StalenessTracker,
+  StalenessError,
+  defaultStalenessErrorMessage,
+  type StalenessTrackerOptions,
+} from './utils/index.js';
 
 export type * from './types.js';
 export { SaveCodecError } from './types.js';
@@ -58,6 +63,7 @@ export * from './save-codecs/index.js';
 export * from './fs/index.js';
 export * from './process/index.js';
 export * from './bundle/index.js';
+export * from './utils/index.js';
 
 const MACHO_MAGICS = new Set<number>([
   MACHO_MAGIC_32_BE,
@@ -285,4 +291,5 @@ export class YumeEngine {
   }
 
   static readonly StalenessTracker = StalenessTracker;
+  static readonly StalenessError = StalenessError;
 }

@@ -1,4 +1,10 @@
-import { SaveCodecError } from './errors.js';
+export class StalenessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StalenessError';
+    Object.setPrototypeOf(this, StalenessError.prototype);
+  }
+}
 
 export interface StalenessTrackerOptions {
   /**
@@ -24,6 +30,25 @@ export interface StalenessTrackerOptions {
    * Optional custom error message generator.
    */
   formatErrorMessage?: (timeoutMs: number, operationName: string) => string;
+
+  /**
+   * Optional factory function to create a custom error instance (e.g., SaveCodecError).
+   * If not provided, a StalenessError is thrown.
+   */
+  errorFactory?: (timeoutMs: number, operationName: string, unit: string) => Error;
+}
+
+/**
+ * Default message generator for staleness timeout errors.
+ */
+export function defaultStalenessErrorMessage(
+  timeoutMs: number,
+  operationName: string,
+  unit: string = 'byte'
+): string {
+  return timeoutMs <= 0
+    ? `Resource limit exceeded: ${operationName} stalled (no ${unit} progress detected)`
+    : `Resource limit exceeded: ${operationName} stalled (no ${unit} progress for ${timeoutMs / 1000}s)`;
 }
 
 /**
@@ -34,6 +59,7 @@ export class StalenessTracker {
   public readonly timeoutMs: number | undefined;
   public readonly operationName: string;
   public readonly unit: string;
+  public readonly errorFactory?: (timeoutMs: number, operationName: string, unit: string) => Error;
   private lastProgressPos: number;
   private lastProgressTime: number;
   private readonly formatErrorMessage?: (timeoutMs: number, operationName: string) => string;
@@ -48,6 +74,7 @@ export class StalenessTracker {
       this.operationName = options?.operationName ?? 'Operation';
       this.unit = options?.unit ?? 'byte';
       this.formatErrorMessage = options?.formatErrorMessage;
+      this.errorFactory = options?.errorFactory;
     }
     this.lastProgressPos = 0;
     this.lastProgressTime = Date.now();
@@ -77,7 +104,7 @@ export class StalenessTracker {
   /**
    * Check progress against previous position.
    * If currentPos > lastProgressPos, advances lastProgressPos and updates lastProgressTime.
-   * If no progress and elapsed time exceeds timeoutMs, throws SaveCodecError('PARSE_FAILED').
+   * If no progress and elapsed time exceeds timeoutMs, throws custom error from errorFactory or StalenessError.
    */
   update(currentPos: number, now: number = Date.now()): void {
     if (this.timeoutMs === undefined) {
@@ -92,12 +119,13 @@ export class StalenessTracker {
 
     const elapsed = now - this.lastProgressTime;
     if (this.timeoutMs <= 0 || elapsed >= this.timeoutMs) {
+      if (this.errorFactory) {
+        throw this.errorFactory(this.timeoutMs, this.operationName, this.unit);
+      }
       const msg = this.formatErrorMessage
         ? this.formatErrorMessage(this.timeoutMs, this.operationName)
-        : this.timeoutMs <= 0
-        ? `Resource limit exceeded: ${this.operationName} stalled (no ${this.unit} progress detected)`
-        : `Resource limit exceeded: ${this.operationName} stalled (no ${this.unit} progress for ${this.timeoutMs / 1000}s)`;
-      throw new SaveCodecError(msg, 'PARSE_FAILED');
+        : defaultStalenessErrorMessage(this.timeoutMs, this.operationName, this.unit);
+      throw new StalenessError(msg);
     }
   }
 

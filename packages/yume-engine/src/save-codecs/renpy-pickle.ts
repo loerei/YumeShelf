@@ -4,7 +4,12 @@ import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { SaveCodecError } from './errors.js';
 import { createSafeDict, isDangerousKey, sanitizeDeep } from './sanitize.js';
-import { StalenessTracker, type StalenessTrackerOptions } from './staleness-tracker.js';
+import {
+  StalenessTracker,
+  StalenessError,
+  defaultStalenessErrorMessage,
+  type StalenessTrackerOptions,
+} from '../utils/staleness-tracker.js';
 import type { SaveCodecContext, CodecProgressUpdate } from '../types.js';
 
 // CRC-32 precomputed lookup table
@@ -1001,7 +1006,12 @@ export class SandboxedPickleParser {
     const tracker =
       options?.stalenessTracker ??
       (options?.stalenessTimeoutMs !== undefined
-        ? new StalenessTracker({ timeoutMs: options.stalenessTimeoutMs, operationName: 'Pickle parser' })
+        ? new StalenessTracker({
+            timeoutMs: options.stalenessTimeoutMs,
+            operationName: 'Pickle parser',
+            errorFactory: (timeoutMs, operationName, unit) =>
+              new SaveCodecError(defaultStalenessErrorMessage(timeoutMs, operationName, unit), 'PARSE_FAILED'),
+          })
         : null);
 
     const state: ParserInternalState = {
@@ -1021,6 +1031,9 @@ export class SandboxedPickleParser {
         SandboxedPickleParser._stepChunk(buf, state, options, 100000);
       } catch (err: any) {
         if (err instanceof SaveCodecError) throw err;
+        if (err instanceof StalenessError) {
+          throw new SaveCodecError(err.message, 'PARSE_FAILED');
+        }
         if (err instanceof RangeError || err.name === 'RangeError') {
           throw new SaveCodecError(
             `Corrupted or truncated pickle buffer: ${err.message}`,
@@ -1038,7 +1051,12 @@ export class SandboxedPickleParser {
     const tracker =
       options?.stalenessTracker ??
       (options?.stalenessTimeoutMs !== undefined
-        ? new StalenessTracker({ timeoutMs: options.stalenessTimeoutMs, operationName: 'Pickle parser' })
+        ? new StalenessTracker({
+            timeoutMs: options.stalenessTimeoutMs,
+            operationName: 'Pickle parser',
+            errorFactory: (timeoutMs, operationName, unit) =>
+              new SaveCodecError(defaultStalenessErrorMessage(timeoutMs, operationName, unit), 'PARSE_FAILED'),
+          })
         : null);
 
     const state: ParserInternalState = {
@@ -1054,11 +1072,14 @@ export class SandboxedPickleParser {
     };
 
     while (!state.done) {
-      tracker?.update(state.pos);
       try {
+        tracker?.update(state.pos);
         SandboxedPickleParser._stepChunk(buf, state, options, 5000);
       } catch (err: any) {
         if (err instanceof SaveCodecError) throw err;
+        if (err instanceof StalenessError) {
+          throw new SaveCodecError(err.message, 'PARSE_FAILED');
+        }
         if (err instanceof RangeError || err.name === 'RangeError') {
           throw new SaveCodecError(
             `Corrupted or truncated pickle buffer: ${err.message}`,
@@ -2142,6 +2163,9 @@ export class RenpyPickleSaveCodec {
         ) {
           throw err;
         }
+        if (err instanceof StalenessError) {
+          throw new SaveCodecError(err.message, 'PARSE_FAILED');
+        }
         // Fallback path will run below if early exit fails or encounters non-standard structure
         roots = null;
       }
@@ -2274,6 +2298,9 @@ export class RenpyPickleSaveCodec {
             err.message.includes('Unsupported pickle protocol'))
         ) {
           throw err;
+        }
+        if (err instanceof StalenessError) {
+          throw new SaveCodecError(err.message, 'PARSE_FAILED');
         }
         roots = null;
       }

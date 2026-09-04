@@ -14,6 +14,10 @@
 - [ ] Circular Dependency Analysis: Verify that module dependency graphs are strictly acyclic. Reject circular package references at both compile-time and structural levels.
 - [ ] Inversion of Control: Confirm high-level policy modules depend on abstractions (interfaces), not low-level concrete infrastructure modules.
 
+### 4. Architectural Decomposition & Seam Thresholds
+- [ ] Blast-Radius Scope Ceiling: If a proposed change touches 5+ existing architectural modules simultaneously, demand architectural decomposition into phased preparatory refactoring and isolated seam adapters before proceeding.
+- [ ] Redundant Endpoint Integration: Reject new API endpoints or seam routes that introduce redundant data representations; require integration into existing domain interface schemas.
+
 ## Concrete Anti-Patterns
 
 ### Anti-Pattern 1: Cross-Domain Database Model Entanglement

@@ -3,7 +3,7 @@
 ## Domain Audit Checklist (OWASP ASVS V2 & V3 Alignment)
 
 ### 1. Authentication & Multi-Factor Controls
-- [ ] MFA Enforcement: Verify that MFA mechanisms (FIDO2/WebAuthn, TOTP) are required for all administrative access and sensitive actions [cite: 6]. Reject SMS or email-based recovery as primary security factors [cite: 6].
+- [ ] MFA Enforcement: Verify that MFA mechanisms (FIDO2/WebAuthn, TOTP) are required for all administrative access and sensitive actions. Reject SMS or email-based recovery as primary security factors.
 - [ ] Credential Storage: Confirm passphrases are hashed using Argon2id, bcrypt, or PBKDF2 with unique salts and sufficient cost factors.
 
 ### 2. Session Token Lifecycle & Cryptography

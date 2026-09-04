@@ -12,7 +12,7 @@ Multi-agent review loop using isolated domain reviewers, topological dependency 
 | Layer | Agent | Primary Responsibility |
 | :--- | :--- | :--- |
 | **Layer 1** | Main Agent | Spawns Layer 2 Host, applies clean DA mutations from `Changelog.md`, presents final output. |
-| **Layer 2** | Review Host & Critical Gate | Dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, summons active reviewers using invariant prompts, purges `reports/` before passes, isolates host artifacts in `host/`, executes Reviewer-level DAG routing, executes Snapshot Delta Backfill for skipped roles (upstream and untouched), writes `Analyzation.md`, `Changelog.md`, and `Untouched_Reviewers.md`. |
+| **Layer 2** | Review Host & Critical Gate | Dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, summons active reviewers using invariant prompts, purges `reports/` before passes, isolates host artifacts in `host/`, executes Reviewer-level DAG routing, enforces Tier Batch Gate negotiation and in-place fix pre-verification, terminates subagent processes upon tier batch resolution, executes Snapshot Delta Backfill for skipped roles (upstream and untouched), writes `Analyzation.md`, `Changelog.md`, and `Untouched_Reviewers.md`. |
 | **Layer 3** | Domain Reviewers | Independent specialist subagents (up to 11 roles across 4 Tiers) executing domain audits per `<Role>-REVIEWER-GUIDE.md`. |
 
 ## Workflow
@@ -41,7 +41,7 @@ flowchart TD
 
 ### Step 1: Initialize Workspace
 
-Create `.scratch/deep_review/host/` and `.scratch/deep_review/reports/`. Initialize `.scratch/deep_review/Context.md` with target DA path, cross-referenced DAs with dependency lineage (`Upstream` / `Downstream` and `Implemented` / `Unimplemented`), codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
+Create `<repo-root>/.scratch/deep-review/host/`, `<repo-root>/.scratch/deep-review/reports/`, and `<repo-root>/.scratch/deep-review/sandbox/`. Initialize `.scratch/deep-review/Context.md` with target DA path, cross-referenced DAs with dependency lineage (`Upstream` / `Downstream` and `Implemented` / `Unimplemented`), codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
 
 ### Step 2: Spawn Review Host & Critical Gate (Layer 2)
 
@@ -52,24 +52,24 @@ If `review_host` is not already defined in the active session, call `define_suba
 - `enable_subagent_tools: true` *(Mandatory: equips Host with `invoke_subagent` and `manage_subagents` to summon Layer 3 reviewers)*
 - `enable_write_tools: true` *(Mandatory: equips Host to write `Analyzation.md`, `Changelog.md`, and `Reviewer_Choice_Rationale.md`)*
 - `enable_mcp_tools: true`
-- `system_prompt`: Provide Host operational instructions referencing `REVIEW-HOST-GUIDE.md`, `PROTOCOL.md`, and `HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md`.
+- `system_prompt`: Provide Host operational instructions referencing `REVIEW-HOST-GUIDE.md` and `HOW-TO-GATE.md`.
 
 #### 2B. Summon Review Host
 Invoke the registered `review_host` subagent via `invoke_subagent`:
 - `TypeName`: `"review_host"`
 - `Role`: `"Review Host & Critical Gate"`
 - `Prompt`:
-`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: PROTOCOL.md. Opinion Filtering: HOW-TO-PICK-UP-THE-RIGHT-OPINIONS.md. Context File: .scratch/deep_review/Context.md. Dynamically select active reviewers in .scratch/deep_review/host/Reviewer_Choice_Rationale.md, execute Reviewer-level DAG routing (consuming Changelog.md and Untouched_Reviewers.md), spawn reviewers using invariant prompts, filter feedback, and generate Analyzation.md, Changelog.md, and Untouched_Reviewers.md in .scratch/deep_review/host/.`
+`You are Review Host & Critical Gate. Target DA: <da_path>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context File: .scratch/deep-review/Context.md. Dynamically select active reviewers in .scratch/deep-review/host/Reviewer_Choice_Rationale.md, execute Reviewer-level DAG routing (consuming Changelog.md and Untouched_Reviewers.md), spawn reviewers using invariant prompts, enforce Tier Batch Gate negotiation and in-place fix pre-verification, terminate subagent processes upon tier batch resolution, filter feedback, generate Analyzation.md, Changelog.md, and Untouched_Reviewers.md in .scratch/deep-review/host/, and preserve Analyzation.md for Layer 1 handoff upon FINAL_PASS.`
 
 ### Step 3: Handle Host Verdict
 
-Read `.scratch/deep_review/host/Analyzation.md`.
+Read `.scratch/deep-review/host/Analyzation.md`.
 
 | Verdict in `Analyzation.md` | Action |
 | :--- | :--- |
-| `ROUND_REVISION_NEEDED` | Read `.scratch/deep_review/host/Changelog.md`.<br>• **If `!PA` / `!WA` active**: STOP execution immediately before modifying DA. Output standardized quota pause message (requesting keyword `"C"` to apply edits and proceed).<br>• **Upon receiving `"C"` (or if no pause tag)**: Apply edits to DA using Clean & Neutral Artifact Protocol. Preserve `.scratch/deep_review/host/Untouched_Reviewers.md` alongside `Changelog.md`. If `Changelog.md` includes `## Target Directive Artifacts Synchronization (Context.md)`, update `.scratch/deep_review/Context.md`. Re-spawn/revive Layer 2 Host for Round N+1 (Host consumes Changelog and Untouched_Reviewers on start). |
+| `ROUND_REVISION_NEEDED` | Read `.scratch/deep-review/host/Changelog.md`.<br>• **If `!PA` / `!WA` active**: STOP execution immediately before modifying DA. Output standardized quota pause message (requesting keyword `"C"` to apply edits and proceed).<br>• **Upon receiving `"C"` (or if no pause tag)**: Apply edits to DA using Clean & Neutral Artifact Protocol. Preserve `.scratch/deep-review/host/Untouched_Reviewers.md` alongside `Changelog.md`. If `Changelog.md` includes `## Target Directive Artifacts Synchronization (Context.md)`, update `.scratch/deep-review/Context.md`. Re-spawn/revive Layer 2 Host for Round N+1 (Host consumes Changelog and Untouched_Reviewers on start). |
 | `ROUND_PASS` | Re-spawn Layer 2 Host for next Full Sweep round on unchanged DA. |
-| `FINAL_PASS` | Conclude review loop (`PassCount >= SP`). Present fully verified DA to user. |
+| `FINAL_PASS` | Conclude review loop (`PassCount >= SP`). Read `.scratch/deep-review/host/Analyzation.md` to confirm verified clearance, present fully verified DA to user, and execute final directory purge of `<repo-root>/.scratch/deep-review/*`. |
 
 ## Modifiers
 

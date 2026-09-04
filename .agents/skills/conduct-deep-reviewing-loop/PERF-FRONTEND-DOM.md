@@ -43,4 +43,4 @@ function UserList({ users }) {
 ## Failure Modes & Mitigations
 
 - Main Thread Blocking via Large Synchronous Computation: Offload non-UI tasks (data transformation, parsing) to dynamic Web Workers.
-- Cumulative Layout Shifts (CLS): Set explicit dimensional width/height attributes on image elements and skeleton placeholder containers.
+- Forced Synchronous Layout & Reflow Thrashing: Avoid repetitive DOM geometry recalculations; isolate DOM mutations and batch read/write cycles using requestAnimationFrame or ResizeObserver to eliminate browser engine reflow penalties.

@@ -10,9 +10,13 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 **Ground-Truth Alignment**:
 - Ground ticket breakdowns in actual codebase dependencies and test suites. Do NOT demand speculative ticket splits for stable, working modules.
-- **Dependency Lineage Alignment**: If `.scratch/deep_review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+- **Dependency Lineage Alignment**: If `.scratch/deep-review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
   - Verify that the target DA's milestones and ticket prerequisites correctly sequence with `Upstream` DAs (ensuring target tickets do not attempt to implement upstream capabilities or assume upstream milestones are complete without explicit staging).
 - Follow Postel's Law: Preserve backward-compatible decoding during transitional milestone phases.
+
+**Fix Pre-Verification**:
+- **Ground-Truth**: Verify on disk that referenced modules, files, or tickets exist before prescribing relocation, splitting, or phase sequencing, and verify boundary contracts are updated symmetrically.
+- **Macro Flow**: Verify that the proposed breakdown maintains dependency order and does not create deadlocks across phases.
 
 ## Mandatory Audit Questions
 
@@ -69,7 +73,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 ## Standard Output Protocol
 
-Save evaluation to `.scratch/deep_review/reports/Progress.md` via `write_to_file` using this format:
+Save evaluation to `.scratch/deep-review/reports/Progress.md` via `write_to_file` using this format:
 
 ### Review Evaluation: Progress & Work Breakdown Reviewer
 
@@ -83,13 +87,45 @@ Save evaluation to `.scratch/deep_review/reports/Progress.md` via `write_to_file
    - **Target Destination**: `<Target_Files_or_New_PRD_Path>`
    - **Technical Rationale**: <Why this restructuring is required for incremental deliverability or dependency soundness>
    - **Required Transformation**: <Step-by-step instructions on splitting, merging, extracting, or reordering>
+   - **Ground-Truth Proof**: <Path to existing files, modules, or tickets on disk/spec verifying dependency exists, or verified target destination location for newly planned tickets/files>
+   - **Macro Flow Proof**: <Verification that delivery sequence, phase prerequisites, and milestone boundaries remain acyclic and deliverable>
 
 2. **[<ACTION_NAME>] <Issue Title 2>**:
    - **Target Scope / Source**: `<Source_Files_or_Tickets>`
    - **Target Destination**: `<Target_Files_or_New_PRD_Path>`
    - **Technical Rationale**: <Why this restructuring is required for incremental deliverability or dependency soundness>
    - **Required Transformation**: <Step-by-step instructions on splitting, merging, extracting, or reordering>
+   - **Ground-Truth Proof**: <Path to existing files, modules, or tickets on disk/spec verifying dependency exists, or verified target destination location for newly planned tickets/files>
+   - **Macro Flow Proof**: <Verification that delivery sequence, phase prerequisites, and milestone boundaries remain acyclic and deliverable>
 
 ### Suggestions for Improvement (Non-blocking):
 
+Once your report is written, send a notification message back to Host via `send_message` confirming completion.
+
 - <Optional roadmap polish or backlog consideration that does NOT block PASS status>
+
+## Gate Response Protocol (Host Interaction)
+
+If Host determines that any issue in your report lacks Ground-Truth Proof, lacks Macro Flow Proof, cites non-existent codebase APIs, breaks boundary contract symmetry, introduces cross-section contradictions, or violates scope boundaries, Host will file `.scratch/deep-review/reports/Progress_Gated_Issues.md` and notify you via message.
+
+Upon receiving a gating notification from Host, you MUST read `.scratch/deep-review/reports/Progress_Gated_Issues.md` via `view_file` and choose one of three actions:
+
+1. **Refine / Complete as Requested**:
+   - If the defect is real but your proposed transformation was ungrounded, broke boundary symmetry, or introduced intra-DA contradictions:
+   - Edit `.scratch/deep-review/reports/Progress.md` in-place via native `write_to_file`.
+   - Strip invalid snippets and restate the transformation as an abstract, unambiguous specification requirement, or provide verified ground-truth proof. If gated for `Asymmetric Boundary Contract`, update the transformation to symmetrically include all affected internal boundary endpoints. If gated for `Cross-Section Contradiction`, update the transformation to harmonize dependent sections.
+   - If `.scratch/deep-review/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
+
+2. **Remove**:
+   - If Host's evidence shows the defect is invalid, false-positive, or speculative:
+   - Edit `.scratch/deep-review/reports/Progress.md` in-place via native `write_to_file`, removing that issue completely.
+   - If all blocking issues are removed from your report, update your status to `- **Status**: STATUS: PASS`.
+   - If `.scratch/deep-review/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
+
+3. **Reject Gating/Removal and Explain**:
+   - If you have concrete, differing codebase evidence proving the defect and proposed fix are correct and complete:
+   - Author `.scratch/deep-review/reports/Progress_Explain.md` via native `write_to_file`, detailing the exact file paths, line numbers, and runtime data flow that prove validity.
+   - You MUST ALSO update `.scratch/deep-review/reports/Progress.md` in-place to integrate the substantiated `Ground-Truth Proof`, `Macro Flow Proof`, and clean remediation text, ensuring `Progress.md` remains the clean single source of truth for Host aggregation.
+   - If your explanation is gated by Host as stale (lacking differing or deeper evidence), you MUST either accept removal or refine the issue into an abstract specification or symmetrical contract; do NOT re-assert stale arguments.
+
+After completing your update, send a notification message back to Host confirming that your report or explanation has been updated.

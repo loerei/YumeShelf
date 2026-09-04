@@ -11,6 +11,8 @@ class RenpyFormat {
             fileName,
             options: {
                 savePath: path.join(paths.saveDir, fileName),
+                stalenessTimeoutMs: paths?.stalenessTimeoutMs !== undefined ? paths.stalenessTimeoutMs : 10000,
+                earlyExit: paths?.earlyExit !== undefined ? Boolean(paths.earlyExit) : true,
                 onProgress: paths?.onProgress,
                 shouldCancel: paths?.shouldCancel,
             }

@@ -164,11 +164,35 @@ export interface ResolvedSaveLocation {
   files?: string[];
 }
 
+export type ProgressUnit = 'bytes' | 'items' | 'percent';
+
+export interface CodecProgressUpdate {
+  current: number;
+  total: number;
+  percent: number;
+  unit: ProgressUnit | string;
+  pos?: number;
+  totalBytes?: number;
+  iterations?: number;
+}
+
+export interface SaveCodecOptions {
+  stalenessTimeoutMs?: number;
+  earlyExit?: boolean;
+  earlyExitRoots?: boolean;
+  onProgress?: (progress: CodecProgressUpdate) => void;
+  shouldCancel?: () => boolean;
+  savePath?: string;
+  originalBuffer?: Buffer;
+  wrapInZip?: boolean;
+  [key: string]: any;
+}
+
 export interface SaveCodecContext {
   fileName?: string;
   gameTitle?: string;
   gameKey?: string;
-  options?: Record<string, any>;
+  options?: SaveCodecOptions;
   runner?: import('./process/types.js').IProcessRunner;
   assemblyPath?: string;
   converterPath?: string;

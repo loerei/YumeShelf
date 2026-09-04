@@ -34,7 +34,7 @@ export class SaveEditorIpcController {
 
         const activeLoads = new Map<string, () => void>();
 
-        ipcMain.handle('save-editor:load-data', async (event, { gameKey, fileName }) => {
+        ipcMain.handle('save-editor:load-data', async (event, { gameKey, fileName, earlyExit, stalenessTimeoutMs }) => {
             console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
             const key = `${gameKey}:${fileName}`;
             let cancelled = false;
@@ -44,14 +44,23 @@ export class SaveEditorIpcController {
 
             try {
                 return await saveEditorService?.loadSaveData(gameKey, fileName, {
-                    onProgress: (prog: { pos: number; totalBytes: number; iterations: number }) => {
+                    earlyExit: earlyExit !== undefined ? Boolean(earlyExit) : true,
+                    stalenessTimeoutMs: stalenessTimeoutMs !== undefined ? Number(stalenessTimeoutMs) : 10000,
+                    onProgress: (prog: { current?: number; total?: number; percent?: number; unit?: string; pos?: number; totalBytes?: number; iterations?: number }) => {
                         if (!event.sender.isDestroyed()) {
+                            const current = prog.current ?? prog.pos ?? 0;
+                            const total = prog.total ?? prog.totalBytes ?? 0;
+                            const percent = prog.percent ?? (total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0);
+                            const unit = prog.unit ?? 'bytes';
                             event.sender.send('save-editor:load-progress', {
                                 gameKey,
                                 fileName,
-                                pos: prog.pos,
-                                totalBytes: prog.totalBytes,
-                                percent: Math.min(100, Math.round((prog.pos / prog.totalBytes) * 100)),
+                                current,
+                                total,
+                                percent,
+                                unit,
+                                pos: current,
+                                totalBytes: total,
                             });
                         }
                     },

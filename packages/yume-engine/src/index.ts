@@ -45,6 +45,7 @@ import {
   detectSaveStrategy,
   isSupportedSaveFile,
   listSupportedSaveExtensions,
+  StalenessTracker,
 } from './save-codecs/index.js';
 
 export type * from './types.js';
@@ -282,4 +283,6 @@ export class YumeEngine {
   ): Promise<Buffer> {
     return encodeSaveFile(strategy, jsonData, context);
   }
+
+  static readonly StalenessTracker = StalenessTracker;
 }

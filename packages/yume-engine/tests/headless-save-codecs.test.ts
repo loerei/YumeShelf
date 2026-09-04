@@ -15,6 +15,7 @@ import {
   RenpyPickleSaveCodec,
   BakinSgsSaveCodec,
   SandboxedPickleParser,
+  StalenessTracker,
   PickleGlobal,
   PickleInstance,
   ZipContainer,
@@ -921,6 +922,17 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       assert.ok(Array.isArray(parsed));
       assert.equal(parsed[0]['store.gold'], 1000);
 
+      // Verify standardized progress format with unit: bytes
+      if (progressSnapshots.length > 0) {
+        const last = progressSnapshots[progressSnapshots.length - 1];
+        assert.equal(typeof last.current, 'number');
+        assert.equal(typeof last.total, 'number');
+        assert.equal(typeof last.percent, 'number');
+        assert.equal(last.unit, 'bytes');
+        assert.equal(last.pos, last.current);
+        assert.equal(last.totalBytes, last.total);
+      }
+
       // Verify cancellation
       await assert.rejects(
         async () => {
@@ -985,6 +997,79 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       assert.notEqual(scan.setitemsPos, -1);
       assert.ok(scan.rootsOffsets.has('store.key'));
       assert.equal(scan.rootsOffsets.get('store.key')?.oldVal, 123);
+    });
+
+    it('supports context.options.earlyExit to choose between fast early exit and full rollback parsing', async () => {
+      // Stream: PROTO 2, EMPTY_DICT (roots), MARK, 'store.val', 10, SETITEMS, trailing MARK/POP_MARK pairs, STOP
+      const trailing = [];
+      for (let i = 0; i < 500; i++) {
+        trailing.push(0x28, 0x31); // MARK (0x28), POP_MARK (0x31)
+      }
+      const stream = Buffer.concat([
+        Buffer.from([0x80, 0x02, 0x7d, 0x28]),
+        Buffer.from([0x58, 0x09, 0x00, 0x00, 0x00]),
+        Buffer.from('store.val'),
+        Buffer.from([0x4b, 0x0a]),
+        Buffer.from([0x75]),
+        Buffer.from(trailing),
+        Buffer.from([0x2e]), // STOP
+      ]);
+
+      // 1. Default (earlyExit: true) fast path
+      const decodedDefault = await RenpyPickleSaveCodec.decode(stream, {
+        fileName: 'test.save',
+      });
+      assert.equal(decodedDefault['store.val'], 10);
+
+      // 2. Explicit earlyExit: true
+      const decodedEarly = await RenpyPickleSaveCodec.decode(stream, {
+        fileName: 'test.save',
+        options: { earlyExit: true },
+      });
+      assert.equal(decodedEarly['store.val'], 10);
+
+      // 3. Explicit earlyExit: false parses full history and reports progress
+      let progressReported = false;
+      const decodedFull = await RenpyPickleSaveCodec.decode(stream, {
+        fileName: 'test.save',
+        options: {
+          earlyExit: false,
+          onProgress: (p) => {
+            progressReported = true;
+            assert.equal(p.unit, 'bytes');
+          },
+        },
+      });
+      assert.equal(decodedFull['store.val'], 10);
+      assert.ok(progressReported);
+    });
+
+    it('configures staleness timeout via context.options.stalenessTimeoutMs and does not hardcode 10s', async () => {
+      const infiniteLoopBuf = Buffer.from([0x80, 0x02, 0x7d, 0x2e]);
+
+      // 1. When stalenessTimeoutMs is configured (e.g. -1 to force immediate timeout)
+      await assert.rejects(
+        async () => {
+          await RenpyPickleSaveCodec.decode(infiniteLoopBuf, {
+            fileName: 'test.save',
+            options: { earlyExit: false, stalenessTimeoutMs: -1 },
+          });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.ok(err.message.includes('stalled'));
+          return true;
+        }
+      );
+
+      // 2. When stalenessTimeoutMs is undefined, it does not fail with stalled error
+      const validBuf = Buffer.from([0x80, 0x02, 0x7d, 0x2e]);
+      const result = await RenpyPickleSaveCodec.decode(validBuf, {
+        fileName: 'test.save',
+        // No stalenessTimeoutMs provided -> no hardcoded 10s timeout enforced
+      });
+      assert.ok(result && result.$type === 'RenpySave');
     });
 
     it('throws typed SaveCodecError(PARSE_FAILED) on truncated pickle buffers without leaking RangeError', async () => {
@@ -1161,6 +1246,104 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
     it('listSupportedSaveExtensions returns sorted canonical extension list', () => {
       const extensions = YumeEngine.listSupportedSaveExtensions();
       assert.deepEqual(extensions, ['.bin', '.json', '.rmmzsave', '.rpgsave', '.sav', '.save', '.sgs']);
+    });
+  });
+
+  describe('StalenessTracker Reusable Utility (@yumeshelf/engine)', () => {
+    it('initializes with default options or number', () => {
+      const tracker1 = new StalenessTracker();
+      assert.equal(tracker1.isEnabled, false);
+      assert.equal(tracker1.timeoutMs, undefined);
+      assert.equal(tracker1.operationName, 'Operation');
+      assert.equal(tracker1.lastPos, 0);
+
+      const tracker2 = new StalenessTracker(5000);
+      assert.equal(tracker2.isEnabled, true);
+      assert.equal(tracker2.timeoutMs, 5000);
+      assert.equal(tracker2.operationName, 'Operation');
+
+      const tracker3 = new StalenessTracker({ timeoutMs: 10000, operationName: 'Pickle parser' });
+      assert.equal(tracker3.isEnabled, true);
+      assert.equal(tracker3.timeoutMs, 10000);
+      assert.equal(tracker3.operationName, 'Pickle parser');
+    });
+
+    it('advances position and updates timestamp on positive progress', () => {
+      const tracker = new StalenessTracker({ timeoutMs: 5000 });
+      const initialTime = tracker.lastTime;
+      tracker.update(100, initialTime + 1000);
+      assert.equal(tracker.lastPos, 100);
+      assert.equal(tracker.lastTime, initialTime + 1000);
+
+      tracker.update(200, initialTime + 2000);
+      assert.equal(tracker.lastPos, 200);
+      assert.equal(tracker.lastTime, initialTime + 2000);
+    });
+
+    it('throws SaveCodecError(PARSE_FAILED) when progress stalls beyond timeoutMs', () => {
+      const tracker = new StalenessTracker({ timeoutMs: 2000, operationName: 'Save codec' });
+      const baseTime = 10000;
+      tracker.reset(50, baseTime);
+
+      // Same position, within timeout -> no throw
+      tracker.update(50, baseTime + 1500);
+
+      // Same position, exceeds timeout -> throws
+      assert.throws(
+        () => tracker.update(50, baseTime + 2500),
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.ok(err.message.includes('Save codec stalled'));
+          assert.ok(err.message.includes('2s'));
+          return true;
+        }
+      );
+    });
+
+    it('triggers immediately when timeoutMs <= 0 and no progress is made', () => {
+      const tracker = new StalenessTracker({ timeoutMs: 0 });
+      assert.throws(
+        () => tracker.update(0, tracker.lastTime + 1),
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.ok(err.message.includes('stalled'));
+          return true;
+        }
+      );
+    });
+
+    it('does not throw when disabled (timeoutMs undefined)', () => {
+      const tracker = new StalenessTracker();
+      tracker.update(0, tracker.lastTime + 999999);
+      assert.equal(tracker.lastPos, 0);
+    });
+
+    it('supports custom formatErrorMessage callback', () => {
+      const tracker = new StalenessTracker({
+        timeoutMs: 1000,
+        operationName: 'CustomOp',
+        formatErrorMessage: (timeout, op) => `Custom error: ${op} timed out after ${timeout}ms`,
+      });
+      assert.throws(
+        () => tracker.update(0, tracker.lastTime + 2000),
+        (err: any) => {
+          assert.equal(err.message, 'Custom error: CustomOp timed out after 1000ms');
+          return true;
+        }
+      );
+    });
+
+    it('resets progress position and timestamp', () => {
+      const tracker = new StalenessTracker(5000);
+      tracker.update(500, 12345);
+      assert.equal(tracker.lastPos, 500);
+      assert.equal(tracker.lastTime, 12345);
+
+      tracker.reset(0, 50000);
+      assert.equal(tracker.lastPos, 0);
+      assert.equal(tracker.lastTime, 50000);
     });
   });
 });

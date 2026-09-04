@@ -16,8 +16,10 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Implemented pure TypeScript multi-entry ZIP extractor and builder (`ZipContainer`) for Ren'Py save containers preserving `screenshot.png`, `json`, `extra_info`, and `signatures`.
 - [engine] Added multi-frame protocol 4/5 surgical variable patching in `RenpyPickleSaveCodec`: tracks frame lengths across all frames, precisely identifies root dictionary key/value bounds while ignoring nested MARK structures, splices primitive updates in place, inserts new store variables before `SETITEMS`, and recalibrates all frame headers without stream corruption.
 - [engine] Added Early Exit at root store dictionary `SETITEMS` in `SandboxedPickleParser` and `RenpyPickleSaveCodec.decode`, unpickling store variables in 1-2 ms without traversing rollback history.
-- [engine] Replaced fixed `MAX_ITERATIONS` limit with staleness timeout tracking (10s without byte progress), and implemented chunked `SandboxedPickleParser.parseAsync` fallback.
-- [save-editor] Added progress reporting and cancellation handling across IPC (`save-editor:load-progress`, `save-editor:cancel-load`) and Save Editor UI.
+- [engine] Extracted reusable `StalenessTracker` utility in `@yumeshelf/engine` for long-running codecs and parser operations; removed hardcoded 10s timeout from Ren'Py codec and allowed caller configuration via `context.options.stalenessTimeoutMs`.
+- [engine] Standardized progress reporting interface with metric units (`{ current, total, percent, unit }`), providing `unit: 'bytes'` in Ren'Py parser.
+- [engine] Exposed explicit `earlyExit` option in `context.options.earlyExit` allowing callers to select between instant root dictionary parsing and complete rollback history traversal (`earlyExit: false`).
+- [save-editor] Added progress reporting and cancellation handling across IPC (`save-editor:load-progress`, `save-editor:cancel-load`) and Save Editor UI with byte unit metrics and configurable `earlyExit` / `stalenessTimeoutMs: 10000` policies.
 
 ---
 

@@ -4,7 +4,8 @@ import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { SaveCodecError } from './errors.js';
 import { createSafeDict, isDangerousKey, sanitizeDeep } from './sanitize.js';
-import type { SaveCodecContext } from '../types.js';
+import { StalenessTracker, type StalenessTrackerOptions } from './staleness-tracker.js';
+import type { SaveCodecContext, CodecProgressUpdate } from '../types.js';
 
 // CRC-32 precomputed lookup table
 const CRC_TABLE = new Uint32Array(256);
@@ -101,10 +102,12 @@ export interface RootsScanResult {
 }
 
 export interface SandboxedPickleParserOptions {
+  earlyExit?: boolean;
   earlyExitRoots?: boolean;
   stalenessTimeoutMs?: number;
+  stalenessTracker?: StalenessTracker;
   maxIterations?: number;
-  onProgress?: (progress: { pos: number; totalBytes: number; iterations: number }) => void;
+  onProgress?: (progress: CodecProgressUpdate) => void;
   shouldCancel?: () => boolean;
 }
 
@@ -115,8 +118,7 @@ interface ParserInternalState {
   pos: number;
   iterations: number;
   rootsMark: number;
-  lastProgressPos: number;
-  lastProgressTime: number;
+  tracker: StalenessTracker | null;
   done: boolean;
   result: any;
 }
@@ -149,10 +151,8 @@ export class SandboxedPickleParser {
     let pos = state.pos;
     let iterations = state.iterations;
     let rootsMark = state.rootsMark;
-    let lastProgressPos = state.lastProgressPos;
-    let lastProgressTime = state.lastProgressTime;
-    const stalenessTimeoutMs = options?.stalenessTimeoutMs ?? 10000;
-    const earlyExitRoots = Boolean(options?.earlyExitRoots);
+    const tracker = state.tracker;
+    const earlyExit = Boolean(options?.earlyExit ?? options?.earlyExitRoots);
     const maxIterations = options?.maxIterations ?? Infinity;
 
     let steps = 0;
@@ -164,17 +164,8 @@ export class SandboxedPickleParser {
         throw new SaveCodecError('Parsing cancelled by user', 'PARSE_FAILED');
       }
 
-      if (iterations % 1000 === 0 || stalenessTimeoutMs <= 0) {
-        const now = Date.now();
-        if (pos > lastProgressPos) {
-          lastProgressPos = pos;
-          lastProgressTime = now;
-        } else if (now - lastProgressTime > stalenessTimeoutMs) {
-          throw new SaveCodecError(
-            `Resource limit exceeded: Pickle parser stalled (no byte progress for ${stalenessTimeoutMs / 1000}s)`,
-            'PARSE_FAILED'
-          );
-        }
+      if (tracker && (iterations % 1000 === 0 || (tracker.timeoutMs !== undefined && tracker.timeoutMs <= 0))) {
+        tracker.update(pos);
       }
 
       if (iterations > maxIterations) {
@@ -217,8 +208,6 @@ export class SandboxedPickleParser {
           state.iterations = iterations;
           state.memoCounter = memoCounter;
           state.rootsMark = rootsMark;
-          state.lastProgressPos = lastProgressPos;
-          state.lastProgressTime = lastProgressTime;
           return;
         }
 
@@ -613,7 +602,7 @@ export class SandboxedPickleParser {
               }
             }
           }
-          if (earlyExitRoots && isRootsSetItems && isPickleDict(dict)) {
+          if (earlyExit && isRootsSetItems && isPickleDict(dict)) {
             let nextPos = pos;
             while (nextPos + 9 <= buf.length && buf[nextPos] === 0x95) {
               nextPos += 9;
@@ -628,8 +617,6 @@ export class SandboxedPickleParser {
             state.iterations = iterations;
             state.memoCounter = memoCounter;
             state.rootsMark = rootsMark;
-            state.lastProgressPos = lastProgressPos;
-            state.lastProgressTime = lastProgressTime;
             return;
           }
           break;
@@ -1004,8 +991,6 @@ export class SandboxedPickleParser {
     state.iterations = iterations;
     state.memoCounter = memoCounter;
     state.rootsMark = rootsMark;
-    state.lastProgressPos = lastProgressPos;
-    state.lastProgressTime = lastProgressTime;
 
     if (pos >= buf.length && !state.done) {
       throw new SaveCodecError('Unexpected end of pickle buffer without STOP opcode', 'PARSE_FAILED');
@@ -1013,6 +998,12 @@ export class SandboxedPickleParser {
   }
 
   static parse(buf: Buffer, options?: SandboxedPickleParserOptions): any {
+    const tracker =
+      options?.stalenessTracker ??
+      (options?.stalenessTimeoutMs !== undefined
+        ? new StalenessTracker({ timeoutMs: options.stalenessTimeoutMs, operationName: 'Pickle parser' })
+        : null);
+
     const state: ParserInternalState = {
       stack: [],
       memo: Object.create(null),
@@ -1020,8 +1011,7 @@ export class SandboxedPickleParser {
       pos: 0,
       iterations: 0,
       rootsMark: -1,
-      lastProgressPos: 0,
-      lastProgressTime: Date.now(),
+      tracker,
       done: false,
       result: undefined,
     };
@@ -1045,6 +1035,12 @@ export class SandboxedPickleParser {
   }
 
   static async parseAsync(buf: Buffer, options?: SandboxedPickleParserOptions): Promise<any> {
+    const tracker =
+      options?.stalenessTracker ??
+      (options?.stalenessTimeoutMs !== undefined
+        ? new StalenessTracker({ timeoutMs: options.stalenessTimeoutMs, operationName: 'Pickle parser' })
+        : null);
+
     const state: ParserInternalState = {
       stack: [],
       memo: Object.create(null),
@@ -1052,8 +1048,7 @@ export class SandboxedPickleParser {
       pos: 0,
       iterations: 0,
       rootsMark: -1,
-      lastProgressPos: 0,
-      lastProgressTime: Date.now(),
+      tracker,
       done: false,
       result: undefined,
     };
@@ -1071,17 +1066,21 @@ export class SandboxedPickleParser {
         }
         throw err;
       }
-      if (state.done) break;
-
       if (options?.shouldCancel?.()) {
         throw new SaveCodecError('Parsing cancelled by user', 'PARSE_FAILED');
       }
 
       options?.onProgress?.({
+        current: state.pos,
+        total: buf.length,
+        percent: buf.length > 0 ? Math.min(100, Math.round((state.pos / buf.length) * 100)) : 100,
+        unit: 'bytes',
         pos: state.pos,
         totalBytes: buf.length,
         iterations: state.iterations,
       });
+
+      if (state.done) break;
 
       await new Promise((resolve) => setImmediate(resolve));
     }
@@ -2103,39 +2102,47 @@ export class RenpyPickleSaveCodec {
       context.options.originalBuffer = rawData;
     }
 
+    const earlyExit =
+      context?.options?.earlyExit !== undefined
+        ? Boolean(context.options.earlyExit)
+        : (context?.options?.earlyExitRoots !== undefined ? Boolean(context.options.earlyExitRoots) : true);
+
     let roots: any = null;
 
-    // 1. Primary path: Fast early exit on root dictionary SETITEMS
-    try {
-      const earlyResult = SandboxedPickleParser.parse(pickleBuf, {
-        earlyExitRoots: true,
-        stalenessTimeoutMs: context?.options?.stalenessTimeoutMs ?? 10000,
-        shouldCancel: context?.options?.shouldCancel,
-      });
+    // 1. Primary path: Fast early exit on root dictionary SETITEMS (when earlyExit is enabled)
+    if (earlyExit) {
+      try {
+        const earlyResult = SandboxedPickleParser.parse(pickleBuf, {
+          earlyExit: true,
+          stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
+          shouldCancel: context?.options?.shouldCancel,
+        });
 
-      if (earlyResult && typeof earlyResult === 'object' && !Array.isArray(earlyResult)) {
-        roots = earlyResult;
-      } else if (
-        Array.isArray(earlyResult) &&
-        earlyResult.length > 0 &&
-        earlyResult[0] &&
-        typeof earlyResult[0] === 'object' &&
-        !Array.isArray(earlyResult[0])
-      ) {
-        roots = earlyResult[0];
+        if (earlyResult && typeof earlyResult === 'object' && !Array.isArray(earlyResult)) {
+          roots = earlyResult;
+        } else if (
+          Array.isArray(earlyResult) &&
+          earlyResult.length > 0 &&
+          earlyResult[0] &&
+          typeof earlyResult[0] === 'object' &&
+          !Array.isArray(earlyResult[0])
+        ) {
+          roots = earlyResult[0];
+        }
+      } catch (err: any) {
+        if (err instanceof SaveCodecError && err.message.includes('cancelled')) {
+          throw err;
+        }
+        // Fallback path will run below if early exit fails or encounters non-standard structure
+        roots = null;
       }
-    } catch (err: any) {
-      if (err instanceof SaveCodecError && err.message.includes('cancelled')) {
-        throw err;
-      }
-      // Fallback path will run below if early exit fails or encounters non-standard structure
-      roots = null;
     }
 
-    // 2. Fallback path: Full unpickling with chunked async progress, cancellation, and staleness tracking
+    // 2. Fallback path (or primary path when earlyExit is false): Full unpickling with chunked async progress, cancellation, and staleness tracking
     if (!roots) {
       const fullState = await SandboxedPickleParser.parseAsync(pickleBuf, {
-        stalenessTimeoutMs: context?.options?.stalenessTimeoutMs ?? 10000,
+        earlyExit: false,
+        stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
         onProgress: context?.options?.onProgress,
         shouldCancel: context?.options?.shouldCancel,
       });
@@ -2203,34 +2210,42 @@ export class RenpyPickleSaveCodec {
       context.options.originalBuffer = rawData;
     }
 
+    const earlyExit =
+      context?.options?.earlyExit !== undefined
+        ? Boolean(context.options.earlyExit)
+        : (context?.options?.earlyExitRoots !== undefined ? Boolean(context.options.earlyExitRoots) : true);
+
     let roots: any = null;
-    try {
-      const earlyResult = SandboxedPickleParser.parse(pickleBuf, {
-        earlyExitRoots: true,
-        stalenessTimeoutMs: context?.options?.stalenessTimeoutMs ?? 10000,
-        shouldCancel: context?.options?.shouldCancel,
-      });
-      if (earlyResult && typeof earlyResult === 'object' && !Array.isArray(earlyResult)) {
-        roots = earlyResult;
-      } else if (
-        Array.isArray(earlyResult) &&
-        earlyResult.length > 0 &&
-        earlyResult[0] &&
-        typeof earlyResult[0] === 'object' &&
-        !Array.isArray(earlyResult[0])
-      ) {
-        roots = earlyResult[0];
+    if (earlyExit) {
+      try {
+        const earlyResult = SandboxedPickleParser.parse(pickleBuf, {
+          earlyExit: true,
+          stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
+          shouldCancel: context?.options?.shouldCancel,
+        });
+        if (earlyResult && typeof earlyResult === 'object' && !Array.isArray(earlyResult)) {
+          roots = earlyResult;
+        } else if (
+          Array.isArray(earlyResult) &&
+          earlyResult.length > 0 &&
+          earlyResult[0] &&
+          typeof earlyResult[0] === 'object' &&
+          !Array.isArray(earlyResult[0])
+        ) {
+          roots = earlyResult[0];
+        }
+      } catch (err: any) {
+        if (err instanceof SaveCodecError && err.message.includes('cancelled')) {
+          throw err;
+        }
+        roots = null;
       }
-    } catch (err: any) {
-      if (err instanceof SaveCodecError && err.message.includes('cancelled')) {
-        throw err;
-      }
-      roots = null;
     }
 
     if (!roots) {
       const fullState = SandboxedPickleParser.parse(pickleBuf, {
-        stalenessTimeoutMs: context?.options?.stalenessTimeoutMs ?? 10000,
+        earlyExit: false,
+        stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
         shouldCancel: context?.options?.shouldCancel,
       });
       if (Array.isArray(fullState) && fullState.length > 0) {

@@ -305,3 +305,43 @@ test('SaveDataEngine - End-to-end writeSave with Wolf RPG segmented table matrix
     // Clean up
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
+
+test('RenPy Format Contract - Default and Explicit earlyExit and stalenessTimeoutMs', async () => {
+    const renpyFormat = formats['renpy'];
+    const tempDir = fs.mkdtempSync(path.join(__dirname, 'temp-renpy-test-'));
+    try {
+        // Stream: PROTO 2, EMPTY_DICT (roots), MARK, 'store.val', 42, SETITEMS, STOP
+        const stream = Buffer.concat([
+            Buffer.from([0x80, 0x02, 0x7d, 0x28]),
+            Buffer.from([0x58, 0x09, 0x00, 0x00, 0x00]),
+            Buffer.from('store.val'),
+            Buffer.from([0x4b, 0x2a]),
+            Buffer.from([0x75]),
+            Buffer.from([0x2e])
+        ]);
+
+        // Default: stalenessTimeoutMs 10000, earlyExit true
+        const decoded = await renpyFormat.decode(stream, { saveDir: tempDir }, '1-LT1.save');
+        assert.equal(decoded.$type, 'RenpySave');
+        assert.equal(decoded['store.val'], 42);
+
+        // Explicit earlyExit: false
+        let progressCalled = false;
+        const decodedFull = await renpyFormat.decode(stream, {
+            saveDir: tempDir,
+            earlyExit: false,
+            stalenessTimeoutMs: 5000,
+            onProgress: (p) => {
+                progressCalled = true;
+                assert.equal(p.unit, 'bytes');
+                assert.equal(typeof p.current, 'number');
+                assert.equal(typeof p.total, 'number');
+                assert.equal(typeof p.percent, 'number');
+            }
+        }, '1-LT1.save');
+        assert.equal(decodedFull['store.val'], 42);
+        assert.ok(progressCalled, 'Progress callback must be invoked with unit: bytes');
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});

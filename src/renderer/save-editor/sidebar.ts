@@ -496,7 +496,13 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                     const statusText = content.querySelector('.save-load-status-text');
                     const cancelBtn = content.querySelector('.save-load-cancel-btn');
                     if (statusText) {
-                        statusText.textContent = `${d.save_editor_loading || 'Loading save data...'} ${prog.percent}%`;
+                        if (prog.unit === 'bytes' && prog.total > 0) {
+                            const currentMb = (prog.current / (1024 * 1024)).toFixed(1);
+                            const totalMb = (prog.total / (1024 * 1024)).toFixed(1);
+                            statusText.textContent = `${d.save_editor_loading || 'Loading save data...'} ${prog.percent}% (${currentMb}MB / ${totalMb}MB)`;
+                        } else {
+                            statusText.textContent = `${d.save_editor_loading || 'Loading save data...'} ${prog.percent}%`;
+                        }
                     }
                     if (cancelBtn && cancelBtn instanceof HTMLElement) {
                         cancelBtn.style.display = 'inline-block';

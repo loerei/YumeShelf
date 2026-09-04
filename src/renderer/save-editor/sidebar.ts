@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { escapeHtml } from '../markdown-lite';
+import { showToastPill } from '../ui/toast-pill';
 
 /**
  * @typedef {Object} SidebarRefs
@@ -96,6 +97,34 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
     let activePopover = null;
     let activeTooltip = null;
 
+    let currentReloadId = 0;
+    let currentLoadId = 0;
+    let lastResolvedPath = null;
+
+    if (sidebar) {
+        sidebar.innerHTML = '';
+    }
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'save-editor-sidebar-toolbar';
+    toolbar.setAttribute('role', 'toolbar');
+    toolbar.setAttribute('aria-label', 'Save folder actions');
+    toolbar.style.display = 'flex';
+
+    const listContainer = document.createElement('div');
+    listContainer.className = 'save-editor-file-list';
+
+    if (sidebar) {
+        sidebar.appendChild(toolbar);
+        sidebar.appendChild(listContainer);
+    }
+
+    const formatFolderError = (error, defaultMsg = 'Failed to set save folder') => {
+        if (error === 'invalid-payload') return state.d?.invalid_folder_path || 'Invalid folder path (network paths not supported)';
+        if (error === 'game-not-found') return state.d?.game_not_found || 'Game not found in library';
+        return `${defaultMsg}${error ? `: ${error}` : ''}`;
+    };
+
     function dismissPopovers() {
         if (activePopover) {
             activePopover.remove();
@@ -105,19 +134,33 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
             activeTooltip.remove();
             activeTooltip = null;
         }
-        overlay.querySelectorAll('.has-open-popover').forEach(el => el.classList.remove('has-open-popover'));
+        overlay?.querySelectorAll('.has-open-popover').forEach(el => el.classList.remove('has-open-popover'));
     }
 
     function showTooltip(message, targetEl) {
         dismissPopovers();
         const tooltip = document.createElement('div');
         tooltip.className = 'save-editor-rename-tooltip';
+        tooltip.setAttribute('role', 'alert');
+        tooltip.setAttribute('aria-live', 'polite');
         tooltip.textContent = message;
         document.body.appendChild(tooltip);
 
         const rect = targetEl.getBoundingClientRect();
-        tooltip.style.top = `${rect.bottom + 4}px`;
-        tooltip.style.left = `${rect.left}px`;
+        const tooltipWidth = 260;
+        let left = rect.left;
+        if (left + tooltipWidth > window.innerWidth - 10) {
+            left = window.innerWidth - tooltipWidth - 10;
+        }
+        if (left < 10) left = 10;
+
+        let top = rect.bottom + 4;
+        if (top + 60 > window.innerHeight) {
+            top = Math.max(10, rect.top - 50);
+        }
+
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
 
         activeTooltip = tooltip;
         setTimeout(() => {
@@ -200,32 +243,334 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         }, 10);
     }
 
+    function renderEmptyState(container, d) {
+        container.innerHTML = `<div class="save-editor-empty" data-i18n="save_editor_no_saves">${d.save_editor_no_saves || 'No saves found'}</div>`;
+        state.currentSaveData = null;
+        state.originalSnapshot = null;
+        state.currentFileName = null;
+        ++currentLoadId;
+        tabsWrapper.style.display = 'none';
+        saveBtn.style.display = 'none';
+        const mapBtn = overlay?.querySelector('.map-variable-btn');
+        if (mapBtn) mapBtn.style.display = 'none';
+        content.innerHTML = `
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
+            </div>
+        `;
+    }
+
+    function updateToolbar(saveInfo) {
+        if (saveInfo?.overrideMissing === true) {
+            toolbar.classList.add('collapsed');
+            toolbar.removeAttribute('role');
+            toolbar.innerHTML = '';
+            return;
+        }
+
+        toolbar.classList.remove('collapsed');
+        toolbar.setAttribute('role', 'toolbar');
+        toolbar.innerHTML = '';
+
+        const d = state.d || {};
+        let resetBtn = null;
+
+        const setFolderBtn = document.createElement('button');
+        setFolderBtn.className = 'save-editor-toolbar-btn';
+        setFolderBtn.textContent = d.save_editor_set_save_folder || 'Set Save Folder Path';
+        toolbar.appendChild(setFolderBtn);
+
+        let isSelecting = false;
+        setFolderBtn.onclick = async () => {
+            if (isSelecting) return;
+            const doSelectFolder = async () => {
+                if (isSelecting) return;
+                isSelecting = true;
+                setFolderBtn.setAttribute('aria-disabled', 'true');
+                if (resetBtn) resetBtn.setAttribute('aria-disabled', 'true');
+                try {
+                    const result = await window.electronAPI.selectSaveFolder();
+                    if (!result?.canceled && result?.folderPath) {
+                        const res = await window.electronAPI.setSaveFolderOverride({ gameKey, folderPath: result.folderPath });
+                        if (res?.ok) {
+                            state.currentSaveData = null;
+                            state.originalSnapshot = null;
+                            state.currentFileName = null;
+                            ++currentLoadId;
+                            await reloadFileList(null);
+                            showToastPill(state.d?.save_folder_set_success || 'Save folder path updated');
+                        } else {
+                            showTooltip(formatFolderError(res?.error, state.d?.save_folder_set_failed || 'Failed to set save folder'), setFolderBtn);
+                        }
+                    }
+                } catch (err) {
+                    showTooltip(`${state.d?.save_folder_set_failed || 'Failed to set save folder'}${err?.message ? `: ${err.message}` : ''}`, setFolderBtn);
+                } finally {
+                    isSelecting = false;
+                    if (setFolderBtn.isConnected) setFolderBtn.removeAttribute('aria-disabled');
+                    if (resetBtn?.isConnected) resetBtn.removeAttribute('aria-disabled');
+                }
+            };
+
+            if (state.hasUnsavedChanges?.()) {
+                showPopover({
+                    targetEl: setFolderBtn,
+                    title: state.d?.save_editor_unsaved_confirm || 'Discard unsaved changes?',
+                    desc: state.d?.save_editor_unsaved_desc || 'You have unsaved changes in the current save file.',
+                    cancelText: state.d?.cancel || 'Cancel',
+                    confirmText: state.d?.discard || 'Discard',
+                    confirmClass: 'danger-btn',
+                    onConfirm: doSelectFolder
+                });
+                return;
+            }
+            await doSelectFolder();
+        };
+
+        if (saveInfo?.source === 'override' || saveInfo?.engine === 'user-override') {
+            resetBtn = document.createElement('button');
+            resetBtn.className = 'save-editor-toolbar-btn reset-btn';
+            resetBtn.textContent = d.save_editor_reset_save_folder || 'Reset to Auto-detect';
+            toolbar.appendChild(resetBtn);
+
+            let isResetting = false;
+            resetBtn.onclick = async () => {
+                if (isResetting) return;
+                const doResetFolder = async () => {
+                    if (isResetting) return;
+                    isResetting = true;
+                    resetBtn.setAttribute('aria-disabled', 'true');
+                    setFolderBtn.setAttribute('aria-disabled', 'true');
+                    try {
+                        const res = await window.electronAPI.setSaveFolderOverride({ gameKey, folderPath: '' });
+                        if (res?.ok) {
+                            state.currentSaveData = null;
+                            state.originalSnapshot = null;
+                            state.currentFileName = null;
+                            ++currentLoadId;
+                            await reloadFileList(null);
+                            showToastPill(state.d?.save_folder_reset_success || 'Save folder reset to auto-detect');
+                        } else {
+                            showTooltip(`${state.d?.save_folder_reset_failed || 'Failed to reset save folder'}${res?.error ? `: ${res.error}` : ''}`, resetBtn);
+                        }
+                    } catch (err) {
+                        showTooltip(`${state.d?.save_folder_reset_failed || 'Failed to reset save folder'}${err?.message ? `: ${err.message}` : ''}`, resetBtn);
+                    } finally {
+                        isResetting = false;
+                        if (resetBtn.isConnected) resetBtn.removeAttribute('aria-disabled');
+                        if (setFolderBtn?.isConnected) setFolderBtn.removeAttribute('aria-disabled');
+                    }
+                };
+
+                if (state.hasUnsavedChanges?.()) {
+                    showPopover({
+                        targetEl: resetBtn,
+                        title: state.d?.save_editor_unsaved_confirm || 'Discard unsaved changes?',
+                        desc: state.d?.save_editor_unsaved_desc || 'You have unsaved changes in the current save file.',
+                        cancelText: state.d?.cancel || 'Cancel',
+                        confirmText: state.d?.discard || 'Discard',
+                        confirmClass: 'danger-btn',
+                        onConfirm: doResetFolder
+                    });
+                    return;
+                }
+                await doResetFolder();
+            };
+        }
+    }
+
+    const renderMissingOverrideAlert = (container, saveInfo, d) => {
+        const errorBox = document.createElement('div');
+        errorBox.className = 'save-editor-error-box';
+        errorBox.setAttribute('role', 'alert');
+        errorBox.setAttribute('aria-live', 'assertive');
+
+        const errorTitle = document.createElement('div');
+        errorTitle.className = 'save-editor-error-title';
+        errorTitle.textContent = d.save_editor_override_missing || 'Configured save folder not found';
+        errorBox.appendChild(errorTitle);
+
+        if (saveInfo?.path) {
+            const pathCode = document.createElement('code');
+            pathCode.textContent = saveInfo.path;
+            errorBox.appendChild(pathCode);
+        }
+
+        const chooseBtn = document.createElement('button');
+        chooseBtn.className = 'primary-btn';
+        chooseBtn.textContent = d.save_editor_choose_new_path || 'Choose New Path';
+        errorBox.appendChild(chooseBtn);
+
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'retry-btn';
+        retryBtn.textContent = d.save_editor_retry || 'Retry';
+        errorBox.appendChild(retryBtn);
+
+        const resetBtn = document.createElement('button');
+        resetBtn.textContent = d.save_editor_reset_save_folder || 'Reset to Auto-detect';
+        errorBox.appendChild(resetBtn);
+
+        container.appendChild(errorBox);
+
+        let isChoosing = false;
+        chooseBtn.onclick = async () => {
+            if (isChoosing) return;
+            isChoosing = true;
+            chooseBtn.setAttribute('aria-disabled', 'true');
+            retryBtn.setAttribute('aria-disabled', 'true');
+            resetBtn.setAttribute('aria-disabled', 'true');
+            try {
+                const result = await window.electronAPI.selectSaveFolder();
+                if (!result?.canceled && result?.folderPath) {
+                    const res = await window.electronAPI.setSaveFolderOverride({ gameKey: state.gameKey, folderPath: result.folderPath });
+                    if (res?.ok) {
+                        state.currentSaveData = null;
+                        state.originalSnapshot = null;
+                        state.currentFileName = null;
+                        ++currentLoadId;
+                        await reloadFileList(null);
+                        showToastPill(d.save_folder_set_success || 'Save folder path updated');
+                    } else {
+                        showTooltip(formatFolderError(res?.error, d.save_folder_set_failed || 'Failed to set save folder'), chooseBtn);
+                    }
+                }
+            } catch (err) {
+                showTooltip(`${d.save_folder_set_failed || 'Failed to set save folder'}${err?.message ? `: ${err.message}` : ''}`, chooseBtn);
+            } finally {
+                isChoosing = false;
+                if (chooseBtn.isConnected) chooseBtn.removeAttribute('aria-disabled');
+                if (retryBtn?.isConnected) retryBtn.removeAttribute('aria-disabled');
+                if (resetBtn?.isConnected) resetBtn.removeAttribute('aria-disabled');
+            }
+        };
+
+        let isRetrying = false;
+        retryBtn.onclick = async () => {
+            if (isRetrying) return;
+            isRetrying = true;
+            retryBtn.setAttribute('aria-disabled', 'true');
+            chooseBtn.setAttribute('aria-disabled', 'true');
+            resetBtn.setAttribute('aria-disabled', 'true');
+            try {
+                await reloadFileList(null);
+                const activeAlert = refs.sidebar?.querySelector('.save-editor-error-box');
+                if (activeAlert) {
+                    const newRetry = activeAlert.querySelector('.retry-btn');
+                    showTooltip(d.save_editor_still_missing || 'Configured save folder not found', newRetry || activeAlert);
+                } else {
+                    showToastPill(d.save_folder_set_success || 'Save folder path updated');
+                }
+            } finally {
+                isRetrying = false;
+                if (retryBtn.isConnected) retryBtn.removeAttribute('aria-disabled');
+                if (chooseBtn?.isConnected) chooseBtn.removeAttribute('aria-disabled');
+                if (resetBtn?.isConnected) resetBtn.removeAttribute('aria-disabled');
+            }
+        };
+
+        let isResetting = false;
+        resetBtn.onclick = async () => {
+            if (isResetting) return;
+            isResetting = true;
+            resetBtn.setAttribute('aria-disabled', 'true');
+            chooseBtn.setAttribute('aria-disabled', 'true');
+            retryBtn.setAttribute('aria-disabled', 'true');
+            try {
+                const res = await window.electronAPI.setSaveFolderOverride({ gameKey: state.gameKey, folderPath: '' });
+                if (res?.ok) {
+                    state.currentSaveData = null;
+                    state.originalSnapshot = null;
+                    state.currentFileName = null;
+                    ++currentLoadId;
+                    await reloadFileList(null);
+                    showToastPill(d.save_folder_reset_success || 'Save folder reset to auto-detect');
+                } else {
+                    showTooltip(`${d.save_folder_reset_failed || 'Failed to reset save folder'}${res?.error ? `: ${res.error}` : ''}`, resetBtn);
+                }
+            } catch (err) {
+                showTooltip(`${d.save_folder_reset_failed || 'Failed to reset save folder'}${err?.message ? `: ${err.message}` : ''}`, resetBtn);
+            } finally {
+                isResetting = false;
+                if (resetBtn.isConnected) resetBtn.removeAttribute('aria-disabled');
+                if (chooseBtn?.isConnected) chooseBtn.removeAttribute('aria-disabled');
+                if (retryBtn?.isConnected) retryBtn.removeAttribute('aria-disabled');
+            }
+        };
+    };
+
     /**
      * @param {string | null} [selectFile]
      */
     async function reloadFileList(selectFile = state.currentFileName) {
         dismissPopovers();
         const d = state.d || {};
+        const requestId = ++currentReloadId;
+        const hadFocus = sidebar ? sidebar.contains(document.activeElement) : false;
+
+        const restoreFocusIfHad = () => {
+            if (!hadFocus || !sidebar) return;
+            const target = sidebar.querySelector('button:not([disabled]):not([aria-disabled="true"]), .save-file-item');
+            if (target && typeof target.focus === 'function') {
+                target.focus();
+            }
+        };
+
         try {
-            const files = await window.electronAPI.listSaveFiles(gameKey);
-            sidebar.innerHTML = '';
-            if (files.length === 0) {
-                sidebar.innerHTML = `<div class="save-editor-empty" data-i18n="save_editor_no_saves">${d.save_editor_no_saves || 'No saves found'}</div>`;
+            listContainer.innerHTML = `<div class="save-editor-loading-sidebar" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading...'}</div>`;
+
+            const saveInfo = await window.electronAPI.getSaveFolder(gameKey);
+            if (requestId !== currentReloadId) return;
+
+            const directoryChanged = lastResolvedPath !== null && lastResolvedPath !== saveInfo?.path;
+            lastResolvedPath = saveInfo?.path ?? null;
+            if (directoryChanged) {
+                selectFile = null;
+            }
+
+            updateToolbar(saveInfo);
+
+            if (saveInfo?.overrideMissing === true) {
                 state.currentSaveData = null;
                 state.originalSnapshot = null;
                 state.currentFileName = null;
-                tabsWrapper.style.display = 'none';
-                saveBtn.style.display = 'none';
+                ++currentLoadId;
+
                 content.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                            <polyline points="17 21 17 13 7 13 7 21"/>
-                            <polyline points="7 3 7 8 15 8"/>
+                    <div class="empty-state warning-state">
+                        <svg class="empty-state-warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" aria-hidden="true">
+                            <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                         </svg>
-                        <p data-i18n="save_editor_select_title">${d.save_editor_select_title || 'Select a save file to start editing'}</p>
+                        <p class="empty-state-warning-title">${d.save_editor_override_missing || 'Configured save folder not found'}</p>
+                        <p class="empty-state-warning-desc">${d.save_editor_choose_new_path_desc || 'Choose a new path or reset to auto-detect in the sidebar to resume editing.'}</p>
                     </div>
                 `;
+
+                tabsWrapper.style.display = 'none';
+                saveBtn.style.display = 'none';
+                const mapBtn = overlay?.querySelector('.map-variable-btn');
+                if (mapBtn) mapBtn.style.display = 'none';
+
+                listContainer.innerHTML = '';
+                renderMissingOverrideAlert(listContainer, saveInfo, d);
+                restoreFocusIfHad();
+                return;
+            }
+
+            const files = await window.electronAPI.listSaveFiles(gameKey);
+            if (requestId !== currentReloadId) return;
+
+            listContainer.innerHTML = '';
+            const mapBtn = overlay?.querySelector('.map-variable-btn');
+
+            if (files.length === 0) {
+                if (mapBtn) mapBtn.style.display = 'none';
+                renderEmptyState(listContainer, d);
+                restoreFocusIfHad();
             } else {
                 /** @type {HTMLElement | null} */
                 let activeItem = null;
@@ -414,8 +759,11 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                                         state.currentSaveData = null;
                                         state.originalSnapshot = null;
                                         state.currentFileName = null;
+                                        ++currentLoadId;
                                         tabsWrapper.style.display = 'none';
                                         saveBtn.style.display = 'none';
+                                        const mapBtn = overlay?.querySelector('.map-variable-btn');
+                                        if (mapBtn) mapBtn.style.display = 'none';
                                         content.innerHTML = `
                                             <div class="empty-state">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
@@ -438,7 +786,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                         });
                     };
 
-                    sidebar.appendChild(item);
+                    listContainer.appendChild(item);
                     if (file === selectFile) {
                         activeItem = item;
                     }
@@ -446,12 +794,14 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
 
                 if (activeItem && selectFile) {
                     await loadSave(selectFile, activeItem);
-                } else if (selectFile) {
+                } else {
                     state.currentSaveData = null;
                     state.originalSnapshot = null;
                     state.currentFileName = null;
+                    ++currentLoadId;
                     tabsWrapper.style.display = 'none';
                     saveBtn.style.display = 'none';
+                    if (mapBtn) mapBtn.style.display = 'none';
                     content.innerHTML = `
                         <div class="empty-state">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
@@ -463,10 +813,100 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
                         </div>
                     `;
                 }
+                restoreFocusIfHad();
             }
-        } catch {
-            const d = state.d || {};
-            sidebar.innerHTML = `<div class="error" data-i18n="save_editor_failed_list_saves">${d.save_editor_failed_list_saves || 'Failed to list saves'}</div>`;
+        } catch (err) {
+            if (requestId !== currentReloadId) return;
+            state.currentSaveData = null;
+            state.originalSnapshot = null;
+            state.currentFileName = null;
+            ++currentLoadId;
+            tabsWrapper.style.display = 'none';
+            saveBtn.style.display = 'none';
+            const mapBtn = overlay?.querySelector('.map-variable-btn');
+            if (mapBtn) mapBtn.style.display = 'none';
+
+            listContainer.innerHTML = '';
+            const errorBox = document.createElement('div');
+            errorBox.className = 'save-editor-error-box';
+            errorBox.setAttribute('role', 'alert');
+            errorBox.setAttribute('aria-live', 'assertive');
+
+            const errorTitle = document.createElement('div');
+            errorTitle.className = 'save-editor-error-title';
+            errorTitle.textContent = d.save_editor_failed_load_files || 'Failed to load save directory';
+            errorBox.appendChild(errorTitle);
+
+            const errorMsg = document.createElement('code');
+            errorMsg.textContent = err?.message || String(err);
+            errorBox.appendChild(errorMsg);
+
+            const chooseBtn = document.createElement('button');
+            chooseBtn.className = 'primary-btn';
+            chooseBtn.textContent = d.save_editor_choose_new_path || 'Choose New Path';
+            let isChoosing = false;
+            chooseBtn.onclick = async () => {
+                if (isChoosing) return;
+                isChoosing = true;
+                chooseBtn.setAttribute('aria-disabled', 'true');
+                resetBtn.setAttribute('aria-disabled', 'true');
+                try {
+                    const result = await window.electronAPI.selectSaveFolder();
+                    if (!result?.canceled && result?.folderPath) {
+                        const res = await window.electronAPI.setSaveFolderOverride({ gameKey, folderPath: result.folderPath });
+                        if (res?.ok) {
+                            state.currentSaveData = null;
+                            state.originalSnapshot = null;
+                            state.currentFileName = null;
+                            ++currentLoadId;
+                            await reloadFileList(null);
+                            showToastPill(d.save_folder_set_success || 'Save folder path updated');
+                        } else {
+                            showTooltip(formatFolderError(res?.error, d.save_folder_set_failed || 'Failed to set save folder'), chooseBtn);
+                        }
+                    }
+                } catch (selectErr) {
+                    showTooltip(`${d.save_folder_set_failed || 'Failed to set save folder'}${selectErr?.message ? `: ${selectErr.message}` : ''}`, chooseBtn);
+                } finally {
+                    isChoosing = false;
+                    if (chooseBtn.isConnected) chooseBtn.removeAttribute('aria-disabled');
+                    if (resetBtn?.isConnected) resetBtn.removeAttribute('aria-disabled');
+                }
+            };
+            errorBox.appendChild(chooseBtn);
+
+            let isResetting = false;
+            const resetBtn = document.createElement('button');
+            resetBtn.textContent = d.save_editor_reset_save_folder || 'Reset to Auto-detect';
+            resetBtn.onclick = async () => {
+                if (isResetting) return;
+                isResetting = true;
+                resetBtn.setAttribute('aria-disabled', 'true');
+                chooseBtn.setAttribute('aria-disabled', 'true');
+                try {
+                    const res = await window.electronAPI.setSaveFolderOverride({ gameKey, folderPath: '' });
+                    if (res?.ok) {
+                        state.currentSaveData = null;
+                        state.originalSnapshot = null;
+                        state.currentFileName = null;
+                        ++currentLoadId;
+                        await reloadFileList(null);
+                        showToastPill(d.save_folder_reset_success || 'Save folder reset to auto-detect');
+                    } else {
+                        showTooltip(`${d.save_folder_reset_failed || 'Failed to reset save folder'}${res?.error ? `: ${res.error}` : ''}`, resetBtn);
+                    }
+                } catch (resetErr) {
+                    showTooltip(`${d.save_folder_reset_failed || 'Failed to reset save folder'}${resetErr?.message ? `: ${resetErr.message}` : ''}`, resetBtn);
+                } finally {
+                    isResetting = false;
+                    if (resetBtn.isConnected) resetBtn.removeAttribute('aria-disabled');
+                    if (chooseBtn?.isConnected) chooseBtn.removeAttribute('aria-disabled');
+                }
+            };
+            errorBox.appendChild(resetBtn);
+
+            listContainer.appendChild(errorBox);
+            restoreFocusIfHad();
         }
     }
 
@@ -476,6 +916,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
      */
     async function loadSave(fileName, element) {
         dismissPopovers();
+        const loadId = ++currentLoadId;
         const d = state.d || {};
         content.innerHTML = `
             <div class="loading save-load-progress-container">
@@ -487,7 +928,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         if (initialStatusText) {
             initialStatusText.textContent = d.save_editor_loading || 'Loading save data...';
         }
-        overlay.querySelectorAll('.save-file-item').forEach(el => el.classList.remove('active'));
+        overlay?.querySelectorAll('.save-file-item').forEach(el => el.classList.remove('active'));
         element.classList.add('active');
         tabsWrapper.style.display = 'none';
         searchInput.value = '';
@@ -523,6 +964,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
 
         try {
             const { data, metadata } = await window.electronAPI.loadSaveData({ gameKey, fileName });
+            if (loadId !== currentLoadId) return;
             state.currentSaveData = data;
             state.originalSnapshot = structuredClone(data);
             state.currentMetadata = metadata;
@@ -535,7 +977,14 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
             tabsWrapper.style.display = 'flex';
             saveBtn.style.display = 'block';
         } catch (err) {
-            // @ts-ignore
+            if (loadId !== currentLoadId) return;
+            state.currentSaveData = null;
+            state.originalSnapshot = null;
+            state.currentFileName = null;
+            tabsWrapper.style.display = 'none';
+            saveBtn.style.display = 'none';
+            const mapBtn = overlay?.querySelector('.map-variable-btn');
+            if (mapBtn) mapBtn.style.display = 'none';
             content.innerHTML = `<div class="error">${d.save_editor_failed_load_save || 'Failed to load save: '}${escapeHtml(err.message)}</div>`;
         } finally {
             if (typeof unsubscribeProgress === 'function') {
@@ -544,7 +993,7 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         }
     }
 
-    const refreshBtn = overlay.querySelector('.refresh-save-btn');
+    const refreshBtn = overlay?.querySelector('.refresh-save-btn');
     if (refreshBtn) {
         // @ts-ignore
         refreshBtn.onclick = () => {

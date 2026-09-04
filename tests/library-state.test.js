@@ -431,3 +431,50 @@ test('library-state: continuity preserves engine and size metadata during warm s
     assert.equal(games[0].name, 'Cached Game Title');
     assert.equal(games[0].engine, 'Unity');
 });
+
+test('setSaveFolderOverride persists and clears override in DB', async () => {
+    const rootPath = await makeTempDir();
+    const gameFolder = path.join(rootPath, 'MyGame');
+    const exePath = path.join(gameFolder, 'Game.exe');
+    await writeExe(exePath);
+
+    const { db, state } = createLibraryHarness(rootPath, {
+        games: {
+            'MyGame': {
+                name: 'My Game',
+                folderPath: gameFolder,
+                exePath
+            }
+        }
+    });
+
+    // Test prototype pollution rejection
+    const protoRes = await state.setSaveFolderOverride('__proto__', 'C:/Hacked');
+    assert.equal(protoRes, null);
+    const constrRes = await state.setSaveFolderOverride('constructor', 'C:/Hacked');
+    assert.equal(constrRes, null);
+
+    // Test direct internalKey lookup
+    const setRes = await state.setSaveFolderOverride('MyGame', 'C:/CustomSaves/MyGame');
+    assert.deepEqual(setRes, { ok: true, saveFolderOverride: 'C:/CustomSaves/MyGame' });
+    let savedDb = db.read();
+    assert.equal(savedDb.games['MyGame'].saveFolderOverride, 'C:/CustomSaves/MyGame');
+
+    // Test logicalId lookup
+    const logicalId = buildLogicalGameId({
+        folderName: 'MyGame',
+        folderPath: gameFolder,
+        exePath,
+        gameKey: 'MyGame'
+    });
+    const setByLogicalRes = await state.setSaveFolderOverride(logicalId, 'C:/CustomSaves/ByLogicalId');
+    assert.deepEqual(setByLogicalRes, { ok: true, saveFolderOverride: 'C:/CustomSaves/ByLogicalId' });
+    savedDb = db.read();
+    assert.equal(savedDb.games['MyGame'].saveFolderOverride, 'C:/CustomSaves/ByLogicalId');
+
+    // Test clearing
+    const clearRes = await state.setSaveFolderOverride('MyGame', '');
+    assert.deepEqual(clearRes, { ok: true, saveFolderOverride: null });
+    savedDb = db.read();
+    assert.equal(savedDb.games['MyGame'].saveFolderOverride, undefined);
+});

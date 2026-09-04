@@ -1,4 +1,5 @@
-import { BrowserWindow } from 'electron';
+import path from 'path';
+import { BrowserWindow as electronBrowserWindow, dialog as electronDialog, shell as electronShell } from 'electron';
 import { RegisterIpcOptions } from '../types';
 
 export class SaveEditorIpcController {
@@ -23,9 +24,91 @@ export class SaveEditorIpcController {
             return saveFolderResolver?.resolveSaveFolder(record.exePath, record.saveFolderOverride);
         });
 
-        ipcMain.handle('set-save-folder-override', async (_event, { gameKey, folderPath }) => {
-            return libraryState?.setSaveFolderOverride(gameKey, folderPath);
+        ipcMain.handle('save-editor:select-directory', async (_event) => {
+            const dialog = this.options.dialog || electronDialog;
+            if (!dialog?.showOpenDialog) {
+                return { canceled: true, folderPath: null };
+            }
+            try {
+                const BrowserWindowConstructor = this.options.browserWindow || electronBrowserWindow;
+                const win = typeof BrowserWindowConstructor?.fromWebContents === 'function'
+                    ? (BrowserWindowConstructor.fromWebContents(_event?.sender) || BrowserWindowConstructor.getFocusedWindow?.() || null)
+                    : null;
+                const result = win
+                    ? await dialog.showOpenDialog(win, {
+                        properties: ['openDirectory'],
+                        title: 'Select Save Folder',
+                    })
+                    : await dialog.showOpenDialog({
+                        properties: ['openDirectory'],
+                        title: 'Select Save Folder',
+                    });
+                return {
+                    canceled: Boolean(result?.canceled || !result?.filePaths?.length),
+                    folderPath: result?.filePaths?.[0] || null,
+                };
+            } catch (err) {
+                console.warn('[IPC][save-editor:select-directory] Dialog open failed:', err);
+                return { canceled: true, folderPath: null };
+            }
         });
+
+        ipcMain.handle('save-folder:open', async (_event, gameKey) => {
+            try {
+                const validGameKey = typeof gameKey === 'string' ? gameKey.trim() : null;
+                if (!validGameKey || ['__proto__', 'constructor', 'prototype'].includes(validGameKey)) {
+                    return { ok: false, error: 'invalid-payload' };
+                }
+                const shell = this.options.shell || electronShell;
+                if (!shell?.openPath) return { ok: false, error: 'no-shell' };
+                const record = await libraryState?.getGameRecord(validGameKey);
+                if (!record?.exePath) return { ok: false, error: 'no-record' };
+                const resolved = await saveFolderResolver?.resolveSaveFolder(record.exePath, record.saveFolderOverride);
+                if (resolved?.path && !resolved.overrideMissing) {
+                    const normalizedPath = path.normalize(resolved.path);
+                    const openError = await shell.openPath(normalizedPath);
+                    if (openError) {
+                        return { ok: false, error: openError };
+                    }
+                    return { ok: true, path: normalizedPath };
+                }
+                return { ok: false, error: resolved?.overrideMissing ? 'override-missing' : 'not-found' };
+            } catch (err: any) {
+                console.warn('[IPC][save-folder:open] Error opening save folder:', err);
+                return { ok: false, error: err?.message || 'failed' };
+            }
+        });
+
+        const handleSetSaveFolderOverride = async (_event: any, payload: any) => {
+            try {
+                const gameKey = typeof payload?.gameKey === 'string' ? payload.gameKey.trim() : null;
+                if (!gameKey || ['__proto__', 'constructor', 'prototype'].includes(gameKey)) {
+                    return { ok: false, error: 'invalid-payload' };
+                }
+                if (typeof payload?.folderPath !== 'string') {
+                    return { ok: false, error: 'invalid-payload' };
+                }
+                let folderPath = payload.folderPath.trim().replace(/\0|%00/g, '');
+                if (folderPath) {
+                    const normalizedSlashes = folderPath.replace(/\\/g, '/');
+                    if (normalizedSlashes.startsWith('//') || !path.isAbsolute(folderPath) || path.resolve(folderPath).startsWith('\\\\')) {
+                        return { ok: false, error: 'invalid-payload' };
+                    }
+                    folderPath = path.resolve(folderPath);
+                }
+                const result = await libraryState?.setSaveFolderOverride(gameKey, folderPath);
+                if (!result || !result.ok) {
+                    return { ok: false, error: 'game-not-found' };
+                }
+                return { ok: true, saveFolderOverride: folderPath || null };
+            } catch (err: any) {
+                console.warn('[IPC][set-save-folder-override] Error setting override:', err);
+                return { ok: false, error: err?.message || 'failed' };
+            }
+        };
+
+        ipcMain.handle('set-save-folder-override', handleSetSaveFolderOverride);
+        ipcMain.handle('save-editor:set-save-folder-override', handleSetSaveFolderOverride);
 
         ipcMain.handle('save-editor:list-files', async (_event, gameKey) => {
             console.log(`[IPC] save-editor:list-files gameKey: ${gameKey}`);
@@ -128,7 +211,12 @@ export class SaveEditorIpcController {
         });
 
         ipcMain.on('open-save-editor-window', (_event, gameKey) => {
-            const saveEditorWin = new BrowserWindow({
+            const BrowserWindowConstructor = this.options.browserWindow || electronBrowserWindow;
+            if (typeof BrowserWindowConstructor !== 'function') {
+                console.warn('[IPC][open-save-editor-window] BrowserWindowConstructor is not available in headless runtime');
+                return;
+            }
+            const saveEditorWin = new BrowserWindowConstructor({
                 width: 1000,
                 height: 700,
                 backgroundColor: '#121212',
@@ -140,18 +228,18 @@ export class SaveEditorIpcController {
                     nodeIntegration: false
                 }
             });
-            saveEditorWin.removeMenu();
-            saveEditorWin.setMenuBarVisibility(false);
+            saveEditorWin.removeMenu?.();
+            saveEditorWin.setMenuBarVisibility?.(false);
 
-            saveEditorWin.webContents.on('console-message', (_event, _level, message) => {
+            saveEditorWin.webContents?.on('console-message', (_event, _level, message) => {
                 console.log(`[STANDALONE-EDITOR-LOG] ${message}`);
             });
 
             if (paths) {
                 if (process.env.VITE_DEV_SERVER_URL) {
-                    saveEditorWin.loadURL(`${process.env.VITE_DEV_SERVER_URL}?mode=save-editor&gameKey=${encodeURIComponent(gameKey)}`);
+                    saveEditorWin.loadURL?.(`${process.env.VITE_DEV_SERVER_URL}?mode=save-editor&gameKey=${encodeURIComponent(gameKey)}`);
                 } else {
-                    saveEditorWin.loadFile(paths.indexHtmlPath, {
+                    saveEditorWin.loadFile?.(paths.indexHtmlPath, {
                         search: `mode=save-editor&gameKey=${encodeURIComponent(gameKey)}`
                     });
                 }

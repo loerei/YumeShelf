@@ -4,6 +4,7 @@ import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayloa
 import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
+import { showToastPill } from './ui/toast-pill';
 
 export function createGameCardFactory({
     attachTooltip,
@@ -45,13 +46,27 @@ export function createGameCardFactory({
             <div class="dropdown-menu">
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
                 <div class="dropdown-item action-reveal">${getDropdownActionIcon('reveal')}<span>${d.reveal}</span></div>
-                <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>${d.action_save_folder || 'Open Save Folder'}</span></div>
-                <div class="dropdown-item action-save-editor">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor}</span></div>
-                <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_live_translate || 'Live Translation'}</span></div>
-                <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('save-editor')}<span>${d.action_pre_translate || 'Pre-Translate Game'}</span></div>
-                <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_background_run || 'Run in Background'}</span></div>
-                <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
+                <div class="dropdown-item has-submenu action-saves-group">
+                    ${getDropdownActionIcon('saves-group')}
+                    <span>${d.action_saves_group || 'Saves'}</span>
+                    <div class="dropdown-submenu">
+                        <div class="dropdown-item action-save-editor">${getDropdownActionIcon('save-editor')}<span>${d.action_save_editor || 'Open Save Editor'}</span></div>
+                        <div class="dropdown-item action-save-folder">${getDropdownActionIcon('save-folder')}<span>${d.action_save_folder || 'Open Save Folder'}</span></div>
+                        <div class="dropdown-item action-set-save-folder">${getDropdownActionIcon('save-folder')}<span>${d.action_set_save_folder || 'Set Save Folder Path'}</span></div>
+                        ${game.saveFolderOverride ? `<div class="dropdown-item action-reset-save-folder">${getDropdownActionIcon('save-folder')}<span>${d.action_reset_save_folder || 'Reset to Auto-detect'}</span></div>` : ''}
+                    </div>
                 </div>
+                <div class="dropdown-item has-submenu action-addons-group">
+                    ${getDropdownActionIcon('addons-group')}
+                    <span>${d.action_addons_group || 'Add-ons'}</span>
+                    <div class="dropdown-submenu">
+                        <div class="dropdown-item action-live-translate">${getDropdownActionIcon(game.autoTranslate ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_live_translate || 'Live Translation'}</span></div>
+                        <div class="dropdown-item action-pre-translate">${getDropdownActionIcon('save-editor')}<span>${d.action_pre_translate || 'Pre-Translate Game'}</span></div>
+                        <div class="dropdown-item action-background-run">${getDropdownActionIcon(game.runInBackground ? 'checkbox-on' : 'checkbox-off')}<span>${d.action_background_run || 'Run in Background'}</span></div>
+                    </div>
+                </div>
+                <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
+            </div>
             <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
@@ -154,24 +169,93 @@ export function createGameCardFactory({
             event.stopPropagation();
             electronAPI.revealGame(game.exePath);
         };
-        card.querySelector('.action-save-folder').onclick = async (event) => {
-            event.stopPropagation();
-            console.log(`[FRONTEND][ACTION] Open Save Folder clicked for ${gameKey}`);
-            card.querySelector('.dropdown-menu').classList.remove('show');
-            const result = await electronAPI.getSaveFolder(gameKey);
-            if (result?.path) {
-                electronAPI.openPath(result.path);
-            } else {
-                const item = card.querySelector('.action-save-folder');
-                const originalText = item.querySelector('span').textContent;
-                item.querySelector('span').textContent = d.no_save_folder_found || 'No save folder found';
-                item.style.opacity = '0.5';
-                setTimeout(() => {
-                    item.querySelector('span').textContent = originalText;
-                    item.style.opacity = '';
-                }, 2000);
-            }
-        };
+        let isOpening = false;
+        const saveItem = card.querySelector('.action-save-folder') as HTMLElement | null;
+        if (saveItem) {
+            saveItem.onclick = async (event) => {
+                event.stopPropagation();
+                if (isOpening) return;
+                isOpening = true;
+                card.querySelector('.dropdown-menu')?.classList.remove('show');
+                try {
+                    const res = await electronAPI.openSaveFolder(gameKey);
+                    if (!res?.ok) {
+                        if (res?.error === 'override-missing') {
+                            showToastPill(d.save_editor_override_missing || 'Configured save folder not found');
+                        } else if (res?.error === 'not-found' || res?.error === 'no-record') {
+                            showToastPill(d.no_save_folder_found || 'No save folder found');
+                        } else {
+                            showToastPill(`${d.save_folder_open_failed || 'Failed to open save folder'}${res?.error ? `: ${res.error}` : ''}`);
+                        }
+                    }
+                } catch {
+                    showToastPill(d.no_save_folder_found || 'No save folder found');
+                } finally {
+                    isOpening = false;
+                }
+            };
+        }
+
+        let isSelecting = false;
+        const setItem = card.querySelector('.action-set-save-folder') as HTMLElement | null;
+        if (setItem) {
+            setItem.onclick = async (event) => {
+                event.stopPropagation();
+                if (isSelecting) return;
+                isSelecting = true;
+                card.querySelector('.dropdown-menu')?.classList.remove('show');
+                try {
+                    const result = await electronAPI.selectSaveFolder();
+                    if (!result?.canceled && result?.folderPath) {
+                        const res = await electronAPI.setSaveFolderOverride({ gameKey, folderPath: result.folderPath });
+                        if (res?.ok) {
+                            game.saveFolderOverride = result.folderPath;
+                            onRefreshRequested();
+                            showToastPill(d.save_folder_set_success || 'Save folder path updated');
+                        } else {
+                            if (res?.error === 'invalid-payload') {
+                                showToastPill(d.invalid_folder_path || 'Invalid folder path (network paths not supported)');
+                            } else if (res?.error === 'game-not-found') {
+                                showToastPill(d.game_not_found || 'Game not found in library');
+                            } else {
+                                showToastPill(`${d.save_folder_set_failed || 'Failed to set save folder'}${res?.error ? `: ${res.error}` : ''}`);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('[CARD][set-save-folder] Error:', err);
+                    showToastPill(d.save_folder_set_failed || 'Failed to set save folder');
+                } finally {
+                    isSelecting = false;
+                }
+            };
+        }
+
+        let isResetting = false;
+        const resetItem = card.querySelector('.action-reset-save-folder') as HTMLElement | null;
+        if (resetItem) {
+            resetItem.onclick = async (event) => {
+                event.stopPropagation();
+                if (isResetting) return;
+                isResetting = true;
+                card.querySelector('.dropdown-menu')?.classList.remove('show');
+                try {
+                    const res = await electronAPI.setSaveFolderOverride({ gameKey, folderPath: '' });
+                    if (res?.ok) {
+                        game.saveFolderOverride = undefined;
+                        onRefreshRequested();
+                        showToastPill(d.save_folder_reset_success || 'Save folder reset to auto-detect');
+                    } else {
+                        showToastPill(d.save_folder_reset_failed || 'Failed to reset save folder');
+                    }
+                } catch (err) {
+                    console.error('[CARD][reset-save-folder] Error:', err);
+                    showToastPill(d.save_folder_reset_failed || 'Failed to reset save folder');
+                } finally {
+                    isResetting = false;
+                }
+            };
+        }
         card.querySelector('.action-save-editor').onclick = async (event) => {
             event.stopPropagation();
             console.log(`[FRONTEND][ACTION] Open Save Editor clicked for ${gameKey}`);

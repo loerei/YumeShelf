@@ -162,6 +162,7 @@ export interface ResolvedSaveLocation {
   source: 'override' | 'deterministic' | 'heuristic' | 'appdata' | 'user-profile' | 'wine' | 'none';
   matchedStrategy?: string;
   files?: string[];
+  overrideMissing?: boolean;
 }
 
 export type ProgressUnit = 'bytes' | 'items' | 'percent';

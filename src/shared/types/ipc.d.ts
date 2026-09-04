@@ -27,7 +27,10 @@ export interface ElectronAPI {
     
     // Settings & Utils
     getSaveFolder: (gameKey: string) => Promise<any>;
-    setSaveFolderOverride: (data: any) => Promise<any>;
+    openSaveFolder: (gameKey: string) => Promise<{ ok: boolean; path?: string; error?: string }>;
+    selectSaveFolder: () => Promise<{ canceled: boolean; folderPath: string | null }>;
+    setSaveFolderOverride: (data: { gameKey: string; folderPath: string }) =>
+        Promise<{ ok: boolean; saveFolderOverride?: string | null; error?: string }>;
     toggleFavorite: (gameKey: string) => Promise<any>;
     toggleRunInBackground: (gameKey: string) => Promise<any>;
     toggleAutoTranslate: (gameKey: string) => Promise<any>;

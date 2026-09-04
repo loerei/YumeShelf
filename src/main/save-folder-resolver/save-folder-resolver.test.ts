@@ -299,5 +299,90 @@ describe('SaveFolderResolver (Deepened Engine & Location Discovery)', () => {
             '[SAVE-RESOLVER][ERROR]'
         );
     });
+
+    it('returns overrideMissing: true immediately when user override does not exist without running inspectExecutable', async () => {
+        const inspectSpy = vi.spyOn(YumeEngine, 'inspectExecutable');
+        try {
+            const resolver = createResolver({}, []);
+            const result = await resolver.resolve('C:/Games/MyGame/game.exe', 'C:/Missing/Folder');
+            expect(result).toEqual({
+                path: 'C:/Missing/Folder',
+                engine: 'user-override',
+                confidence: 'none',
+                source: 'override',
+                overrideMissing: true
+            });
+            expect(inspectSpy).not.toHaveBeenCalled();
+        } finally {
+            inspectSpy.mockRestore();
+        }
+    });
+
+    it('returns overrideMissing: true when resolveSaveDirectory returns null or throws for override', async () => {
+        const inspectSpy = vi.spyOn(YumeEngine, 'inspectExecutable');
+        const resolveSpy = vi.spyOn(YumeEngine, 'resolveSaveDirectory').mockRejectedValueOnce(new Error('Filesystem disconnected'));
+        try {
+            const resolver = createResolver({}, []);
+            const result = await resolver.resolve('C:/Games/MyGame/game.exe', 'D:/External/Saves');
+            expect(result).toEqual({
+                path: 'D:/External/Saves',
+                engine: 'user-override',
+                confidence: 'none',
+                source: 'override',
+                overrideMissing: true
+            });
+            expect(inspectSpy).not.toHaveBeenCalled();
+        } finally {
+            inspectSpy.mockRestore();
+            resolveSpy.mockRestore();
+        }
+    });
+
+    it('conforms unifiedFs.open to IFileHandle slicing without error', async () => {
+        let capturedFs: any = null;
+        const resolveSpy = vi.spyOn(YumeEngine, 'resolveSaveDirectory').mockImplementationOnce(async (_profile: any, _exePath: any, fs: any) => {
+            capturedFs = fs;
+            return null;
+        });
+
+        try {
+            const mockFs = new MockFileSystemProvider();
+            mockFs.addFile('C:/Games/file.bin', 'ABCDEF123456');
+            const resolver = new SaveFolderResolver(mockFs);
+            await resolver.resolve('C:/Games/file.bin', 'C:/Override');
+
+            expect(capturedFs).toBeDefined();
+            const handle = await capturedFs.open('C:/Games/file.bin');
+            expect(handle).toBeDefined();
+            const slice = await handle.read(2, 4);
+            expect(slice.toString()).toBe('CDEF');
+            await handle.close();
+
+            const missingHandle = await capturedFs.open('C:/Nonexistent.bin');
+            const emptySlice = await missingHandle.read(0, 10);
+            expect(emptySlice.length).toBe(0);
+            await missingHandle.close();
+        } finally {
+            resolveSpy.mockRestore();
+        }
+    });
+
+    it('restores auto-detection without overrideMissing when override is empty string, whitespace, or undefined', async () => {
+        const resolver = createResolver(
+            { 'C:/Games/RPGGame/www/js/main.js': '' },
+            ['C:/Games/RPGGame/www/save']
+        );
+
+        for (const emptyOverride of ['', '   ', undefined, null]) {
+            const result = await resolver.resolve('C:/Games/RPGGame/Game.exe', emptyOverride);
+            expect(result).toEqual({
+                path: 'C:/Games/RPGGame/www/save',
+                engine: 'rpg-mv-mz',
+                confidence: 'high',
+                source: 'deterministic'
+            });
+            expect(result.overrideMissing).toBeUndefined();
+        }
+    });
 });
 

@@ -5,7 +5,7 @@
   "englishName": "English",
   "nativeName": "English",
   "packVersion": "1.0.0",
-  "reviewedForAppVersion": "2.2.1",
+  "reviewedForAppVersion": "2.2.2",
   "aliases": [
     "en",
     "english"
@@ -297,6 +297,8 @@
       "@@",
       "???"
     ],
+    "action_saves_group": "Saves",
+    "action_addons_group": "Add-ons",
     "action_save_folder": "Open Save Folder",
     "action_live_translate": "Live Translation",
     "action_pre_translate": "Pre-Translate Game",

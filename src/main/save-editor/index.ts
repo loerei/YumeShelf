@@ -175,7 +175,7 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         const exeDir = path.dirname(record.exePath);
         const saveInfo = await saveFolderResolver.resolveSaveFolder(record.exePath, record.saveFolderOverride);
         
-        if (!saveInfo?.path) return null;
+        if (!saveInfo?.path || saveInfo.overrideMissing) return null;
         
         // Find data directory (MV/MZ specific)
         const parentOfSave = path.dirname(saveInfo.path);

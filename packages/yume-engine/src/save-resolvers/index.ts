@@ -8,13 +8,14 @@ import type {
   GameEngineProfile,
   ResolvedSaveLocation,
 } from '../types.js';
-import { dirName, getExeStem } from './path-utils.js';
+import { dirName, getExeStem, normalizePath } from './path-utils.js';
 import { resolveBundleRoot } from '../bundle/app-bundle-inspector.js';
 import {
   deepenSaveFolder,
   heuristicSaveScan,
   appDataFuzzyMatch,
   scanDirectoryForSaveFiles,
+  isDirectory,
 } from './heuristics.js';
 import {
   resolveRpgMakerSave,
@@ -45,17 +46,32 @@ export async function resolveSaveDirectory(
   fs: FileSystemProvider,
   options?: ResolveSaveOptions
 ): Promise<ResolvedSaveLocation | null> {
-  const saveFolderOverride = options?.saveFolderOverride;
-
-  // 1. Check User Override
-  if (saveFolderOverride && (await fs.exists(saveFolderOverride))) {
-    const files = await scanDirectoryForSaveFiles(saveFolderOverride, fs);
+  const rawOverride = typeof options?.saveFolderOverride === 'string' ? options.saveFolderOverride.trim() : null;
+  if (rawOverride) {
+    const normalizedOverride = normalizePath(rawOverride);
+    try {
+      const exists = await fs.exists(normalizedOverride);
+      const isDir = exists ? await isDirectory(normalizedOverride, fs) : false;
+      if (exists && isDir) {
+        const files = await scanDirectoryForSaveFiles(normalizedOverride, fs);
+        return {
+          path: normalizedOverride,
+          confidence: 'high',
+          source: 'override',
+          matchedStrategy: profile?.saveStrategy || 'custom',
+          files,
+        };
+      }
+    } catch (err) {
+      // Handle unmounted volumes, permission errors, or unreadable paths
+    }
     return {
-      path: saveFolderOverride,
-      confidence: 'high',
+      path: normalizedOverride,
+      confidence: 'none',
       source: 'override',
       matchedStrategy: profile?.saveStrategy || 'custom',
-      files,
+      overrideMissing: true,
+      files: [],
     };
   }
 

@@ -171,7 +171,7 @@ export async function getGameRecord(context: any, gameKey: string): Promise<Reco
     const db = await loadDB();
     const games = readStoredGames(db);
     
-    if (games[gameKey]) return games[gameKey];
+    if (Object.prototype.hasOwnProperty.call(games, gameKey)) return games[gameKey];
 
     for (const [internalKey, record] of Object.entries(games)) {
         const logicalId = buildLogicalGameId({ ...record, gameKey: internalKey });
@@ -189,7 +189,7 @@ export async function setSaveFolderOverride(context: any, gameKey: string, folde
     const games = readStoredGames(db);
     
     let targetKey = gameKey;
-    if (!games[gameKey]) {
+    if (!Object.prototype.hasOwnProperty.call(games, gameKey)) {
         for (const [internalKey, record] of Object.entries(games)) {
             const logicalId = buildLogicalGameId({ ...record, gameKey: internalKey });
             if (logicalId === gameKey) {
@@ -199,7 +199,7 @@ export async function setSaveFolderOverride(context: any, gameKey: string, folde
         }
     }
 
-    if (!games[targetKey]) return null;
+    if (!Object.prototype.hasOwnProperty.call(games, targetKey)) return null;
     games[targetKey].saveFolderOverride = folderPath || undefined;
     db.games = games;
     await saveDB(db);

@@ -46,6 +46,84 @@
 
 .dropdown-item.danger:hover { background-color: rgba(255, 74, 74, 0.15); }
 
+/* Cascading Submenu */
+.dropdown-item.has-submenu {
+    position: relative;
+    user-select: none;
+}
+
+.dropdown-item.has-submenu::after {
+    content: '›';
+    margin-left: auto;
+    padding-left: 12px;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--text-sub, #a0aec0);
+    opacity: 0.8;
+}
+
+.dropdown-item.has-submenu:hover::after,
+.dropdown-item.has-submenu.submenu-open::after {
+    color: var(--text-main);
+    opacity: 1;
+}
+
+.dropdown-item.has-submenu:has(.dropdown-submenu.open-left)::after {
+    content: '‹';
+    order: -1;
+    margin-left: 0;
+    margin-right: 2px;
+    padding-left: 0;
+    padding-right: 6px;
+}
+
+.dropdown-submenu {
+    position: absolute;
+    top: -5px;
+    left: 100%;
+    background-color: var(--menu-bg);
+    border: 1px solid var(--menu-border);
+    border-radius: 6px;
+    padding: 5px 0;
+    box-shadow: var(--menu-shadow);
+    display: none;
+    z-index: 2010;
+    min-width: 170px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* Hover bridge / mouse tunneling support */
+.dropdown-submenu::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    bottom: -10px;
+    left: -16px;
+    width: 22px;
+    pointer-events: auto;
+}
+
+.dropdown-submenu.open-left {
+    left: auto;
+    right: 100%;
+}
+
+.dropdown-submenu.open-left::before {
+    left: auto;
+    right: -16px;
+    width: 22px;
+}
+
+.dropdown-item.has-submenu.submenu-open > .dropdown-submenu,
+.dropdown-submenu.show {
+    display: block;
+}
+
+.dropdown-item.has-submenu.submenu-open {
+    background-color: var(--menu-hover-bg);
+}
+
 /* APP TOOLTIP */
 .app-tooltip {
     position: fixed;

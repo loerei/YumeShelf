@@ -33,6 +33,154 @@ describe('Headless Save Resolvers (YumeEngine.resolveSaveDirectory)', () => {
     assert.deepEqual(result.files?.sort(), ['slot1.sav', 'slot2.sav']);
   });
 
+  it('normalizes backslashes and trailing slashes for valid user override', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.mkdir('C:/CustomSaves/MyGame');
+    fs.writeFile('C:/CustomSaves/MyGame/slot1.sav', 'save data');
+
+    const profile: GameEngineProfile = {
+      tag: 'Others',
+      family: 'unknown',
+      arch: 'x64',
+      runtime: 'native',
+      saveStrategy: 'custom',
+      detectedBy: 'manual',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      'C:/Games/MyGame/game.exe',
+      fs,
+      { saveFolderOverride: 'C:\\CustomSaves\\MyGame\\' }
+    );
+
+    assert.ok(result);
+    assert.equal(result.path, 'C:/CustomSaves/MyGame');
+    assert.equal(result.confidence, 'high');
+    assert.equal(result.source, 'override');
+    assert.deepEqual(result.files, ['slot1.sav']);
+  });
+
+  it('returns overrideMissing: true when user override does not exist and does not fall through to heuristics', async () => {
+    const fs = new MockFileSystemProvider();
+    // Create an auto-detectable save structure on disk that would match if fallthrough occurred
+    fs.writeFile('C:/Games/RPGGame/www/js/main.js', '// main js');
+    fs.writeFile('C:/Games/RPGGame/www/save/file1.rpgsave', 'rpg maker save');
+
+    const profile: GameEngineProfile = {
+      tag: 'RPGM',
+      family: 'rpg-maker',
+      variant: 'mv',
+      arch: 'x64',
+      runtime: 'nwjs',
+      saveStrategy: 'rpg-maker-mv-mz',
+      detectedBy: 'rpg-maker-rule',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      'C:/Games/RPGGame/Game.exe',
+      fs,
+      { saveFolderOverride: 'C:/NonExistent/SaveFolder' }
+    );
+
+    assert.ok(result);
+    assert.equal(result.path, 'C:/NonExistent/SaveFolder');
+    assert.equal(result.confidence, 'none');
+    assert.equal(result.source, 'override');
+    assert.equal(result.overrideMissing, true);
+    assert.deepEqual(result.files, []);
+  });
+
+  it('returns overrideMissing: true when user override points to a file instead of a directory', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.writeFile('C:/CustomSaves/file.txt', 'not a dir');
+
+    const profile: GameEngineProfile = {
+      tag: 'Others',
+      family: 'unknown',
+      arch: 'x64',
+      runtime: 'native',
+      saveStrategy: 'custom',
+      detectedBy: 'manual',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      'C:/Games/MyGame/game.exe',
+      fs,
+      { saveFolderOverride: 'C:/CustomSaves/file.txt' }
+    );
+
+    assert.ok(result);
+    assert.equal(result.path, 'C:/CustomSaves/file.txt');
+    assert.equal(result.confidence, 'none');
+    assert.equal(result.source, 'override');
+    assert.equal(result.overrideMissing, true);
+    assert.deepEqual(result.files, []);
+  });
+
+  it('falls through to standard auto-detection when saveFolderOverride is empty, whitespace, or non-string', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.writeFile('C:/Games/RPGGame/www/js/main.js', '// main js');
+    fs.writeFile('C:/Games/RPGGame/www/save/file1.rpgsave', 'rpg maker save');
+
+    const profile: GameEngineProfile = {
+      tag: 'RPGM',
+      family: 'rpg-maker',
+      variant: 'mv',
+      arch: 'x64',
+      runtime: 'nwjs',
+      saveStrategy: 'rpg-maker-mv-mz',
+      detectedBy: 'rpg-maker-rule',
+    };
+
+    for (const invalidOverride of ['', '   ', null, undefined, 123 as any]) {
+      const result = await YumeEngine.resolveSaveDirectory(
+        profile,
+        'C:/Games/RPGGame/Game.exe',
+        fs,
+        { saveFolderOverride: invalidOverride }
+      );
+
+      assert.ok(result);
+      assert.equal(result.path, 'C:/Games/RPGGame/www/save');
+      assert.equal(result.confidence, 'high');
+      assert.equal(result.source, 'deterministic');
+      assert.equal(result.overrideMissing, undefined);
+    }
+  });
+
+  it('returns overrideMissing: true and confidence: none when filesystem operations throw on override check', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.exists = async () => {
+      throw new Error('EACCES: permission denied');
+    };
+
+    const profile: GameEngineProfile = {
+      tag: 'Others',
+      family: 'unknown',
+      arch: 'x64',
+      runtime: 'native',
+      saveStrategy: 'custom',
+      detectedBy: 'manual',
+    };
+
+    const result = await YumeEngine.resolveSaveDirectory(
+      profile,
+      'C:/Games/MyGame/game.exe',
+      fs,
+      { saveFolderOverride: 'D:/UnmountedDrive/Saves' }
+    );
+
+    assert.ok(result);
+    assert.equal(result.path, 'D:/UnmountedDrive/Saves');
+    assert.equal(result.confidence, 'none');
+    assert.equal(result.source, 'override');
+    assert.equal(result.overrideMissing, true);
+    assert.deepEqual(result.files, []);
+  });
+
   it('resolves RPG Maker MV/MZ www/save with .rpgsave files', async () => {
     const fs = new MockFileSystemProvider();
     fs.writeFile('C:/Games/RPGGame/www/js/main.js', '// main js');

@@ -80,23 +80,7 @@ export class SaveFolderResolver {
     ): Promise<ResolvedSaveDirectory> {
         console.log(`[SAVE-RESOLVER][START] ${exePath}`);
 
-        // 1. Check User Override
-        if (saveFolderOverride) {
-            try {
-                if (await this.fs.exists(saveFolderOverride)) {
-                    return {
-                        path: saveFolderOverride,
-                        engine: 'user-override',
-                        confidence: 'high',
-                        source: 'override'
-                    };
-                }
-            } catch (error) {
-                console.warn('[SAVE-RESOLVER][ERROR]', error);
-            }
-        }
-
-        // 2. Create unified FileSystem bridge
+        // 1. Create unified FileSystem bridge
         const unifiedFs: any = {
             exists: (p: string) => this.fs.exists(p),
             readFile: (p: string, enc?: string) => this.fs.readFile(p, enc || 'utf8'),
@@ -156,6 +140,32 @@ export class SaveFolderResolver {
             getMacPreferencesHome: () => (this.fs.getMacPreferencesHome ? this.fs.getMacPreferencesHome() : ''),
         };
 
+        // 2. Check User Override
+        const trimmedOverride = typeof saveFolderOverride === 'string' ? saveFolderOverride.trim() : null;
+        if (trimmedOverride) {
+            try {
+                const resolved = await YumeEngine.resolveSaveDirectory(undefined, exePath, unifiedFs, { saveFolderOverride: trimmedOverride });
+                if (resolved) {
+                    return {
+                        path: resolved.path,
+                        engine: 'user-override',
+                        confidence: resolved.confidence,
+                        source: 'override',
+                        ...(resolved.overrideMissing ? { overrideMissing: true } : {}),
+                    };
+                }
+            } catch (error) {
+                console.warn('[SAVE-RESOLVER][ERROR]', error);
+            }
+            return {
+                path: trimmedOverride,
+                engine: 'user-override',
+                confidence: 'none',
+                source: 'override',
+                overrideMissing: true,
+            };
+        }
+
         let profile: GameEngineProfile | null = null;
         try {
             profile = await YumeEngine.inspectExecutable(exePath, unifiedFs);
@@ -170,7 +180,7 @@ export class SaveFolderResolver {
                 profile || undefined,
                 exePath,
                 unifiedFs,
-                { saveFolderOverride }
+                { saveFolderOverride: undefined }
             );
 
             if (resolved?.path) {
@@ -185,7 +195,8 @@ export class SaveFolderResolver {
                     path: resolved.path,
                     engine: mappedEngine,
                     confidence: resolved.confidence,
-                    source: mappedSource
+                    source: mappedSource,
+                    ...(resolved.overrideMissing ? { overrideMissing: true } : {})
                 };
             }
         } catch (error) {

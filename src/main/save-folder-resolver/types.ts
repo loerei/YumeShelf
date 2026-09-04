@@ -16,6 +16,7 @@ export interface ResolvedSaveDirectory {
     engine: GameEngineType | 'user-override' | 'unknown' | null;
     confidence: 'high' | 'medium' | 'low' | 'none';
     source: 'override' | 'deterministic' | 'heuristic' | 'appdata' | 'none';
+    overrideMissing?: boolean;
 }
 
 export type ResolvedSaveInfo = ResolvedSaveDirectory;

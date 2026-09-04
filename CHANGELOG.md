@@ -4,6 +4,25 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.2] - 2026-09-04 — released
+
+### What Changed
+- Custom save folder picker: if a game puts saves in a weird spot that auto-detect misses (or you just keep your saves in a custom directory), you can now point YumeShelf straight to it from the game card menu or inside the Save Editor.
+- Missing folder warnings: if your saves are on an unplugged drive or the folder got moved, the editor will not get stuck in a blank loop. It shows a simple alert with buttons to pick the new path, retry checking the drive, or reset back to auto-detect.
+- Cleaner game card menu: the right-click menu on cards was getting way too long, so saves and add-ons are tucked into neat submenus now. It also won't glitch closed when you move your mouse diagonally toward child items.
+
+### For the Nerds
+- [engine] Extended `resolveSaveDirectory` in `@yumeshelf/engine` with `saveFolderOverride`, checking absolute folder validity without host I/O leaks and returning `overrideMissing: true` when a path is missing or inaccessible.
+- [main] Added IPC channels `'save-editor:set-save-folder-override'` and `'save-editor:select-directory'` on `SaveEditorIpcController` with prototype pollution guards and UNC share rejection.
+- [main] Persisted custom save folder overrides directly in the library database via `libraryState.setSaveFolderOverride`.
+- [renderer] Handled missing folders in Save Editor sidebar with smooth accordion collapse, non-blocking popovers, and `aria-disabled` guards so keyboard focus never drops to document body.
+- [renderer] Added "Set Save Folder Path" and conditional "Reset to Auto-detect" items to game card dropdowns with toast pills.
+- [renderer] Reorganized game card dropdown into a 2-tier cascading submenu layout (`action-saves-group` and `action-addons-group`) with diagonal hover tunneling, switch grace period, and viewport overflow flipping (`.open-left`).
+- [renderer] Fixed premature submenu closing by scoping non-submenu item queries to direct children, maintaining open state when hovering child items, and expanding the hover bridge hit area.
+- [locales] Added `action_saves_group` and `action_addons_group` keys across English, Japanese, Simplified Chinese, and Vietnamese language packs.
+
+---
+
 ## [2.2.1] - 2026-09-04 — released
 
 ### What Changed

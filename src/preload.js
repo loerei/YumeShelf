@@ -55,6 +55,14 @@ const api = {
   // Save Editor
   listSaveFiles: (gameKey) => import_electron.ipcRenderer.invoke("save-editor:list-files", gameKey),
   loadSaveData: (data) => import_electron.ipcRenderer.invoke("save-editor:load-data", data),
+  cancelLoadSaveData: (data) => import_electron.ipcRenderer.invoke("save-editor:cancel-load", data),
+  onSaveLoadProgress: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    import_electron.ipcRenderer.on("save-editor:load-progress", handler);
+    return () => {
+      import_electron.ipcRenderer.removeListener("save-editor:load-progress", handler);
+    };
+  },
   writeSaveData: (data) => import_electron.ipcRenderer.invoke("save-editor:write-data", data),
   renameSaveFile: (data) => import_electron.ipcRenderer.invoke("save-editor:rename-file", data),
   deleteSaveFile: (data) => import_electron.ipcRenderer.invoke("save-editor:delete-file", data),

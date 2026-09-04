@@ -164,16 +164,47 @@ export interface ResolvedSaveLocation {
   files?: string[];
 }
 
+export type ProgressUnit = 'bytes' | 'items' | 'percent';
+
+export interface CodecProgressUpdate {
+  current: number;
+  total: number;
+  percent: number;
+  unit: ProgressUnit | string;
+  pos?: number;
+  totalBytes?: number;
+  iterations?: number;
+}
+
+export interface SaveCodecOptions {
+  stalenessTimeoutMs?: number;
+  stalenessTracker?: import('./utils/staleness-tracker.js').StalenessTracker;
+  earlyExit?: boolean;
+  earlyExitRoots?: boolean;
+  onProgress?: (progress: CodecProgressUpdate) => void;
+  shouldCancel?: () => boolean;
+  savePath?: string;
+  originalBuffer?: Buffer;
+  wrapInZip?: boolean;
+  [key: string]: any;
+}
+
 export interface SaveCodecContext {
   fileName?: string;
   gameTitle?: string;
   gameKey?: string;
-  options?: Record<string, any>;
+  options?: SaveCodecOptions;
   runner?: import('./process/types.js').IProcessRunner;
   assemblyPath?: string;
   converterPath?: string;
 }
 
+export {
+  StalenessTracker,
+  StalenessError,
+  defaultStalenessErrorMessage,
+  type StalenessTrackerOptions,
+} from './utils/staleness-tracker.js';
 export type { SaveCodecErrorCode } from './saves/errors.js';
 export { SaveCodecError } from './saves/errors.js';
 export type {

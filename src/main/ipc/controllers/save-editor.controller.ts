@@ -32,9 +32,69 @@ export class SaveEditorIpcController {
             return saveEditorService?.listSaveFiles(gameKey);
         });
 
-        ipcMain.handle('save-editor:load-data', async (_event, { gameKey, fileName }) => {
+        const activeLoads = new Map<string, Set<() => void>>();
+
+        ipcMain.handle('save-editor:load-data', async (event, { gameKey, fileName, earlyExit, stalenessTimeoutMs }) => {
             console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
-            return saveEditorService?.loadSaveData(gameKey, fileName);
+            const key = `${gameKey}:${fileName}`;
+            let cancelled = false;
+            const cancelFn = () => {
+                cancelled = true;
+            };
+            let loadSet = activeLoads.get(key);
+            if (!loadSet) {
+                loadSet = new Set();
+                activeLoads.set(key, loadSet);
+            }
+            loadSet.add(cancelFn);
+
+            try {
+                return await saveEditorService?.loadSaveData(gameKey, fileName, {
+                    earlyExit: earlyExit !== undefined ? Boolean(earlyExit) : true,
+                    stalenessTimeoutMs: stalenessTimeoutMs !== undefined ? Number(stalenessTimeoutMs) : 10000,
+                    onProgress: (prog: { current?: number; total?: number; percent?: number; unit?: string; pos?: number; totalBytes?: number; iterations?: number }) => {
+                        if (!event.sender.isDestroyed()) {
+                            const current = prog.current ?? prog.pos ?? 0;
+                            const total = prog.total ?? prog.totalBytes ?? 0;
+                            const percent = prog.percent ?? (total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0);
+                            const unit = prog.unit ?? 'bytes';
+                            event.sender.send('save-editor:load-progress', {
+                                gameKey,
+                                fileName,
+                                current,
+                                total,
+                                percent,
+                                unit,
+                                pos: current,
+                                totalBytes: total,
+                            });
+                        }
+                    },
+                    shouldCancel: () => cancelled,
+                });
+            } finally {
+                const currentSet = activeLoads.get(key);
+                if (currentSet) {
+                    currentSet.delete(cancelFn);
+                    if (currentSet.size === 0) {
+                        activeLoads.delete(key);
+                    }
+                }
+            }
+        });
+
+        ipcMain.handle('save-editor:cancel-load', async (_event, { gameKey, fileName }) => {
+            console.log(`[IPC] save-editor:cancel-load gameKey: ${gameKey}, fileName: ${fileName}`);
+            const key = `${gameKey}:${fileName}`;
+            const cancelFns = activeLoads.get(key);
+            if (cancelFns && cancelFns.size > 0) {
+                for (const fn of cancelFns) {
+                    fn();
+                }
+                activeLoads.delete(key);
+                return { cancelled: true };
+            }
+            return { cancelled: false };
         });
 
         ipcMain.handle('save-editor:write-data', async (_event, { gameKey, fileName, data }) => {

@@ -68,7 +68,7 @@ export class SaveDataEngine {
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     }
 
-    async loadSave(gameKey: string, fileName: string) {
+    async loadSave(gameKey: string, fileName: string, options?: any) {
         const paths = await this.config.getGamePaths(gameKey);
         if (!paths) throw new Error('Could not resolve game paths');
 
@@ -76,7 +76,8 @@ export class SaveDataEngine {
         const rawData = await fs.readFile(savePath);
 
         const format = this.findFormat(fileName);
-        const jsonData = await format.decode(rawData, paths, fileName);
+        const decodeContext = options ? { ...paths, ...options } : paths;
+        const jsonData = await format.decode(rawData, decodeContext, fileName);
 
         // Inject user variable mappings
         const mappingMgr = new SaveMappingManager(gameKey);

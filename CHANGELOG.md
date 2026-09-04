@@ -4,6 +4,26 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.1] - working
+
+### What Changed
+- Ren'Py save editor support: fixes `SaveCodecError: Unsafe pickle opcode detected: STACK_GLOBAL (0x93)` when loading Ren'Py saves. You can now load, edit store variables, and save Ren'Py games (such as Sukidara) directly in the Save Editor.
+- Instant loading for large Ren'Py saves: loads saves with massive rollback logs (like Electric Sheep with 1M+ rollback entries) in milliseconds instead of failing with opcode limit errors.
+- Automatic ECDSA signature preservation: Ren'Py save files are automatically re-signed with your local security keys if available, avoiding unknown token confirmation warnings in game.
+
+### For the Nerds
+- [engine] Built safe sandboxed AST deserializer for Python pickle opcodes `STACK_GLOBAL (0x93)`, `GLOBAL (0x63)`, `NEWOBJ (0x81)`, `NEWOBJ_EX (0x92)`, `BUILD (0x62)`, `REDUCE (0x52)`, `BINUNICODE8 (0x8d)`, `BINBYTES8 (0x8e)`, `BYTEARRAY8 (0x96)`, and `PERSID (0x50/0x51)`.
+- [engine] Implemented pure TypeScript multi-entry ZIP extractor and builder (`ZipContainer`) for Ren'Py save containers preserving `screenshot.png`, `json`, `extra_info`, and `signatures`.
+- [engine] Added multi-frame protocol 4/5 surgical variable patching in `RenpyPickleSaveCodec`: tracks frame lengths across all frames, precisely identifies root dictionary key/value bounds while ignoring nested MARK structures, splices primitive updates in place, inserts new store variables before `SETITEMS`, and recalibrates all frame headers without stream corruption.
+- [engine] Added Early Exit at root store dictionary `SETITEMS` in `SandboxedPickleParser` and `RenpyPickleSaveCodec.decode`, unpickling store variables in 1-2 ms without traversing rollback history.
+- [engine] Extracted reusable `StalenessTracker` and `StalenessError` utility in `@yumeshelf/engine` (`src/utils/`) with decoupled `errorFactory` support for long-running codecs and parser operations; removed hardcoded 10s timeout from Ren'Py codec and allowed caller configuration via `context.options.stalenessTimeoutMs`.
+- [engine] Standardized progress reporting interface with metric units (`{ current, total, percent, unit }`), providing `unit: 'bytes'` in Ren'Py parser.
+- [engine] Exposed explicit `earlyExit` option in `context.options.earlyExit` allowing callers to select between instant root dictionary parsing and complete rollback history traversal (`earlyExit: false`).
+- [save-editor] Added progress reporting and cancellation handling across IPC (`save-editor:load-progress`, `save-editor:cancel-load`) and Save Editor UI with byte unit metrics and configurable `earlyExit` / `stalenessTimeoutMs: 10000` policies.
+- [save-editor] Switched earlyExit decoding to asynchronous non-blocking parsing, refactored active load cancellation tracking to prevent multi-tab listener collisions, and hardened Save Editor sidebar DOM handling against markup injection.
+
+---
+
 ## [2.2.0] - 2026-09-02 — released
 
 ### What Changed

@@ -56,7 +56,9 @@ export interface ElectronAPI {
     
     // Save Editor
     listSaveFiles: (gameKey: string) => Promise<string[]>;
-    loadSaveData: (data: { gameKey: string, fileName: string }) => Promise<{ data: any, metadata: any }>;
+    loadSaveData: (data: { gameKey: string, fileName: string, earlyExit?: boolean, stalenessTimeoutMs?: number }) => Promise<{ data: any, metadata: any }>;
+    cancelLoadSaveData: (data: { gameKey: string, fileName: string }) => Promise<{ cancelled: boolean }>;
+    onSaveLoadProgress: (callback: (payload: { gameKey: string, fileName: string, percent: number, current: number, total: number, unit: string, pos?: number, totalBytes?: number }) => void) => () => void;
     writeSaveData: (data: any) => Promise<any>;
     renameSaveFile: (data: { gameKey: string, oldFileName: string, newFileName: string, overwrite?: boolean }) => Promise<{ ok: boolean, error?: string, message?: string, renamed?: boolean, fileName?: string }>;
     deleteSaveFile: (data: { gameKey: string, fileName: string }) => Promise<{ ok: boolean }>;

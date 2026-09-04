@@ -95,7 +95,7 @@ export async function decodeSaveFile(
 
     case 'renpy':
     case 'renpy-pickle':
-      return RenpyPickleSaveCodec.decode(rawBuffer);
+      return RenpyPickleSaveCodec.decode(rawBuffer, context);
 
     case 'bakin-sgs':
     case 'sgs':
@@ -148,7 +148,7 @@ export async function encodeSaveFile(
 
     case 'renpy':
     case 'renpy-pickle':
-      return RenpyPickleSaveCodec.encode(jsonData);
+      return RenpyPickleSaveCodec.encode(jsonData, context);
 
     case 'bakin-sgs':
     case 'sgs':

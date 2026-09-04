@@ -234,9 +234,9 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         }
     }
 
-    async function loadSaveData(gameKey: string, fileName: string) {
+    async function loadSaveData(gameKey: string, fileName: string, options?: any) {
         try {
-            return await engine.loadSave(gameKey, fileName);
+            return await engine.loadSave(gameKey, fileName, options);
         } catch (err) {
             console.error(`[SAVE-EDITOR] Error loading save data:`, err);
             throw err;

@@ -65,6 +65,14 @@ const api: ElectronAPI = {
     // Save Editor
     listSaveFiles: (gameKey: string) => ipcRenderer.invoke('save-editor:list-files', gameKey),
     loadSaveData: (data: any) => ipcRenderer.invoke('save-editor:load-data', data),
+    cancelLoadSaveData: (data: { gameKey: string; fileName: string }) => ipcRenderer.invoke('save-editor:cancel-load', data),
+    onSaveLoadProgress: (callback: (payload: { gameKey: string; fileName: string; percent: number; pos: number; totalBytes: number }) => void) => {
+        const handler = (_event: any, payload: any) => callback(payload);
+        ipcRenderer.on('save-editor:load-progress', handler);
+        return () => {
+            ipcRenderer.removeListener('save-editor:load-progress', handler);
+        };
+    },
     writeSaveData: (data: any) => ipcRenderer.invoke('save-editor:write-data', data),
     renameSaveFile: (data: any) => ipcRenderer.invoke('save-editor:rename-file', data),
     deleteSaveFile: (data: any) => ipcRenderer.invoke('save-editor:delete-file', data),

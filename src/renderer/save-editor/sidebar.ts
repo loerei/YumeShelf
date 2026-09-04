@@ -477,12 +477,39 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
     async function loadSave(fileName, element) {
         dismissPopovers();
         const d = state.d || {};
-        content.innerHTML = `<div class="loading" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading save data...'}</div>`;
+        content.innerHTML = `
+            <div class="loading save-load-progress-container">
+                <span class="save-load-status-text" data-i18n="save_editor_loading">${d.save_editor_loading || 'Loading save data...'}</span>
+                <button class="save-editor-popover-btn cancel-btn save-load-cancel-btn" style="display: none; margin-top: 12px; margin-inline: auto;">Cancel</button>
+            </div>
+        `;
         overlay.querySelectorAll('.save-file-item').forEach(el => el.classList.remove('active'));
         element.classList.add('active');
         tabsWrapper.style.display = 'none';
         searchInput.value = '';
         engine.setSearchOptions({ query: '' });
+
+        let unsubscribeProgress = null;
+        if (typeof window.electronAPI?.onSaveLoadProgress === 'function') {
+            unsubscribeProgress = window.electronAPI.onSaveLoadProgress((prog) => {
+                if (prog?.fileName === fileName) {
+                    const statusText = content.querySelector('.save-load-status-text');
+                    const cancelBtn = content.querySelector('.save-load-cancel-btn');
+                    if (statusText) {
+                        statusText.textContent = `${d.save_editor_loading || 'Loading save data...'} ${prog.percent}%`;
+                    }
+                    if (cancelBtn && cancelBtn instanceof HTMLElement) {
+                        cancelBtn.style.display = 'inline-block';
+                        cancelBtn.onclick = () => {
+                            // @ts-ignore
+                            cancelBtn.disabled = true;
+                            cancelBtn.textContent = 'Cancelling...';
+                            window.electronAPI.cancelLoadSaveData?.({ gameKey, fileName });
+                        };
+                    }
+                }
+            });
+        }
 
         try {
             const { data, metadata } = await window.electronAPI.loadSaveData({ gameKey, fileName });
@@ -500,6 +527,10 @@ export function setupSidebar(refs, state, engine, translator, callbacks) {
         } catch (err) {
             // @ts-ignore
             content.innerHTML = `<div class="error">${d.save_editor_failed_load_save || 'Failed to load save: '}${escapeHtml(err.message)}</div>`;
+        } finally {
+            if (typeof unsubscribeProgress === 'function') {
+                unsubscribeProgress();
+            }
         }
     }
 

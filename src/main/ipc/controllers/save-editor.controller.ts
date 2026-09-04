@@ -32,9 +32,46 @@ export class SaveEditorIpcController {
             return saveEditorService?.listSaveFiles(gameKey);
         });
 
-        ipcMain.handle('save-editor:load-data', async (_event, { gameKey, fileName }) => {
+        const activeLoads = new Map<string, () => void>();
+
+        ipcMain.handle('save-editor:load-data', async (event, { gameKey, fileName }) => {
             console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
-            return saveEditorService?.loadSaveData(gameKey, fileName);
+            const key = `${gameKey}:${fileName}`;
+            let cancelled = false;
+            activeLoads.set(key, () => {
+                cancelled = true;
+            });
+
+            try {
+                return await saveEditorService?.loadSaveData(gameKey, fileName, {
+                    onProgress: (prog: { pos: number; totalBytes: number; iterations: number }) => {
+                        if (!event.sender.isDestroyed()) {
+                            event.sender.send('save-editor:load-progress', {
+                                gameKey,
+                                fileName,
+                                pos: prog.pos,
+                                totalBytes: prog.totalBytes,
+                                percent: Math.min(100, Math.round((prog.pos / prog.totalBytes) * 100)),
+                            });
+                        }
+                    },
+                    shouldCancel: () => cancelled,
+                });
+            } finally {
+                activeLoads.delete(key);
+            }
+        });
+
+        ipcMain.handle('save-editor:cancel-load', async (_event, { gameKey, fileName }) => {
+            console.log(`[IPC] save-editor:cancel-load gameKey: ${gameKey}, fileName: ${fileName}`);
+            const key = `${gameKey}:${fileName}`;
+            const cancelFn = activeLoads.get(key);
+            if (cancelFn) {
+                cancelFn();
+                activeLoads.delete(key);
+                return { cancelled: true };
+            }
+            return { cancelled: false };
         });
 
         ipcMain.handle('save-editor:write-data', async (_event, { gameKey, fileName, data }) => {

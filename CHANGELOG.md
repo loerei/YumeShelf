@@ -4,12 +4,14 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.1] - working
+## [2.2.1] - 2026-09-04 — released
 
 ### What Changed
-- Ren'Py save editor support: fixes `SaveCodecError: Unsafe pickle opcode detected: STACK_GLOBAL (0x93)` when loading Ren'Py saves. You can now load, edit store variables, and save Ren'Py games (such as Sukidara) directly in the Save Editor.
-- Instant loading for large Ren'Py saves: loads saves with massive rollback logs (like Electric Sheep with 1M+ rollback entries) in milliseconds instead of failing with opcode limit errors.
-- Automatic ECDSA signature preservation: Ren'Py save files are automatically re-signed with your local security keys if available, avoiding unknown token confirmation warnings in game.
+- Ren'Py save editing: you can now edit saves for Ren'Py games directly in the Save Editor without needing external python tools. This fixes the `Unsafe pickle opcode: STACK_GLOBAL` error when opening saves like Sukidara.
+- Big saves load immediately: games with gigantic rollback logs (like Electric Sheep with 1M+ rollback entries) now open in milliseconds instead of hanging or crashing with opcode limit errors.
+- No save warning screens: modified saves are re-signed with your local security keys if available, so Ren'Py does not nag you about unknown tokens when loading.
+
+*(Note: Ren'Py save formats are pretty messy under the hood, but saves from Sukidara and Electric Sheep have been tested and work cleanly. If you run into a weird save that throws an error, drop the save file in a GitHub issue and I will take a look.)*
 
 ### For the Nerds
 - [engine] Built safe sandboxed AST deserializer for Python pickle opcodes `STACK_GLOBAL (0x93)`, `GLOBAL (0x63)`, `NEWOBJ (0x81)`, `NEWOBJ_EX (0x92)`, `BUILD (0x62)`, `REDUCE (0x52)`, `BINUNICODE8 (0x8d)`, `BINBYTES8 (0x8e)`, `BYTEARRAY8 (0x96)`, and `PERSID (0x50/0x51)`.

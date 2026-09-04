@@ -15,6 +15,12 @@ export interface StalenessTrackerOptions {
   operationName?: string;
 
   /**
+   * Metric unit for progress (e.g. "byte", "item", "step").
+   * Defaults to "byte".
+   */
+  unit?: string;
+
+  /**
    * Optional custom error message generator.
    */
   formatErrorMessage?: (timeoutMs: number, operationName: string) => string;
@@ -27,6 +33,7 @@ export interface StalenessTrackerOptions {
 export class StalenessTracker {
   public readonly timeoutMs: number | undefined;
   public readonly operationName: string;
+  public readonly unit: string;
   private lastProgressPos: number;
   private lastProgressTime: number;
   private readonly formatErrorMessage?: (timeoutMs: number, operationName: string) => string;
@@ -35,9 +42,11 @@ export class StalenessTracker {
     if (typeof options === 'number') {
       this.timeoutMs = options;
       this.operationName = 'Operation';
+      this.unit = 'byte';
     } else {
       this.timeoutMs = options?.timeoutMs;
       this.operationName = options?.operationName ?? 'Operation';
+      this.unit = options?.unit ?? 'byte';
       this.formatErrorMessage = options?.formatErrorMessage;
     }
     this.lastProgressPos = 0;
@@ -82,10 +91,12 @@ export class StalenessTracker {
     }
 
     const elapsed = now - this.lastProgressTime;
-    if (elapsed > this.timeoutMs) {
+    if (this.timeoutMs <= 0 || elapsed >= this.timeoutMs) {
       const msg = this.formatErrorMessage
         ? this.formatErrorMessage(this.timeoutMs, this.operationName)
-        : `Resource limit exceeded: ${this.operationName} stalled (no byte progress for ${this.timeoutMs / 1000}s)`;
+        : this.timeoutMs <= 0
+        ? `Resource limit exceeded: ${this.operationName} stalled (no ${this.unit} progress detected)`
+        : `Resource limit exceeded: ${this.operationName} stalled (no ${this.unit} progress for ${this.timeoutMs / 1000}s)`;
       throw new SaveCodecError(msg, 'PARSE_FAILED');
     }
   }

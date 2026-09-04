@@ -320,10 +320,28 @@ test('RenPy Format Contract - Default and Explicit earlyExit and stalenessTimeou
             Buffer.from([0x2e])
         ]);
 
-        // Default: stalenessTimeoutMs 10000, earlyExit true
-        const decoded = await renpyFormat.decode(stream, { saveDir: tempDir }, '1-LT1.save');
+        // Default: stalenessTimeoutMs 10000, earlyExit true with progress completion
+        let defaultProgressCalled = false;
+        const decoded = await renpyFormat.decode(stream, {
+            saveDir: tempDir,
+            onProgress: (p) => {
+                defaultProgressCalled = true;
+                assert.equal(p.unit, 'bytes');
+                assert.equal(p.percent, 100);
+            }
+        }, '1-LT1.save');
         assert.equal(decoded.$type, 'RenpySave');
         assert.equal(decoded['store.val'], 42);
+        assert.ok(defaultProgressCalled, 'Progress callback must be invoked on early exit completion');
+
+        // Robustness: decode and encode without saveDir or undefined paths does not throw TypeError
+        const decodedNoPaths = await renpyFormat.decode(stream, undefined, '1-LT1.save');
+        assert.equal(decodedNoPaths['store.val'], 42);
+        const decodedEmptyPaths = await renpyFormat.decode(stream, {}, '1-LT1.save');
+        assert.equal(decodedEmptyPaths['store.val'], 42);
+
+        const encodedNoPaths = await renpyFormat.encode(decodedEmptyPaths, undefined, '1-LT1.save');
+        assert.ok(Buffer.isBuffer(encodedNoPaths));
 
         // Explicit earlyExit: false
         let progressCalled = false;

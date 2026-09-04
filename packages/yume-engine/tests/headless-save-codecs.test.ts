@@ -1015,11 +1015,20 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
         Buffer.from([0x2e]), // STOP
       ]);
 
-      // 1. Default (earlyExit: true) fast path
+      // 1. Default (earlyExit: true) fast path with progress completion reporting
+      let defaultProgressCalled = false;
       const decodedDefault = await RenpyPickleSaveCodec.decode(stream, {
         fileName: 'test.save',
+        options: {
+          onProgress: (p) => {
+            defaultProgressCalled = true;
+            assert.equal(p.unit, 'bytes');
+            assert.equal(p.percent, 100);
+          },
+        },
       });
       assert.equal(decodedDefault['store.val'], 10);
+      assert.ok(defaultProgressCalled);
 
       // 2. Explicit earlyExit: true
       const decodedEarly = await RenpyPickleSaveCodec.decode(stream, {
@@ -1028,9 +1037,19 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       });
       assert.equal(decodedEarly['store.val'], 10);
 
-      // 3. Explicit earlyExit: false parses full history and reports progress
+      // 3. Explicit earlyExit: false parses full history, reports progress, and exposes _rollback non-enumerably
+      const streamWithRollback = Buffer.concat([
+        Buffer.from([0x80, 0x02, 0x28]), // PROTO 2, MARK
+        Buffer.from([0x7d, 0x28, 0x58, 0x09, 0x00, 0x00, 0x00]),
+        Buffer.from('store.val'),
+        Buffer.from([0x4b, 0x0a, 0x75]), // SETITEMS for roots
+        Buffer.from([0x58, 0x08, 0x00, 0x00, 0x00]),
+        Buffer.from('rollback'), // second item in tuple: rollback history
+        Buffer.from([0x74, 0x2e]), // TUPLE, STOP
+      ]);
+
       let progressReported = false;
-      const decodedFull = await RenpyPickleSaveCodec.decode(stream, {
+      const decodedFull = await RenpyPickleSaveCodec.decode(streamWithRollback, {
         fileName: 'test.save',
         options: {
           earlyExit: false,
@@ -1042,12 +1061,14 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       });
       assert.equal(decodedFull['store.val'], 10);
       assert.ok(progressReported);
+      assert.equal((decodedFull as any)._rollback, 'rollback');
+      assert.equal(Object.keys(decodedFull).includes('_rollback'), false);
     });
 
     it('configures staleness timeout via context.options.stalenessTimeoutMs and does not hardcode 10s', async () => {
       const infiniteLoopBuf = Buffer.from([0x80, 0x02, 0x7d, 0x2e]);
 
-      // 1. When stalenessTimeoutMs is configured (e.g. -1 to force immediate timeout)
+      // 1. When stalenessTimeoutMs is configured with earlyExit: false
       await assert.rejects(
         async () => {
           await RenpyPickleSaveCodec.decode(infiniteLoopBuf, {
@@ -1063,7 +1084,43 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
         }
       );
 
-      // 2. When stalenessTimeoutMs is undefined, it does not fail with stalled error
+      // 2. When stalenessTimeoutMs is configured with earlyExit: true (default) - must NOT swallow stall error
+      await assert.rejects(
+        async () => {
+          await RenpyPickleSaveCodec.decode(infiniteLoopBuf, {
+            fileName: 'test.save',
+            options: { earlyExit: true, stalenessTimeoutMs: -1 },
+          });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.ok(err.message.includes('stalled'));
+          return true;
+        }
+      );
+
+      // 3. When custom stalenessTracker instance is provided via context.options
+      const customTracker = new StalenessTracker({
+        timeoutMs: -1,
+        operationName: 'CustomRenpyTracker',
+      });
+      await assert.rejects(
+        async () => {
+          await RenpyPickleSaveCodec.decode(infiniteLoopBuf, {
+            fileName: 'test.save',
+            options: { stalenessTracker: customTracker },
+          });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.ok(err.message.includes('CustomRenpyTracker stalled'));
+          return true;
+        }
+      );
+
+      // 4. When stalenessTimeoutMs is undefined, it does not fail with stalled error
       const validBuf = Buffer.from([0x80, 0x02, 0x7d, 0x2e]);
       const result = await RenpyPickleSaveCodec.decode(validBuf, {
         fileName: 'test.save',
@@ -1301,14 +1358,31 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
       );
     });
 
-    it('triggers immediately when timeoutMs <= 0 and no progress is made', () => {
+    it('triggers immediately when timeoutMs <= 0 and no progress is made even in the same millisecond', () => {
       const tracker = new StalenessTracker({ timeoutMs: 0 });
       assert.throws(
-        () => tracker.update(0, tracker.lastTime + 1),
+        () => tracker.update(0, tracker.lastTime),
         (err: any) => {
           assert.ok(err instanceof SaveCodecError);
           assert.equal(err.code, 'PARSE_FAILED');
-          assert.ok(err.message.includes('stalled'));
+          assert.ok(err.message.includes('stalled (no byte progress detected)'));
+          return true;
+        }
+      );
+    });
+
+    it('supports custom unit option in StalenessTrackerOptions', () => {
+      const tracker = new StalenessTracker({
+        timeoutMs: 1000,
+        operationName: 'RecordProcessor',
+        unit: 'records',
+      });
+      assert.equal(tracker.unit, 'records');
+      assert.throws(
+        () => tracker.update(0, tracker.lastTime + 1500),
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.ok(err.message.includes('RecordProcessor stalled (no records progress for 1s)'));
           return true;
         }
       );

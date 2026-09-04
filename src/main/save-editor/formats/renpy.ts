@@ -10,7 +10,7 @@ class RenpyFormat {
         return YumeEngine.decodeSaveFile('renpy', rawData, {
             fileName,
             options: {
-                savePath: path.join(paths.saveDir, fileName),
+                savePath: paths?.saveDir ? path.join(paths.saveDir, fileName) : (paths?.savePath ?? undefined),
                 stalenessTimeoutMs: paths?.stalenessTimeoutMs !== undefined ? paths.stalenessTimeoutMs : 10000,
                 earlyExit: paths?.earlyExit !== undefined ? Boolean(paths.earlyExit) : true,
                 onProgress: paths?.onProgress,
@@ -23,7 +23,7 @@ class RenpyFormat {
         return YumeEngine.encodeSaveFile('renpy', jsonData, {
             fileName,
             options: {
-                savePath: path.join(paths.saveDir, fileName)
+                savePath: paths?.saveDir ? path.join(paths.saveDir, fileName) : (paths?.savePath ?? undefined)
             }
         });
     }

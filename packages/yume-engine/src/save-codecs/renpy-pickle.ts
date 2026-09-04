@@ -1054,6 +1054,7 @@ export class SandboxedPickleParser {
     };
 
     while (!state.done) {
+      tracker?.update(state.pos);
       try {
         SandboxedPickleParser._stepChunk(buf, state, options, 5000);
       } catch (err: any) {
@@ -2108,12 +2109,14 @@ export class RenpyPickleSaveCodec {
         : (context?.options?.earlyExitRoots !== undefined ? Boolean(context.options.earlyExitRoots) : true);
 
     let roots: any = null;
+    let fullState: any = null;
 
     // 1. Primary path: Fast early exit on root dictionary SETITEMS (when earlyExit is enabled)
     if (earlyExit) {
       try {
         const earlyResult = SandboxedPickleParser.parse(pickleBuf, {
           earlyExit: true,
+          stalenessTracker: context?.options?.stalenessTracker,
           stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
           shouldCancel: context?.options?.shouldCancel,
         });
@@ -2130,7 +2133,13 @@ export class RenpyPickleSaveCodec {
           roots = earlyResult[0];
         }
       } catch (err: any) {
-        if (err instanceof SaveCodecError && err.message.includes('cancelled')) {
+        if (
+          err instanceof SaveCodecError &&
+          (err.message.includes('cancelled') ||
+            err.message.includes('stalled') ||
+            err.message.includes('limit exceeded') ||
+            err.message.includes('Unsupported pickle protocol'))
+        ) {
           throw err;
         }
         // Fallback path will run below if early exit fails or encounters non-standard structure
@@ -2140,8 +2149,9 @@ export class RenpyPickleSaveCodec {
 
     // 2. Fallback path (or primary path when earlyExit is false): Full unpickling with chunked async progress, cancellation, and staleness tracking
     if (!roots) {
-      const fullState = await SandboxedPickleParser.parseAsync(pickleBuf, {
+      fullState = await SandboxedPickleParser.parseAsync(pickleBuf, {
         earlyExit: false,
+        stalenessTracker: context?.options?.stalenessTracker,
         stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
         onProgress: context?.options?.onProgress,
         shouldCancel: context?.options?.shouldCancel,
@@ -2152,6 +2162,15 @@ export class RenpyPickleSaveCodec {
       } else if (fullState && typeof fullState === 'object') {
         roots = fullState;
       }
+    } else {
+      context?.options?.onProgress?.({
+        current: pickleBuf.length,
+        total: pickleBuf.length,
+        percent: 100,
+        unit: 'bytes',
+        pos: pickleBuf.length,
+        totalBytes: pickleBuf.length,
+      });
     }
 
     // Extract store variables
@@ -2167,6 +2186,16 @@ export class RenpyPickleSaveCodec {
 
     variables.$type = 'RenpySave';
     const cleanResult = sanitizeDeep(variables);
+
+    // Retain full rollback history non-enumerably if full state was unpickled
+    if (fullState && Array.isArray(fullState) && fullState.length > 1) {
+      Object.defineProperty(cleanResult, '_rollback', {
+        value: sanitizeDeep(fullState[1]),
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+    }
 
     // Retain original raw buffer on the parsed object for seamless surgical saving
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
@@ -2216,10 +2245,12 @@ export class RenpyPickleSaveCodec {
         : (context?.options?.earlyExitRoots !== undefined ? Boolean(context.options.earlyExitRoots) : true);
 
     let roots: any = null;
+    let fullState: any = null;
     if (earlyExit) {
       try {
         const earlyResult = SandboxedPickleParser.parse(pickleBuf, {
           earlyExit: true,
+          stalenessTracker: context?.options?.stalenessTracker,
           stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
           shouldCancel: context?.options?.shouldCancel,
         });
@@ -2235,7 +2266,13 @@ export class RenpyPickleSaveCodec {
           roots = earlyResult[0];
         }
       } catch (err: any) {
-        if (err instanceof SaveCodecError && err.message.includes('cancelled')) {
+        if (
+          err instanceof SaveCodecError &&
+          (err.message.includes('cancelled') ||
+            err.message.includes('stalled') ||
+            err.message.includes('limit exceeded') ||
+            err.message.includes('Unsupported pickle protocol'))
+        ) {
           throw err;
         }
         roots = null;
@@ -2243,8 +2280,9 @@ export class RenpyPickleSaveCodec {
     }
 
     if (!roots) {
-      const fullState = SandboxedPickleParser.parse(pickleBuf, {
+      fullState = SandboxedPickleParser.parse(pickleBuf, {
         earlyExit: false,
+        stalenessTracker: context?.options?.stalenessTracker,
         stalenessTimeoutMs: context?.options?.stalenessTimeoutMs,
         shouldCancel: context?.options?.shouldCancel,
       });
@@ -2266,6 +2304,15 @@ export class RenpyPickleSaveCodec {
 
     variables.$type = 'RenpySave';
     const cleanResult = sanitizeDeep(variables);
+
+    if (fullState && Array.isArray(fullState) && fullState.length > 1) {
+      Object.defineProperty(cleanResult, '_rollback', {
+        value: sanitizeDeep(fullState[1]),
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+    }
 
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
       Object.defineProperty(cleanResult, '_rawBuffer', {

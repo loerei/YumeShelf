@@ -199,8 +199,12 @@ export interface SaveCodecContext {
   converterPath?: string;
 }
 
-export type { StalenessTracker, StalenessTrackerOptions } from './utils/staleness-tracker.js';
-export { StalenessError } from './utils/staleness-tracker.js';
+export {
+  StalenessTracker,
+  StalenessError,
+  defaultStalenessErrorMessage,
+  type StalenessTrackerOptions,
+} from './utils/staleness-tracker.js';
 export type { SaveCodecErrorCode } from './saves/errors.js';
 export { SaveCodecError } from './saves/errors.js';
 export type {

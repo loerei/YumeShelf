@@ -22,14 +22,14 @@ export interface StalenessTrackerOptions {
 
   /**
    * Metric unit for progress (e.g. "byte", "item", "step").
-   * Defaults to "byte".
+   * Defaults to "unit".
    */
   unit?: string;
 
   /**
    * Optional custom error message generator.
    */
-  formatErrorMessage?: (timeoutMs: number, operationName: string) => string;
+  formatErrorMessage?: (timeoutMs: number, operationName: string, unit?: string) => string;
 
   /**
    * Optional factory function to create a custom error instance (e.g., SaveCodecError).
@@ -44,7 +44,7 @@ export interface StalenessTrackerOptions {
 export function defaultStalenessErrorMessage(
   timeoutMs: number,
   operationName: string,
-  unit: string = 'byte'
+  unit: string = 'unit'
 ): string {
   return timeoutMs <= 0
     ? `Resource limit exceeded: ${operationName} stalled (no ${unit} progress detected)`
@@ -62,17 +62,18 @@ export class StalenessTracker {
   public readonly errorFactory?: (timeoutMs: number, operationName: string, unit: string) => Error;
   private lastProgressPos: number;
   private lastProgressTime: number;
-  private readonly formatErrorMessage?: (timeoutMs: number, operationName: string) => string;
+  private readonly formatErrorMessage?: (timeoutMs: number, operationName: string, unit?: string) => string;
+  private _isStale: boolean = false;
 
   constructor(options?: number | StalenessTrackerOptions) {
     if (typeof options === 'number') {
       this.timeoutMs = options;
       this.operationName = 'Operation';
-      this.unit = 'byte';
+      this.unit = 'unit';
     } else {
       this.timeoutMs = options?.timeoutMs;
       this.operationName = options?.operationName ?? 'Operation';
-      this.unit = options?.unit ?? 'byte';
+      this.unit = options?.unit ?? 'unit';
       this.formatErrorMessage = options?.formatErrorMessage;
       this.errorFactory = options?.errorFactory;
     }
@@ -85,6 +86,13 @@ export class StalenessTracker {
    */
   get isEnabled(): boolean {
     return this.timeoutMs !== undefined;
+  }
+
+  /**
+   * Whether a staleness timeout has been triggered.
+   */
+  get isStale(): boolean {
+    return this._isStale;
   }
 
   /**
@@ -119,13 +127,18 @@ export class StalenessTracker {
 
     const elapsed = now - this.lastProgressTime;
     if (this.timeoutMs <= 0 || elapsed >= this.timeoutMs) {
+      this._isStale = true;
+      let err: Error;
       if (this.errorFactory) {
-        throw this.errorFactory(this.timeoutMs, this.operationName, this.unit);
+        err = this.errorFactory(this.timeoutMs, this.operationName, this.unit);
+      } else {
+        const msg = this.formatErrorMessage
+          ? this.formatErrorMessage(this.timeoutMs, this.operationName, this.unit)
+          : defaultStalenessErrorMessage(this.timeoutMs, this.operationName, this.unit);
+        err = new StalenessError(msg);
       }
-      const msg = this.formatErrorMessage
-        ? this.formatErrorMessage(this.timeoutMs, this.operationName)
-        : defaultStalenessErrorMessage(this.timeoutMs, this.operationName, this.unit);
-      throw new StalenessError(msg);
+      (err as any).isStaleness = true;
+      throw err;
     }
   }
 
@@ -135,5 +148,6 @@ export class StalenessTracker {
   reset(currentPos: number = 0, now: number = Date.now()): void {
     this.lastProgressPos = currentPos;
     this.lastProgressTime = now;
+    this._isStale = false;
   }
 }

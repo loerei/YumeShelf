@@ -1009,6 +1009,7 @@ export class SandboxedPickleParser {
         ? new StalenessTracker({
             timeoutMs: options.stalenessTimeoutMs,
             operationName: 'Pickle parser',
+            unit: 'bytes',
             errorFactory: (timeoutMs, operationName, unit) =>
               new SaveCodecError(defaultStalenessErrorMessage(timeoutMs, operationName, unit), 'PARSE_FAILED'),
           })
@@ -1030,10 +1031,13 @@ export class SandboxedPickleParser {
       try {
         SandboxedPickleParser._stepChunk(buf, state, options, 100000);
       } catch (err: any) {
-        if (err instanceof SaveCodecError) throw err;
-        if (err instanceof StalenessError) {
-          throw new SaveCodecError(err.message, 'PARSE_FAILED');
+        if (state.tracker?.isStale || (err as any)?.isStaleness || err instanceof StalenessError) {
+          if (err instanceof SaveCodecError) throw err;
+          const codecErr = new SaveCodecError(err?.message ?? String(err), 'PARSE_FAILED');
+          (codecErr as any).isStaleness = true;
+          throw codecErr;
         }
+        if (err instanceof SaveCodecError) throw err;
         if (err instanceof RangeError || err.name === 'RangeError') {
           throw new SaveCodecError(
             `Corrupted or truncated pickle buffer: ${err.message}`,
@@ -1054,6 +1058,7 @@ export class SandboxedPickleParser {
         ? new StalenessTracker({
             timeoutMs: options.stalenessTimeoutMs,
             operationName: 'Pickle parser',
+            unit: 'bytes',
             errorFactory: (timeoutMs, operationName, unit) =>
               new SaveCodecError(defaultStalenessErrorMessage(timeoutMs, operationName, unit), 'PARSE_FAILED'),
           })
@@ -1076,10 +1081,13 @@ export class SandboxedPickleParser {
         tracker?.update(state.pos);
         SandboxedPickleParser._stepChunk(buf, state, options, 5000);
       } catch (err: any) {
-        if (err instanceof SaveCodecError) throw err;
-        if (err instanceof StalenessError) {
-          throw new SaveCodecError(err.message, 'PARSE_FAILED');
+        if (state.tracker?.isStale || (err as any)?.isStaleness || err instanceof StalenessError) {
+          if (err instanceof SaveCodecError) throw err;
+          const codecErr = new SaveCodecError(err?.message ?? String(err), 'PARSE_FAILED');
+          (codecErr as any).isStaleness = true;
+          throw codecErr;
         }
+        if (err instanceof SaveCodecError) throw err;
         if (err instanceof RangeError || err.name === 'RangeError') {
           throw new SaveCodecError(
             `Corrupted or truncated pickle buffer: ${err.message}`,
@@ -2155,16 +2163,19 @@ export class RenpyPickleSaveCodec {
         }
       } catch (err: any) {
         if (
-          err instanceof SaveCodecError &&
-          (err.message.includes('cancelled') ||
-            err.message.includes('stalled') ||
-            err.message.includes('limit exceeded') ||
-            err.message.includes('Unsupported pickle protocol'))
+          err?.isStaleness ||
+          context?.options?.stalenessTracker?.isStale ||
+          err instanceof StalenessError ||
+          (err instanceof SaveCodecError &&
+            (err.message.includes('cancelled') ||
+              err.message.includes('stalled') ||
+              err.message.includes('limit exceeded') ||
+              err.message.includes('Unsupported pickle protocol')))
         ) {
+          if (err instanceof StalenessError) {
+            throw new SaveCodecError(err.message, 'PARSE_FAILED');
+          }
           throw err;
-        }
-        if (err instanceof StalenessError) {
-          throw new SaveCodecError(err.message, 'PARSE_FAILED');
         }
         // Fallback path will run below if early exit fails or encounters non-standard structure
         roots = null;
@@ -2291,16 +2302,19 @@ export class RenpyPickleSaveCodec {
         }
       } catch (err: any) {
         if (
-          err instanceof SaveCodecError &&
-          (err.message.includes('cancelled') ||
-            err.message.includes('stalled') ||
-            err.message.includes('limit exceeded') ||
-            err.message.includes('Unsupported pickle protocol'))
+          err?.isStaleness ||
+          context?.options?.stalenessTracker?.isStale ||
+          err instanceof StalenessError ||
+          (err instanceof SaveCodecError &&
+            (err.message.includes('cancelled') ||
+              err.message.includes('stalled') ||
+              err.message.includes('limit exceeded') ||
+              err.message.includes('Unsupported pickle protocol')))
         ) {
+          if (err instanceof StalenessError) {
+            throw new SaveCodecError(err.message, 'PARSE_FAILED');
+          }
           throw err;
-        }
-        if (err instanceof StalenessError) {
-          throw new SaveCodecError(err.message, 'PARSE_FAILED');
         }
         roots = null;
       }

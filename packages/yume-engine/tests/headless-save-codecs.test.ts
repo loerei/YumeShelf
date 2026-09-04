@@ -1121,7 +1121,68 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
         }
       );
 
-      // 4. When stalenessTimeoutMs is undefined, it does not fail with stalled error
+      // 4. When custom stalenessTracker has custom formatErrorMessage without 'stalled', it aborts earlyExit directly
+      let earlyUpdateCount = 0;
+      const customFormatTracker = new StalenessTracker({
+        timeoutMs: -1,
+        operationName: 'NonStalledCustomTracker',
+        formatErrorMessage: () => 'Watchdog timeout triggered',
+      });
+      const origUpdate = customFormatTracker.update.bind(customFormatTracker);
+      customFormatTracker.update = function(pos, now) {
+        earlyUpdateCount++;
+        return origUpdate(pos, now);
+      };
+
+      await assert.rejects(
+        async () => {
+          await RenpyPickleSaveCodec.decode(infiniteLoopBuf, {
+            fileName: 'test.save',
+            options: { stalenessTracker: customFormatTracker },
+          });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.equal(err.message, 'Watchdog timeout triggered');
+          assert.equal(earlyUpdateCount, 1, 'Must abort directly on earlyExit without redundant fallback parse');
+          assert.equal(customFormatTracker.isStale, true);
+          return true;
+        }
+      );
+
+      // 5. In decodeSync with custom errorFactory, it aborts earlyExit directly
+      let syncUpdateCount = 0;
+      const syncCustomTracker = new StalenessTracker({
+        timeoutMs: -1,
+        operationName: 'SyncCustomTracker',
+        errorFactory: (ms, op, unit) =>
+          new SaveCodecError(`Custom watchdog halted on ${unit}`, 'PARSE_FAILED'),
+      });
+      const origSyncUpdate = syncCustomTracker.update.bind(syncCustomTracker);
+      syncCustomTracker.update = function(pos, now) {
+        syncUpdateCount++;
+        return origSyncUpdate(pos, now);
+      };
+
+      assert.throws(
+        () => {
+          RenpyPickleSaveCodec.decodeSync(infiniteLoopBuf, {
+            fileName: 'test.save',
+            options: { stalenessTracker: syncCustomTracker },
+          });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          assert.equal(err.message, 'Custom watchdog halted on unit');
+          assert.equal(syncUpdateCount, 1, 'Must abort directly on decodeSync earlyExit');
+          assert.equal(syncCustomTracker.isStale, true);
+          return true;
+        }
+      );
+
+      // 6. When stalenessTimeoutMs is undefined, it does not fail with stalled error
       const validBuf = Buffer.from([0x80, 0x02, 0x7d, 0x2e]);
       const result = await RenpyPickleSaveCodec.decode(validBuf, {
         fileName: 'test.save',
@@ -1366,7 +1427,7 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
         (err: any) => {
           assert.ok(err instanceof StalenessError);
           assert.equal(err.name, 'StalenessError');
-          assert.ok(err.message.includes('stalled (no byte progress detected)'));
+          assert.ok(err.message.includes('stalled (no unit progress detected)'));
           return true;
         }
       );
@@ -1433,6 +1494,50 @@ print("SHEEP_PYTHON_UNPICKLE_OK")
           return true;
         }
       );
+    });
+
+    it('tracks isStale state and clears on reset', () => {
+      const tracker = new StalenessTracker({ timeoutMs: 1000 });
+      assert.equal(tracker.isStale, false);
+
+      tracker.update(10, 1000);
+      assert.equal(tracker.isStale, false);
+
+      assert.throws(() => tracker.update(10, 3000));
+      assert.equal(tracker.isStale, true);
+
+      tracker.reset(0, 4000);
+      assert.equal(tracker.isStale, false);
+    });
+
+    it('passes unit to formatErrorMessage callback', () => {
+      const tracker = new StalenessTracker({
+        timeoutMs: 1000,
+        operationName: 'BatchWorker',
+        unit: 'frames',
+        formatErrorMessage: (timeoutMs, operationName, unit) =>
+          `Halt: ${operationName} stalled on ${unit} (${timeoutMs}ms)`,
+      });
+      assert.throws(
+        () => tracker.update(0, tracker.lastTime + 1500),
+        (err: any) => {
+          assert.ok(err instanceof StalenessError);
+          assert.equal(err.message, 'Halt: BatchWorker stalled on frames (1000ms)');
+          return true;
+        }
+      );
+    });
+
+    it('exports StalenessTracker, StalenessError, and defaultStalenessErrorMessage as runtime values from types entrypoint', async () => {
+      const typesModule = await import('../dist/types.js');
+      assert.equal(typeof typesModule.StalenessTracker, 'function');
+      assert.equal(typeof typesModule.StalenessError, 'function');
+      assert.equal(typeof typesModule.defaultStalenessErrorMessage, 'function');
+      assert.equal(typeof typesModule.SaveCodecError, 'function');
+
+      const instantiatedFromTypes = new typesModule.StalenessTracker({ timeoutMs: 500 });
+      assert.equal(instantiatedFromTypes.timeoutMs, 500);
+      assert.equal(instantiatedFromTypes.isStale, false);
     });
 
     it('resets progress position and timestamp', () => {

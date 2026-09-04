@@ -225,7 +225,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             const { handlers } = createIpcHarness();
             const handler = handlers.get('save-editor:set-save-folder-override')!;
 
-            const validAbsolute = path.resolve('C:/Games/Valid/custom_save');
+            const validAbsolute = path.resolve(process.cwd(), 'custom_save');
             const res = await handler({}, { gameKey: 'valid-game', folderPath: validAbsolute });
             expect(res).toEqual({ ok: true, saveFolderOverride: validAbsolute });
         });
@@ -245,18 +245,27 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             const { handlers } = createIpcHarness();
             const handler = handlers.get('save-editor:set-save-folder-override')!;
 
-            const withNullByte = 'C:\\Games\\Valid\\save\0%00folder';
-            const expectedResolved = path.resolve('C:\\Games\\Valid\\savefolder');
+            const withNullByte = path.resolve(process.cwd(), 'save\0%00folder');
+            const expectedResolved = path.resolve(process.cwd(), 'savefolder');
             const res = await handler({}, { gameKey: 'valid-game', folderPath: withNullByte });
             expect(res).toEqual({ ok: true, saveFolderOverride: expectedResolved });
+        });
+
+        it('accepts Windows drive paths on all platforms without mangling', async () => {
+            const { handlers } = createIpcHarness();
+            const handler = handlers.get('save-editor:set-save-folder-override')!;
+
+            const res = await handler({}, { gameKey: 'valid-game', folderPath: 'C:\\Games\\Valid\\save' });
+            expect(res).toEqual({ ok: true, saveFolderOverride: 'C:\\Games\\Valid\\save' });
         });
 
         it('rejects prototype pollution keys in gameKey', async () => {
             const { handlers } = createIpcHarness();
             const handler = handlers.get('save-editor:set-save-folder-override')!;
 
+            const safePath = path.resolve(process.cwd(), 'valid_save');
             for (const badKey of ['__proto__', 'constructor', 'prototype', '', '   ', null, undefined]) {
-                const res = await handler({}, { gameKey: badKey, folderPath: 'C:\\Save' });
+                const res = await handler({}, { gameKey: badKey, folderPath: safePath });
                 expect(res).toEqual({ ok: false, error: 'invalid-payload' });
             }
         });
@@ -300,7 +309,8 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             const { handlers } = createIpcHarness();
             const handler = handlers.get('save-editor:set-save-folder-override')!;
 
-            const res = await handler({}, { gameKey: 'nonexistent-game', folderPath: 'C:\\Save' });
+            const testPath = path.resolve(process.cwd(), 'valid_save');
+            const res = await handler({}, { gameKey: 'nonexistent-game', folderPath: testPath });
             expect(res).toEqual({ ok: false, error: 'game-not-found' });
         });
     });

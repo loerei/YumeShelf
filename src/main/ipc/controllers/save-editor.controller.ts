@@ -90,11 +90,16 @@ export class SaveEditorIpcController {
                 }
                 let folderPath = payload.folderPath.trim().replace(/\0|%00/g, '');
                 if (folderPath) {
-                    const normalizedSlashes = folderPath.replace(/\\/g, '/');
-                    if (normalizedSlashes.startsWith('//') || !path.isAbsolute(folderPath) || path.resolve(folderPath).startsWith('\\\\')) {
+                    const isUnc = /^(\\\\|\/\/|\\\/|\/\\)/.test(folderPath) || (path.win32.isAbsolute(folderPath) && folderPath.startsWith('\\\\'));
+                    const isAbsolute = path.isAbsolute(folderPath) || path.win32.isAbsolute(folderPath) || path.posix.isAbsolute(folderPath) || /^[a-zA-Z]:[\\/]/.test(folderPath);
+                    if (isUnc || !isAbsolute) {
                         return { ok: false, error: 'invalid-payload' };
                     }
-                    folderPath = path.resolve(folderPath);
+                    if (/^[a-zA-Z]:[\\/]/.test(folderPath)) {
+                        folderPath = path.win32.normalize(folderPath);
+                    } else {
+                        folderPath = path.resolve(folderPath);
+                    }
                 }
                 const result = await libraryState?.setSaveFolderOverride(gameKey, folderPath);
                 if (!result || !result.ok) {

@@ -21,6 +21,7 @@ const {
     storeHighResIconInCache,
     loadIconCacheState,
     flushPendingIconCacheState,
+    normalizeExecutablePath,
     ICON_CACHE_VERSION,
     _resetIconCacheStateForTesting
 } = require('../dist/main/icon-pipeline/cache');
@@ -328,7 +329,7 @@ test('Group 3: Debounced Index Saving & Cache Concurrency', async (t) => {
 
         assert.equal(Object.keys(parsedDisk.entriesByPath).length, count);
         for (let i = 0; i < count; i++) {
-            const normalized = path.win32.normalize(path.join(tmpDir, `game_${i}.exe`));
+            const normalized = normalizeExecutablePath(path.join(tmpDir, `game_${i}.exe`));
             assert.ok(parsedDisk.entriesByPath[normalized], `entry ${i} must exist on disk`);
         }
     });

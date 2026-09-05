@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.4] - working
+## [2.2.4] - 2026-09-05 — released
 
 ### What Changed
 - Scrolling large libraries doesn't stutter anymore: instead of choking the UI by asking for every single icon at once over IPC, cards only load their icons when they actually scroll into view, plus a quick fade-in so they don't abruptly pop in.

@@ -4,6 +4,24 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.4] - working
+
+### What Changed
+- Scrolling large libraries doesn't stutter anymore: instead of choking the UI by asking for every single icon at once over IPC, cards only load their icons when they actually scroll into view, plus a quick fade-in so they don't abruptly pop in.
+- Blurry 48x48 icons fixed: games with older Windows icon formats that used to downgrade to blurry shell thumbnails now extract at full 256x256 resolution.
+- Big executables won't eat your RAM: pulling icons from massive multi-gigabyte game .exe files now only reads the tiny resource header instead of pulling the whole executable into memory.
+
+### For the Nerds
+- [renderer] Switched `game-cards.ts`, `stack-cards.ts`, and `search.ts` to stream icons directly via `game-icon://app?path=${encodeURIComponent(game.exePath)}` with `loading="lazy"` and onerror fallback, removing periodic `electronAPI.getIcon` IPC roundtrips and base64 string allocations.
+- [renderer] Added a 180ms CSS opacity fade-in transition on `img.fade-in-icon` with document event delegation for card and search icons.
+- [icon-pipeline] Added automatic ICO-to-PNG transcoding via nativeImage with temp-file fallback in `service.ts` for standard DIB ICO frames, restoring full 256x256 resolution across games that previously fell back to 48x48 shell icons.
+- [icon-pipeline] Upgraded `PeResourceDecoder` in `pe-resource-decoder.ts` to read an initial 4 KB header followed by a targeted `.rsrc` section slice, preventing multi-hundred-megabyte buffer allocations on large executables.
+- [icon-pipeline] Prioritized icon cache checks before executing 36-pattern filesystem image searches in `service.ts`, and bypassed redundant transparent padding cropping on cache hits in `cache.ts`.
+- [icon-pipeline] Added atomic temp-file serialization and debounced writes for `index.json` in `cache.ts` to prevent disk thrashing during library scans, with `iconPipeline.flushCache()` wired to `before-quit`.
+- [tests] Added synthetic multi-game end-to-end scenario tests in `tests/icon-pipeline-optimization.test.js` and added headless Electron verification runner in `.devutil/icon-pipeline-sim/` (`npm run test:icon-sim`).
+
+---
+
 ## [2.2.3] - 2026-09-04 — released
 
 ### What Changed

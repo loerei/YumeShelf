@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
-import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, createIconElement, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes } from './utils/formatting';
 
 export function createSearchController({
@@ -91,6 +91,7 @@ export function createSearchController({
             if (cachedIcon) {
                 applyIconPayload(game, cachedIcon);
             }
+            const iconSrc = game.iconData || (game.exePath ? getGameIconUrl(game.exePath) : null);
             const gameKey = getGameKey(game);
             const item = document.createElement('div');
             item.className = 'search-item';
@@ -109,26 +110,19 @@ export function createSearchController({
                     </svg>
                 </div>
             `;
-            if (game.iconData) {
+            if (iconSrc) {
+                const iconSpan = item.querySelector('.search-item-icon');
+                if (iconSpan && !game.iconData) {
+                    iconSpan.textContent = '';
+                    const img = createIconElement(iconSrc, game.iconFit, game.iconSource || 'game-icon');
+                    iconSpan.appendChild(img);
+                }
                 logIconRender('search-item-initial', gameKey, {
-                    dataUrl: game.iconData,
+                    dataUrl: iconSrc,
                     fit: game.iconFit,
-                    source: game.iconSource,
+                    source: game.iconSource || 'game-icon',
                     debug: game.iconDebug
                 }, item.querySelector('.search-item-icon img'));
-            }
-
-            if (!game.iconData) {
-                electronAPI.getIcon(game.exePath).then((iconPayload) => {
-                    const normalizedIcon = applyIconPayload(game, iconPayload);
-                    if (!normalizedIcon) return;
-                    cacheIconPayload(game.exePath, normalizedIcon);
-                    const iconSpan = item.querySelector('.search-item-icon');
-                    if (iconSpan) {
-                        iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
-                        logIconRender('search-item-async', gameKey, normalizedIcon, iconSpan.querySelector('img'));
-                    }
-                });
             }
 
             if (item.draggable) {

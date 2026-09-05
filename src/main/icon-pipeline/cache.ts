@@ -1,9 +1,9 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { cropTransparentPaddingFromDataUrl } from './cropper';
+import { cropTransparentPaddingFromBuffer } from './cropper';
 
-export const ICON_CACHE_VERSION = 1;
+export const ICON_CACHE_VERSION = 2;
 
 export interface IconCacheEntry {
     fingerprint: string;
@@ -26,6 +26,16 @@ function createSha1(input: string): string {
     return crypto.createHash('sha1').update(input).digest('hex');
 }
 
+export function normalizeExecutablePath(targetPath: string): string {
+    if (process.platform === 'win32') {
+        return path.win32.normalize(targetPath);
+    }
+    if (/^[a-zA-Z]:[/\\]/.test(targetPath)) {
+        return path.win32.normalize(targetPath);
+    }
+    return path.normalize(targetPath);
+}
+
 export function resolveCachePaths(app: CacheAppInterface) {
     const cacheDir = path.join(app.getPath('userData'), 'high-res-icon-cache');
     const indexFile = path.join(cacheDir, 'index.json');
@@ -34,6 +44,23 @@ export function resolveCachePaths(app: CacheAppInterface) {
 
 let iconCacheState: IconCacheState | null = null;
 let iconCacheStatePromise: Promise<IconCacheState> | null = null;
+
+let saveTimer: NodeJS.Timeout | null = null;
+let pendingSaveApp: CacheAppInterface | null = null;
+let isWritingState = false;
+let needsAnotherWrite = false;
+
+export function _resetIconCacheStateForTesting(): void {
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+    }
+    iconCacheState = null;
+    iconCacheStatePromise = null;
+    pendingSaveApp = null;
+    isWritingState = false;
+    needsAnotherWrite = false;
+}
 
 export async function loadIconCacheState(app: CacheAppInterface): Promise<IconCacheState> {
     if (iconCacheState) return iconCacheState;
@@ -46,10 +73,23 @@ export async function loadIconCacheState(app: CacheAppInterface): Promise<IconCa
         try {
             const raw = await fs.readFile(indexFile, 'utf8');
             const parsed = JSON.parse(raw);
-            iconCacheState = {
-                version: parsed.version || ICON_CACHE_VERSION,
-                entriesByPath: parsed.entriesByPath || {}
-            };
+            if (parsed?.version !== ICON_CACHE_VERSION) {
+                iconCacheState = { version: ICON_CACHE_VERSION, entriesByPath: {} };
+                try {
+                    const files = await fs.readdir(cacheDir);
+                    for (const file of files) {
+                        if (file !== 'index.json') {
+                            await fs.unlink(path.join(cacheDir, file)).catch(() => {});
+                        }
+                    }
+                } catch {}
+                scheduleSaveIconCacheState(app, iconCacheState);
+            } else {
+                iconCacheState = {
+                    version: ICON_CACHE_VERSION,
+                    entriesByPath: parsed.entriesByPath || {}
+                };
+            }
         } catch {
             iconCacheState = { version: ICON_CACHE_VERSION, entriesByPath: {} };
         }
@@ -63,10 +103,57 @@ export async function loadIconCacheState(app: CacheAppInterface): Promise<IconCa
     }
 }
 
+async function executeAtomicSave(app: CacheAppInterface, state: IconCacheState): Promise<void> {
+    if (isWritingState) {
+        needsAnotherWrite = true;
+        return;
+    }
+    isWritingState = true;
+    try {
+        const { cacheDir, indexFile } = resolveCachePaths(app);
+        await fs.mkdir(cacheDir, { recursive: true });
+        const tempFile = `${indexFile}.${Date.now()}.${crypto.randomUUID()}.tmp`;
+        await fs.writeFile(tempFile, JSON.stringify(state, null, 2));
+        await fs.rename(tempFile, indexFile);
+    } catch (error) {
+        console.error('[MAIN][CACHE] Failed to save icon cache index:', error);
+    } finally {
+        isWritingState = false;
+        if (needsAnotherWrite) {
+            needsAnotherWrite = false;
+            await executeAtomicSave(app, iconCacheState || state);
+        }
+    }
+}
+
+export function scheduleSaveIconCacheState(app: CacheAppInterface, state: IconCacheState, delayMs = 300): void {
+    pendingSaveApp = app;
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+    }
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+        executeAtomicSave(app, state).catch(() => {});
+    }, delayMs);
+}
+
+export async function flushPendingIconCacheState(app?: CacheAppInterface): Promise<void> {
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+    }
+    const targetApp = app || pendingSaveApp;
+    if (targetApp && iconCacheState) {
+        await executeAtomicSave(targetApp, iconCacheState);
+    }
+}
+
 export async function saveIconCacheState(app: CacheAppInterface, state: IconCacheState): Promise<void> {
-    const { cacheDir, indexFile } = resolveCachePaths(app);
-    await fs.mkdir(cacheDir, { recursive: true });
-    await fs.writeFile(indexFile, JSON.stringify(state, null, 2));
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+    }
+    await executeAtomicSave(app, state);
 }
 
 export function buildIconCacheFingerprint(normalizedPath: string, stats: { size: number; mtimeMs: number }): string {
@@ -87,13 +174,13 @@ export async function deleteIconCacheFileIfUnused(app: CacheAppInterface, state:
     }
 }
 
-export async function tryGetCachedIconDataUrl(app: CacheAppInterface, targetPath: string): Promise<string | null> {
+export async function tryGetCachedIconBuffer(app: CacheAppInterface, targetPath: string): Promise<Buffer | null> {
     const { cacheDir } = resolveCachePaths(app);
-    const normalizedPath = path.win32.normalize(targetPath);
+    const normalizedPath = normalizeExecutablePath(targetPath);
     let stats;
     try {
         stats = await fs.stat(normalizedPath);
-    } catch (err) {
+    } catch {
         return null;
     }
 
@@ -101,33 +188,37 @@ export async function tryGetCachedIconDataUrl(app: CacheAppInterface, targetPath
     const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
     const entry = state.entriesByPath[normalizedPath];
 
-    if (!entry) {
-        return null;
-    }
-
-    if (entry.fingerprint !== fingerprint) {
+    if (entry?.fingerprint !== fingerprint) {
         return null;
     }
 
     const cacheFilePath = path.join(cacheDir, entry.fileName);
     try {
-        const buffer = await fs.readFile(cacheFilePath);
-        const cachedDataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
-        const normalizedIcon = cropTransparentPaddingFromDataUrl(cachedDataUrl, { source: 'cache' });
-        return normalizedIcon.dataUrl;
+        return await fs.readFile(cacheFilePath);
     } catch {
         return null;
     }
 }
 
-export async function storeHighResIconInCache(app: CacheAppInterface, targetPath: string, base64: string, meta: any): Promise<void> {
+export async function tryGetCachedIconDataUrl(app: CacheAppInterface, targetPath: string): Promise<string | null> {
+    const buffer = await tryGetCachedIconBuffer(app, targetPath);
+    if (!buffer) return null;
+    return `data:image/png;base64,${buffer.toString('base64')}`;
+}
+
+export async function storeHighResIconInCache(
+    app: CacheAppInterface,
+    targetPath: string,
+    bufferOrBase64: Buffer | string,
+    meta: any
+): Promise<Buffer | null> {
     const { cacheDir } = resolveCachePaths(app);
-    const normalizedPath = path.win32.normalize(targetPath);
+    const normalizedPath = normalizeExecutablePath(targetPath);
     let stats;
     try {
         stats = await fs.stat(normalizedPath);
-    } catch (err) {
-        return;
+    } catch {
+        return null;
     }
 
     const state = await loadIconCacheState(app);
@@ -135,7 +226,8 @@ export async function storeHighResIconInCache(app: CacheAppInterface, targetPath
     const fileName = `${fingerprint}.png`;
     const cacheFilePath = path.join(cacheDir, fileName);
     const previousEntry = state.entriesByPath[normalizedPath] || null;
-    const buffer = Buffer.from(base64, 'base64');
+    const rawBuffer = Buffer.isBuffer(bufferOrBase64) ? bufferOrBase64 : Buffer.from(bufferOrBase64, 'base64');
+    const { buffer } = cropTransparentPaddingFromBuffer(rawBuffer);
 
     await fs.mkdir(cacheDir, { recursive: true });
     await fs.writeFile(cacheFilePath, buffer);
@@ -146,8 +238,10 @@ export async function storeHighResIconInCache(app: CacheAppInterface, targetPath
         mtimeMs: stats.mtimeMs,
         cachedAtMs: Date.now()
     };
-    await saveIconCacheState(app, state);
+    scheduleSaveIconCacheState(app, state);
     if (previousEntry && previousEntry.fileName !== fileName) {
-        await deleteIconCacheFileIfUnused(app, state, previousEntry.fileName, normalizedPath);
+        deleteIconCacheFileIfUnused(app, state, previousEntry.fileName, normalizedPath).catch(() => {});
     }
+    return buffer;
 }
+

@@ -136,6 +136,22 @@
     pointer-events: none;
 }
 
+.game-icon img.fade-in-icon {
+    opacity: 0;
+    transition: opacity 0.18s ease-out;
+}
+
+.game-icon img.fade-in-icon.loaded {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .game-icon img.fade-in-icon {
+        transition: none;
+        opacity: 1;
+    }
+}
+
 .game-duplicate-chip {
     display: inline-flex;
     align-items: center;

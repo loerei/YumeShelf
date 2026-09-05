@@ -37,35 +37,153 @@ const RT_VERSION = 16;
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+export interface PeResourceSection {
+    buffer: Buffer;
+    pointerToRawData: number;
+    virtualAddress: number;
+    sizeOfRawData: number;
+}
+
 export class PeResourceDecoder {
     private readonly buffer: Buffer;
+    private readonly rsrcSection?: PeResourceSection;
 
-    constructor(buffer: Buffer) {
+    constructor(buffer: Buffer, rsrcSection?: PeResourceSection) {
         this.buffer = buffer;
+        this.rsrcSection = rsrcSection;
     }
 
     static async fromFile(filePath: string): Promise<PeResourceDecoder | null> {
+        let handle: fs.FileHandle | null = null;
         try {
-            const buf = await fs.readFile(filePath);
-            return new PeResourceDecoder(buf);
+            handle = await fs.open(filePath, 'r');
+            const stat = await handle.stat();
+            if (stat.size < 64) return null;
+
+            const headerReadSize = Math.min(4096, stat.size);
+            let headerBuf = Buffer.alloc(headerReadSize);
+            await handle.read(headerBuf, 0, headerReadSize, 0);
+
+            if (headerBuf.readUInt16LE(0) !== 0x5a4d) return null;
+            const peOffset = headerBuf.readUInt32LE(0x3c);
+            if (peOffset + 24 > stat.size) return null;
+
+            if (peOffset + 24 > headerBuf.length) {
+                const needed = Math.min(stat.size, peOffset + 4096);
+                headerBuf = Buffer.alloc(needed);
+                await handle.read(headerBuf, 0, needed, 0);
+            }
+
+            if (headerBuf.readUInt32LE(peOffset) !== 0x00004550) return null;
+
+            const numberOfSections = headerBuf.readUInt16LE(peOffset + 6);
+            const sizeOfOptionalHeader = headerBuf.readUInt16LE(peOffset + 20);
+            const totalHeaderNeeded = peOffset + 24 + sizeOfOptionalHeader + numberOfSections * 40;
+
+            if (totalHeaderNeeded > stat.size) return null;
+            if (totalHeaderNeeded > headerBuf.length) {
+                headerBuf = Buffer.alloc(totalHeaderNeeded);
+                await handle.read(headerBuf, 0, totalHeaderNeeded, 0);
+            }
+
+            const tempDecoder = new PeResourceDecoder(headerBuf);
+            const peInfo = tempDecoder.parsePeHeaders();
+            if (!peInfo?.rsrcSection) return null;
+
+            const { pointerToRawData, sizeOfRawData, virtualAddress } = peInfo.rsrcSection;
+            if (pointerToRawData === 0 || sizeOfRawData === 0 || pointerToRawData >= stat.size) {
+                return null;
+            }
+
+            const readSize = Math.min(sizeOfRawData, stat.size - pointerToRawData);
+            if (readSize <= 0) return null;
+
+            const rsrcBuf = Buffer.alloc(readSize);
+            await handle.read(rsrcBuf, 0, readSize, pointerToRawData);
+
+            return new PeResourceDecoder(headerBuf, {
+                buffer: rsrcBuf,
+                pointerToRawData,
+                sizeOfRawData,
+                virtualAddress
+            });
         } catch {
             return null;
+        } finally {
+            if (handle) {
+                try { await handle.close(); } catch {}
+            }
         }
     }
 
     static fromFileSync(filePath: string): PeResourceDecoder | null {
+        let fd: number | null = null;
         try {
-            const buf = fsSync.readFileSync(filePath);
-            return new PeResourceDecoder(buf);
+            fd = fsSync.openSync(filePath, 'r');
+            const stat = fsSync.fstatSync(fd);
+            if (stat.size < 64) return null;
+
+            const headerReadSize = Math.min(4096, stat.size);
+            let headerBuf = Buffer.alloc(headerReadSize);
+            fsSync.readSync(fd, headerBuf, 0, headerReadSize, 0);
+
+            if (headerBuf.readUInt16LE(0) !== 0x5a4d) return null;
+            const peOffset = headerBuf.readUInt32LE(0x3c);
+            if (peOffset + 24 > stat.size) return null;
+
+            if (peOffset + 24 > headerBuf.length) {
+                const needed = Math.min(stat.size, peOffset + 4096);
+                headerBuf = Buffer.alloc(needed);
+                fsSync.readSync(fd, headerBuf, 0, needed, 0);
+            }
+
+            if (headerBuf.readUInt32LE(peOffset) !== 0x00004550) return null;
+
+            const numberOfSections = headerBuf.readUInt16LE(peOffset + 6);
+            const sizeOfOptionalHeader = headerBuf.readUInt16LE(peOffset + 20);
+            const totalHeaderNeeded = peOffset + 24 + sizeOfOptionalHeader + numberOfSections * 40;
+
+            if (totalHeaderNeeded > stat.size) return null;
+            if (totalHeaderNeeded > headerBuf.length) {
+                headerBuf = Buffer.alloc(totalHeaderNeeded);
+                fsSync.readSync(fd, headerBuf, 0, totalHeaderNeeded, 0);
+            }
+
+            const tempDecoder = new PeResourceDecoder(headerBuf);
+            const peInfo = tempDecoder.parsePeHeaders();
+            if (!peInfo?.rsrcSection) return null;
+
+            const { pointerToRawData, sizeOfRawData, virtualAddress } = peInfo.rsrcSection;
+            if (pointerToRawData === 0 || sizeOfRawData === 0 || pointerToRawData >= stat.size) {
+                return null;
+            }
+
+            const readSize = Math.min(sizeOfRawData, stat.size - pointerToRawData);
+            if (readSize <= 0) return null;
+
+            const rsrcBuf = Buffer.alloc(readSize);
+            fsSync.readSync(fd, rsrcBuf, 0, readSize, pointerToRawData);
+
+            return new PeResourceDecoder(headerBuf, {
+                buffer: rsrcBuf,
+                pointerToRawData,
+                sizeOfRawData,
+                virtualAddress
+            });
         } catch {
             return null;
+        } finally {
+            if (fd !== null) {
+                try { fsSync.closeSync(fd); } catch {}
+            }
         }
     }
 
-    private parsePeHeaders(): {
+    parsePeHeaders(): {
         rvaToOffset: (rva: number) => number | null;
         resourceRva: number;
         resourceSize: number;
+        rsrcSection: SectionHeader | null;
     } | null {
         const buf = this.buffer;
         if (!buf || buf.length < 64) return null;
@@ -125,7 +243,26 @@ export class PeResourceDecoder {
             sections.push({ name, virtualSize, virtualAddress, sizeOfRawData, pointerToRawData });
         }
 
+        let rsrcSection: SectionHeader | null = null;
+        for (const sec of sections) {
+            const sectionSpan = Math.max(sec.virtualSize, sec.sizeOfRawData);
+            if (resourceRva >= sec.virtualAddress && resourceRva < sec.virtualAddress + sectionSpan) {
+                rsrcSection = sec;
+                break;
+            }
+        }
+
         const rvaToOffset = (rva: number): number | null => {
+            if (this.rsrcSection) {
+                if (
+                    rva >= this.rsrcSection.virtualAddress &&
+                    rva < this.rsrcSection.virtualAddress + this.rsrcSection.buffer.length
+                ) {
+                    return rva - this.rsrcSection.virtualAddress;
+                }
+                return null;
+            }
+
             for (const sec of sections) {
                 const sectionSpan = Math.max(sec.virtualSize, sec.sizeOfRawData);
                 if (rva >= sec.virtualAddress && rva < sec.virtualAddress + sectionSpan) {
@@ -136,16 +273,15 @@ export class PeResourceDecoder {
             return null;
         };
 
-        return { rvaToOffset, resourceRva, resourceSize };
+        return { rvaToOffset, resourceRva, resourceSize, rsrcSection };
     }
 
     private getResourceDataEntry(
+        buf: Buffer,
         rsrcBaseOffset: number,
         typeId: number,
         nameOrIdFilter?: number
     ): { dataEntry: ResourceDataEntry; nameId: number } | null {
-        const buf = this.buffer;
-
         // Level 1: Resource Type Directory
         const namedEntries = buf.readUInt16LE(rsrcBaseOffset + 12);
         const idEntries = buf.readUInt16LE(rsrcBaseOffset + 14);
@@ -202,11 +338,11 @@ export class PeResourceDecoder {
     }
 
     private getAllResourceDataEntries(
+        buf: Buffer,
         rsrcBaseOffset: number,
         typeId: number
     ): Map<number, ResourceDataEntry> {
         const results = new Map<number, ResourceDataEntry>();
-        const buf = this.buffer;
 
         const namedEntries = buf.readUInt16LE(rsrcBaseOffset + 12);
         const idEntries = buf.readUInt16LE(rsrcBaseOffset + 14);
@@ -261,17 +397,20 @@ export class PeResourceDecoder {
             const pe = this.parsePeHeaders();
             if (!pe) return null;
 
-            const rsrcBaseOffset = pe.rvaToOffset(pe.resourceRva);
-            if (rsrcBaseOffset === null || rsrcBaseOffset + 16 > this.buffer.length) return null;
+            const resBuf = this.rsrcSection ? this.rsrcSection.buffer : this.buffer;
+            const rsrcBaseOffset = this.rsrcSection
+                ? (pe.resourceRva - this.rsrcSection.virtualAddress)
+                : pe.rvaToOffset(pe.resourceRva);
+            if (rsrcBaseOffset === null || rsrcBaseOffset + 16 > resBuf.length) return null;
 
             // 1. Locate RT_GROUP_ICON (Type 14)
-            const groupIconResult = this.getResourceDataEntry(rsrcBaseOffset, RT_GROUP_ICON);
+            const groupIconResult = this.getResourceDataEntry(resBuf, rsrcBaseOffset, RT_GROUP_ICON);
             if (!groupIconResult) return null;
 
             const groupDataOffset = pe.rvaToOffset(groupIconResult.dataEntry.offsetToData);
             if (groupDataOffset === null) return null;
 
-            const groupData = this.buffer.subarray(
+            const groupData = resBuf.subarray(
                 groupDataOffset,
                 groupDataOffset + groupIconResult.dataEntry.size
             );
@@ -282,7 +421,7 @@ export class PeResourceDecoder {
             if (idType !== 1 || idCount === 0) return null;
 
             // 2. Fetch all RT_ICON entries (Type 3)
-            const iconEntries = this.getAllResourceDataEntries(rsrcBaseOffset, RT_ICON);
+            const iconEntries = this.getAllResourceDataEntries(resBuf, rsrcBaseOffset, RT_ICON);
             if (iconEntries.size === 0) return null;
 
             // 3. Parse GRPICONDIRENTRY array and score each frame
@@ -316,7 +455,7 @@ export class PeResourceDecoder {
                 const iconRawOffset = pe.rvaToOffset(iconDataEntry.offsetToData);
                 if (iconRawOffset === null) continue;
 
-                const iconRawData = this.buffer.subarray(
+                const iconRawData = resBuf.subarray(
                     iconRawOffset,
                     iconRawOffset + Math.min(dwBytesInRes, iconDataEntry.size)
                 );
@@ -400,16 +539,19 @@ export class PeResourceDecoder {
             const pe = this.parsePeHeaders();
             if (!pe) return null;
 
-            const rsrcBaseOffset = pe.rvaToOffset(pe.resourceRva);
-            if (rsrcBaseOffset === null || rsrcBaseOffset + 16 > this.buffer.length) return null;
+            const resBuf = this.rsrcSection ? this.rsrcSection.buffer : this.buffer;
+            const rsrcBaseOffset = this.rsrcSection
+                ? (pe.resourceRva - this.rsrcSection.virtualAddress)
+                : pe.rvaToOffset(pe.resourceRva);
+            if (rsrcBaseOffset === null || rsrcBaseOffset + 16 > resBuf.length) return null;
 
-            const versionResult = this.getResourceDataEntry(rsrcBaseOffset, RT_VERSION);
+            const versionResult = this.getResourceDataEntry(resBuf, rsrcBaseOffset, RT_VERSION);
             if (!versionResult) return null;
 
             const versionDataOffset = pe.rvaToOffset(versionResult.dataEntry.offsetToData);
             if (versionDataOffset === null) return null;
 
-            const versionBuffer = this.buffer.subarray(
+            const versionBuffer = resBuf.subarray(
                 versionDataOffset,
                 versionDataOffset + versionResult.dataEntry.size
             );

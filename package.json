@@ -37,6 +37,7 @@
     "test:vitest": "npx vitest run",
     "test:node": "node --test \"tests/*.test.js\"",
     "test:single": "node --test",
+    "test:icon-sim": "electron .devutil/icon-pipeline-sim",
     "test:engine": "pnpm --filter @yumeshelf/engine test",
     "test": "npm run build:main && npm run test:vitest && npm run test:node",
     "verify:deps": "node scripts/verify-packaged-dependencies.js",

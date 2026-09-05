@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
-import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, cacheIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes } from './utils/formatting';
 
 export function createSearchController({
@@ -91,13 +91,14 @@ export function createSearchController({
             if (cachedIcon) {
                 applyIconPayload(game, cachedIcon);
             }
+            const iconSrc = game.iconData || (game.exePath ? getGameIconUrl(game.exePath) : null);
             const gameKey = getGameKey(game);
             const item = document.createElement('div');
             item.className = 'search-item';
             item.draggable = !getActiveCategoryId();
             item.innerHTML = `
                 <div class="search-item-info">
-                    <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
+                    <div class="search-item-icon">${iconSrc ? renderIconMarkup(iconSrc, game.iconFit, game.iconSource || 'game-icon') : '🎮'}</div>
                     <div class="search-item-title-container">
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
@@ -109,26 +110,13 @@ export function createSearchController({
                     </svg>
                 </div>
             `;
-            if (game.iconData) {
+            if (iconSrc) {
                 logIconRender('search-item-initial', gameKey, {
-                    dataUrl: game.iconData,
+                    dataUrl: iconSrc,
                     fit: game.iconFit,
-                    source: game.iconSource,
+                    source: game.iconSource || 'game-icon',
                     debug: game.iconDebug
                 }, item.querySelector('.search-item-icon img'));
-            }
-
-            if (!game.iconData) {
-                electronAPI.getIcon(game.exePath).then((iconPayload) => {
-                    const normalizedIcon = applyIconPayload(game, iconPayload);
-                    if (!normalizedIcon) return;
-                    cacheIconPayload(game.exePath, normalizedIcon);
-                    const iconSpan = item.querySelector('.search-item-icon');
-                    if (iconSpan) {
-                        iconSpan.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
-                        logIconRender('search-item-async', gameKey, normalizedIcon, iconSpan.querySelector('img'));
-                    }
-                });
             }
 
             if (item.draggable) {

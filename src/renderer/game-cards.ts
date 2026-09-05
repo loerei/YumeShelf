@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
-import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, cacheIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
@@ -33,6 +33,7 @@ export function createGameCardFactory({
         if (cachedIcon) {
             applyIconPayload(game, cachedIcon);
         }
+        const iconSrc = game.iconData || (game.exePath ? getGameIconUrl(game.exePath) : null);
         const card = document.createElement('div');
         card.className = `game-card ${game.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = gameKey;
@@ -67,7 +68,7 @@ export function createGameCardFactory({
                 </div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
-            <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
+            <div class="game-icon">${iconSrc ? renderIconMarkup(iconSrc, game.iconFit, game.iconSource || 'game-icon') : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
             <div class="game-status">${game.isRunning ? (d.status_playing || 'Playing') : timeSince(game.lastPlayed, getStrings)}</div>
@@ -75,37 +76,13 @@ export function createGameCardFactory({
             ${showPath ? `<div class="game-path">${game.relativePathDisplay || ''}</div>` : ''}
             ${contextLabel ? `<div class="game-context-label">${contextLabel}</div>` : ''}
         `;
-        if (game.iconData) {
+        if (iconSrc) {
             logIconRender('card-initial', gameKey, {
-                dataUrl: game.iconData,
+                dataUrl: iconSrc,
                 fit: game.iconFit,
-                source: game.iconSource,
+                source: game.iconSource || 'game-icon',
                 debug: game.iconDebug
             }, card.querySelector('.game-icon img'));
-        }
-
-        if (!game.iconData) {
-            electronAPI.getIcon(game.exePath).then((iconPayload) => {
-                const normalizedIcon = applyIconPayload(game, iconPayload);
-                if (!normalizedIcon) return;
-                cacheIconPayload(game.exePath, normalizedIcon);
-                const iconDiv = card.querySelector('.game-icon');
-                if (iconDiv) {
-                    iconDiv.innerHTML = '';
-                    const img = document.createElement('img');
-                    img.src = normalizedIcon.dataUrl;
-                    img.alt = 'icon';
-                    img.draggable = false;
-                    img.dataset.iconFit = normalizedIcon.fit === 'cover' ? 'cover' : 'contain';
-                    img.dataset.iconSource = normalizedIcon.source;
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.objectFit = normalizedIcon.fit === 'cover' ? 'cover' : 'contain';
-                    img.style.pointerEvents = 'none';
-                    iconDiv.appendChild(img);
-                    logIconRender('card-async', gameKey, normalizedIcon, img);
-                }
-            });
         }
 
         electronAPI.checkTranslationSupport(gameKey).then((result) => {

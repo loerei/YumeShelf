@@ -4,9 +4,26 @@ A suite of standalone CLI utilities for benchmarking, diagnosing, and inspecting
 
 ---
 
-## 🛠️ Available Utilities
+## Available Utilities
 
-### 1. `simulate-icon-pipeline.cjs`
+### 1. `icon-pipeline-sim/`
+**Headless Electron Icon Pipeline Simulator and Quality Verification Utility**
+
+Boots headless Electron to verify icon extraction, transparent border cropping, DIB ICO transcoding fallbacks, and disk caching using Chromium's real C++ `nativeImage` engine.
+
+```bash
+# Run with synthetic mock fixtures in os.tmpdir (default, no dependencies needed)
+npm run test:icon-sim
+# or
+npx electron .devutil/icon-pipeline-sim
+
+# Run against a local game folder
+npx electron .devutil/icon-pipeline-sim "D:/Games/MyGames"
+```
+
+---
+
+### 2. `simulate-icon-pipeline.cjs`
 **Full End-to-End Icon Pipeline Simulator & Benchmark Tool**
 
 Simulates YumeShelf's 5-Branch Icon Resolution Cascade against any directory containing game executables. Measures worker extraction latency, cache hit performance, and branch distributions.

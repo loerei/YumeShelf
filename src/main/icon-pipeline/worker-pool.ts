@@ -78,7 +78,13 @@ export function createWorkerPool({ app, sourceRootDir }: WorkerPoolOptions): Wor
 
     function createIconWorker(): IconWorker {
         const workerId = iconWorkers.length + 1;
-        const workerPath = path.join(sourceRootDir, 'icon-extractor.js');
+        let workerPath = path.join(sourceRootDir, 'icon-extractor.js');
+        if (!fsSync.existsSync(workerPath)) {
+            const distPath = path.join(sourceRootDir, 'dist', 'icon-extractor.js');
+            const srcPath = path.join(sourceRootDir, 'src', 'icon-extractor.js');
+            if (fsSync.existsSync(distPath)) workerPath = distPath;
+            else if (fsSync.existsSync(srcPath)) workerPath = srcPath;
+        }
 
         const worker: IconWorker = fork(workerPath, [], {
             execPath: process.execPath,

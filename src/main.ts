@@ -174,3 +174,7 @@ app.on('window-all-closed', async () => {
         app.quit();
     }
 });
+
+app.on('before-quit', () => {
+    iconPipeline.flushCache().catch(() => {});
+});

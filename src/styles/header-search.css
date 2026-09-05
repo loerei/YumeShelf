@@ -350,6 +350,29 @@
     opacity: 0.9;
 }
 
+.search-item-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.search-item-icon img.fade-in-icon {
+    opacity: 0;
+    transition: opacity 0.18s ease-out;
+}
+
+.search-item-icon img.fade-in-icon.loaded {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .search-item-icon img.fade-in-icon {
+        transition: none;
+        opacity: 1;
+    }
+}
+
 .search-item-title-container {
     flex: 1;
     min-width: 0;

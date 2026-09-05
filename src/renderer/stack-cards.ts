@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { applyIconPayload, cacheIconPayload, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, cacheIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
@@ -23,10 +23,11 @@ export function createStackCardFactory({
         const locationSummary = uniqueLocations.length > 1
             ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
             : (uniqueLocations[0] || primaryGame.locationLabel || '');
-        const cachedIcon = !primaryGame.iconData ? readCachedIconPayload(primaryGame.exePath) : null;
+        const cachedIcon = !primaryGame?.iconData ? readCachedIconPayload(primaryGame?.exePath) : null;
         if (cachedIcon) {
             applyIconPayload(primaryGame, cachedIcon);
         }
+        const iconSrc = primaryGame?.iconData || (primaryGame?.exePath ? getGameIconUrl(primaryGame.exePath) : null);
         const card = document.createElement('div');
         card.className = `game-card stack-card ${stack.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = representativeKey;
@@ -40,33 +41,20 @@ export function createStackCardFactory({
             <div class="dropdown-menu">
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
             </div>
-            <div class="game-icon">${primaryGame.iconData ? renderIconMarkup(primaryGame.iconData, primaryGame.iconFit, primaryGame.iconSource) : '🎮'}</div>
+            <div class="game-icon">${iconSrc ? renderIconMarkup(iconSrc, primaryGame.iconFit, primaryGame.iconSource || 'game-icon') : '🎮'}</div>
             <div class="game-duplicate-chip">${stackSize}x</div>
             <div class="game-title">${primaryGame.name}</div>
             <div class="game-status">${isStackRunning ? (d.status_playing || 'Playing') : timeSince(primaryGame.lastPlayed, getStrings)}</div>
             <div class="game-playtime">${formatPlaytime(primaryGame.playtime)}</div>
             <div class="game-path">${locationSummary}</div>
         `;
-        if (primaryGame.iconData) {
+        if (iconSrc) {
             logIconRender('stack-card-initial', representativeKey, {
-                dataUrl: primaryGame.iconData,
+                dataUrl: iconSrc,
                 fit: primaryGame.iconFit,
-                source: primaryGame.iconSource,
+                source: primaryGame.iconSource || 'game-icon',
                 debug: primaryGame.iconDebug
             }, card.querySelector('.game-icon img'));
-        }
-
-        if (!primaryGame.iconData) {
-            window.electronAPI.getIcon(primaryGame.exePath).then((iconPayload) => {
-                const normalizedIcon = applyIconPayload(primaryGame, iconPayload);
-                if (!normalizedIcon) return;
-                cacheIconPayload(primaryGame.exePath, normalizedIcon);
-                const iconDiv = card.querySelector('.game-icon');
-                if (iconDiv) {
-                    iconDiv.innerHTML = renderIconMarkup(normalizedIcon.dataUrl, normalizedIcon.fit, normalizedIcon.source);
-                    logIconRender('stack-card-async', representativeKey, normalizedIcon, iconDiv.querySelector('img'));
-                }
-            });
         }
 
         attachTooltip(card, () => ({

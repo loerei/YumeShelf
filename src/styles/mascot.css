@@ -226,6 +226,7 @@
     user-select: none;
     -webkit-user-drag: none;
     transform-origin: bottom center;
+    opacity: 1 !important;
 }
 
 .game-card.mascot-game-card.bonk-animating {

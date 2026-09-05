@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
-import { applyIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, createIconElement, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes } from './utils/formatting';
 
 export function createSearchController({
@@ -96,11 +96,9 @@ export function createSearchController({
             const item = document.createElement('div');
             item.className = 'search-item';
             item.draggable = !getActiveCategoryId();
-            // nosemgrep: javascript.browser.security.insecure-innerhtml, javascript.browser.security.insecure-document-method
-            // sourcery skip: insecure-innerhtml, insecure-document-method
             item.innerHTML = `
                 <div class="search-item-info">
-                    <div class="search-item-icon">${iconSrc ? renderIconMarkup(iconSrc, game.iconFit, game.iconSource || 'game-icon') : '🎮'}</div>
+                    <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
                     <div class="search-item-title-container">
                         <div class="search-item-title">${highlightMatch(game.name, query)}</div>
                     </div>
@@ -113,6 +111,12 @@ export function createSearchController({
                 </div>
             `;
             if (iconSrc) {
+                const iconSpan = item.querySelector('.search-item-icon');
+                if (iconSpan && !game.iconData) {
+                    iconSpan.textContent = '';
+                    const img = createIconElement(iconSrc, game.iconFit, game.iconSource || 'game-icon');
+                    iconSpan.appendChild(img);
+                }
                 logIconRender('search-item-initial', gameKey, {
                     dataUrl: iconSrc,
                     fit: game.iconFit,

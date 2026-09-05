@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { applyIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, createIconElement, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
@@ -35,15 +35,13 @@ export function createStackCardFactory({
         card.draggable = draggable;
         const d = getStrings();
         const isStackRunning = stack.games.some(g => g.isRunning);
-        // nosemgrep: javascript.browser.security.insecure-innerhtml, javascript.browser.security.insecure-document-method
-        // sourcery skip: insecure-innerhtml, insecure-document-method
         card.innerHTML = `
             <div class="fav-btn stack-fav-indicator ${stack.favorite ? 'active' : ''}">★</div>
             <div class="menu-btn"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
             <div class="dropdown-menu">
                 <div class="dropdown-item action-rename">${getDropdownActionIcon('rename')}<span>${d.rename}</span></div>
             </div>
-            <div class="game-icon">${iconSrc ? renderIconMarkup(iconSrc, primaryGame.iconFit, primaryGame.iconSource || 'game-icon') : '🎮'}</div>
+            <div class="game-icon">${primaryGame.iconData ? renderIconMarkup(primaryGame.iconData, primaryGame.iconFit, primaryGame.iconSource) : '🎮'}</div>
             <div class="game-duplicate-chip">${stackSize}x</div>
             <div class="game-title">${primaryGame.name}</div>
             <div class="game-status">${isStackRunning ? (d.status_playing || 'Playing') : timeSince(primaryGame.lastPlayed, getStrings)}</div>
@@ -51,6 +49,12 @@ export function createStackCardFactory({
             <div class="game-path">${locationSummary}</div>
         `;
         if (iconSrc) {
+            const iconDiv = card.querySelector('.game-icon');
+            if (iconDiv && !primaryGame?.iconData) {
+                iconDiv.textContent = '';
+                const img = createIconElement(iconSrc, primaryGame.iconFit, primaryGame.iconSource || 'game-icon');
+                iconDiv.appendChild(img);
+            }
             logIconRender('stack-card-initial', representativeKey, {
                 dataUrl: iconSrc,
                 fit: primaryGame.iconFit,

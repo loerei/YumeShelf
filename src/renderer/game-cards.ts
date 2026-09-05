@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
-import { applyIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, createIconElement, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';
@@ -41,8 +41,6 @@ export function createGameCardFactory({
             card.dataset.duplicateSignature = game.duplicateSignature;
         }
         card.draggable = draggable;
-        // nosemgrep: javascript.browser.security.insecure-innerhtml, javascript.browser.security.insecure-document-method
-        // sourcery skip: insecure-innerhtml, insecure-document-method
         card.innerHTML = `
             <div class="fav-btn ${game.favorite ? 'active' : ''}">★</div>
             <div class="menu-btn"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
@@ -70,7 +68,7 @@ export function createGameCardFactory({
                 </div>
                 <div class="dropdown-item danger action-delete">${getDropdownActionIcon('delete')}<span>${d.delete}</span></div>
             </div>
-            <div class="game-icon">${iconSrc ? renderIconMarkup(iconSrc, game.iconFit, game.iconSource || 'game-icon') : '🎮'}</div>
+            <div class="game-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
             ${showDuplicateChip && game.duplicateCount > 1 ? `<div class="game-duplicate-chip">${game.duplicateCount}x</div>` : ''}
             <div class="game-title">${game.name}</div>
             <div class="game-status">${game.isRunning ? (d.status_playing || 'Playing') : timeSince(game.lastPlayed, getStrings)}</div>
@@ -79,6 +77,12 @@ export function createGameCardFactory({
             ${contextLabel ? `<div class="game-context-label">${contextLabel}</div>` : ''}
         `;
         if (iconSrc) {
+            const iconDiv = card.querySelector('.game-icon');
+            if (iconDiv && !game.iconData) {
+                iconDiv.textContent = '';
+                const img = createIconElement(iconSrc, game.iconFit, game.iconSource || 'game-icon');
+                iconDiv.appendChild(img);
+            }
             logIconRender('card-initial', gameKey, {
                 dataUrl: iconSrc,
                 fit: game.iconFit,

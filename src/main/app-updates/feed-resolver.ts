@@ -31,21 +31,27 @@ export function setupFeedResolver({
 }: FeedResolverOptions): FeedResolver {
     async function resolveReleaseFeed(options: ResolveFeedOptions = {}): Promise<any[]> {
         const includePrerelease = options.includePrerelease === true;
-        const buffer = await downloadBuffer(APP_UPDATE_RELEASES_API_URL, 0, startupNetworkTimeoutMs);
-        const raw = JSON.parse(buffer.toString('utf8'));
-        const releases = Array.isArray(raw)
-            ? raw
-                .filter(release => !release?.draft && (includePrerelease || !release?.prerelease))
-                .map(release => normalizeRelease(release, APP_UPDATE_RELEASE_PAGE_URL))
-                .filter(release => !!release.version)
-                .sort((left, right) => {
-                    const versionDelta = compareAppReleaseVersions(right.version, left.version);
-                    if (versionDelta !== 0) return versionDelta;
-                    const publishedDelta = new Date(right.publishedAt || 0).getTime() - new Date(left.publishedAt || 0).getTime();
-                    if (publishedDelta !== 0) return publishedDelta;
-                    return String(right.tagName || '').localeCompare(String(left.tagName || ''));
-                })
-            : [];
+        let releases: any[] = [];
+        try {
+            const buffer = await downloadBuffer(APP_UPDATE_RELEASES_API_URL, 0, startupNetworkTimeoutMs);
+            const raw = JSON.parse(buffer.toString('utf8'));
+            releases = Array.isArray(raw)
+                ? raw
+                    .filter(release => !release?.draft && (includePrerelease || !release?.prerelease))
+                    .map(release => normalizeRelease(release, APP_UPDATE_RELEASE_PAGE_URL))
+                    .filter(release => !!release.version)
+                    .sort((left, right) => {
+                        const versionDelta = compareAppReleaseVersions(right.version, left.version);
+                        if (versionDelta !== 0) return versionDelta;
+                        const publishedDelta = new Date(right.publishedAt || 0).getTime() - new Date(left.publishedAt || 0).getTime();
+                        if (publishedDelta !== 0) return publishedDelta;
+                        return String(right.tagName || '').localeCompare(String(left.tagName || ''));
+                    })
+                : [];
+        } catch (err: any) {
+            await appendVerboseUpdateLog(`resolveReleaseFeed failed: ${err?.message || err}`);
+            return [];
+        }
 
         await appendVerboseUpdateLog(`resolveReleaseFeed includePrerelease=${includePrerelease} count=${releases.length} tags=${JSON.stringify(releases.slice(0, 5).map(release => ({ tag: release.tagName, version: release.version })))}`);
         return releases;

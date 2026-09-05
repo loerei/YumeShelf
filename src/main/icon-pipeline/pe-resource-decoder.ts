@@ -88,7 +88,7 @@ export class PeResourceDecoder {
 
             const tempDecoder = new PeResourceDecoder(headerBuf);
             const peInfo = tempDecoder.parsePeHeaders();
-            if (!peInfo || !peInfo.rsrcSection) return null;
+            if (!peInfo?.rsrcSection) return null;
 
             const { pointerToRawData, sizeOfRawData, virtualAddress } = peInfo.rsrcSection;
             if (pointerToRawData === 0 || sizeOfRawData === 0 || pointerToRawData >= stat.size) {
@@ -151,7 +151,7 @@ export class PeResourceDecoder {
 
             const tempDecoder = new PeResourceDecoder(headerBuf);
             const peInfo = tempDecoder.parsePeHeaders();
-            if (!peInfo || !peInfo.rsrcSection) return null;
+            if (!peInfo?.rsrcSection) return null;
 
             const { pointerToRawData, sizeOfRawData, virtualAddress } = peInfo.rsrcSection;
             if (pointerToRawData === 0 || sizeOfRawData === 0 || pointerToRawData >= stat.size) {

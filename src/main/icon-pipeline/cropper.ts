@@ -146,7 +146,7 @@ export function cropTransparentPaddingFromBuffer(buffer: Buffer, options: any = 
         return { buffer, cropped: false, summary: null };
     }
 
-    const nativeImageFactory = options?.nativeImage || (typeof nativeImage !== 'undefined' ? nativeImage : null);
+    const nativeImageFactory = options?.nativeImage ?? nativeImage ?? null;
     if (!nativeImageFactory || typeof nativeImageFactory.createFromBuffer !== 'function') {
         return { buffer, cropped: false, summary: null };
     }
@@ -203,7 +203,7 @@ export function cropTransparentPaddingFromDataUrl(dataUrl: string, options: any 
         return { dataUrl, cropped: false, summary: null };
     }
 
-    const nativeImageFactory = options?.nativeImage || (typeof nativeImage !== 'undefined' ? nativeImage : null);
+    const nativeImageFactory = options?.nativeImage ?? nativeImage ?? null;
     if (!nativeImageFactory || typeof nativeImageFactory.createFromDataURL !== 'function') {
         return { dataUrl, cropped: false, summary: null };
     }

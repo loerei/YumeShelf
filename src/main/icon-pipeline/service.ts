@@ -2,8 +2,9 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as os from 'node:os';
+import * as crypto from 'node:crypto';
 import { nativeImage } from 'electron';
-import { cropTransparentPaddingFromBuffer, cropTransparentPaddingFromDataUrl, summarizeNativeImageForDebug } from './cropper';
+import { cropTransparentPaddingFromBuffer } from './cropper';
 import {
     tryGetCachedIconDataUrl,
     tryGetCachedIconBuffer,
@@ -114,7 +115,7 @@ function createIconPayload(dataUrl: string, fit = 'contain', source = 'unknown',
 
 export function convertIcoBufferToPng(icoBuffer: Buffer, customNativeImage?: any): Buffer | null {
     try {
-        const factory = customNativeImage || (typeof nativeImage !== 'undefined' ? nativeImage : null);
+        const factory = customNativeImage ?? nativeImage ?? null;
         if (factory) {
             if (typeof factory.createFromBuffer === 'function') {
                 const img = factory.createFromBuffer(icoBuffer);
@@ -125,7 +126,7 @@ export function convertIcoBufferToPng(icoBuffer: Buffer, customNativeImage?: any
             if (typeof factory.createFromPath === 'function') {
                 const tempIcoPath = path.join(
                     os.tmpdir(),
-                    `yume-icon-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.ico`
+                    `yume-icon-${process.pid}-${Date.now()}-${crypto.randomUUID()}.ico`
                 );
                 try {
                     fsSync.writeFileSync(tempIcoPath, icoBuffer);
@@ -152,7 +153,7 @@ export function createIconPipeline({
     nativeImage: customNativeImage
 }: IconPipelineOptions): IconPipeline {
     const pool = createWorkerPool({ app, sourceRootDir });
-    const nativeImageFactory = customNativeImage || (typeof nativeImage !== 'undefined' ? nativeImage : null);
+    const nativeImageFactory = customNativeImage ?? nativeImage ?? null;
 
     async function resolveIconDataUrl(targetPath: string): Promise<IconPayload> {
         // Stage 1: Cache Hit (checked first to avoid redundant sync file scans on warm cache)

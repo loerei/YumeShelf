@@ -26,6 +26,16 @@ function createSha1(input: string): string {
     return crypto.createHash('sha1').update(input).digest('hex');
 }
 
+export function normalizeExecutablePath(targetPath: string): string {
+    if (process.platform === 'win32') {
+        return path.win32.normalize(targetPath);
+    }
+    if (/^[a-zA-Z]:[/\\]/.test(targetPath)) {
+        return path.win32.normalize(targetPath);
+    }
+    return path.normalize(targetPath);
+}
+
 export function resolveCachePaths(app: CacheAppInterface) {
     const cacheDir = path.join(app.getPath('userData'), 'high-res-icon-cache');
     const indexFile = path.join(cacheDir, 'index.json');
@@ -63,7 +73,7 @@ export async function loadIconCacheState(app: CacheAppInterface): Promise<IconCa
         try {
             const raw = await fs.readFile(indexFile, 'utf8');
             const parsed = JSON.parse(raw);
-            if (!parsed || parsed.version !== ICON_CACHE_VERSION) {
+            if (parsed?.version !== ICON_CACHE_VERSION) {
                 iconCacheState = { version: ICON_CACHE_VERSION, entriesByPath: {} };
                 try {
                     const files = await fs.readdir(cacheDir);
@@ -102,7 +112,7 @@ async function executeAtomicSave(app: CacheAppInterface, state: IconCacheState):
     try {
         const { cacheDir, indexFile } = resolveCachePaths(app);
         await fs.mkdir(cacheDir, { recursive: true });
-        const tempFile = `${indexFile}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+        const tempFile = `${indexFile}.${Date.now()}.${crypto.randomUUID()}.tmp`;
         await fs.writeFile(tempFile, JSON.stringify(state, null, 2));
         await fs.rename(tempFile, indexFile);
     } catch (error) {
@@ -166,7 +176,7 @@ export async function deleteIconCacheFileIfUnused(app: CacheAppInterface, state:
 
 export async function tryGetCachedIconBuffer(app: CacheAppInterface, targetPath: string): Promise<Buffer | null> {
     const { cacheDir } = resolveCachePaths(app);
-    const normalizedPath = path.win32.normalize(targetPath);
+    const normalizedPath = normalizeExecutablePath(targetPath);
     let stats;
     try {
         stats = await fs.stat(normalizedPath);
@@ -178,7 +188,7 @@ export async function tryGetCachedIconBuffer(app: CacheAppInterface, targetPath:
     const fingerprint = buildIconCacheFingerprint(normalizedPath, stats);
     const entry = state.entriesByPath[normalizedPath];
 
-    if (!entry || entry.fingerprint !== fingerprint) {
+    if (entry?.fingerprint !== fingerprint) {
         return null;
     }
 
@@ -203,7 +213,7 @@ export async function storeHighResIconInCache(
     meta: any
 ): Promise<Buffer | null> {
     const { cacheDir } = resolveCachePaths(app);
-    const normalizedPath = path.win32.normalize(targetPath);
+    const normalizedPath = normalizeExecutablePath(targetPath);
     let stats;
     try {
         stats = await fs.stat(normalizedPath);

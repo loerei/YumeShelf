@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
-import { applyIconPayload, cacheIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes, formatPlaytime, timeSince } from './utils/formatting';
 import { getDropdownActionIcon } from './ui-components/dropdown-icons';
 import { bindDropdownToggle, bindRenameAction } from './ui-components/card-dropdown';

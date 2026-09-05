@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { getGameKey } from './library-order';
-import { applyIconPayload, cacheIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
+import { applyIconPayload, getGameIconUrl, logIconRender, readCachedIconPayload, renderIconMarkup } from './icon-payload';
 import { formatBytes } from './utils/formatting';
 
 export function createSearchController({

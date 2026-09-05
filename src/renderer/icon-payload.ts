@@ -75,8 +75,8 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined' && !window.
     document.addEventListener(
         'load',
         (event) => {
-            const target = event.target;
-            if (target && target.classList && target.classList.contains('fade-in-icon')) {
+            const target = event.target as HTMLElement | null;
+            if (target?.classList?.contains('fade-in-icon')) {
                 target.classList.add('loaded');
             }
         },
@@ -85,8 +85,8 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined' && !window.
     document.addEventListener(
         'error',
         (event) => {
-            const target = event.target;
-            if (target && target.classList && target.classList.contains('fade-in-icon')) {
+            const target = event.target as HTMLElement | null;
+            if (target?.classList?.contains('fade-in-icon')) {
                 const parent = target.parentElement;
                 if (parent) {
                     parent.textContent = '🎮';

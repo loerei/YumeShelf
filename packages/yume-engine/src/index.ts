@@ -54,7 +54,7 @@ import {
 } from './utils/index.js';
 
 export type * from './types.js';
-export { SaveCodecError } from './types.js';
+export { SaveCodecError, DEFAULT_MAX_ARTWORK_SIZE } from './types.js';
 export * from './pe/index.js';
 export * from './binary/index.js';
 export * from './rules/index.js';

@@ -5,6 +5,8 @@
  * MIT License - Copyright (c) horsicq / YumeShelf Contributors
  */
 
+import type { IFileSystem } from '../types.js';
+
 export const IMAGE_DOS_SIGNATURE = 0x5A4D; // 'MZ'
 export const IMAGE_NT_SIGNATURE = 0x00004550; // 'PE\0\0'
 
@@ -43,6 +45,17 @@ export enum ImageDataDirectoryIndex {
 }
 
 export const RT_VERSION = 16;
+export const RT_ICON = 3;
+export const RT_GROUP_ICON = 14;
+export const DEFAULT_MAX_RSRC_SIZE = 32 * 1024 * 1024; // 32 MB
+export const DEFAULT_MAX_RESOURCE_ENTRIES = 2048;
+export const DEFAULT_MAX_RECURSION_DEPTH = 3;
+export const DEFAULT_MAX_GROUP_ICON_FRAMES = 64;
+
+// Backward-compatible aliases
+export const MAX_RESOURCE_ENTRIES = DEFAULT_MAX_RESOURCE_ENTRIES;
+export const MAX_RECURSION_DEPTH = DEFAULT_MAX_RECURSION_DEPTH;
+export const MAX_GROUP_ICON_FRAMES = DEFAULT_MAX_GROUP_ICON_FRAMES;
 
 export interface ImageDataDirectory {
   virtualAddress: number;
@@ -127,4 +140,30 @@ export interface ParsedPEHeader {
   coffHeader: CoffHeader;
   optionalHeader: OptionalHeader;
   sections: ImageSectionHeader[];
+}
+
+export interface PeResourceDecoderOptions {
+  fs?: IFileSystem;
+  signal?: AbortSignal;
+  maxRsrcSize?: number;
+  maxResourceEntries?: number;
+  maxRecursionDepth?: number;
+  maxIconFrames?: number;
+}
+
+export type PeVersionMetadata = Partial<Pick<PEVersionInfo, 'productName' | 'fileDescription' | 'companyName' | 'fileVersion' | 'productVersion' | 'legalCopyright'>>;
+
+export interface ExtractedPeIcon {
+  buffer: Buffer;
+  mimeType: string;
+  width: number;
+  height: number;
+  isPng: boolean;
+}
+
+export interface PeResourceSection {
+  buffer: Buffer;
+  pointerToRawData: number;
+  virtualAddress: number;
+  sizeOfRawData: number;
 }

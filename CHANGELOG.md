@@ -16,6 +16,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Main process backward compatibility adapters: redirected icon pipeline modules in the main process to delegate directly to `@yumeshelf/engine`, removing duplicate parsing logic while preserving full interface compatibility.
 - Disk cache path traversal hardening: hardened disk cache read and deletion routines in the main process with 4-tier path validation to prevent directory traversal and arbitrary file deletion.
 - macOS app bundle icon resolution: added primary icon resolution for macOS .app bundles in `@yumeshelf/engine`, inspecting Info.plist with traversal sanitization and falling back to scanning Contents/Resources for ICNS and PNG icons.
+- Unified headless icon extraction facade: implemented `extractGameIcon` and `YumeEngine.extractIcon` orchestrating local artwork discovery and executable binary resource extraction across Windows, Linux, and macOS with timeout safety and size bounds.
 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
@@ -39,6 +40,9 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [icon-pipeline] Hardened `tryGetCachedIconBuffer` and `deleteIconCacheFileIfUnused` in `src/main/icon-pipeline/cache.ts` with symmetrical 4-tier defensive validation (string check, basename check, SHA-1 regex pattern match `/^[a-f0-9]{40}\.png$/i`, and root-safe directory containment) to prevent directory traversal and arbitrary file deletion.
 - [engine] Implemented `findAppBundleIcon(bundlePath, options)` in `packages/yume-engine/src/bundle/app-bundle-inspector.ts` with bundle root resolution, `Info.plist` parsing, CFBundleIconFile/CFBundleIconName sanitization, POSIX candidate path construction, size capping, and Contents/Resources directory scan fallback prioritizing well-known icon names.
 - [engine] Re-exported `FindAppBundleIconOptions` and `AppBundleIconResult` from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
+- [engine] Implemented `extractGameIcon` in `packages/yume-engine/src/icon/icon-extractor.ts` with two-priority fallback cascade (Priority 1: folder artwork search with size checks and Linux desktop entry fallback; Priority 2: macOS .app bundle icon resolution and Windows PE resource icon extraction), safe timeout wrapping via `withTimeout`, and size bounds capping.
+- [engine] Exposed `YumeEngine.extractIcon`, `YumeEngine.extractPeIcon`, and `YumeEngine.extractPeMetadata` on the `YumeEngine` facade class in `packages/yume-engine/src/index.ts`.
+- [engine] Re-exported `ExtractedGameIcon` and `ExtractIconOptions` from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
 
 ---
 

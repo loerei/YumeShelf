@@ -52,6 +52,18 @@ import {
   defaultStalenessErrorMessage,
   type StalenessTrackerOptions,
 } from './utils/index.js';
+import {
+  extractGameIcon,
+  type ExtractedGameIcon,
+  type ExtractIconOptions,
+} from './icon/index.js';
+import {
+  extractPeIconAsync,
+  extractPeMetadataAsync,
+  type ExtractedPeIcon,
+  type PeResourceDecoderOptions,
+  type PeVersionMetadata,
+} from './pe/index.js';
 
 export type * from './types.js';
 export { SaveCodecError, DEFAULT_MAX_ARTWORK_SIZE } from './types.js';
@@ -289,6 +301,27 @@ export class YumeEngine {
     context?: SaveCodecContext
   ): Promise<Buffer> {
     return encodeSaveFile(strategy, jsonData, context);
+  }
+
+  static async extractIcon(
+    targetPath: string,
+    options?: ExtractIconOptions | IFileSystem
+  ): Promise<ExtractedGameIcon | null> {
+    return extractGameIcon(targetPath, options);
+  }
+
+  static async extractPeIcon(
+    filePath: string,
+    options?: PeResourceDecoderOptions | IFileSystem
+  ): Promise<ExtractedPeIcon | null> {
+    return extractPeIconAsync(filePath, options);
+  }
+
+  static async extractPeMetadata(
+    filePath: string,
+    options?: PeResourceDecoderOptions | IFileSystem
+  ): Promise<PeVersionMetadata | null> {
+    return extractPeMetadataAsync(filePath, options);
   }
 
   static readonly StalenessTracker = StalenessTracker;

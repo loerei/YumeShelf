@@ -224,5 +224,5 @@ export { DEFAULT_MAX_RSRC_SIZE } from './pe/types.js';
 export type { ExtractedPeIcon, PeResourceSection, PeVersionMetadata, PeResourceDecoderOptions } from './pe/types.js';
 export type { WithTimeoutOptions } from './utils/index.js';
 export type { DesktopEntryOptions, FindAppBundleIconOptions, AppBundleIconResult } from './bundle/index.js';
-export type { LocalGameImageResult } from './icon/index.js';
+export type { LocalGameImageResult, ExtractedGameIcon, ExtractIconOptions } from './icon/index.js';
 

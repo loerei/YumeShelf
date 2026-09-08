@@ -22,7 +22,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Implemented `withTimeout<T>` promise racing utility in `utils/timeout.ts` with unhandled rejection suppression and timer cleanup in `finally`.
 - [icon-pipeline] Consolidated 5-stage icon extraction cascade into `processIconExtraction` in `src/main/icon-pipeline/service.ts`, delegating headless extraction to `YumeEngine.extractIcon`.
 - [icon-pipeline] Replaced duplicate PE decoding, desktop entry, and artwork search in `src/main/icon-pipeline/` with thin backward-compatibility adapters.
-- [icon-pipeline] Hardened disk cache read and deletion routines in `cache.ts` with 4-tier validation (non-empty string check, `basename` equality, SHA-1 regex `/^[a-f0-9]{40}\.png$/i`, and root prefix containment).
+- [icon-pipeline] Hardened disk cache read and deletion routines in `cache.ts` with 4-tier validation (non-empty string check, `basename` equality, SHA-1 regex `/^[a-f0-9]{40}\.png$/i`, and root prefix containment), and preserved POSIX root path normalization across platform targets.
 - [icon-pipeline] Added `isValidIconTargetPath` in `service.ts` rejecting UNC paths, NT device prefixes, DOS devices, NTFS ADS colons, and null bytes.
 - [icon-pipeline] Attached uniform defensive HTTP headers (`X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`) across all icon protocol responses, and added HTTP 499 client abort termination.
 

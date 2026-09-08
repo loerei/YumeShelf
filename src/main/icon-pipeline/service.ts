@@ -43,6 +43,7 @@ export interface IconPipelineOptions {
     sourceRootDir: string;
     nativeImage?: any;
     extractIconOptions?: Partial<ExtractIconOptions>;
+    targetPlatform?: NodeJS.Platform;
 }
 
 export interface IconPayload {
@@ -164,7 +165,8 @@ export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPi
         ipcMain,
         sourceRootDir,
         nativeImage: customNativeImage,
-        extractIconOptions
+        extractIconOptions,
+        targetPlatform
     } = pipelineOptions;
     const pool = createWorkerPool({ app, sourceRootDir });
     const nativeImageFactory = customNativeImage ?? nativeImage ?? null;
@@ -195,6 +197,7 @@ export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPi
         let extracted: ExtractedGameIcon | null = null;
         try {
             const extractOptions: ExtractIconOptions = {
+                targetPlatform,
                 ...extractIconOptions,
                 ...options,
                 signal: signal ?? options?.signal ?? extractIconOptions?.signal
@@ -313,7 +316,8 @@ export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPi
 
         // Stage 4: Windows Native Worker Pool Fallback (PE binaries only)
         const isMacBundle = targetPath.toLowerCase().endsWith('.app') || Boolean(resolveBundleRoot(targetPath));
-        const currentPlatform = options?.targetPlatform ?? extractIconOptions?.targetPlatform ?? process.platform;
+        const currentPlatform =
+            options?.targetPlatform ?? extractIconOptions?.targetPlatform ?? targetPlatform ?? process.platform;
 
         if (currentPlatform === 'win32' && !isMacBundle && !signal?.aborted) {
             try {

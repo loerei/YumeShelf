@@ -947,6 +947,17 @@ test('Group 7: Disk Cache Path Traversal Hardening (Ticket 01.5.2)', async (t) =
         const fileExistsAfterDelete = await fs.readFile(validFilePath).catch(() => null);
         assert.equal(fileExistsAfterDelete, null, 'Valid cache file should be unlinked when unused');
     });
+
+    await t.test('normalizeExecutablePath preserves POSIX root paths across platforms without backslash corruption', () => {
+        // POSIX absolute path must stay POSIX regardless of platform parameter
+        assert.equal(normalizeExecutablePath('/tmp/game/VisualNovel.app', 'win32'), '/tmp/game/VisualNovel.app');
+        assert.equal(normalizeExecutablePath('/tmp/game/VisualNovel.app', 'linux'), '/tmp/game/VisualNovel.app');
+        assert.equal(normalizeExecutablePath('/var/games/sub//dir', 'win32'), '/var/games/sub/dir');
+
+        // Windows paths with drive letter get Windows normalization
+        assert.equal(normalizeExecutablePath('C:/Games/test.exe', 'linux'), 'C:\\Games\\test.exe');
+        assert.equal(normalizeExecutablePath('D:\\Games\\test.exe', 'win32'), 'D:\\Games\\test.exe');
+    });
 });
 
 test('Group 8: macOS App Bundle Icon Resolution & Strict Fallback Cascade (Ticket 02.2.1)', async (t) => {
@@ -1050,61 +1061,56 @@ test('Group 8: macOS App Bundle Icon Resolution & Strict Fallback Cascade (Ticke
     });
 
     await t.test('macOS .app bundle strict fallback: bypasses Stage 4 worker pool and falls through to app.getFileIcon when ICNS transcoding fails', async () => {
-        const originalPlatform = process.platform;
-        // Even when host/emulated platform is win32, macOS .app bundle must bypass Stage 4 worker pool
-        Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
-        try {
-            _resetIconCacheStateForTesting();
-            shellFallbackCount = 0;
+        _resetIconCacheStateForTesting();
+        shellFallbackCount = 0;
 
-            let registeredProtocolHandler = null;
-            let registeredIpcHandler = null;
-            const mockProtocol = {
-                handle: (_scheme, handler) => {
-                    registeredProtocolHandler = handler;
-                }
-            };
-            const mockIpcMain = {
-                handle: (_channel, handler) => {
-                    registeredIpcHandler = handler;
-                }
-            };
+        let registeredProtocolHandler = null;
+        let registeredIpcHandler = null;
+        const mockProtocol = {
+            handle: (_scheme, handler) => {
+                registeredProtocolHandler = handler;
+            }
+        };
+        const mockIpcMain = {
+            handle: (_channel, handler) => {
+                registeredIpcHandler = handler;
+            }
+        };
 
-            // Mock native image where createFromBuffer throws or returns empty
-            const mockFailingNativeImage = {
-                createFromBuffer: () => {
-                    throw new Error('Chromium libpng/icns decoding error');
-                }
-            };
+        // Mock native image where createFromBuffer throws or returns empty
+        const mockFailingNativeImage = {
+            createFromBuffer: () => {
+                throw new Error('Chromium libpng/icns decoding error');
+            }
+        };
 
-            const pipeline = createIconPipeline({
-                app: mockApp,
-                protocol: mockProtocol,
-                ipcMain: mockIpcMain,
-                sourceRootDir: rootTmpDir,
-                nativeImage: mockFailingNativeImage
-            });
-            pipeline.registerProtocolHandler();
-            pipeline.registerIpcHandler();
+        // Even when emulated platform is win32, macOS .app bundle must bypass Stage 4 worker pool
+        const pipeline = createIconPipeline({
+            app: mockApp,
+            protocol: mockProtocol,
+            ipcMain: mockIpcMain,
+            sourceRootDir: rootTmpDir,
+            nativeImage: mockFailingNativeImage,
+            targetPlatform: 'win32'
+        });
+        pipeline.registerProtocolHandler();
+        pipeline.registerIpcHandler();
 
-            // 1. Verify via protocol handler
-            const resp = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(bundle2Dir)}`));
-            assert.equal(resp.status, 200);
-            // Strict PNG egress: must NOT be image/x-icns
-            assert.equal(resp.headers.get('Content-Type'), 'image/png');
-            const bytes = Buffer.from(await resp.arrayBuffer());
-            assert.notEqual(bytes.toString(), mockIcnsBuffer.toString(), 'Raw .icns must NEVER be returned');
-            assert.equal(bytes.toString(), 'shell-fallback-png-bytes');
-            assert.equal(shellFallbackCount, 1, 'Stage 5 app.getFileIcon must be invoked on transcoding failure');
+        // 1. Verify via protocol handler
+        const resp = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(bundle2Dir)}`));
+        assert.equal(resp.status, 200);
+        // Strict PNG egress: must NOT be image/x-icns
+        assert.equal(resp.headers.get('Content-Type'), 'image/png');
+        const bytes = Buffer.from(await resp.arrayBuffer());
+        assert.notEqual(bytes.toString(), mockIcnsBuffer.toString(), 'Raw .icns must NEVER be returned');
+        assert.equal(bytes.toString(), 'shell-fallback-png-bytes');
+        assert.equal(shellFallbackCount, 1, 'Stage 5 app.getFileIcon must be invoked on transcoding failure');
 
-            // 2. Verify disk cache write with app-file-icon-fallback source
-            await pipeline.flushCache();
-            const cached = await tryGetCachedIconBuffer(mockApp, bundle2Dir);
-            assert.ok(cached, 'Fallback icon should be stored in disk cache');
-            assert.equal(cached.toString(), 'shell-fallback-png-bytes');
-        } finally {
-            Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true });
-        }
+        // 2. Verify disk cache write with app-file-icon-fallback source
+        await pipeline.flushCache();
+        const cached = await tryGetCachedIconBuffer(mockApp, bundle2Dir);
+        assert.ok(cached, 'Fallback icon should be stored in disk cache');
+        assert.equal(cached.toString(), 'shell-fallback-png-bytes');
     });
 
     await t.test('Client abort signal halts extraction cascade returning HTTP 499 with defensive headers', async () => {

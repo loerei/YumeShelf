@@ -26,8 +26,11 @@ function createSha1(input: string): string {
     return crypto.createHash('sha1').update(input).digest('hex');
 }
 
-export function normalizeExecutablePath(targetPath: string): string {
-    if (process.platform === 'win32') {
+export function normalizeExecutablePath(targetPath: string, platform: NodeJS.Platform = process.platform): string {
+    if (targetPath.startsWith('/') && !targetPath.startsWith('//')) {
+        return path.posix.normalize(targetPath);
+    }
+    if (platform === 'win32') {
         return path.win32.normalize(targetPath);
     }
     if (/^[a-zA-Z]:[/\\]/.test(targetPath)) {

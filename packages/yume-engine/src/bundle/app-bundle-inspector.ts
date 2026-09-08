@@ -11,6 +11,7 @@
 
 import path from 'node:path';
 import type { IFileSystem, AppBundleInspectionResult, GameEngineProfile } from '../types.js';
+import { DEFAULT_MAX_ARTWORK_SIZE } from '../types.js';
 import { NodeFileSystemProvider } from '../fs/node-fs-provider.js';
 import { parsePlist } from './plist-parser.js';
 
@@ -367,4 +368,203 @@ export class AppBundleInspector implements AppBundleInspectionResult {
       displayName,
     });
   }
+}
+
+
+export interface FindAppBundleIconOptions {
+  fs?: IFileSystem;
+  signal?: AbortSignal;
+  maxArtworkSize?: number;
+  maxRsrcSize?: number;
+}
+
+export interface AppBundleIconResult {
+  buffer: Buffer;
+  ext: string;
+  path?: string;
+}
+
+function isFileSystem(opt: any): opt is IFileSystem {
+  return opt && typeof opt.open === 'function' && typeof opt.readFile === 'function';
+}
+
+/**
+ * Resolves the primary icon for a macOS .app bundle.
+ * Inspects Contents/Info.plist for CFBundleIconFile / CFBundleIconName with sanitization,
+ * and falls back to scanning Contents/Resources/ prioritizing well-known icon names.
+ */
+export async function findAppBundleIcon(
+  bundlePath: string,
+  options?: FindAppBundleIconOptions | IFileSystem
+): Promise<AppBundleIconResult | null> {
+  if (!bundlePath || typeof bundlePath !== 'string') {
+    return null;
+  }
+
+  let bundleRoot = resolveBundleRoot(bundlePath);
+  if (!bundleRoot && bundlePath.toLowerCase().endsWith('.app')) {
+    let norm = bundlePath.replace(/\\/g, '/');
+    while (norm.length > 1 && norm.endsWith('/')) {
+      norm = norm.slice(0, -1);
+    }
+    const lastSeg = norm.split('/').pop() || '';
+    if (lastSeg.length > 4) {
+      bundleRoot = norm;
+    }
+  }
+
+  if (!bundleRoot) {
+    return null;
+  }
+
+  if (/^[a-zA-Z]:\//.test(bundleRoot)) {
+    bundleRoot = bundleRoot[0].toUpperCase() + bundleRoot.slice(1);
+  }
+
+  let fileSystem: IFileSystem;
+  let signal: AbortSignal | undefined;
+  let maxArtworkSize: number | undefined;
+  let maxRsrcSize: number | undefined;
+
+  if (isFileSystem(options)) {
+    fileSystem = options;
+  } else if (options) {
+    fileSystem = options.fs || new NodeFileSystemProvider();
+    signal = options.signal;
+    maxArtworkSize = options.maxArtworkSize;
+    maxRsrcSize = options.maxRsrcSize;
+  } else {
+    fileSystem = new NodeFileSystemProvider();
+  }
+
+  if (signal?.aborted) {
+    return null;
+  }
+
+  const maxSize = maxArtworkSize ?? maxRsrcSize ?? DEFAULT_MAX_ARTWORK_SIZE;
+
+  // Fallback directory scanner for Contents/Resources/
+  const fallbackScanResources = async (): Promise<AppBundleIconResult | null> => {
+    if (signal?.aborted) return null;
+
+    const resourcesDir = `${bundleRoot}/Contents/Resources`;
+    let entries: string[];
+    try {
+      entries = await fileSystem.readdir(resourcesDir);
+    } catch {
+      return null;
+    }
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return null;
+    }
+
+    const matchingFiles = entries.filter((e) => !e.startsWith('.') && /\.(icns|png)$/i.test(e));
+    if (matchingFiles.length === 0) {
+      return null;
+    }
+
+    const wellKnownOrder = ['icon.icns', 'appicon.icns', 'game.icns'];
+    matchingFiles.sort((a, b) => {
+      const rankA = wellKnownOrder.indexOf(a.toLowerCase());
+      const rankB = wellKnownOrder.indexOf(b.toLowerCase());
+      if (rankA !== -1 && rankB !== -1) return rankA - rankB;
+      if (rankA !== -1) return -1;
+      if (rankB !== -1) return 1;
+      return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+
+    for (const file of matchingFiles) {
+      if (signal?.aborted) return null;
+
+      const candidatePath = `${resourcesDir}/${file}`;
+      let stat: any;
+      try {
+        stat = await fileSystem.stat(candidatePath);
+      } catch {
+        continue;
+      }
+
+      if (!stat.isFile() || stat.size <= 0 || stat.size > maxSize) {
+        continue;
+      }
+
+      try {
+        const raw = await fileSystem.readFile(candidatePath);
+        const ext = path.posix.extname(candidatePath).replace(/^\./, '').toLowerCase() || 'icns';
+        return {
+          buffer: Buffer.isBuffer(raw) ? raw : Buffer.from(raw),
+          ext,
+          path: candidatePath,
+        };
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  };
+
+  // Check Contents/Info.plist
+  const plistPath = `${bundleRoot}/Contents/Info.plist`;
+  let plistData: any = null;
+  try {
+    const exists = await fileSystem.exists(plistPath);
+    if (exists) {
+      if (signal?.aborted) return null;
+      const plistRaw = await fileSystem.readFile(plistPath);
+      const plistBuffer = Buffer.isBuffer(plistRaw) ? plistRaw : Buffer.from(plistRaw);
+      plistData = parsePlist(plistBuffer);
+    }
+  } catch {
+    plistData = null;
+  }
+
+  const iconNameRaw = plistData?.CFBundleIconFile || plistData?.CFBundleIconName;
+  if (typeof iconNameRaw === 'string' && iconNameRaw.trim().length > 0) {
+    const trimmed = iconNameRaw.trim();
+
+    // Sanitize icon filename against traversal, separators, control chars, null bytes
+    const isClean =
+      !trimmed.includes('\0') &&
+      !trimmed.includes('%00') &&
+      !/[\x00-\x1f\x7f]/.test(trimmed) &&
+      !trimmed.includes('..') &&
+      !trimmed.includes('/') &&
+      !trimmed.includes('\\') &&
+      path.posix.basename(trimmed) === trimmed &&
+      path.win32.basename(trimmed) === trimmed;
+
+    if (isClean) {
+      let iconName = trimmed;
+      if (!/\.(icns|png)$/i.test(iconName)) {
+        iconName += '.icns';
+      }
+
+      const candidatePath = `${bundleRoot}/Contents/Resources/${iconName}`;
+      let stat: any = null;
+      try {
+        stat = await fileSystem.stat(candidatePath);
+      } catch {
+        stat = null;
+      }
+
+      if (stat && stat.isFile() && stat.size > 0 && stat.size <= maxSize) {
+        try {
+          const raw = await fileSystem.readFile(candidatePath);
+          const ext = path.posix.extname(candidatePath).replace(/^\./, '').toLowerCase() || 'icns';
+          return {
+            buffer: Buffer.isBuffer(raw) ? raw : Buffer.from(raw),
+            ext,
+            path: candidatePath,
+          };
+        } catch {
+          // Cleanly fall through to directory scan
+        }
+      }
+    }
+  }
+
+  // Fallback to directory scan
+  return await fallbackScanResources();
 }

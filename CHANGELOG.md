@@ -15,6 +15,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Folder artwork search and desktop fallback: extracted 36-pattern folder artwork search logic and Linux desktop entry fallback with active SVG defense into `@yumeshelf/engine`.
 - Main process backward compatibility adapters: redirected icon pipeline modules in the main process to delegate directly to `@yumeshelf/engine`, removing duplicate parsing logic while preserving full interface compatibility.
 - Disk cache path traversal hardening: hardened disk cache read and deletion routines in the main process with 4-tier path validation to prevent directory traversal and arbitrary file deletion.
+- macOS app bundle icon resolution: added primary icon resolution for macOS .app bundles in `@yumeshelf/engine`, inspecting Info.plist with traversal sanitization and falling back to scanning Contents/Resources for ICNS and PNG icons.
 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
@@ -36,6 +37,8 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [icon-pipeline] Updated `src/main/icon-pipeline/desktop-entry.ts` to re-export synchronous functions (`parseDesktopFileIcon`, `resolveDesktopIconPath`, `findDesktopEntryIcon`) and async wrappers (`findDesktopEntryIconAsync`, `resolveDesktopIconPathAsync`) delegating to `@yumeshelf/engine` with platform-native path normalization.
 - [icon-pipeline] Updated `src/main/icon-pipeline/service.ts` to re-export artwork search types, candidate patterns, and `findLocalGameImage` delegating to `@yumeshelf/engine` with cross-platform path normalization.
 - [icon-pipeline] Hardened `tryGetCachedIconBuffer` and `deleteIconCacheFileIfUnused` in `src/main/icon-pipeline/cache.ts` with symmetrical 4-tier defensive validation (string check, basename check, SHA-1 regex pattern match `/^[a-f0-9]{40}\.png$/i`, and root-safe directory containment) to prevent directory traversal and arbitrary file deletion.
+- [engine] Implemented `findAppBundleIcon(bundlePath, options)` in `packages/yume-engine/src/bundle/app-bundle-inspector.ts` with bundle root resolution, `Info.plist` parsing, CFBundleIconFile/CFBundleIconName sanitization, POSIX candidate path construction, size capping, and Contents/Resources directory scan fallback prioritizing well-known icon names.
+- [engine] Re-exported `FindAppBundleIconOptions` and `AppBundleIconResult` from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
 
 ---
 

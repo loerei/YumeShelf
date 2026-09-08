@@ -26,7 +26,8 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --experimental-strip-types --test tests/**/*.test.ts"
+    "test:run": "node --experimental-strip-types --test tests/**/*.test.ts",
+    "test": "npm run build && npm run test:run"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

@@ -223,4 +223,5 @@ export const DEFAULT_MAX_ARTWORK_SIZE = 32 * 1024 * 1024; // 32 MB
 export { DEFAULT_MAX_RSRC_SIZE } from './pe/types.js';
 export type { ExtractedPeIcon, PeResourceSection, PeVersionMetadata, PeResourceDecoderOptions } from './pe/types.js';
 export type { WithTimeoutOptions } from './utils/index.js';
+export type { DesktopEntryOptions } from './bundle/index.js';
 

@@ -11,6 +11,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - High-resolution PE icon extraction: added embedded icon frame resolution scoring and synthetic Windows ICO binary synthesis to `@yumeshelf/engine`.
 - Lenient PE version metadata extraction: added Postel's Law fallback parser in `@yumeshelf/engine` to reliably extract product and version metadata from executables with damaged or non-standard version headers.
 - Linux desktop entry icon resolution: implemented in `@yumeshelf/engine` with parameter seams, strict security containment, directory traversal rejection, and XDG icon search paths.
+- Active SVG content defense: added pure in-memory SVG security sanitization and threat vector defense to `@yumeshelf/engine`.
 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
@@ -23,6 +24,8 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Added synchronous `extractPeMetadata` and asynchronous `extractPeMetadataAsync` entry points in `pe/resource-decoder.ts` and re-exported them from `pe/index.ts`.
 - [engine] Implemented `parseDesktopFileIcon`, `resolveDesktopIconPath`, `findDesktopEntryIcon`, and synchronous variants in `bundle/desktop-entry.ts` with parameter seams (`IFileSystem`, `IEnvironmentPaths`, `targetPlatform`, `signal`) and path containment defense against arbitrary file read.
 - [engine] Re-exported desktop entry utilities from `bundle/index.ts` and `DesktopEntryOptions` from `types.ts`.
+- [engine] Implemented `decodeXmlEntities`, `validateSvgContent`, and `isSafeSvgBuffer` in `icon/svg-defense.ts` defending against active element tags, inline event handlers, JavaScript pseudo-protocols, XML base redirection (SSRF), external network/UNC URLs, scriptable data: URIs, XML DOCTYPE/ENTITY declarations, UTF-16 BOM, and null-byte evasion attacks.
+- [engine] Re-exported SVG defense utilities from `icon/index.ts` and `@yumeshelf/engine` root.
 - [engine] Re-exported `DEFAULT_MAX_ARTWORK_SIZE` and PE resource types from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
 
 ---

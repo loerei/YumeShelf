@@ -75,7 +75,7 @@ jobs:
           npm run ensure:playtime-helper
           npm run build:preload
           npm run build:main
-          npm run ensure:installer-shell
+          npm run ensure:installer-shell:fast
           npm run copy:assets
           npm run build:vite
           npm run verify:deps

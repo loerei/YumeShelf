@@ -86,6 +86,9 @@
         "nsis"
       ],
       "icon": "assets/yumeshelf_icon_highres_4096.png",
+      "signtoolOptions": {
+        "sign": "./scripts/noop-windows-sign.js"
+      },
       "extraResources": [
         {
           "from": "native/playtime-helper/target/release/playtime-helper.exe",

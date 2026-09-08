@@ -87,9 +87,6 @@
         "nsis"
       ],
       "icon": "assets/yumeshelf_icon_highres_4096.png",
-      "signtoolOptions": {
-        "sign": "./scripts/noop-windows-sign.js"
-      },
       "extraResources": [
         {
           "from": "native/playtime-helper/target/release/playtime-helper.exe",
@@ -180,13 +177,5 @@
     "semver": "^7.7.4",
     "tiny-typed-emitter": "^2.1.0",
     "universalify": "^2.0.1"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "electron-winstaller",
-      "esbuild",
-      "extract-file-icon"
-    ]
   }
 }

@@ -79,7 +79,7 @@ jobs:
           npm run copy:assets
           npm run build:vite
           npm run verify:deps
-          npx electron-builder --win --publish never
+          npx electron-builder --win --publish never --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js
           node scripts/organize-build-output.js
           node scripts/write-release-checksum.js
 

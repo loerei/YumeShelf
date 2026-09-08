@@ -176,5 +176,13 @@
     "semver": "^7.7.4",
     "tiny-typed-emitter": "^2.1.0",
     "universalify": "^2.0.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller",
+      "esbuild",
+      "extract-file-icon"
+    ]
   }
 }

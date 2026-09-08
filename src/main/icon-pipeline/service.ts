@@ -13,7 +13,13 @@ import {
 } from './cache';
 import { createWorkerPool } from './worker-pool';
 import { extractPeIcon } from './pe-resource-decoder';
-import { findDesktopEntryIcon } from './desktop-entry';
+import {
+    findLocalGameImageSync,
+    getImageMimeType as engineGetImageMimeType,
+    LOCAL_IMAGE_CANDIDATE_PATTERNS as enginePatterns,
+    LOCAL_IMAGE_EXTENSIONS as engineExtensions,
+    type LocalGameImageResult as EngineLocalGameImageResult
+} from '@yumeshelf/engine';
 
 export interface IconPipelineAppInterface {
     getPath(name: string): string;
@@ -44,58 +50,18 @@ export interface IconPayload {
     debug: any;
 }
 
-export interface LocalGameImageResult {
-    imgPath: string;
-    ext: string;
-}
-
-const LOCAL_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'ico'];
-const LOCAL_IMAGE_CANDIDATE_PATTERNS = [
-    (dir: string, ext: string) => path.join(dir, `icon.${ext}`),
-    (dir: string, ext: string) => path.join(dir, `cover.${ext}`),
-    (dir: string, ext: string) => path.join(dir, `folder.${ext}`),
-    (dir: string, ext: string) => path.join(dir, 'icon', `icon.${ext}`),
-    (dir: string, ext: string) => path.join(dir, 'icon', `cover.${ext}`),
-    (dir: string, ext: string) => path.join(dir, 'www', 'icon', `icon.${ext}`)
-];
-
-export function getImageMimeType(ext: string): string {
-    const cleanExt = ext.replace(/^\./, '').toLowerCase();
-    switch (cleanExt) {
-        case 'jpg':
-        case 'jpeg':
-            return 'image/jpeg';
-        case 'svg':
-            return 'image/svg+xml';
-        case 'ico':
-            return 'image/x-icon';
-        case 'webp':
-            return 'image/webp';
-        case 'png':
-        default:
-            return 'image/png';
-    }
-}
+export type LocalGameImageResult = EngineLocalGameImageResult;
+export const LOCAL_IMAGE_CANDIDATE_PATTERNS = enginePatterns;
+export const LOCAL_IMAGE_EXTENSIONS = engineExtensions;
+export const getImageMimeType = engineGetImageMimeType;
 
 export function findLocalGameImage(targetPath: string): LocalGameImageResult | null {
-    const dir = path.dirname(targetPath);
-    for (const pattern of LOCAL_IMAGE_CANDIDATE_PATTERNS) {
-        for (const ext of LOCAL_IMAGE_EXTENSIONS) {
-            const imgPath = pattern(dir, ext);
-            if (fsSync.existsSync(imgPath)) {
-                return { imgPath, ext };
-            }
-        }
-    }
-
-    // Check for Linux desktop entry icon
-    const desktopIcon = findDesktopEntryIcon(targetPath);
-    if (desktopIcon) {
-        const ext = path.extname(desktopIcon).replace(/^\./, '').toLowerCase() || 'png';
-        return { imgPath: desktopIcon, ext };
-    }
-
-    return null;
+    const result = findLocalGameImageSync(targetPath);
+    if (!result) return null;
+    return {
+        ...result,
+        imgPath: path.normalize(result.imgPath)
+    };
 }
 
 export interface IconPipeline {

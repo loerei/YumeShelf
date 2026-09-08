@@ -13,6 +13,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Linux desktop entry icon resolution: implemented in `@yumeshelf/engine` with parameter seams, strict security containment, directory traversal rejection, and XDG icon search paths.
 - Active SVG content defense: added pure in-memory SVG security sanitization and threat vector defense to `@yumeshelf/engine`.
 - Folder artwork search and desktop fallback: extracted 36-pattern folder artwork search logic and Linux desktop entry fallback with active SVG defense into `@yumeshelf/engine`.
+- Main process backward compatibility adapters: redirected icon pipeline modules in the main process to delegate directly to `@yumeshelf/engine`, removing duplicate parsing logic while preserving full interface compatibility.
 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
@@ -30,6 +31,9 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Implemented `findLocalGameImage`, `findLocalGameImageSync`, and `getImageMimeType` in `icon/artwork-search.ts` with 36 candidate pattern evaluation, pre-read file size check, candidate absence tolerance, abort responsiveness, active SVG defense integration, and `.desktop` entry fallback.
 - [engine] Re-exported artwork search utilities from `icon/index.ts` and `LocalGameImageResult` from `types.ts`.
 - [engine] Re-exported `DEFAULT_MAX_ARTWORK_SIZE` and PE resource types from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
+- [icon-pipeline] Replaced duplicate PE resource decoding in `src/main/icon-pipeline/pe-resource-decoder.ts` with backward compatibility adapters delegating to `@yumeshelf/engine`.
+- [icon-pipeline] Updated `src/main/icon-pipeline/desktop-entry.ts` to re-export synchronous functions (`parseDesktopFileIcon`, `resolveDesktopIconPath`, `findDesktopEntryIcon`) and async wrappers (`findDesktopEntryIconAsync`, `resolveDesktopIconPathAsync`) delegating to `@yumeshelf/engine` with platform-native path normalization.
+- [icon-pipeline] Updated `src/main/icon-pipeline/service.ts` to re-export artwork search types, candidate patterns, and `findLocalGameImage` delegating to `@yumeshelf/engine` with cross-platform path normalization.
 
 ---
 

@@ -16,9 +16,6 @@ import {
     type ExtractedGameIcon,
     resolveBundleRoot,
     findLocalGameImageSync,
-    getImageMimeType,
-    LOCAL_IMAGE_CANDIDATE_PATTERNS,
-    LOCAL_IMAGE_EXTENSIONS,
     type LocalGameImageResult
 } from '@yumeshelf/engine';
 
@@ -93,9 +90,9 @@ export function isValidIconTargetPath(targetPath: string): boolean {
     // Reject null bytes and URL-encoded null bytes
     if (targetPath.includes('\0') || targetPath.includes('%00')) return false;
     // Reject remote UNC paths (\\server\share or //server/share or multiple slashes)
-    if (/^[\\\/]{2}/.test(targetPath)) return false;
+    if (/^[\\/]{2}/.test(targetPath)) return false;
     // Reject Windows NT device namespace prefixes (\??\UNC\... or /?/UNC/...) and question mark characters
-    if (targetPath.includes('?') || /^[\\\/]\?/.test(targetPath)) return false;
+    if (targetPath.includes('?') || /^[\\/]\?/.test(targetPath)) return false;
     // Disallow colons beyond drive letter designation at index 1 (blocks NTFS ADS and DOS device suffixes)
     if (targetPath.slice(2).includes(':')) return false;
     // Cross-platform absolute path verification
@@ -103,7 +100,7 @@ export function isValidIconTargetPath(targetPath: string): boolean {
     if (!isAbsolute) return false;
 
     // Reject Windows DOS device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9, CONIN$, CONOUT$) across all path segments
-    const normalized = targetPath.replace(/\\/g, '/');
+    const normalized = targetPath.replaceAll('\\', '/');
     const segments = normalized.split('/').filter(Boolean);
     const dosDeviceRegex = /^(con|prn|aux|nul|com[1-9]|lpt[1-9]|conin\$|conout\$)([.:\s].*)?$/i;
     if (segments.some(seg => dosDeviceRegex.test(seg))) return false;
@@ -286,27 +283,25 @@ export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPi
                         source: 'app-bundle-extracted',
                         crop: cropSummary
                     };
-                } else {
-                    if (nativeImageFactory && typeof nativeImageFactory.createFromBuffer === 'function') {
-                        try {
-                            const img = nativeImageFactory.createFromBuffer(extracted.buffer);
-                            if (img && typeof img.isEmpty === 'function' && !img.isEmpty() && typeof img.toPNG === 'function') {
-                                const pngBuffer = img.toPNG();
-                                const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(
-                                    pngBuffer,
-                                    { nativeImage: nativeImageFactory }
-                                );
-                                storeHighResIconInCache(app, targetPath, croppedBuffer, { source: 'app-bundle' }).catch(() => {});
-                                return {
-                                    buffer: croppedBuffer,
-                                    mimeType: 'image/png',
-                                    source: 'app-bundle-extracted',
-                                    crop: cropSummary
-                                };
-                            }
-                        } catch {
-                            // Ignore error and fall through to Stage 5
+                } else if (nativeImageFactory && typeof nativeImageFactory.createFromBuffer === 'function') {
+                    try {
+                        const img = nativeImageFactory.createFromBuffer(extracted.buffer);
+                        if (img && typeof img.isEmpty === 'function' && !img.isEmpty() && typeof img.toPNG === 'function') {
+                            const pngBuffer = img.toPNG();
+                            const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(
+                                pngBuffer,
+                                { nativeImage: nativeImageFactory }
+                            );
+                            storeHighResIconInCache(app, targetPath, croppedBuffer, { source: 'app-bundle' }).catch(() => {});
+                            return {
+                                buffer: croppedBuffer,
+                                mimeType: 'image/png',
+                                source: 'app-bundle-extracted',
+                                crop: cropSummary
+                            };
                         }
+                    } catch {
+                        // Ignore error and fall through to Stage 5
                     }
                     // Strict PNG egress: if nativeImageFactory is omitted, throws, or produces an empty/invalid image,
                     // DO NOT return raw .icns bytes; fall through to Stage 5 (app.getFileIcon).

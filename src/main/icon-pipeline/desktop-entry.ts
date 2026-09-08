@@ -8,7 +8,6 @@
 
 import * as path from 'node:path';
 import {
-  parseDesktopFileIcon as engineParseDesktopFileIcon,
   resolveDesktopIconPathSync as engineResolveDesktopIconPathSync,
   resolveDesktopIconPath as engineResolveDesktopIconPath,
   findDesktopEntryIconSync as engineFindDesktopEntryIconSync,
@@ -16,8 +15,7 @@ import {
   type DesktopEntryOptions
 } from '@yumeshelf/engine';
 
-export type { DesktopEntryOptions };
-export const parseDesktopFileIcon = engineParseDesktopFileIcon;
+export { parseDesktopFileIcon, type DesktopEntryOptions } from '@yumeshelf/engine';
 
 export function resolveDesktopIconPath(
   iconVal: string,

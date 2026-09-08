@@ -7,9 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release Tag (e.g. v2.0.2)'
-        required: true
-        default: 'v2.0.2'
+        description: 'Release Tag (e.g. v2.2.5)'
+        required: false
+        default: 'v2.2.5'
+      dry_run:
+        description: 'Dry Run / Warmup (build packages and warm cache without publishing release)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -174,6 +179,7 @@ jobs:
 
   publish-release:
     name: Consolidate & Publish GitHub Release
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
     needs: [build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:

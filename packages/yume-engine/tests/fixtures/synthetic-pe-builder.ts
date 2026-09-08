@@ -17,11 +17,28 @@ export interface SyntheticPESection {
   characteristics?: number;
 }
 
+export interface SyntheticIconFrame {
+  id?: number;
+  width: number;
+  height: number;
+  bitCount?: number;
+  data: Buffer;
+  isPng?: boolean;
+}
+
+export interface SyntheticGroupIconOptions {
+  idType?: number;
+  idCount?: number;
+  truncateHeaderBytes?: number;
+}
+
 export interface SyntheticPEOptions {
   arch?: 'x86' | 'x64';
   sections?: SyntheticPESection[];
   imports?: SyntheticPEImport[];
   versionInfo?: Record<string, string>;
+  iconFrames?: SyntheticIconFrame[];
+  groupIconOptions?: SyntheticGroupIconOptions;
   subsystem?: number;
   characteristics?: number;
 }
@@ -31,6 +48,8 @@ export class SyntheticPEBuilder {
   private sections: SyntheticPESection[] = [];
   private imports: SyntheticPEImport[] = [];
   private versionInfo: Record<string, string> | null = null;
+  private iconFrames: SyntheticIconFrame[] = [];
+  private groupIconOptions?: SyntheticGroupIconOptions;
   private subsystem: number = 2; // IMAGE_SUBSYSTEM_WINDOWS_GUI
   private characteristics: number = 0x0022; // EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE
 
@@ -40,6 +59,8 @@ export class SyntheticPEBuilder {
       if (options.sections) this.sections = [...options.sections];
       if (options.imports) this.imports = [...options.imports];
       if (options.versionInfo) this.versionInfo = { ...options.versionInfo };
+      if (options.iconFrames) this.iconFrames = [...options.iconFrames];
+      if (options.groupIconOptions) this.groupIconOptions = { ...options.groupIconOptions };
       if (options.subsystem !== undefined) this.subsystem = options.subsystem;
       if (options.characteristics !== undefined) this.characteristics = options.characteristics;
     }
@@ -47,6 +68,15 @@ export class SyntheticPEBuilder {
 
   public setArch(arch: 'x86' | 'x64'): this {
     this.arch = arch;
+    return this;
+  }
+
+  public setIconFrames(
+    frames: SyntheticIconFrame[],
+    options?: SyntheticGroupIconOptions
+  ): this {
+    this.iconFrames = [...frames];
+    this.groupIconOptions = options ? { ...options } : undefined;
     return this;
   }
 
@@ -206,6 +236,7 @@ export class SyntheticPEBuilder {
       characteristics: number;
       isImport?: boolean;
       isResource?: boolean;
+      fixups?: Array<{ dataEntryOffset: number; dataRvaOffset: number }>;
     }> = [];
 
     // Add user sections
@@ -218,7 +249,12 @@ export class SyntheticPEBuilder {
       });
     }
 
-    if (generatedSections.length === 0 && this.imports.length === 0 && !this.versionInfo) {
+    if (
+      generatedSections.length === 0 &&
+      this.imports.length === 0 &&
+      !this.versionInfo &&
+      this.iconFrames.length === 0
+    ) {
       // Default minimal .text section
       const dummyCode = Buffer.alloc(0x200, 0x90); // NOPs
       generatedSections.push({
@@ -310,66 +346,224 @@ export class SyntheticPEBuilder {
     let resourceDirectoryRVA = 0;
     let resourceDirectorySize = 0;
 
-    if (this.versionInfo) {
-      const vinfoBuf = SyntheticPEBuilder.buildVersionInfoBuffer(this.versionInfo);
+    if (this.versionInfo || this.iconFrames.length > 0) {
+      const hasIcons = this.iconFrames.length > 0;
+      const hasVersion = this.versionInfo !== null;
+      const vinfoBuf = hasVersion && this.versionInfo ? SyntheticPEBuilder.buildVersionInfoBuffer(this.versionInfo) : null;
 
-      // We will build a 3-level resource tree:
-      // Root (IMAGE_RESOURCE_DIRECTORY + 1 Entry for RT_VERSION = 16)
-      // Level 2 (IMAGE_RESOURCE_DIRECTORY + 1 Entry for Name/ID = 1)
-      // Level 3 (IMAGE_RESOURCE_DIRECTORY + 1 Entry for Language = 1033 / 0x0409)
-      // Leaf: IMAGE_RESOURCE_DATA_ENTRY (16 bytes: OffsetToData RVA, Size, CodePage, Reserved)
-      // Followed by raw vinfoBuf
+      const frames = this.iconFrames.map((f, idx) => ({
+        ...f,
+        id: f.id ?? (idx + 1),
+        bitCount: f.bitCount ?? (f.isPng ? 32 : 32),
+      }));
 
-      // Size calculation:
-      // Root dir: 16 bytes header + 8 bytes entry = 24 bytes (offset 0)
-      // L2 dir:   16 bytes header + 8 bytes entry = 24 bytes (offset 24)
-      // L3 dir:   16 bytes header + 8 bytes entry = 24 bytes (offset 48)
-      // Data entry: 16 bytes (offset 72)
-      // Raw data: offset 88
-      const headerSize = 88;
-      const totalRsrcSize = SyntheticPEBuilder.align(headerSize + vinfoBuf.length, fileAlignment);
+      let grpIconDirBuf: Buffer | null = null;
+      if (hasIcons) {
+        const idCount = this.groupIconOptions?.idCount !== undefined ? this.groupIconOptions.idCount : frames.length;
+        const idType = this.groupIconOptions?.idType !== undefined ? this.groupIconOptions.idType : 1;
+        const headerLen = 6 + frames.length * 14;
+        grpIconDirBuf = Buffer.alloc(headerLen);
+        grpIconDirBuf.writeUInt16LE(0, 0); // idReserved
+        grpIconDirBuf.writeUInt16LE(idType, 2); // idType
+        grpIconDirBuf.writeUInt16LE(idCount, 4); // idCount
+
+        for (let i = 0; i < frames.length; i++) {
+          const frame = frames[i];
+          const entryOff = 6 + i * 14;
+          grpIconDirBuf.writeUInt8(frame.width >= 256 ? 0 : frame.width, entryOff);
+          grpIconDirBuf.writeUInt8(frame.height >= 256 ? 0 : frame.height, entryOff + 1);
+          grpIconDirBuf.writeUInt8(0, entryOff + 2); // bColorCount
+          grpIconDirBuf.writeUInt8(0, entryOff + 3); // bReserved
+          grpIconDirBuf.writeUInt16LE(1, entryOff + 4); // wPlanes
+          grpIconDirBuf.writeUInt16LE(frame.bitCount, entryOff + 6); // wBitCount
+          grpIconDirBuf.writeUInt32LE(frame.data.length, entryOff + 8); // dwBytesInRes
+          grpIconDirBuf.writeUInt16LE(frame.id, entryOff + 12); // nID
+        }
+
+        if (this.groupIconOptions?.truncateHeaderBytes !== undefined) {
+          grpIconDirBuf = grpIconDirBuf.subarray(0, this.groupIconOptions.truncateHeaderBytes);
+        }
+      }
+
+      // Root entries: RT_ICON (3), RT_GROUP_ICON (14), RT_VERSION (16)
+      const rootTypes: Array<{ typeId: number }> = [];
+      if (hasIcons) {
+        rootTypes.push({ typeId: 3 });
+        rootTypes.push({ typeId: 14 });
+      }
+      if (hasVersion) {
+        rootTypes.push({ typeId: 16 });
+      }
+
+      let cur = 0;
+      const rootOffset = 0;
+      cur += 16 + rootTypes.length * 8;
+
+      // L2 offsets
+      let l2IconOffset = 0;
+      if (hasIcons) {
+        l2IconOffset = cur;
+        cur += 16 + frames.length * 8;
+      }
+      let l2GroupOffset = 0;
+      if (hasIcons) {
+        l2GroupOffset = cur;
+        cur += 16 + 1 * 8;
+      }
+      let l2VersionOffset = 0;
+      if (hasVersion) {
+        l2VersionOffset = cur;
+        cur += 16 + 1 * 8;
+      }
+
+      // L3 offsets
+      const l3IconOffsets: number[] = [];
+      if (hasIcons) {
+        for (let i = 0; i < frames.length; i++) {
+          l3IconOffsets.push(cur);
+          cur += 16 + 1 * 8;
+        }
+      }
+      let l3GroupOffset = 0;
+      if (hasIcons) {
+        l3GroupOffset = cur;
+        cur += 16 + 1 * 8;
+      }
+      let l3VersionOffset = 0;
+      if (hasVersion) {
+        l3VersionOffset = cur;
+        cur += 16 + 1 * 8;
+      }
+
+      // Data Entry offsets
+      const dataEntryIconOffsets: number[] = [];
+      if (hasIcons) {
+        for (let i = 0; i < frames.length; i++) {
+          dataEntryIconOffsets.push(cur);
+          cur += 16;
+        }
+      }
+      let dataEntryGroupOffset = 0;
+      if (hasIcons) {
+        dataEntryGroupOffset = cur;
+        cur += 16;
+      }
+      let dataEntryVersionOffset = 0;
+      if (hasVersion) {
+        dataEntryVersionOffset = cur;
+        cur += 16;
+      }
+
+      // Raw payloads
+      cur = SyntheticPEBuilder.align4(cur);
+      let rawGroupOffset = 0;
+      if (hasIcons && grpIconDirBuf) {
+        rawGroupOffset = cur;
+        cur += grpIconDirBuf.length;
+      }
+
+      const rawIconOffsets: number[] = [];
+      if (hasIcons) {
+        for (let i = 0; i < frames.length; i++) {
+          cur = SyntheticPEBuilder.align4(cur);
+          rawIconOffsets.push(cur);
+          cur += frames[i].data.length;
+        }
+      }
+
+      let rawVersionOffset = 0;
+      if (hasVersion && vinfoBuf) {
+        cur = SyntheticPEBuilder.align4(cur);
+        rawVersionOffset = cur;
+        cur += vinfoBuf.length;
+      }
+
+      const totalRsrcSize = SyntheticPEBuilder.align(cur, fileAlignment);
       const rsrcBuf = Buffer.alloc(totalRsrcSize);
+      const fixups: Array<{ dataEntryOffset: number; dataRvaOffset: number }> = [];
 
-      // Root Directory at offset 0
-      rsrcBuf.writeUInt32LE(0, 0); // Characteristics & TimeDateStamp
-      rsrcBuf.writeUInt16LE(0, 12); // NumberOfNamedEntries
-      rsrcBuf.writeUInt16LE(1, 14); // NumberOfIdEntries = 1
-      // Root Entry 0 (Type 16 = RT_VERSION)
-      rsrcBuf.writeUInt32LE(16, 16); // Integer ID: 16 (RT_VERSION)
-      rsrcBuf.writeUInt32LE(0x80000018, 20); // High bit set (subdirectory) at offset 24 (0x18)
+      // Write Root Directory
+      rsrcBuf.writeUInt16LE(0, rootOffset + 12);
+      rsrcBuf.writeUInt16LE(rootTypes.length, rootOffset + 14);
+      for (let i = 0; i < rootTypes.length; i++) {
+        const rt = rootTypes[i];
+        const entryOff = rootOffset + 16 + i * 8;
+        rsrcBuf.writeUInt32LE(rt.typeId, entryOff);
+        const targetL2 = rt.typeId === 3 ? l2IconOffset : rt.typeId === 14 ? l2GroupOffset : l2VersionOffset;
+        rsrcBuf.writeUInt32LE((0x80000000 | targetL2) >>> 0, entryOff + 4);
+      }
 
-      // Level 2 Directory at offset 24 (0x18)
-      rsrcBuf.writeUInt32LE(0, 24);
-      rsrcBuf.writeUInt16LE(0, 36); // NumberOfNamedEntries
-      rsrcBuf.writeUInt16LE(1, 38); // NumberOfIdEntries = 1
-      // Level 2 Entry 0 (Resource ID 1)
-      rsrcBuf.writeUInt32LE(1, 40); // Resource ID: 1
-      rsrcBuf.writeUInt32LE(0x80000030, 44); // Subdirectory at offset 48 (0x30)
+      // Write L2 & L3 & Data Entries for Icons
+      if (hasIcons) {
+        // L2 Icons: list of frame IDs
+        rsrcBuf.writeUInt16LE(0, l2IconOffset + 12);
+        rsrcBuf.writeUInt16LE(frames.length, l2IconOffset + 14);
+        for (let i = 0; i < frames.length; i++) {
+          const entryOff = l2IconOffset + 16 + i * 8;
+          rsrcBuf.writeUInt32LE(frames[i].id, entryOff);
+          rsrcBuf.writeUInt32LE((0x80000000 | l3IconOffsets[i]) >>> 0, entryOff + 4);
 
-      // Level 3 Directory at offset 48 (0x30)
-      rsrcBuf.writeUInt32LE(0, 48);
-      rsrcBuf.writeUInt16LE(0, 60); // NumberOfNamedEntries
-      rsrcBuf.writeUInt16LE(1, 62); // NumberOfIdEntries = 1
-      // Level 3 Entry 0 (Language 1033 / 0x0409)
-      rsrcBuf.writeUInt32LE(1033, 64); // Lang ID 1033
-      rsrcBuf.writeUInt32LE(72, 68); // Leaf Data Entry at offset 72 (high bit 0)
+          // L3 Icon: Lang 0
+          rsrcBuf.writeUInt16LE(0, l3IconOffsets[i] + 12);
+          rsrcBuf.writeUInt16LE(1, l3IconOffsets[i] + 14);
+          rsrcBuf.writeUInt32LE(0, l3IconOffsets[i] + 16); // Lang 0
+          rsrcBuf.writeUInt32LE(dataEntryIconOffsets[i], l3IconOffsets[i] + 20);
 
-      // Leaf Data Entry at offset 72
-      // OffsetToData RVA will be filled once RVA of .rsrc section is known
-      rsrcBuf.writeUInt32LE(0, 72); // placeholder OffsetToData RVA
-      rsrcBuf.writeUInt32LE(vinfoBuf.length, 76); // Size
-      rsrcBuf.writeUInt32LE(0, 80); // CodePage
-      rsrcBuf.writeUInt32LE(0, 84); // Reserved
+          // Data Entry Icon
+          rsrcBuf.writeUInt32LE(0, dataEntryIconOffsets[i]); // placeholder RVA
+          rsrcBuf.writeUInt32LE(frames[i].data.length, dataEntryIconOffsets[i] + 4); // Size
+          fixups.push({ dataEntryOffset: dataEntryIconOffsets[i], dataRvaOffset: rawIconOffsets[i] });
 
-      // Copy version info bytes at offset 88
-      vinfoBuf.copy(rsrcBuf, 88);
+          // Copy frame raw data
+          frames[i].data.copy(rsrcBuf, rawIconOffsets[i]);
+        }
+
+        // L2 Group Icons: Group ID 1
+        rsrcBuf.writeUInt16LE(0, l2GroupOffset + 12);
+        rsrcBuf.writeUInt16LE(1, l2GroupOffset + 14);
+        rsrcBuf.writeUInt32LE(1, l2GroupOffset + 16); // Group ID 1
+        rsrcBuf.writeUInt32LE((0x80000000 | l3GroupOffset) >>> 0, l2GroupOffset + 20);
+
+        // L3 Group Icon: Lang 0
+        rsrcBuf.writeUInt16LE(0, l3GroupOffset + 12);
+        rsrcBuf.writeUInt16LE(1, l3GroupOffset + 14);
+        rsrcBuf.writeUInt32LE(0, l3GroupOffset + 16); // Lang 0
+        rsrcBuf.writeUInt32LE(dataEntryGroupOffset, l3GroupOffset + 20);
+
+        // Data Entry Group Icon
+        rsrcBuf.writeUInt32LE(0, dataEntryGroupOffset); // placeholder RVA
+        rsrcBuf.writeUInt32LE(grpIconDirBuf ? grpIconDirBuf.length : 0, dataEntryGroupOffset + 4);
+        if (grpIconDirBuf) {
+          fixups.push({ dataEntryOffset: dataEntryGroupOffset, dataRvaOffset: rawGroupOffset });
+          grpIconDirBuf.copy(rsrcBuf, rawGroupOffset);
+        }
+      }
+
+      // Write L2 & L3 & Data Entry for Version Info
+      if (hasVersion && vinfoBuf) {
+        rsrcBuf.writeUInt16LE(0, l2VersionOffset + 12);
+        rsrcBuf.writeUInt16LE(1, l2VersionOffset + 14);
+        rsrcBuf.writeUInt32LE(1, l2VersionOffset + 16); // Version ID 1
+        rsrcBuf.writeUInt32LE((0x80000000 | l3VersionOffset) >>> 0, l2VersionOffset + 20);
+
+        rsrcBuf.writeUInt16LE(0, l3VersionOffset + 12);
+        rsrcBuf.writeUInt16LE(1, l3VersionOffset + 14);
+        rsrcBuf.writeUInt32LE(1033, l3VersionOffset + 16); // Lang 1033
+        rsrcBuf.writeUInt32LE(dataEntryVersionOffset, l3VersionOffset + 20);
+
+        rsrcBuf.writeUInt32LE(0, dataEntryVersionOffset); // placeholder RVA
+        rsrcBuf.writeUInt32LE(vinfoBuf.length, dataEntryVersionOffset + 4);
+        fixups.push({ dataEntryOffset: dataEntryVersionOffset, dataRvaOffset: rawVersionOffset });
+        vinfoBuf.copy(rsrcBuf, rawVersionOffset);
+      }
 
       generatedSections.push({
         name: '.rsrc\0\0\0',
         rawBuffer: rsrcBuf,
-        virtualSize: SyntheticPEBuilder.align(headerSize + vinfoBuf.length, sectionAlignment),
+        virtualSize: SyntheticPEBuilder.align(cur, sectionAlignment),
         characteristics: 0x40000040, // INITIALIZED_DATA | READ
         isResource: true,
+        fixups,
       });
     }
 
@@ -492,9 +686,11 @@ export class SyntheticPEBuilder {
       if (sec.isResource) {
         resourceDirectoryRVA = virtAddress;
         resourceDirectorySize = sec.rawBuffer.length;
-        // Fix up leaf OffsetToData RVA at offset 72 inside .rsrc section
-        const dataRVA = virtAddress + 88;
-        sec.rawBuffer.writeUInt32LE(dataRVA, 72);
+        if (sec.fixups) {
+          for (const fix of sec.fixups) {
+            sec.rawBuffer.writeUInt32LE(virtAddress + fix.dataRvaOffset, fix.dataEntryOffset);
+          }
+        }
       }
 
       finalSectionDescriptors.push({

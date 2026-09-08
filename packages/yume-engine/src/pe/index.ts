@@ -12,4 +12,6 @@ export * from './version-parser.js';
 export * from './pe-inspector.js';
 export {
   PeResourceDecoder,
+  extractPeIcon,
+  extractPeIconAsync,
 } from './resource-decoder.js';

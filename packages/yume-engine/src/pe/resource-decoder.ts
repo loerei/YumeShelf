@@ -14,9 +14,15 @@ import {
   DEFAULT_MAX_RESOURCE_ENTRIES,
   DEFAULT_MAX_RECURSION_DEPTH,
   DEFAULT_MAX_RSRC_SIZE,
+  DEFAULT_MAX_GROUP_ICON_FRAMES,
+  RT_ICON,
+  RT_GROUP_ICON,
+  type ExtractedPeIcon,
   type PeResourceDecoderOptions,
   type PeResourceSection,
 } from './types.js';
+
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export class PeResourceDecoder {
   private readonly headerBuffer: Buffer;
@@ -396,4 +402,216 @@ export class PeResourceDecoder {
 
     return traverse(0, 1);
   }
+
+  public extractIcon(): ExtractedPeIcon | null {
+    try {
+      if (!this.rsrcSection || !this.rsrcSection.buffer || this.rsrcSection.buffer.length < 16) {
+        return null;
+      }
+
+      const groupIconEntry = this.getResourceDataEntry(RT_GROUP_ICON);
+      if (!groupIconEntry) {
+        return null;
+      }
+
+      const resBuf = this.rsrcSection.buffer;
+      if (groupIconEntry.offset < 0 || groupIconEntry.offset + groupIconEntry.size > resBuf.length) {
+        return null;
+      }
+
+      const groupData = resBuf.subarray(
+        groupIconEntry.offset,
+        groupIconEntry.offset + groupIconEntry.size
+      );
+      if (groupData.length < 6) {
+        return null;
+      }
+
+      const idType = groupData.readUInt16LE(2);
+      const idCount = groupData.readUInt16LE(4);
+      if (idType !== 1 || idCount === 0) {
+        return null;
+      }
+
+      const maxFrames = this.options?.maxIconFrames ?? DEFAULT_MAX_GROUP_ICON_FRAMES;
+      const frameCount = Math.min(idCount, maxFrames);
+
+      interface CandidateFrame {
+        width: number;
+        height: number;
+        bitCount: number;
+        nID: number;
+        bytesInRes: number;
+        score: number;
+        isPng: boolean;
+        rawFrameBuffer: Buffer;
+      }
+
+      const candidates: CandidateFrame[] = [];
+
+      for (let i = 0; i < frameCount; i++) {
+        const entryOffset = 6 + i * 14;
+        if (entryOffset + 14 > groupData.length) {
+          break;
+        }
+
+        const bWidth = groupData.readUInt8(entryOffset);
+        const bHeight = groupData.readUInt8(entryOffset + 1);
+        const wBitCount = groupData.readUInt16LE(entryOffset + 6);
+        const dwBytesInRes = groupData.readUInt32LE(entryOffset + 8);
+        const nID = groupData.readUInt16LE(entryOffset + 12);
+
+        const iconEntry = this.getResourceDataEntry(RT_ICON, nID);
+        if (!iconEntry) {
+          continue;
+        }
+
+        const frameLen = dwBytesInRes > 0 ? Math.min(dwBytesInRes, iconEntry.size) : iconEntry.size;
+        if (frameLen < 8) {
+          continue;
+        }
+        if (iconEntry.offset < 0 || iconEntry.offset + frameLen > resBuf.length) {
+          continue;
+        }
+
+        const rawFrameBuffer = resBuf.subarray(iconEntry.offset, iconEntry.offset + frameLen);
+        if (rawFrameBuffer.length < 8) {
+          continue;
+        }
+
+        const isPng =
+          rawFrameBuffer.length >= 8 &&
+          rawFrameBuffer.subarray(0, 8).equals(PNG_MAGIC);
+
+        let width = bWidth === 0 ? 256 : bWidth;
+        let height = bHeight === 0 ? 256 : bHeight;
+
+        if (isPng) {
+          if (rawFrameBuffer.length >= 24) {
+            const pngWidth = rawFrameBuffer.readUInt32BE(16);
+            const pngHeight = rawFrameBuffer.readUInt32BE(20);
+            if (pngWidth > 0 && pngHeight > 0) {
+              width = pngWidth;
+              height = pngHeight;
+            }
+          }
+
+          const bitCount = wBitCount || 32;
+          const score = width * height * (bitCount >= 24 ? 2 : 1) + 100000;
+
+          candidates.push({
+            width,
+            height,
+            bitCount,
+            nID,
+            bytesInRes: dwBytesInRes,
+            score,
+            isPng: true,
+            rawFrameBuffer,
+          });
+        } else {
+          // DIB frame check: validate rawFrameBuffer.length >= 40 && biSize >= 40 && rawFrameBuffer.length >= biSize
+          if (rawFrameBuffer.length < 40) {
+            continue;
+          }
+          const biSize = rawFrameBuffer.readUInt32LE(0);
+          if (biSize < 40 || rawFrameBuffer.length < biSize) {
+            continue;
+          }
+
+          const bitCount = wBitCount || (rawFrameBuffer.length >= 16 ? rawFrameBuffer.readUInt16LE(14) : 0) || 8;
+          const score = width * height * (bitCount >= 24 ? 2 : 1);
+
+          candidates.push({
+            width,
+            height,
+            bitCount,
+            nID,
+            bytesInRes: dwBytesInRes,
+            score,
+            isPng: false,
+            rawFrameBuffer,
+          });
+        }
+      }
+
+      if (candidates.length === 0) {
+        return null;
+      }
+
+      candidates.sort((a, b) => b.score - a.score);
+      const best = candidates[0];
+
+      if (best.isPng) {
+        return {
+          buffer: best.rawFrameBuffer,
+          mimeType: 'image/png',
+          width: best.width,
+          height: best.height,
+          isPng: true,
+        };
+      }
+
+      // Validate DIB frame header length before synthesizing .ico
+      if (best.rawFrameBuffer.length < 40) {
+        return null;
+      }
+      const biSize = best.rawFrameBuffer.readUInt32LE(0);
+      if (biSize < 40 || best.rawFrameBuffer.length < biSize) {
+        return null;
+      }
+
+      // Synthesize 22-byte Windows .ico file structure: ICONDIR (6 bytes) + ICONDIRENTRY (16 bytes) + DIB buffer
+      const icoHeader = Buffer.alloc(22);
+      icoHeader.writeUInt16LE(0, 0); // Reserved (0)
+      icoHeader.writeUInt16LE(1, 2); // Type (1 for ICO)
+      icoHeader.writeUInt16LE(1, 4); // Count (1 frame)
+
+      icoHeader.writeUInt8(best.width >= 256 ? 0 : best.width, 6);
+      icoHeader.writeUInt8(best.height >= 256 ? 0 : best.height, 7);
+      icoHeader.writeUInt8(0, 8); // Color count
+      icoHeader.writeUInt8(0, 9); // Reserved
+      icoHeader.writeUInt16LE(1, 10); // Planes
+      icoHeader.writeUInt16LE(best.bitCount, 12); // Bit count
+      icoHeader.writeUInt32LE(best.rawFrameBuffer.length, 14); // Bytes in res
+      icoHeader.writeUInt32LE(22, 18); // Image offset (header length = 22)
+
+      const synthesizedIco = Buffer.concat([icoHeader, best.rawFrameBuffer]);
+      return {
+        buffer: synthesizedIco,
+        mimeType: 'image/x-icon',
+        width: best.width,
+        height: best.height,
+        isPng: false,
+      };
+    } catch {
+      return null;
+    }
+  }
+}
+
+export function extractPeIcon(
+  bufferOrPath: Buffer | string,
+  options?: Omit<PeResourceDecoderOptions, 'fs'>
+): ExtractedPeIcon | null {
+  if (typeof bufferOrPath === 'string') {
+    const decoder = PeResourceDecoder.fromFileSync(bufferOrPath, options);
+    return decoder ? decoder.extractIcon() : null;
+  }
+  if (!bufferOrPath || !Buffer.isBuffer(bufferOrPath)) {
+    return null;
+  }
+  const decoder = PeResourceDecoder.fromBuffer(bufferOrPath, options);
+  return decoder ? decoder.extractIcon() : null;
+}
+
+export async function extractPeIconAsync(
+  filePath: string,
+  options?: PeResourceDecoderOptions | IFileSystem
+): Promise<ExtractedPeIcon | null> {
+  if (typeof filePath !== 'string' || !filePath) {
+    return null;
+  }
+  const decoder = await PeResourceDecoder.fromFile(filePath, options);
+  return decoder ? decoder.extractIcon() : null;
 }

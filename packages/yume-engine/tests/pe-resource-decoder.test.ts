@@ -1,18 +1,49 @@
 /// <reference types="node" />
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import * as fsSync from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 import {
   PeResourceDecoder,
   PEInspector,
   DEFAULT_MAX_RESOURCE_ENTRIES,
   DEFAULT_MAX_RECURSION_DEPTH,
   DEFAULT_MAX_RSRC_SIZE,
+  DEFAULT_MAX_GROUP_ICON_FRAMES,
   RT_VERSION,
+  RT_ICON,
+  RT_GROUP_ICON,
+  extractPeIcon,
+  extractPeIconAsync,
 } from '../dist/index.js';
 // @ts-ignore
 import { SyntheticPEBuilder } from './fixtures/synthetic-pe-builder.ts';
 // @ts-ignore
 import { MockFileSystemProvider } from './fixtures/mock-fs-provider.ts';
+
+function createMockPngBuffer(width = 256, height = 256): Buffer {
+  const buf = Buffer.alloc(64);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buf, 0);
+  buf.writeUInt32BE(13, 8);
+  buf.write('IHDR', 12, 'utf8');
+  buf.writeUInt32BE(width, 16);
+  buf.writeUInt32BE(height, 20);
+  buf.writeUInt8(8, 24);
+  buf.writeUInt8(6, 25);
+  return buf;
+}
+
+function createMockDibBuffer(width = 32, height = 32, bitCount = 32, biSize = 40): Buffer {
+  const pixelBytes = Math.max(16, width * height * Math.ceil(bitCount / 8));
+  const buf = Buffer.alloc(biSize + pixelBytes);
+  buf.writeUInt32LE(biSize, 0);
+  buf.writeInt32LE(width, 4);
+  buf.writeInt32LE(height * 2, 8);
+  buf.writeUInt16LE(1, 12);
+  buf.writeUInt16LE(bitCount, 14);
+  return buf;
+}
 
 describe('PeResourceDecoder & Resource Tree Traversal (@yumeshelf/engine)', () => {
   it('1. performs two-stage bounded header reading when section headers exceed 4096 bytes', async () => {
@@ -256,5 +287,276 @@ describe('PeResourceDecoder & Resource Tree Traversal (@yumeshelf/engine)', () =
       signal: controller.signal,
     });
     assert.strictEqual(syncResult, null);
+  });
+
+  it('8. extracts embedded PNG icon frame with passthrough and isPng: true', () => {
+    const mockPng = createMockPngBuffer(256, 256);
+    const builder = new SyntheticPEBuilder({ arch: 'x64' });
+    builder.setIconFrames([{ width: 256, height: 256, isPng: true, data: mockPng }]);
+    const peBuf = builder.build();
+
+    const decoder = PeResourceDecoder.fromBuffer(peBuf);
+    assert.ok(decoder !== null);
+
+    const icon = decoder.extractIcon();
+    assert.ok(icon !== null);
+    assert.strictEqual(icon.isPng, true);
+    assert.strictEqual(icon.mimeType, 'image/png');
+    assert.strictEqual(icon.width, 256);
+    assert.strictEqual(icon.height, 256);
+    assert.deepStrictEqual(icon.buffer, mockPng);
+  });
+
+  it('9. extracts embedded DIB icon frame and synthesizes valid 22-byte ICO header', () => {
+    const mockDib = createMockDibBuffer(32, 32, 32);
+    const builder = new SyntheticPEBuilder({ arch: 'x64' });
+    builder.setIconFrames([{ width: 32, height: 32, bitCount: 32, isPng: false, data: mockDib }]);
+    const peBuf = builder.build();
+
+    const decoder = PeResourceDecoder.fromBuffer(peBuf);
+    assert.ok(decoder !== null);
+
+    const icon = decoder.extractIcon();
+    assert.ok(icon !== null);
+    assert.strictEqual(icon.isPng, false);
+    assert.strictEqual(icon.mimeType, 'image/x-icon');
+    assert.strictEqual(icon.width, 32);
+    assert.strictEqual(icon.height, 32);
+    assert.strictEqual(icon.buffer.length, 22 + mockDib.length);
+
+    // Verify 6-byte ICONDIR
+    assert.strictEqual(icon.buffer.readUInt16LE(0), 0); // idReserved
+    assert.strictEqual(icon.buffer.readUInt16LE(2), 1); // idType (1 = ICO)
+    assert.strictEqual(icon.buffer.readUInt16LE(4), 1); // idCount (1 frame)
+
+    // Verify 16-byte ICONDIRENTRY
+    assert.strictEqual(icon.buffer.readUInt8(6), 32); // bWidth
+    assert.strictEqual(icon.buffer.readUInt8(7), 32); // bHeight
+    assert.strictEqual(icon.buffer.readUInt8(8), 0); // bColorCount
+    assert.strictEqual(icon.buffer.readUInt8(9), 0); // bReserved
+    assert.strictEqual(icon.buffer.readUInt16LE(10), 1); // wPlanes
+    assert.strictEqual(icon.buffer.readUInt16LE(12), 32); // wBitCount
+    assert.strictEqual(icon.buffer.readUInt32LE(14), mockDib.length); // dwBytesInRes
+    assert.strictEqual(icon.buffer.readUInt32LE(18), 22); // dwImageOffset
+
+    // Verify payload
+    assert.deepStrictEqual(icon.buffer.subarray(22), mockDib);
+  });
+
+  it('10. enforces frame resolution scoring hierarchy (preferring 256px PNG > 256px DIB > 128px > 48px > 32px > 16px)', () => {
+    const dib16 = createMockDibBuffer(16, 16, 32);
+    const dib32 = createMockDibBuffer(32, 32, 32);
+    const dib48 = createMockDibBuffer(48, 48, 32);
+    const dib128 = createMockDibBuffer(128, 128, 32);
+    const dib256 = createMockDibBuffer(256, 256, 32);
+    const png256 = createMockPngBuffer(256, 256);
+
+    const allFrames = [
+      { id: 1, width: 16, height: 16, bitCount: 32, isPng: false, data: dib16 },
+      { id: 2, width: 32, height: 32, bitCount: 32, isPng: false, data: dib32 },
+      { id: 3, width: 48, height: 48, bitCount: 32, isPng: false, data: dib48 },
+      { id: 4, width: 128, height: 128, bitCount: 32, isPng: false, data: dib128 },
+      { id: 5, width: 256, height: 256, bitCount: 32, isPng: false, data: dib256 },
+      { id: 6, width: 256, height: 256, bitCount: 32, isPng: true, data: png256 },
+    ];
+
+    // Case 1: All frames present -> selects 256px PNG
+    const b1 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(allFrames);
+    const icon1 = PeResourceDecoder.fromBuffer(b1.build())?.extractIcon();
+    assert.ok(icon1);
+    assert.strictEqual(icon1.isPng, true);
+    assert.strictEqual(icon1.width, 256);
+
+    // Case 2: Without 256px PNG -> selects 256px DIB
+    const b2 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(allFrames.slice(0, 5));
+    const icon2 = PeResourceDecoder.fromBuffer(b2.build())?.extractIcon();
+    assert.ok(icon2);
+    assert.strictEqual(icon2.isPng, false);
+    assert.strictEqual(icon2.width, 256);
+
+    // Case 3: Without 256px DIB -> selects 128px DIB
+    const b3 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(allFrames.slice(0, 4));
+    const icon3 = PeResourceDecoder.fromBuffer(b3.build())?.extractIcon();
+    assert.ok(icon3);
+    assert.strictEqual(icon3.width, 128);
+
+    // Case 4: Without 128px DIB -> selects 48px DIB
+    const b4 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(allFrames.slice(0, 3));
+    const icon4 = PeResourceDecoder.fromBuffer(b4.build())?.extractIcon();
+    assert.ok(icon4);
+    assert.strictEqual(icon4.width, 48);
+
+    // Case 5: Without 48px DIB -> selects 32px DIB
+    const b5 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(allFrames.slice(0, 2));
+    const icon5 = PeResourceDecoder.fromBuffer(b5.build())?.extractIcon();
+    assert.ok(icon5);
+    assert.strictEqual(icon5.width, 32);
+
+    // Case 6: Without 32px DIB -> selects 16px DIB
+    const b6 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(allFrames.slice(0, 1));
+    const icon6 = PeResourceDecoder.fromBuffer(b6.build())?.extractIcon();
+    assert.ok(icon6);
+    assert.strictEqual(icon6.width, 16);
+
+    // Case 7: Same resolution (32x32) but different bit counts (24bpp vs 8bpp)
+    const dib32_24bpp = createMockDibBuffer(32, 32, 24);
+    const dib32_8bpp = createMockDibBuffer(32, 32, 8);
+    const b7 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames([
+      { id: 1, width: 32, height: 32, bitCount: 8, isPng: false, data: dib32_8bpp },
+      { id: 2, width: 32, height: 32, bitCount: 24, isPng: false, data: dib32_24bpp },
+    ]);
+    const icon7 = PeResourceDecoder.fromBuffer(b7.build())?.extractIcon();
+    assert.ok(icon7);
+    assert.strictEqual(icon7.buffer.readUInt16LE(12), 24);
+  });
+
+  it('11. enforces GRPICONDIR frame count cap (<= 64 frames) and header validation', () => {
+    // Subtest A: Capping at 64 frames
+    // 70 frames: first 64 are 16x16 DIB, frames 65..70 are 256x256 PNG
+    const frames70: any[] = [];
+    for (let i = 1; i <= 64; i++) {
+      frames70.push({ id: i, width: 16, height: 16, bitCount: 32, isPng: false, data: createMockDibBuffer(16, 16, 32) });
+    }
+    for (let i = 65; i <= 70; i++) {
+      frames70.push({ id: i, width: 256, height: 256, bitCount: 32, isPng: true, data: createMockPngBuffer(256, 256) });
+    }
+
+    const b1 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(frames70, { idCount: 70 });
+    const icon1 = PeResourceDecoder.fromBuffer(b1.build())?.extractIcon();
+    assert.ok(icon1);
+    // Because frames beyond 64 are capped and ignored, 16px DIB is chosen
+    assert.strictEqual(icon1.width, 16);
+    assert.strictEqual(icon1.isPng, false);
+
+    // Subtest B: Custom maxIconFrames in options (maxIconFrames: 2)
+    const frames3 = [
+      { id: 1, width: 16, height: 16, bitCount: 32, isPng: false, data: createMockDibBuffer(16, 16, 32) },
+      { id: 2, width: 16, height: 16, bitCount: 32, isPng: false, data: createMockDibBuffer(16, 16, 32) },
+      { id: 3, width: 256, height: 256, bitCount: 32, isPng: true, data: createMockPngBuffer(256, 256) },
+    ];
+    const b2 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(frames3);
+    const decoderCustom = PeResourceDecoder.fromBuffer(b2.build(), { maxIconFrames: 2 });
+    assert.ok(decoderCustom !== null);
+    const iconCustom = decoderCustom.extractIcon();
+    assert.ok(iconCustom !== null);
+    assert.strictEqual(iconCustom.width, 16); // frame 3 ignored
+
+    // Subtest C: Invalid idType (idType = 2 cursor) -> returns null
+    const b3 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(
+      [{ width: 32, height: 32, bitCount: 32, data: createMockDibBuffer(32, 32, 32) }],
+      { idType: 2 }
+    );
+    const icon3 = PeResourceDecoder.fromBuffer(b3.build())?.extractIcon();
+    assert.strictEqual(icon3, null);
+
+    // Subtest D: idCount = 0 -> returns null
+    const b4 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(
+      [{ width: 32, height: 32, bitCount: 32, data: createMockDibBuffer(32, 32, 32) }],
+      { idCount: 0 }
+    );
+    const icon4 = PeResourceDecoder.fromBuffer(b4.build())?.extractIcon();
+    assert.strictEqual(icon4, null);
+
+    // Subtest E: Truncated groupData (< 6 bytes) -> returns null
+    const b5 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames(
+      [{ width: 32, height: 32, bitCount: 32, data: createMockDibBuffer(32, 32, 32) }],
+      { truncateHeaderBytes: 4 }
+    );
+    const icon5 = PeResourceDecoder.fromBuffer(b5.build())?.extractIcon();
+    assert.strictEqual(icon5, null);
+  });
+
+  it('12. enforces DIB frame length validation (rawFrameBuffer.length >= 40 && biSize >= 40 && rawFrameBuffer.length >= biSize)', () => {
+    // Subtest A: rawFrameBuffer.length < 40 (truncated buffer)
+    const truncatedDib = Buffer.alloc(20);
+    const b1 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames([
+      { width: 32, height: 32, bitCount: 32, data: truncatedDib },
+    ]);
+    const icon1 = PeResourceDecoder.fromBuffer(b1.build())?.extractIcon();
+    assert.strictEqual(icon1, null);
+
+    // Subtest B: biSize < 40 (invalid header size)
+    const invalidBiSizeDib = Buffer.alloc(60);
+    invalidBiSizeDib.writeUInt32LE(36, 0); // biSize = 36 (< 40)
+    const b2 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames([
+      { width: 32, height: 32, bitCount: 32, data: invalidBiSizeDib },
+    ]);
+    const icon2 = PeResourceDecoder.fromBuffer(b2.build())?.extractIcon();
+    assert.strictEqual(icon2, null);
+
+    // Subtest C: rawFrameBuffer.length < biSize (buffer smaller than claimed header size)
+    const oversizedBiSizeDib = Buffer.alloc(50);
+    oversizedBiSizeDib.writeUInt32LE(100, 0); // biSize = 100 (> 50)
+    const b3 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames([
+      { width: 32, height: 32, bitCount: 32, data: oversizedBiSizeDib },
+    ]);
+    const icon3 = PeResourceDecoder.fromBuffer(b3.build())?.extractIcon();
+    assert.strictEqual(icon3, null);
+
+    // Subtest D: Valid DIB frame passes validation
+    const validDib = createMockDibBuffer(32, 32, 32);
+    const b4 = new SyntheticPEBuilder({ arch: 'x64' }).setIconFrames([
+      { width: 32, height: 32, bitCount: 32, data: validDib },
+    ]);
+    const icon4 = PeResourceDecoder.fromBuffer(b4.build())?.extractIcon();
+    assert.ok(icon4);
+    assert.strictEqual(icon4.width, 32);
+  });
+
+  it('13. provides synchronous extractPeIcon and asynchronous extractPeIconAsync entrypoints', async () => {
+    const mockPng = createMockPngBuffer(256, 256);
+    const builder = new SyntheticPEBuilder({ arch: 'x64' });
+    builder.setIconFrames([{ width: 256, height: 256, isPng: true, data: mockPng }]);
+    const peBuf = builder.build();
+
+    // 1. extractPeIcon with Buffer
+    const fromBufIcon = extractPeIcon(peBuf);
+    assert.ok(fromBufIcon !== null);
+    assert.strictEqual(fromBufIcon.isPng, true);
+    assert.strictEqual(fromBufIcon.width, 256);
+
+    // 2. extractPeIcon with invalid Buffer / non-PE
+    assert.strictEqual(extractPeIcon(Buffer.alloc(0)), null);
+    assert.strictEqual(extractPeIcon(Buffer.from('not a pe')), null);
+
+    // 3. extractPeIcon with file path string (synchronous)
+    const tempDir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'yumeshelf_pe_icon_test_'));
+    const tempFile = path.join(tempDir, 'TestGame.exe');
+    try {
+      fsSync.writeFileSync(tempFile, peBuf);
+
+      const fromFileIcon = extractPeIcon(tempFile);
+      assert.ok(fromFileIcon !== null);
+      assert.strictEqual(fromFileIcon.width, 256);
+
+      // Nonexistent file
+      assert.strictEqual(extractPeIcon(path.join(tempDir, 'Nonexistent.exe')), null);
+    } finally {
+      try {
+        fsSync.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+
+    // 4. extractPeIconAsync with MockFileSystemProvider
+    const mockFs = new MockFileSystemProvider();
+    mockFs.writeFile('C:/Games/AsyncGame.exe', peBuf);
+
+    const asyncIcon = await extractPeIconAsync('C:/Games/AsyncGame.exe', { fs: mockFs });
+    assert.ok(asyncIcon !== null);
+    assert.strictEqual(asyncIcon.isPng, true);
+    assert.strictEqual(asyncIcon.width, 256);
+
+    // 5. extractPeIconAsync with aborted signal
+    const controller = new AbortController();
+    controller.abort();
+    const abortedIcon = await extractPeIconAsync('C:/Games/AsyncGame.exe', {
+      fs: mockFs,
+      signal: controller.signal,
+    });
+    assert.strictEqual(abortedIcon, null);
+
+    // 6. extractPeIconAsync on nonexistent file
+    const missingIcon = await extractPeIconAsync('C:/Games/Missing.exe', { fs: mockFs });
+    assert.strictEqual(missingIcon, null);
   });
 });

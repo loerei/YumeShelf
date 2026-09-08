@@ -8,11 +8,14 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ### What Changed
 - Headless icon extraction foundation: added core PE resource constants and an orthogonal promise timeout racing utility to `@yumeshelf/engine`.
+- High-resolution PE icon extraction: added embedded icon frame resolution scoring and synthetic Windows ICO binary synthesis to `@yumeshelf/engine`.
 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
 - [engine] Implemented `withTimeout<T, F = never>(promise, options)` in `utils/timeout.ts` with ingress promise rejection suppression, timer scheduling bounds, and guarantee cleanup in `finally`.
 - [engine] Implemented `PeResourceDecoder` in `pe/resource-decoder.ts` with two-stage header expansion, RVA fallback for packed/renamed sections, bounded tree traversal, and stream bounds enforcement.
+- [engine] Implemented `PeResourceDecoder.prototype.extractIcon()` with GRPICONDIR directory header decoding, frame resolution scoring hierarchy (256px PNG > 256px DIB > highest resolution), DIB frame header length bounds validation, and synthetic 22-byte ICO container assembly.
+- [engine] Added synchronous `extractPeIcon` and asynchronous `extractPeIconAsync` entry points in `pe/resource-decoder.ts` and re-exported them from `pe/index.ts`.
 - [engine] Re-exported `DEFAULT_MAX_ARTWORK_SIZE` and PE resource types from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
 
 ---

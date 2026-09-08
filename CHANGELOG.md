@@ -17,6 +17,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Disk cache path traversal hardening: hardened disk cache read and deletion routines in the main process with 4-tier path validation to prevent directory traversal and arbitrary file deletion.
 - macOS app bundle icon resolution: added primary icon resolution for macOS .app bundles in `@yumeshelf/engine`, inspecting Info.plist with traversal sanitization and falling back to scanning Contents/Resources for ICNS and PNG icons.
 - Unified headless icon extraction facade: implemented `extractGameIcon` and `YumeEngine.extractIcon` orchestrating local artwork discovery and executable binary resource extraction across Windows, Linux, and macOS with timeout safety and size bounds.
+- Main process icon extraction cascade consolidation: consolidated disk cache checks, engine facade extraction via `YumeEngine.extractIcon`, Chromium nativeImage ICO/ICNS transcoding, and shell fallback into a unified extraction helper in the main process.
 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
@@ -43,6 +44,8 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Implemented `extractGameIcon` in `packages/yume-engine/src/icon/icon-extractor.ts` with two-priority fallback cascade (Priority 1: folder artwork search with size checks and Linux desktop entry fallback; Priority 2: macOS .app bundle icon resolution and Windows PE resource icon extraction), safe timeout wrapping via `withTimeout`, and size bounds capping.
 - [engine] Exposed `YumeEngine.extractIcon`, `YumeEngine.extractPeIcon`, and `YumeEngine.extractPeMetadata` on the `YumeEngine` facade class in `packages/yume-engine/src/index.ts`.
 - [engine] Re-exported `ExtractedGameIcon` and `ExtractIconOptions` from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
+- [icon-pipeline] Refactored `src/main/icon-pipeline/service.ts` extracting internal helper `processIconExtraction` to unify the 5-stage extraction cascade across `handleProtocolRequest` and `resolveIconDataUrl`, delegating headless extraction to `YumeEngine.extractIcon` with `ExtractIconOptions` parameter seam.
+- [icon-pipeline] Added macOS `.app` bundle Apple `.icns` to PNG transcoding with strict PNG egress falling through to `app.getFileIcon` when transcoding fails, bypassing Windows worker pool on macOS bundles.
 
 ---
 

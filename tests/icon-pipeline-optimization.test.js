@@ -946,3 +946,189 @@ test('Group 7: Disk Cache Path Traversal Hardening (Ticket 01.5.2)', async (t) =
         assert.equal(fileExistsAfterDelete, null, 'Valid cache file should be unlinked when unused');
     });
 });
+
+test('Group 8: macOS App Bundle Icon Resolution & Strict Fallback Cascade (Ticket 02.2.1)', async (t) => {
+    const rootTmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-mac-bundle-suite-'));
+    const userDataDir = path.join(rootTmpDir, 'user-data');
+    await fs.mkdir(userDataDir, { recursive: true });
+
+    // Bundle 1: for transcoding success
+    const bundle1Dir = path.join(rootTmpDir, 'VisualNovel.app');
+    const resources1Dir = path.join(bundle1Dir, 'Contents', 'Resources');
+    await fs.mkdir(resources1Dir, { recursive: true });
+    const mockIcnsBuffer = Buffer.from('icns\x00\x00\x00\x18mock-raw-icns-bytes');
+    await fs.writeFile(path.join(resources1Dir, 'icon.icns'), mockIcnsBuffer);
+
+    // Bundle 2: for transcoding failure / fallback
+    const bundle2Dir = path.join(rootTmpDir, 'Adventure.app');
+    const resources2Dir = path.join(bundle2Dir, 'Contents', 'Resources');
+    await fs.mkdir(resources2Dir, { recursive: true });
+    await fs.writeFile(path.join(resources2Dir, 'icon.icns'), mockIcnsBuffer);
+
+    let shellFallbackCount = 0;
+    const mockApp = {
+        getPath: () => userDataDir,
+        getAppPath: () => rootTmpDir,
+        getFileIcon: async () => {
+            shellFallbackCount++;
+            return {
+                isEmpty: () => false,
+                toPNG: () => Buffer.from('shell-fallback-png-bytes'),
+                getSize: () => ({ width: 48, height: 48 })
+            };
+        }
+    };
+
+    t.after(async () => {
+        _resetIconCacheStateForTesting();
+        await fs.rm(rootTmpDir, { recursive: true, force: true }).catch(() => {});
+    });
+
+    await t.test('macOS .app bundle ICNS transcodes to PNG and alpha crops returning source app-bundle-extracted', async () => {
+        _resetIconCacheStateForTesting();
+        shellFallbackCount = 0;
+
+        let registeredProtocolHandler = null;
+        let registeredIpcHandler = null;
+        const mockProtocol = {
+            handle: (_scheme, handler) => {
+                registeredProtocolHandler = handler;
+            }
+        };
+        const mockIpcMain = {
+            handle: (_channel, handler) => {
+                registeredIpcHandler = handler;
+            }
+        };
+
+        const mockTranscodedPng = Buffer.from('transcoded-mac-icns-to-png');
+        const mockNativeImage = {
+            createFromBuffer: (buf) => {
+                if (buf && buf.toString().startsWith('icns')) {
+                    return {
+                        isEmpty: () => false,
+                        toPNG: () => mockTranscodedPng,
+                        getSize: () => ({ width: 128, height: 128 }),
+                        toBitmap: () => Buffer.alloc(128 * 128 * 4, 255)
+                    };
+                }
+                return { isEmpty: () => true };
+            }
+        };
+
+        const pipeline = createIconPipeline({
+            app: mockApp,
+            protocol: mockProtocol,
+            ipcMain: mockIpcMain,
+            sourceRootDir: rootTmpDir,
+            nativeImage: mockNativeImage
+        });
+        pipeline.registerProtocolHandler();
+        pipeline.registerIpcHandler();
+
+        // 1. Verify via protocol handler
+        const resp = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(bundle1Dir)}`));
+        assert.equal(resp.status, 200);
+        assert.equal(resp.headers.get('Content-Type'), 'image/png');
+        const bytes = Buffer.from(await resp.arrayBuffer());
+        assert.equal(bytes.toString(), 'transcoded-mac-icns-to-png');
+
+        // 2. Verify via IPC handler (resolveIconDataUrl)
+        const payload = await registeredIpcHandler(null, bundle1Dir);
+        assert.ok(payload);
+        assert.equal(payload.source, 'app-bundle-extracted');
+        assert.ok(payload.dataUrl.startsWith('data:image/png;base64,'));
+        assert.equal(shellFallbackCount, 0, 'Shell fallback must not be called when transcoding succeeds');
+
+        // 3. Verify disk cache write
+        await pipeline.flushCache();
+        const cached = await tryGetCachedIconBuffer(mockApp, bundle1Dir);
+        assert.ok(cached, 'Transcoded PNG should be cached');
+        assert.equal(cached.toString(), 'transcoded-mac-icns-to-png');
+    });
+
+    await t.test('macOS .app bundle strict fallback: bypasses Stage 4 worker pool and falls through to app.getFileIcon when ICNS transcoding fails', async () => {
+        const originalPlatform = process.platform;
+        // Even when host/emulated platform is win32, macOS .app bundle must bypass Stage 4 worker pool
+        Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+        try {
+            _resetIconCacheStateForTesting();
+            shellFallbackCount = 0;
+
+            let registeredProtocolHandler = null;
+            let registeredIpcHandler = null;
+            const mockProtocol = {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            };
+            const mockIpcMain = {
+                handle: (_channel, handler) => {
+                    registeredIpcHandler = handler;
+                }
+            };
+
+            // Mock native image where createFromBuffer throws or returns empty
+            const mockFailingNativeImage = {
+                createFromBuffer: () => {
+                    throw new Error('Chromium libpng/icns decoding error');
+                }
+            };
+
+            const pipeline = createIconPipeline({
+                app: mockApp,
+                protocol: mockProtocol,
+                ipcMain: mockIpcMain,
+                sourceRootDir: rootTmpDir,
+                nativeImage: mockFailingNativeImage
+            });
+            pipeline.registerProtocolHandler();
+            pipeline.registerIpcHandler();
+
+            // 1. Verify via protocol handler
+            const resp = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(bundle2Dir)}`));
+            assert.equal(resp.status, 200);
+            // Strict PNG egress: must NOT be image/x-icns
+            assert.equal(resp.headers.get('Content-Type'), 'image/png');
+            const bytes = Buffer.from(await resp.arrayBuffer());
+            assert.notEqual(bytes.toString(), mockIcnsBuffer.toString(), 'Raw .icns must NEVER be returned');
+            assert.equal(bytes.toString(), 'shell-fallback-png-bytes');
+            assert.equal(shellFallbackCount, 1, 'Stage 5 app.getFileIcon must be invoked on transcoding failure');
+
+            // 2. Verify disk cache write with app-file-icon-fallback source
+            await pipeline.flushCache();
+            const cached = await tryGetCachedIconBuffer(mockApp, bundle2Dir);
+            assert.ok(cached, 'Fallback icon should be stored in disk cache');
+            assert.equal(cached.toString(), 'shell-fallback-png-bytes');
+        } finally {
+            Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true });
+        }
+    });
+
+    await t.test('Client abort signal halts extraction cascade returning null/404', async () => {
+        _resetIconCacheStateForTesting();
+        let registeredProtocolHandler = null;
+        const mockProtocol = {
+            handle: (_scheme, handler) => {
+                registeredProtocolHandler = handler;
+            }
+        };
+
+        const pipeline = createIconPipeline({
+            app: mockApp,
+            protocol: mockProtocol,
+            ipcMain: { handle: () => {} },
+            sourceRootDir: rootTmpDir
+        });
+        pipeline.registerProtocolHandler();
+
+        const controller = new AbortController();
+        controller.abort();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(bundle1Dir)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 404, 'Aborted request should return 404');
+    });
+});

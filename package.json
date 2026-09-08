@@ -12,6 +12,7 @@
     "ensure:playtime-helper": "node scripts/ensure-playtime-helper.js",
     "ensure:installer-shell": "node scripts/ensure-installer-shell.js",
     "ensure:installer-shell:fast": "node scripts/ensure-installer-shell.js --fast",
+    "ensure:installer-shell:no-sign": "node scripts/ensure-installer-shell.js --no-sign",
     "organize:build-output": "node scripts/organize-build-output.js",
     "copy:assets": "copyfiles -u 1 \"src/main/save-editor/bin/**/*\" \"src/locales/builtins/**/*\" \"src/icon-extractor.js\" dist",
     "build:engine": "pnpm --filter @yumeshelf/engine build",

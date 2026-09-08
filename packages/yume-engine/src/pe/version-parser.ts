@@ -218,58 +218,139 @@ function parseStringFileInfo(
   }
 }
 
+const KNOWN_VERSION_KEYS = [
+  'ProductName',
+  'FileDescription',
+  'CompanyName',
+  'FileVersion',
+  'ProductVersion',
+  'LegalCopyright',
+  'OriginalFilename',
+  'InternalName',
+  'Comments',
+] as const;
+
+/**
+ * Postel's Law lenient UTF-16LE scanner.
+ * Searches for key pattern Buffer.from(key + '\0', 'utf16le'), aligns to 4-byte boundary,
+ * and reads null-terminated string values safely without out-of-bounds reads.
+ */
+export function extractStringFileInfoValue(versionBuf: Buffer, key: string): string | null {
+  if (!versionBuf || versionBuf.length < 32 || !key) {
+    return null;
+  }
+
+  const keyPattern = Buffer.from(key + '\0', 'utf16le');
+  let searchPos = 0;
+
+  while (searchPos < versionBuf.length) {
+    const keyIdx = versionBuf.indexOf(keyPattern, searchPos);
+    if (keyIdx === -1) {
+      return null;
+    }
+
+    const keyEnd = keyIdx + keyPattern.length;
+    const valueStart = align4(keyEnd);
+
+    if (valueStart < versionBuf.length) {
+      let maxEnd = versionBuf.length;
+      if (keyIdx >= 6) {
+        const wValueLength = safeReadUInt16LE(versionBuf, keyIdx - 4);
+        if (wValueLength && wValueLength > 0 && valueStart + wValueLength * 2 <= versionBuf.length) {
+          maxEnd = valueStart + wValueLength * 2;
+        }
+      }
+
+      let end = valueStart;
+      while (end + 1 < maxEnd) {
+        if (versionBuf.readUInt16LE(end) === 0) {
+          break;
+        }
+        end += 2;
+      }
+
+      if (end > valueStart) {
+        const str = versionBuf.toString('utf16le', valueStart, end).trim();
+        if (str.length > 0) {
+          return str;
+        }
+      }
+    }
+
+    searchPos = keyIdx + keyPattern.length;
+  }
+
+  return null;
+}
+
 /**
  * Parses VS_VERSIONINFO structure from binary buffer.
+ * Attempts structural parsing first, falling back to Postel's Law lenient UTF-16LE scanning.
  */
 export function parseVsVersionInfo(buf: Buffer): PEVersionInfo | null {
-  if (!buf || buf.length < 40) {
+  if (!buf || buf.length < 32) {
     return null;
-  }
-
-  // VS_VERSIONINFO root header:
-  // +0 wLength (uint16)
-  // +2 wValueLength (uint16)
-  // +4 wType (uint16)
-  // +6 szKey ("VS_VERSION_INFO\0" in UTF-16LE, 32 bytes)
-  const wLength = safeReadUInt16LE(buf, 0);
-  const wValueLength = safeReadUInt16LE(buf, 2);
-  const wType = safeReadUInt16LE(buf, 4);
-
-  if (wLength === null || wLength < 40 || wLength > buf.length + 512) {
-    return null;
-  }
-
-  const keyResult = readNullTerminatedUtf16LE(buf, 6, Math.min(wLength, buf.length));
-  if (!keyResult || keyResult.str !== 'VS_VERSION_INFO') {
-    return null;
-  }
-
-  let cursor = align4(keyResult.nextOffset);
-
-  // If wValueLength > 0, it contains VS_FIXEDFILEINFO (typically 52 bytes)
-  if (wValueLength && wValueLength > 0) {
-    cursor += wValueLength;
-    cursor = align4(cursor);
   }
 
   const rawValues: Record<string, string> = {};
-  const totalLimit = Math.min(wLength, buf.length);
+  let headerValid = false;
 
-  // Scan children for StringFileInfo or VarFileInfo
-  while (cursor + 6 < totalLimit) {
-    const childLen = safeReadUInt16LE(buf, cursor) ?? 0;
-    if (childLen < 6) {
-      break;
+  try {
+    const wLength = safeReadUInt16LE(buf, 0);
+    const wValueLength = safeReadUInt16LE(buf, 2);
+    const wType = safeReadUInt16LE(buf, 4);
+
+    if (wLength !== null && wLength >= 40 && wLength <= buf.length + 512) {
+      const keyResult = readNullTerminatedUtf16LE(buf, 6, Math.min(wLength, buf.length));
+      if (keyResult && keyResult.str === 'VS_VERSION_INFO') {
+        headerValid = true;
+        let cursor = align4(keyResult.nextOffset);
+
+        // If wValueLength > 0, it contains VS_FIXEDFILEINFO (typically 52 bytes)
+        if (wValueLength && wValueLength > 0) {
+          cursor += wValueLength;
+          cursor = align4(cursor);
+        }
+
+        const totalLimit = Math.min(wLength, buf.length);
+
+        // Scan children for StringFileInfo or VarFileInfo
+        while (cursor + 6 < totalLimit) {
+          const childLen = safeReadUInt16LE(buf, cursor) ?? 0;
+          if (childLen < 6) {
+            break;
+          }
+
+          const childLimit = Math.min(cursor + childLen, totalLimit);
+          const childKey = readNullTerminatedUtf16LE(buf, cursor + 6, childLimit);
+
+          if (childKey && childKey.str === 'StringFileInfo') {
+            parseStringFileInfo(buf, cursor, childLimit, rawValues);
+          }
+
+          cursor = align4(childLimit);
+        }
+      }
     }
+  } catch {
+    // Fall through to Postel's Law fallback on structural parse error
+  }
 
-    const childLimit = Math.min(cursor + childLen, totalLimit);
-    const childKey = readNullTerminatedUtf16LE(buf, cursor + 6, childLimit);
-
-    if (childKey && childKey.str === 'StringFileInfo') {
-      parseStringFileInfo(buf, cursor, childLimit, rawValues);
+  // Postel's Law fallback: if header is invalid or if structural parsing found 0 keys, scan leniently for known keys
+  if (!headerValid || Object.keys(rawValues).length === 0) {
+    for (const key of KNOWN_VERSION_KEYS) {
+      if (!rawValues[key]) {
+        const val = extractStringFileInfoValue(buf, key);
+        if (val) {
+          rawValues[key] = val;
+        }
+      }
     }
+  }
 
-    cursor = align4(childLimit);
+  // If header was not valid and no keys were extracted via fallback, return null
+  if (!headerValid && Object.keys(rawValues).length === 0) {
+    return null;
   }
 
   return {

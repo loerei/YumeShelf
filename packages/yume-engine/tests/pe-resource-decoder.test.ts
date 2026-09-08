@@ -16,6 +16,10 @@ import {
   RT_GROUP_ICON,
   extractPeIcon,
   extractPeIconAsync,
+  extractPeMetadata,
+  extractPeMetadataAsync,
+  parseVsVersionInfo,
+  extractStringFileInfoValue,
 } from '../dist/index.js';
 // @ts-ignore
 import { SyntheticPEBuilder } from './fixtures/synthetic-pe-builder.ts';
@@ -558,5 +562,169 @@ describe('PeResourceDecoder & Resource Tree Traversal (@yumeshelf/engine)', () =
     // 6. extractPeIconAsync on nonexistent file
     const missingIcon = await extractPeIconAsync('C:/Games/Missing.exe', { fs: mockFs });
     assert.strictEqual(missingIcon, null);
+  });
+
+  it('14. extracts standard VS_VERSIONINFO metadata fields from valid PE executable', async () => {
+    const builder = new SyntheticPEBuilder({ arch: 'x64' });
+    builder.setVersionInfo({
+      ProductName: 'YumeQuest',
+      FileDescription: 'A retro adventure game',
+      CompanyName: 'Yume Works',
+      FileVersion: '1.2.3.4',
+      ProductVersion: '1.2.0.0',
+      LegalCopyright: 'Copyright (c) 2026 Yume Works',
+    });
+    const peBuf = builder.build();
+
+    // 1. Extract via PeResourceDecoder instance
+    const decoder = PeResourceDecoder.fromBuffer(peBuf);
+    assert.ok(decoder !== null);
+    const meta = decoder.extractMetadata();
+    assert.ok(meta !== null);
+    assert.strictEqual(meta.productName, 'YumeQuest');
+    assert.strictEqual(meta.fileDescription, 'A retro adventure game');
+    assert.strictEqual(meta.companyName, 'Yume Works');
+    assert.strictEqual(meta.fileVersion, '1.2.3.4');
+    assert.strictEqual(meta.productVersion, '1.2.0.0');
+    assert.strictEqual(meta.legalCopyright, 'Copyright (c) 2026 Yume Works');
+
+    // 2. Extract synchronously via extractPeMetadata with Buffer
+    const syncMeta = extractPeMetadata(peBuf);
+    assert.ok(syncMeta !== null);
+    assert.strictEqual(syncMeta.productName, 'YumeQuest');
+    assert.strictEqual(syncMeta.fileDescription, 'A retro adventure game');
+    assert.strictEqual(syncMeta.companyName, 'Yume Works');
+    assert.strictEqual(syncMeta.fileVersion, '1.2.3.4');
+    assert.strictEqual(syncMeta.productVersion, '1.2.0.0');
+    assert.strictEqual(syncMeta.legalCopyright, 'Copyright (c) 2026 Yume Works');
+
+    // 3. Extract synchronously via file path
+    const tempDir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'yumeshelf_pe_meta_test_'));
+    const tempFile = path.join(tempDir, 'YumeQuest.exe');
+    try {
+      fsSync.writeFileSync(tempFile, peBuf);
+      const fileMeta = extractPeMetadata(tempFile);
+      assert.ok(fileMeta !== null);
+      assert.strictEqual(fileMeta.productName, 'YumeQuest');
+      assert.strictEqual(fileMeta.fileVersion, '1.2.3.4');
+    } finally {
+      try {
+        fsSync.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+
+    // 4. Extract asynchronously via extractPeMetadataAsync
+    const mockFs = new MockFileSystemProvider();
+    mockFs.writeFile('C:/Games/YumeQuest.exe', peBuf);
+
+    const asyncMeta = await extractPeMetadataAsync('C:/Games/YumeQuest.exe', { fs: mockFs });
+    assert.ok(asyncMeta !== null);
+    assert.strictEqual(asyncMeta.productName, 'YumeQuest');
+    assert.strictEqual(asyncMeta.companyName, 'Yume Works');
+
+    // 5. Direct IFileSystem seam parameter acceptance
+    const seamMeta = await extractPeMetadataAsync('C:/Games/YumeQuest.exe', mockFs);
+    assert.ok(seamMeta !== null);
+    assert.strictEqual(seamMeta.productName, 'YumeQuest');
+  });
+
+  it('15. executes Postel\'s Law fallback for non-standard or partially damaged VS_VERSIONINFO headers', () => {
+    // 1. Damaged VS_VERSION_INFO header in binary
+    const builder = new SyntheticPEBuilder({ arch: 'x64' });
+    builder.setVersionInfo({
+      ProductName: 'FallbackQuest',
+      FileDescription: 'Fallback Adventure',
+      CompanyName: 'Indie Dev',
+      FileVersion: '3.0.0.0',
+    });
+    const validPe = builder.build();
+
+    // Corrupt root szKey "VS_VERSION_INFO\0"
+    const damagedPe = Buffer.from(validPe);
+    const keyPattern = Buffer.from('VS_VERSION_INFO\0', 'utf16le');
+    const vsIdx = damagedPe.indexOf(keyPattern);
+    assert.ok(vsIdx !== -1);
+    damagedPe.write('CORRUPT_HEADER!\0', vsIdx, 'utf16le');
+
+    // Decoder should fall back to lenient UTF-16LE scanning and successfully extract metadata
+    const decoder = PeResourceDecoder.fromBuffer(damagedPe);
+    assert.ok(decoder !== null);
+    const meta = decoder.extractMetadata();
+    assert.ok(meta !== null);
+    assert.strictEqual(meta.productName, 'FallbackQuest');
+    assert.strictEqual(meta.fileDescription, 'Fallback Adventure');
+    assert.strictEqual(meta.companyName, 'Indie Dev');
+    assert.strictEqual(meta.fileVersion, '3.0.0.0');
+
+    // 2. Non-standard version buffer passed to parseVsVersionInfo (no VS_VERSION_INFO header at all)
+    const nonStandardBuf = Buffer.alloc(120);
+    // Write arbitrary non-standard header bytes
+    nonStandardBuf.fill(0xee, 0, 20);
+    // Write ProductName key + value manually without standard StringFileInfo wrappers
+    const pKey = Buffer.from('ProductName\0', 'utf16le');
+    pKey.copy(nonStandardBuf, 20);
+    const pVal = Buffer.from('CustomEngineGame\0', 'utf16le');
+    // Align to 4 bytes: 20 + 24 = 44 (aligned to 4)
+    pVal.copy(nonStandardBuf, 44);
+
+    // Direct parseVsVersionInfo fallback
+    const parsed = parseVsVersionInfo(nonStandardBuf);
+    assert.ok(parsed !== null);
+    assert.strictEqual(parsed.productName, 'CustomEngineGame');
+
+    // Direct extractStringFileInfoValue
+    const directVal = extractStringFileInfoValue(nonStandardBuf, 'ProductName');
+    assert.strictEqual(directVal, 'CustomEngineGame');
+    const missingVal = extractStringFileInfoValue(nonStandardBuf, 'NonExistentKey');
+    assert.strictEqual(missingVal, null);
+  });
+
+  it('16. safely handles missing RT_VERSION resource returning null without exceptions', async () => {
+    // 1. PE with .rsrc section (icons present) but missing RT_VERSION
+    const builder = new SyntheticPEBuilder({ arch: 'x64' });
+    builder.setIconFrames([{ width: 32, height: 32, isPng: false, data: createMockDibBuffer(32, 32) }]);
+    const peBuf = builder.build();
+
+    const decoder = PeResourceDecoder.fromBuffer(peBuf);
+    assert.ok(decoder !== null);
+    assert.strictEqual(decoder.extractMetadata(), null);
+
+    // 2. PE with no .rsrc section at all
+    const noRsrcPe = new SyntheticPEBuilder({ arch: 'x64' }).build();
+    assert.strictEqual(extractPeMetadata(noRsrcPe), null);
+    const noRsrcDecoder = new PeResourceDecoder(noRsrcPe);
+    assert.strictEqual(noRsrcDecoder.extractMetadata(), null);
+
+    // 3. extractPeMetadata sync with invalid inputs
+    assert.strictEqual(extractPeMetadata(peBuf), null);
+    assert.strictEqual(extractPeMetadata(Buffer.alloc(0)), null);
+    assert.strictEqual(extractPeMetadata(Buffer.from('not a pe')), null);
+
+    // 4. extractPeMetadataAsync
+    const mockFs = new MockFileSystemProvider();
+    mockFs.writeFile('C:/Games/NoVersion.exe', peBuf);
+    assert.strictEqual(await extractPeMetadataAsync('C:/Games/NoVersion.exe', mockFs), null);
+    assert.strictEqual(await extractPeMetadataAsync('C:/Games/NonExistent.exe', mockFs), null);
+
+    // 5. Aborted signal returns null
+    const controller = new AbortController();
+    controller.abort();
+    const aborted = await extractPeMetadataAsync('C:/Games/NoVersion.exe', {
+      fs: mockFs,
+      signal: controller.signal,
+    });
+    assert.strictEqual(aborted, null);
+  });
+
+  it('17. safely handles truncated version buffers (< 32 bytes)', () => {
+    assert.strictEqual(parseVsVersionInfo(Buffer.alloc(0)), null);
+    assert.strictEqual(parseVsVersionInfo(Buffer.alloc(16)), null);
+    assert.strictEqual(parseVsVersionInfo(Buffer.alloc(31)), null);
+    assert.strictEqual(extractStringFileInfoValue(Buffer.alloc(0), 'ProductName'), null);
+    assert.strictEqual(extractStringFileInfoValue(Buffer.alloc(20), 'ProductName'), null);
+    assert.strictEqual(extractStringFileInfoValue(Buffer.alloc(31), 'ProductName'), null);
+
+    // Passing short buffers to extractPeMetadata
+    assert.strictEqual(extractPeMetadata(Buffer.alloc(31)), null);
   });
 });

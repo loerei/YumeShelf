@@ -9,6 +9,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### What Changed
 - Headless icon extraction foundation: added core PE resource constants and an orthogonal promise timeout racing utility to `@yumeshelf/engine`.
 - High-resolution PE icon extraction: added embedded icon frame resolution scoring and synthetic Windows ICO binary synthesis to `@yumeshelf/engine`.
+- Lenient PE version metadata extraction: added Postel's Law fallback parser in `@yumeshelf/engine` to reliably extract product and version metadata from executables with damaged or non-standard version headers.
 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
@@ -16,6 +17,9 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [engine] Implemented `PeResourceDecoder` in `pe/resource-decoder.ts` with two-stage header expansion, RVA fallback for packed/renamed sections, bounded tree traversal, and stream bounds enforcement.
 - [engine] Implemented `PeResourceDecoder.prototype.extractIcon()` with GRPICONDIR directory header decoding, frame resolution scoring hierarchy (256px PNG > 256px DIB > highest resolution), DIB frame header length bounds validation, and synthetic 22-byte ICO container assembly.
 - [engine] Added synchronous `extractPeIcon` and asynchronous `extractPeIconAsync` entry points in `pe/resource-decoder.ts` and re-exported them from `pe/index.ts`.
+- [engine] Elevated lenient UTF-16LE scanner (`extractStringFileInfoValue`) into `parseVsVersionInfo` in `pe/version-parser.ts` as fallback when structural `VS_VERSIONINFO` parsing encounters malformed data.
+- [engine] Added `extractMetadata(): PeVersionMetadata | null` to `PeResourceDecoder` traversing to `RT_VERSION` via `getResourceDataEntry(RT_VERSION)` and delegating payload parsing to `parseVsVersionInfo`.
+- [engine] Added synchronous `extractPeMetadata` and asynchronous `extractPeMetadataAsync` entry points in `pe/resource-decoder.ts` and re-exported them from `pe/index.ts`.
 - [engine] Re-exported `DEFAULT_MAX_ARTWORK_SIZE` and PE resource types from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
 
 ---

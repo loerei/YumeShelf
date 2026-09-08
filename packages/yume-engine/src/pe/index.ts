@@ -14,4 +14,6 @@ export {
   PeResourceDecoder,
   extractPeIcon,
   extractPeIconAsync,
+  extractPeMetadata,
+  extractPeMetadataAsync,
 } from './resource-decoder.js';

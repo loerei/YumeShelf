@@ -15,12 +15,15 @@ import {
   DEFAULT_MAX_RECURSION_DEPTH,
   DEFAULT_MAX_RSRC_SIZE,
   DEFAULT_MAX_GROUP_ICON_FRAMES,
+  RT_VERSION,
   RT_ICON,
   RT_GROUP_ICON,
   type ExtractedPeIcon,
   type PeResourceDecoderOptions,
   type PeResourceSection,
+  type PeVersionMetadata,
 } from './types.js';
+import { parseVsVersionInfo } from './version-parser.js';
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -588,6 +591,51 @@ export class PeResourceDecoder {
       return null;
     }
   }
+
+  extractMetadata(): PeVersionMetadata | null {
+    if (!this.rsrcSection || !this.rsrcSection.buffer || this.rsrcSection.buffer.length < 16) {
+      return null;
+    }
+
+    try {
+      const entry = this.getResourceDataEntry(RT_VERSION);
+      if (!entry || entry.size <= 0) {
+        return null;
+      }
+
+      if (entry.offset < 0 || entry.offset + entry.size > this.rsrcSection.buffer.length) {
+        return null;
+      }
+
+      const versionBuffer = this.rsrcSection.buffer.subarray(
+        entry.offset,
+        entry.offset + entry.size
+      );
+
+      const parsed = parseVsVersionInfo(versionBuffer);
+      if (!parsed) {
+        return null;
+      }
+
+      const metadata: PeVersionMetadata = {};
+      const productName = parsed.productName || parsed.rawValues?.['ProductName'];
+      if (productName) metadata.productName = productName;
+      const fileDescription = parsed.fileDescription || parsed.rawValues?.['FileDescription'];
+      if (fileDescription) metadata.fileDescription = fileDescription;
+      const companyName = parsed.companyName || parsed.rawValues?.['CompanyName'];
+      if (companyName) metadata.companyName = companyName;
+      const fileVersion = parsed.fileVersion || parsed.rawValues?.['FileVersion'];
+      if (fileVersion) metadata.fileVersion = fileVersion;
+      const productVersion = parsed.productVersion || parsed.rawValues?.['ProductVersion'];
+      if (productVersion) metadata.productVersion = productVersion;
+      const legalCopyright = parsed.legalCopyright || parsed.rawValues?.['LegalCopyright'];
+      if (legalCopyright) metadata.legalCopyright = legalCopyright;
+
+      return Object.keys(metadata).length > 0 ? metadata : null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 export function extractPeIcon(
@@ -614,4 +662,30 @@ export async function extractPeIconAsync(
   }
   const decoder = await PeResourceDecoder.fromFile(filePath, options);
   return decoder ? decoder.extractIcon() : null;
+}
+
+export function extractPeMetadata(
+  bufferOrPath: Buffer | string,
+  options?: Omit<PeResourceDecoderOptions, 'fs'>
+): PeVersionMetadata | null {
+  if (typeof bufferOrPath === 'string') {
+    const decoder = PeResourceDecoder.fromFileSync(bufferOrPath, options);
+    return decoder ? decoder.extractMetadata() : null;
+  }
+  if (!bufferOrPath || !Buffer.isBuffer(bufferOrPath)) {
+    return null;
+  }
+  const decoder = PeResourceDecoder.fromBuffer(bufferOrPath, options);
+  return decoder ? decoder.extractMetadata() : null;
+}
+
+export async function extractPeMetadataAsync(
+  filePath: string,
+  options?: PeResourceDecoderOptions | IFileSystem
+): Promise<PeVersionMetadata | null> {
+  if (typeof filePath !== 'string' || !filePath) {
+    return null;
+  }
+  const decoder = await PeResourceDecoder.fromFile(filePath, options);
+  return decoder ? decoder.extractMetadata() : null;
 }

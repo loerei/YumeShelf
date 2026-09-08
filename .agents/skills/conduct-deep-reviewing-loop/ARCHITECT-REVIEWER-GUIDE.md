@@ -24,7 +24,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
     1. Operational constraints (timeouts, deadlines, cancellation signals, buffer limits, early-exit flags) be injected as configurable parameters (`options` / constructor arguments) across the entire call chain, preventing both leaf utilities from hardcoding internal thresholds (enabling microsecond unit tests) and intermediary layers from choking caller options.
     2. Extracted orthogonal utilities be placed at the common ancestor scope (`src/utils/`, `src/common/`), with explicit authority to schedule the creation of new shared infrastructure directories (`[NEW]`) even if none currently exist on disk.
     Flag hardcoded operational policies anywhere in the call chain, choked intermediate options, or proximity-buried utilities as blocking issues.
-  - **Banned Over-Engineering**: Introducing unneeded dynamic plugin registries, abstract factory hierarchies, or multi-tenant abstraction layers without immediate requirements remains strictly banned.
+    - **Banned Over-Engineering**: Introducing unneeded dynamic plugin registries, abstract factory hierarchies, or multi-tenant abstraction layers without immediate requirements remains strictly banned.
+  - **System Invariants vs. Implementation Mechanics**: Audit ONLY for **System Invariants** (e.g. structural seams, threat models, lifecycle bounds, cross-boundary contracts) that standard TDD misses without explicit specification. Ticket code snippets are illustrative examples, not production code; NEVER report internal implementation mechanics (e.g. syntax, types, exports, regex flags) as blocking defects. If a required behavior or edge case is missing, demand an **Acceptance Criterion**; NEVER rewrite or patch code snippets.
 
 ## Mandatory Audit Questions
 
@@ -53,6 +54,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 - Return `STATUS: REVISIONS NEEDED` if the architecture introduces unnecessary system complexity, breaks domain boundaries, or misses a simpler design.
 - Return `STATUS: PASS` if the architectural design is optimal, minimal, and fully addresses requirements.
+- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
 
 ## Standard Output Protocol
 

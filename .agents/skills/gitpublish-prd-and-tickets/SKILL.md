@@ -18,7 +18,7 @@ Publish or synchronize a local PRD and its constituent ticket markdown files to 
 4. **Idempotent Reconciliation**:
    - **Matching Key (`01.1` $\to$ `01.1`)**: Executes in-place update (`gh issue edit`) on the existing GitHub issue without creating duplicates.
    - **New Key (Split child `01.1.1` or added `05.2`)**: Creates a new issue (`gh issue create`).
-   - **Orphaned Key (Old `01.1` removed or split)**: Automatically comments and closes the stale remote issue (`gh issue close`).
+   - **Orphaned Key (Old `01.1` removed or split)**: Automatically closes the stale remote issue with reason not planned and closing comment (`gh issue close --reason "not planned" --comment "..."`).
 5. **Topological Publishing**: Publishes tickets in topological order so that prerequisite tickets receive GitHub issue IDs before dependent tickets.
 6. **Standardized Taxonomy Auto-Labels**:
    - **Parent PRD**: `epic`, `epic-<num>` (e.g. `epic,epic-02`)

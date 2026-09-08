@@ -17,6 +17,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 **Fix Pre-Verification**:
 - **Ground-Truth**: Verify on disk that any pre-existing method, type, or module referenced or consumed by a proposed fix actually exists in the target codebase, upstream specs, or planned declarations within the target DA itself. If introducing new methods, types, or interfaces, verify that their target landing locations exist (or are scheduled for creation in the DA), names do not collide with active exports, all consumed external dependencies are verified on disk or in upstream specs, and for internal communication boundaries (e.g. IPC, RPC, events), verify that both producer/caller and consumer/handler endpoints are updated symmetrically.
 - **Macro Flow**: Verify that trace context propagation, structured error logging, and telemetry lifecycle remain uninterrupted across asynchronous execution and service boundaries.
+- **System Invariants vs. Implementation Mechanics**: Audit ONLY for **System Invariants** (e.g. structural seams, threat models, lifecycle bounds, cross-boundary contracts) that standard TDD misses without explicit specification. Ticket code snippets are illustrative examples, not production code; NEVER report internal implementation mechanics (e.g. syntax, types, exports, regex flags) as blocking defects. If a required behavior or edge case is missing, demand an **Acceptance Criterion**; NEVER rewrite or patch code snippets.
 
 ## Mandatory Audit Checklist
 
@@ -39,6 +40,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 - Return `STATUS: REVISIONS NEEDED` if error paths swallow context, leak sensitive data, lack operational kill-switches for high-risk changes, or cause unobservable silent failures.
 - Return `STATUS: PASS` if telemetry, diagnostics, and operational controls are comprehensive.
+- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
 
 ## Standard Output Protocol
 

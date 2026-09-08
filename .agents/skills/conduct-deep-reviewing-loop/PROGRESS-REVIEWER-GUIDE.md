@@ -17,6 +17,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 **Fix Pre-Verification**:
 - **Ground-Truth**: Verify on disk that referenced modules, files, or tickets exist before prescribing relocation, splitting, or phase sequencing, and verify boundary contracts are updated symmetrically.
 - **Macro Flow**: Verify that the proposed breakdown maintains dependency order and does not create deadlocks across phases.
+- **System Invariants vs. Implementation Mechanics**: Audit ONLY for **System Invariants** (e.g. structural seams, threat models, lifecycle bounds, cross-boundary contracts) that standard TDD misses without explicit specification. Ticket code snippets are illustrative examples, not production code; NEVER report internal implementation mechanics (e.g. syntax, types, exports, regex flags) as blocking defects. If a required behavior or edge case is missing, demand an **Acceptance Criterion**; NEVER rewrite or patch code snippets.
 
 ## Mandatory Audit Questions
 
@@ -70,6 +71,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 - Return `STATUS: REVISIONS NEEDED` if tickets are monolithic/unsplit, have broken/forward dependencies, leak scope across phase boundaries, or lack incremental verifiability.
 - Return `STATUS: PASS` if the work breakdown structure is strictly incremental, dependency-sound, and granularly decomposed into tracer bullets.
+- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
 
 ## Standard Output Protocol
 

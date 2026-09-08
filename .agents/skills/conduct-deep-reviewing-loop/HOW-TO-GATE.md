@@ -8,39 +8,40 @@ Instructions for Layer 2 Critical Gate Agent to evaluate, filter, and reject Lay
 2. **Zero Sycophancy**: Reject over-engineered suggestions added merely to generate review content.
 3. **Scope Boundary Protection**: Reject unrequested features, premature refactorings, or unnecessary abstractions outside user criteria.
 4. **Clean Integration**: Convert accepted feedback into direct, native specification requirements without meta-tags or reviewer references.
-5. **Ground-Truth Verification**: Reject feedback that introduces theoretical error classes, fail-fast deserialization barriers, or breaking contract changes on active modules unless existing code and tests support that invariant without regression (Chesterton's Fence).
+5. **Ground-Truth Verification**: Reject feedback that introduces theoretical error classes, fail-fast deserialization barriers, or breaking contract changes on active modules unless existing code and tests support that invariant without regression.
 6. **Dependency Lineage & Boundary Protection**:
    - **ACCEPT** findings where the target DA contradicts or drifts from an `Upstream` DA schema/seam (*Spec Drift*), or where the target DA duplicates responsibilities belonging to an `Upstream` DA (*Spec Bloat*).
    - **REJECT** findings where a reviewer claims unreadiness or missing files on disk that are explicitly declared to be implemented in an un-implemented `Upstream` DA (*False-Positive Upstream Unreadiness*).
    - **REJECT** findings where a reviewer demands tightly coupling the target DA to future `Downstream` epics (*Premature Downstream Coupling*).
-7. **Reviewer-Driven Fix Refinement & Gating**: When a reported defect contains ungrounded code snippets, non-existent APIs, lacks Ground-Truth/Macro Flow proof, breaks boundary contract symmetry, introduces intra-DA contradictions, or represents an invalid defect, Host does not rewrite the snippet, unilaterally invent boundary counterparts, or unilaterally sanitize/reject it into Changelog.md. Instead, Host gates the issue in `.scratch/deep-review/reports/<Role>_Gated_Issues.md`, requiring the reviewer to either refine/complete the fix, remove the defect, or provide deeper proof.
-
+7. **Reviewer-Driven Fix Refinement & Gating**: When a reported defect contains ungrounded code snippets, non-existent APIs, lacks Ground-Truth/Macro Flow proof, breaks boundary contract symmetry, introduces intra-DA contradictions, or represents an invalid defect, Host does not rewrite the snippet, unilaterally invent boundary counterparts, or unilaterally apply it directly into the DA. Instead, Host gates the issue in `.scratch/deep-review/reports/<Role>_Gated_Issues.md`, requiring the reviewer to either refine/complete the fix, remove the defect, or provide deeper proof.
+8. **System Invariants over Implementation Mechanics**: Gate against findings on internal code snippet mechanics (e.g. syntax, types, barrel exports, regex flags) or Acceptance Criteria that dictate internal call signatures and local null-checks. If an underlying behavioral requirement or system invariant is valid, demand the reviewer refine the Acceptance Criterion to enforce the system invariant (e.g. cache persistence, fallback continuity) without dictating internal mechanics. If no underlying invariant exists, demand removal.
 
 ## Triage Matrix
 
 | Reviewer Finding Category | Gate Criterion | Action |
 | :--- | :--- | :--- |
-| **Architectural Invalidation** | Design reduces complexity, removes bottlenecks, or fixes contract breaks. | **ACCEPT**: Add to `host/Changelog.md`. Invalidate downstream tiers. |
-| **Lineage Contract Drift** | Target DA contradicts data models, types, or seams defined in an `Upstream` DA. | **ACCEPT**: Align target DA with upstream contracts in `host/Changelog.md`. Invalidate downstream tiers. |
-| **Lineage Spec Bloat** | Target DA duplicates or re-implements mechanisms already governed by an `Upstream` DA. | **ACCEPT**: Remove duplicated scope and delegate to upstream DA in `host/Changelog.md`. |
-| **Progress / Roadmap Invalidation** | Monolithic ticket blocks incremental delivery, forward/circular ticket dependency, or phase boundary leak. | **ACCEPT**: Add ticket splitting/re-ordering or scope isolation requirement to `host/Changelog.md`. Invalidate downstream tiers. |
-| **Missing Edge Case / Safety** | Unhandled empty state, race condition, security flaw, or data corruption path. | **ACCEPT**: Add concrete guard requirement to `host/Changelog.md`. |
-| **Codebase Unreadiness** | Dependency missing, target file missing/locked, API contract mismatch. | **ACCEPT**: Add prerequisite task step to `host/Changelog.md`. |
-| **Schema / Migration Breakage** | Incompatible JSON payload, unbatched table lock, missing rollback or ACID violation. | **ACCEPT**: Add migration safety requirement to `host/Changelog.md`. Invalidate downstream tiers. |
-| **Untestable Design / Missing Seams** | Tightly coupled globals/clocks, flaky test strategies, missing verification coverage. | **ACCEPT**: Add test seam or test requirement to `host/Changelog.md`. Invalidate downstream tiers. |
-| **Performance & Resource Leaks** | O(N^2) complexity in hot-path, N+1 queries, unclosed handles or unbounded memory cache. | **ACCEPT**: Add optimization/resource cleanup requirement to `host/Changelog.md`. |
-| **Unobservable Operational Path** | Missing contextual telemetry in catch blocks, unredacted secrets/PII, missing kill-switch. | **ACCEPT**: Add telemetry/flag requirement to `host/Changelog.md`. |
-| **UX/UI Redundancy** | UI element adds user friction, duplicates existing component, or breaks consistency. | **ACCEPT**: Instruct removal or simplification in `host/Changelog.md`. |
-| **Ungrounded Fix Proposal** | Primary defect is valid and accepted under a domain category, but proposed remediation cites non-existent APIs, creates ordering/scoping defects, prescribes concrete CSS/DOM code snippets from analytical UXUI reviewers, forces root theme tokens on fixed dark surfaces, uses native HTML disabled on focused controls causing focus eviction, or lacks Ground-Truth/Macro Flow proof. | **GATE**: Demand reviewer refinement in `<Role>_Gated_Issues.md`. Reviewer refines `<Role>.md` in-place (converting into an abstract behavioral specification with acceptance criteria or supplying verified surface-scoped/non-evicting tokens/lifecycles) or explains in `<Role>_Explain.md` (updating `<Role>.md`). |
-| **Asymmetric Boundary Contract** | Primary defect is valid, but proposed remediation modifies an internal communication boundary (IPC, RPC, Event, API route, Message queue) while omitting the synchronized update for the corresponding caller, listener, or shared constants/types file. | **GATE**: Demand reviewer completion in `<Role>_Gated_Issues.md`. Reviewer updates `<Role>.md` in-place to include all internal boundary endpoints or shared constants. |
-| **Cross-Section Contradiction** | Primary defect is valid, but proposed remediation modifies component behavior or data types in a way that directly contradicts existing assertions in the DA's `Verification Plan` or architectural specifications without including synchronized updates for those sections. | **GATE**: Demand reviewer alignment in `<Role>_Gated_Issues.md`. Reviewer updates `<Role>.md` in-place to harmonize dependent sections and test assertions. |
-| **False-Positive Upstream Unreadiness** | Reviewer fails readiness for missing codebase files/methods that are explicitly assigned to an `Upstream` (Unimplemented) DA. | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md` citing upstream DA ownership. Reviewer removes from `<Role>.md` or explains (updating `<Role>.md`). |
-| **Premature Downstream Coupling** | Reviewer demands implementing features or specialized data types belonging to a `Downstream` DA inside the target DA. | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md` citing downstream boundary. Reviewer removes from `<Role>.md` or explains (updating `<Role>.md`). |
-| **Speculative Over-Engineering** | Demands premature optimization, unnecessary abstractions, or unrequested features. *Protection Exception: Demanding End-to-End Parameter Seams (options/constructor injection across leaf and intermediary layers), Orthogonal Governance Decoupling & Placement (extracting watchdogs/helpers into shared `src/utils/` directories, including scheduling new shared folders), or Scale Invariance is a valid architectural requirement and MUST be accepted, NOT gated as over-engineering or ungrounded.* | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md` citing lack of empirical evidence. Reviewer removes from `<Role>.md` or explains (updating `<Role>.md`). |
-| **Pedantic / Stylistic Preference** | Requests rephrasing, renaming, or cosmetic adjustments without functional impact. Micro-copy and wording critiques MUST default to non-blocking suggestions unless phrasing is factually misleading or induces dangerous actions/destructive data loss. | **GATE FOR REMOVAL**: Demand reviewer removal or mark as non-blocking. Reviewer removes from blocking issues in `<Role>.md`. |
-| **Spec-Induced Regression** | Demands strict exceptions or error classes on ingress/decode paths that contradict active codebase behavior or break existing unit tests without explicit user request. | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md` citing codebase conflict. Reviewer removes from `<Role>.md` or explains (updating `<Role>.md`). |
+| **Architectural Invalidation** | Design reduces complexity, removes bottlenecks, or fixes contract breaks. | **ACCEPT**: Stage for direct Host DA mutation in Step 7. Invalidate downstream tiers. |
+| **Lineage Contract Drift** | Target DA contradicts data models, types, or seams defined in an `Upstream` DA. | **ACCEPT**: Align target DA with upstream contracts during Host DA mutation. Invalidate downstream tiers. |
+| **Lineage Spec Bloat** | Target DA duplicates or re-implements mechanisms already governed by an `Upstream` DA. | **ACCEPT**: Remove duplicated scope and delegate to upstream DA during Host DA mutation. |
+| **Progress / Roadmap Invalidation** | Monolithic ticket blocks incremental delivery, forward/circular ticket dependency, or phase boundary leak. | **ACCEPT**: Apply ticket splitting/re-ordering or scope isolation during Host DA mutation. Invalidate downstream tiers. |
+| **Missing Edge Case / Safety** | Unhandled empty state, race condition, security flaw, or data corruption path. | **ACCEPT**: Add concrete guard requirement to target DA during Host DA mutation. |
+| **Codebase Unreadiness** | Dependency missing, target file missing/locked, API contract mismatch. | **ACCEPT**: Add prerequisite task step to target DA during Host DA mutation. |
+| **Schema / Migration Breakage** | Incompatible JSON payload, unbatched table lock, missing rollback or ACID violation. | **ACCEPT**: Add migration safety requirement to target DA during Host DA mutation. Invalidate downstream tiers. |
+| **Untestable Design / Missing Seams** | Tightly coupled globals/clocks, flaky test strategies, missing verification coverage. | **ACCEPT**: Add test seam or test requirement to target DA during Host DA mutation. Invalidate downstream tiers. |
+| **Performance & Resource Leaks** | O(N^2) complexity in hot-path, N+1 queries, unclosed handles or unbounded memory cache. | **ACCEPT**: Add optimization/resource cleanup requirement to target DA during Host DA mutation. |
+| **Unobservable Operational Path** | Missing contextual telemetry in catch blocks, unredacted secrets/PII, missing kill-switch. | **ACCEPT**: Add telemetry/flag requirement to target DA during Host DA mutation. |
+| **UX/UI Redundancy** | UI element adds user friction, duplicates existing component, or breaks consistency. | **ACCEPT**: Simplify or remove UI element in target DA during Host DA mutation. |
+| **Ungrounded Fix Proposal** | Primary defect is valid, but proposed remediation cites non-existent APIs, creates ordering/scoping defects, prescribes concrete CSS/DOM code snippets from analytical UXUI reviewers, forces root theme tokens on fixed dark surfaces, uses native HTML disabled on focused controls causing focus eviction, or lacks Ground-Truth/Macro Flow proof. | **GATE**: Demand reviewer refinement in `<Role>_Gated_Issues.md`. Reviewer refines `<Role>.md` in-place or explains in `<Role>_Explain.md`. |
+| **Asymmetric Boundary Contract** | Primary defect is valid, but proposed remediation modifies an internal communication boundary while omitting synchronized update for caller, listener, or shared constants/types file. | **GATE**: Demand reviewer completion in `<Role>_Gated_Issues.md`. Reviewer updates `<Role>.md` in-place to include all internal boundary endpoints. |
+| **Cross-Section Contradiction** | Primary defect is valid, but proposed remediation modifies component behavior or data types contradicting existing assertions in the DA's `Verification Plan` without including synchronized updates for those sections. | **GATE**: Demand reviewer alignment in `<Role>_Gated_Issues.md`. Reviewer updates `<Role>.md` in-place to harmonize dependent sections and test assertions. |
+| **False-Positive Upstream Unreadiness** | Reviewer fails readiness for missing codebase files/methods explicitly assigned to an `Upstream` (Unimplemented) DA. | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md`. |
+| **Premature Downstream Coupling** | Reviewer demands implementing features or specialized data types belonging to a `Downstream` DA inside the target DA. | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md`. |
+| **Speculative Over-Engineering** | Demands premature optimization, unnecessary abstractions, or unrequested features. *Protection Exception: Parameter Seams, Governance Decoupling, and Scale Invariance MUST be accepted.* | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md`. |
+| **Pedantic / Stylistic Preference** | Requests rephrasing, renaming, or cosmetic adjustments without functional impact. Micro-copy and wording critiques MUST default to non-blocking suggestions unless phrasing is factually misleading or induces dangerous actions/destructive data loss. | **GATE FOR REMOVAL**: Demand reviewer removal or mark as non-blocking. |
+| **Spec-Induced Regression** | Demands strict exceptions or error classes on ingress/decode paths that contradict active codebase behavior or break existing unit tests without explicit user request. | **GATE FOR REMOVAL**: Demand reviewer removal in `<Role>_Gated_Issues.md`. |
+| **Internal Implementation Mechanics** | Finding critiques syntax, types, barrel exports, regex flags, or packages internal call signatures / local null-checks into Acceptance Criteria that standard compiler or TDD catches. | **GATE FOR REFINEMENT / REMOVAL**: Demand reviewer strip internal call mechanics and refine the Acceptance Criterion to enforce the underlying System Invariant (if one exists), or remove the defect if it is purely compiler/local trivia. |
 
-### Tier Batch Gate & Reviewer Negotiation Protocol
+## Tier Batch Gate & Reviewer Negotiation Protocol
 
 Host evaluates Layer 3 reviewer reports strictly in **tier batches** (after all active roles in the current tier produce initial reports):
 
@@ -75,7 +76,7 @@ When specialist reviewer opinions conflict (e.g. `Performance` requesting aggres
 2. **Favor Observability over Opaque Concurrency**: Telemetry context propagation takes priority over micro-benchmarked CPU cycle savings.
 3. **Resolve Speculation**: If a requested abstraction or optimization does not solve an immediate requirement, reject it under Speculative Over-Engineering (preserving End-to-End Parameter Seams, Orthogonal Governance Decoupling, and Placement Altitude as valid structural requirements).
 4. **Resolve GUI Layout vs Accessibility Conflicts (and Loading States)**: When visual layout stability (CLS), loading indicators, or empty accessibility landmarks conflict:
-   - Enforce the Universal 3-tier precedence: (1) `Context.md` explicit user directives, (2) existing codebase conventions, (3) Default standards: smooth animated accordion transitions for empty dynamic slots (strictly preserving error recovery controls in `catch` blocks), top progress lines or inline spinners over heavy skeleton blocks (preventing skeleton shimmer flashes on fast local/desktop loads), and ephemeral Toast-based Undo rather than in-place layout-stalling slots.
+   - Enforce the Universal 3-tier precedence: (1) `Context.md` explicit user directives, (2) existing codebase conventions, (3) Default standards: accordion transitions for empty dynamic slots (preserving error recovery controls in `catch` blocks), top progress lines or inline spinners over skeleton blocks on fast desktop loads, and ephemeral Toast-based Undo rather than in-place layout-stalling slots.
    - For in-flight async actions, enforce `aria-disabled="true"` with interaction blocking over native HTML `disabled` to preserve continuous keyboard focus without eviction to `document.body`.
 5. **Resolve Optimistic UI vs Transactional Safety**: When UXUI demands optimistic UI on transactional or destructive operations (e.g. file deletions, binary overwrites, database schema migrations, irreversible disk writes), reject the finding under Speculative Over-Engineering; optimistic updates are strictly reserved for non-destructive, idempotently reversible interactions.
 
@@ -83,9 +84,10 @@ When specialist reviewer opinions conflict (e.g. `Performance` requesting aggres
 
 | Condition | Gate Verdict | Output Artifacts |
 | :--- | :--- | :--- |
-| 1+ Accepted Blocking Defects | `ROUND_REVISION_NEEDED` | Write `host/Analyzation.md` (accepted issues only with rationale), `host/Changelog.md` (clean edits aggregated from accepted `<Role>.md`), and `host/Untouched_Reviewers.md`. Intermediate round teardown terminates reviewer subagents via process control, but strictly preserves `.scratch/deep-review/` artifacts for Layer 1. |
+| 1+ Accepted Blocking Defects | `ROUND_REVISION_NEEDED` | Host mutates target DA(s) directly using Clean & Neutral Artifact Protocol (creating temporary sibling `<da_stem>.bak.md` copies), writes `host/State.md` (including Untouched Reviewers section), and writes `host/Analyzation.md` (accepted issues only with rationale). Intermediate round teardown terminates reviewer subagents via process control, preserving `host/State.md` and `host/Analyzation.md` for Layer 1. Layer 1 deletes `host/Analyzation.md` prior to Round N+1. |
+| Write Verification / Filesystem Failure | `ABORTED_MUTATION_FAILURE` | Host restores modified and deleted target DAs from backups where present, restores `Context.md` from `Context.bak.md`, deletes newly created DAs, terminates reviewer subagents, writes `host/State.md` and `host/Analyzation.md` detailing the failure, notifies Layer 1 via `send_message`, and halts without issuing `ROUND_REVISION_NEEDED`. |
 | 0 Accepted Blocking Defects (Targeted Pass with Pending Skipped Roles) | `TARGETED_PASS` *(Ephemeral Internal Host State)* | Trigger Snapshot Delta Backfill for skipped roles (upstream + untouched) in topological DAG sequence (preserving intra-round reports). |
-| 0 Accepted Blocking Defects (100% Roster Passed on Snapshot) | `ROUND_PASS` (Increment `PassCount`) or `FINAL_PASS` (if `PassCount >= SP`) | Write `host/Analyzation.md`. Terminate reviewer subagents via process control, purge `reports/` and transient gating artifacts (if present, idempotently handling missing files), but strictly preserve `host/Analyzation.md` for Layer 1 handoff. On `FINAL_PASS`, Layer 1 executes directory teardown after presenting the verified DA. |
+| 0 Accepted Blocking Defects (100% Roster Passed on Snapshot) | `ROUND_PASS` (Increment `PassCount`) or `FINAL_PASS` (if `PassCount >= SP`) | Write `host/State.md` and `host/Analyzation.md`. Terminate reviewer subagents via process control, purge `reports/` and transient gating artifacts, preserving `host/State.md` and `host/Analyzation.md` for Layer 1 handoff. Layer 1 deletes `host/Analyzation.md` prior to launching next round. On `FINAL_PASS`, Layer 1 executes directory teardown after presenting the verified DA. |
 
 ## <Role>_Gated_Issues.md Authoring Standards
 
@@ -113,13 +115,54 @@ Notify Host via message when done.
    - **Gate Rationale**: <Exact technical reason why issue failed the gate without proposing fix code>
 ```
 
+## State.md Authoring Standards
+
+When authoring `.scratch/deep-review/host/State.md`:
+1. **Purpose**: Machine-readable routing state consumed exclusively by Host N+1 for DAG calculation, completely decoupled from `Analyzation.md` to eliminate cognitive anchoring.
+2. **Standard Markdown Layout**:
+   - **When verdict is `ROUND_REVISION_NEEDED`**:
+     ```markdown
+     # Gate State
+     - Gate Verdict: ROUND_REVISION_NEEDED
+     - Highest Modified Tier: Layer 3.X
+     - Current PassCount: 0 / <SP>
+
+     ## Untouched Reviewers
+     | Role Identifier | Technical Rationale |
+     | :--- | :--- |
+     | `<Role>` | <Explanation why applied DA mutations do not touch this role's contracts or domain> |
+     ```
+     If ALL active roles were touched by applied mutations, record:
+     ```markdown
+     ## Untouched Reviewers
+     *(None)*
+     ```
+   - **When verdict is `ROUND_PASS` or `FINAL_PASS`**:
+     ```markdown
+     # Gate State
+     - Gate Verdict: ROUND_PASS | FINAL_PASS
+     - Highest Modified Tier: None
+     - Current PassCount: <N> / <SP>
+     ```
+   - **When verdict is `ABORTED_MUTATION_FAILURE`**:
+     ```markdown
+     # Gate State
+     - Gate Verdict: ABORTED_MUTATION_FAILURE
+     - Highest Modified Tier: None
+     - Current PassCount: 0 / <SP>
+     ```
+3. **Untouched Reviewers Criteria & Fallback**:
+   - **Strict Untouched Criteria**: A reviewer is listed under `## Untouched Reviewers` ONLY IF the applied DA mutations introduce zero modifications, additions, or regressions relevant to that reviewer's domain checklist. If a role's domain is affected by the applied changes, it MUST NOT be listed in this section.
+   - **Conservative Fallback**: If there is any ambiguity on whether a mutation might affect a role, omit it from `Untouched Reviewers` to ensure immediate re-audit in Round N+1.
+
 ## Analyzation.md Authoring Standards
 
 When authoring `.scratch/deep-review/host/Analyzation.md`:
 1. **Mandatory Header & Gate Verdict**: Record the Executive Summary header containing:
-   - `- **Gate Verdict**: ROUND_REVISION_NEEDED | ROUND_PASS | FINAL_PASS`
+   - `- **Gate Verdict**: ROUND_REVISION_NEEDED | ROUND_PASS | FINAL_PASS | ABORTED_MUTATION_FAILURE`
    - `- **Current PassCount**: <N> / <SP>`
    - `- **Active Roster**: <List of active roles>`
+   - `- **Highest Modified Tier**: Layer 3.X` (Mandatory when verdict is `ROUND_REVISION_NEEDED`: identifies highest tier containing accepted blocking defects)
 2. **Accepted Issues Only**: Record ONLY the blocking issues that successfully cleared the gate across active roles, along with their technical acceptance rationale. When the gate verdict is `ROUND_PASS` or `FINAL_PASS` (zero blocking defects across the active roster), record under Accepted Issues:
    ```markdown
    ## Accepted Issues
@@ -127,36 +170,12 @@ When authoring `.scratch/deep-review/host/Analyzation.md`:
    ```
 3. **Zero Rejected / Gated Tables**: Do NOT include tables of rejected or gated issues in `Analyzation.md`. All rejection, removal, and refinement actions are resolved directly with reviewers in `reports/<Role>_Gated_Issues.md` and reflected in-place in clean `<Role>.md` files.
 
-## Changelog.md Authoring Standards
+## Host DA Mutation & Verification Standards
 
-When authoring `.scratch/deep-review/host/Changelog.md` for `ROUND_REVISION_NEEDED`:
-1. **Structural Anchoring & Remediations**: Aggregate BOTH the structural destination anchor (`Target Section` for standard roles, or `Target Scope / Source` and `Target Destination` for Progress) AND the verified remediation (`Required Fix` or `Required Transformation`) from accepted `<Role>.md` reports.
-2. **Clean & Native Spec Diffs**: Write direct, actionable modification instructions indicating precisely which file and section to modify, without meta-tags or reviewer references.
-3. **Mandatory Context DA Tree Synchronization**: If accepted feedback splits, merges, creates, deletes, or moves Directive Artifact files (e.g. Progress Reviewer WBS actions), include a dedicated section:
-   - `## Target Directive Artifacts Synchronization (Context.md)`: Instruct Layer 1 to update `## Target Directive Artifacts` in `.scratch/deep-review/Context.md` with the updated list of active DA paths.
-4. **Verified Code Snippets**: When providing code snippets in `Changelog.md`, verify that all referenced pre-existing symbols exist and compile against the active codebase, or align with planned declarations in the target DA or upstream specs, and that newly proposed symbols do not collide with active exports.
-5. **Boundary Contract Symmetry Validation**: `Changelog.md` MUST verify that any boundary interface modification already includes symmetrical updates for both producer/caller and all internal consumer/handler endpoints (or shared constants/types) directly from the accepted `<Role>.md` reports; Host MUST NOT emit 1-sided boundary modifications, and MUST NOT unilaterally author missing endpoints (gating them to reviewers instead).
-6. **DA Cross-Section Coherence Validation**: `Changelog.md` MUST verify that any modification altering component contracts already includes synchronized updates for dependent sections (e.g. `Verification Plan` assertions) directly from accepted `<Role>.md` reports; Host MUST NOT emit self-contradicting DA diffs, and MUST NOT unilaterally author missing verification assertions (gating them to reviewers instead).
-
-## Untouched_Reviewers.md Authoring Standards
-
-When authoring `.scratch/deep-review/host/Untouched_Reviewers.md` for `ROUND_REVISION_NEEDED`:
-1. **Active Roster Scope**: Evaluate all `INCLUDED` reviewers from `.scratch/deep-review/host/Reviewer_Choice_Rationale.md`.
-2. **Strict Untouched Criteria**: A reviewer is listed ONLY IF the proposed diffs in `Changelog.md` introduce zero modifications, additions, or regressions relevant to that reviewer's domain checklist.
-3. **Streamlined 2-Column Layout**: Write `.scratch/deep-review/host/Untouched_Reviewers.md` using this format:
-   ```markdown
-   # Untouched Reviewers
-
-   | Role Identifier | Technical Rationale |
-   | :--- | :--- |
-   | `<Role>` | <Explanation why Changelog diffs do not touch this role's contracts or domain> |
-   ```
-   *When all active roles are affected (zero untouched roles), write explicitly:*
-   ```markdown
-   # Untouched Reviewers
-
-   | Role Identifier | Technical Rationale |
-   | :--- | :--- |
-   | *(None)* | Diffs in Changelog touch shared core abstractions and data models, invalidating all active roles. |
-   ```
-4. **Conservative Fallback**: If there is any ambiguity on whether a diff might affect a role, omit it from `Untouched_Reviewers.md` to ensure immediate re-audit.
+When applying accepted remediations directly to target DA(s) for `ROUND_REVISION_NEEDED`:
+1. **Clean & Neutral Spec Diffs**: Apply modifications directly to the specified target files and sections using the Clean & Neutral Artifact Protocol (no meta-tags, no reviewer references, no defensive diff markers).
+2. **Verified Code Snippets**: When integrating code snippets into the DA, verify that all referenced pre-existing symbols exist and compile against the active codebase, or align with planned declarations in the target DA or upstream specs, and that newly proposed symbols do not collide with active exports.
+3. **Boundary Contract Symmetry Validation**: Host MUST verify that any boundary interface modification includes symmetrical updates for both producer/caller and all internal consumer/handler endpoints (or shared constants/types) directly from the accepted `<Role>.md` reports; Host MUST NOT apply 1-sided boundary modifications.
+4. **DA Cross-Section Coherence Validation**: Host MUST verify that any modification altering component contracts includes synchronized updates for dependent sections (e.g. `Verification Plan` assertions) directly from accepted `<Role>.md` reports; Host MUST NOT introduce self-contradicting DA diffs.
+5. **Mandatory Context DA Tree Synchronization**: If accepted feedback splits, merges, creates, or deletes Directive Artifact files (e.g. Progress Reviewer WBS actions), Host MUST copy deleted DA files to `<da_stem>.bak.md` before deletion, create `.scratch/deep-review/Context.bak.md` first, directly create/restructure the files on disk, and update `## Target Directive Artifacts` in `.scratch/deep-review/Context.md`.
+6. **Write Verification & Abort Recovery**: Host verifies on disk that all DA mutations and restructured files were successfully written and are non-empty. If write verification fails (file missing, write error, or 0 bytes): Host executes abort recovery (deleting newly created DAs, restoring `Context.md` from `Context.bak.md`, restoring target DAs from existing sibling `<da_stem>.bak.md` backups where present, and cleaning backup files), terminates active reviewer subagents via `manage_subagents(Action="kill")`, aborts round conclusion without issuing `ROUND_REVISION_NEEDED`, writes `.scratch/deep-review/host/State.md` and `.scratch/deep-review/host/Analyzation.md` with `- **Gate Verdict**: ABORTED_MUTATION_FAILURE` detailing the exact filesystem error, affected paths, and recovery status, and notifies Layer 1 via `send_message`.

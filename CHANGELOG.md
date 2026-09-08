@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.5] - working
+## [2.2.5] - 2026-09-08 — released
 
 ### What Changed
 - Cleaner icon loading across Windows, Linux, and Mac: game icons are now pulled directly from files instead of relying on Windows shell quirks. Linux .desktop entries and macOS .app bundles get their icons pulled automatically, and games with packed or non-standard icon headers still show up crisp.

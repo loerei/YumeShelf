@@ -323,19 +323,19 @@ async function processEpic(prdFilePath, parentIdOverride, globalRegistry) {
         await runConcurrent(orphanedRemoteTickets, concurrency, async (orphan) => {
             if (!isDryRun) {
                 try {
-                    const commentArgs = ['issue', 'comment', String(orphan.issueId), '--body', `Superseded or split under Parent PRD #${finalParentId}. Closing.`];
-                    if (repo) commentArgs.push('--repo', repo);
-                    await runGh(commentArgs);
-
-                    const closeArgs = ['issue', 'close', String(orphan.issueId)];
+                    const closeArgs = [
+                        'issue', 'close', String(orphan.issueId),
+                        '--reason', 'not planned',
+                        '--comment', `Superseded or split under Parent PRD #${finalParentId}. Closing.`
+                    ];
                     if (repo) closeArgs.push('--repo', repo);
                     await runGh(closeArgs);
-                    console.log(`  [CLOSED] Stale Issue #${orphan.issueId} [${orphan.key}]`);
+                    console.log(`  [CLOSED (not planned)] Stale Issue #${orphan.issueId} [${orphan.key}]`);
                 } catch (err) {
                     console.warn(`  Warning: Could not close #${orphan.issueId}: ${err.message}`);
                 }
             } else {
-                console.log(`  [DRY-RUN CLOSE] Stale Issue #${orphan.issueId} [${orphan.key}]`);
+                console.log(`  [DRY-RUN CLOSE] Stale Issue #${orphan.issueId} [${orphan.key}] (reason: not planned)`);
             }
         });
     }

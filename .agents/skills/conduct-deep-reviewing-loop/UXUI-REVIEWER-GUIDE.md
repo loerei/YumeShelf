@@ -30,6 +30,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 - **Progress Revealing & Staleness Timeout**: When prescribing timeouts on long-running operations, you MUST NOT mandate arbitrary wall-clock timers that kill in-progress jobs. You MUST specify staleness-based inactivity detection (zero delta over an inactivity window) coupled with quantitative progress feedback and user cancellation agency.
 - **Mandatory Abstract Behavioral Specification (Strict Code Ban)**: Because UXUI is an analytical role without a browser runtime sandbox to verify CSS cascade, specificity, or DOM side effects, you **MUST NOT** prescribe concrete CSS or DOM code snippets in your reports. You MUST state all remediations as Abstract Behavioral Specifications describing expected visual and interaction behavior alongside explicit Acceptance Criteria, enabling the authoring agent to implement verified code cleanly.
 - **Macro Flow**: Verify that proposed UI changes preserve layout consistency, interaction responsiveness, and state progression across the enclosing view.
+- **System Invariants vs. Implementation Mechanics**: Audit ONLY for **System Invariants** (e.g. structural seams, threat models, lifecycle bounds, cross-boundary contracts) that standard TDD misses without explicit specification. Ticket code snippets are illustrative examples, not production code; NEVER report internal implementation mechanics (e.g. syntax, types, exports, regex flags) as blocking defects. If a required behavior or edge case is missing, demand an **Acceptance Criterion**; NEVER rewrite or patch code snippets.
 
 ## Mandatory Audit Checklist
 
@@ -55,6 +56,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 - Return `STATUS: REVISIONS NEEDED` if UI/UX specifications contain redundant elements, confusing interaction flows, or missing state indicators. Do NOT return `STATUS: REVISIONS NEEDED` solely for stylistic micro-copy or phrasing preferences unless phrasing induces destructive data loss or factually contradicts system operations.
 - Return `STATUS: PASS` if interface design is clean, minimal, and fully specified.
+- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
 
 ## Standard Output Protocol
 

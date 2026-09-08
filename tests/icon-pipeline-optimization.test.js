@@ -34,7 +34,9 @@ const {
 
 const {
     createIconPipeline,
-    convertIcoBufferToPng
+    convertIcoBufferToPng,
+    isValidIconTargetPath,
+    defensiveHeaders
 } = require('../dist/main/icon-pipeline/service');
 
 const {
@@ -1105,7 +1107,7 @@ test('Group 8: macOS App Bundle Icon Resolution & Strict Fallback Cascade (Ticke
         }
     });
 
-    await t.test('Client abort signal halts extraction cascade returning null/404', async () => {
+    await t.test('Client abort signal halts extraction cascade returning HTTP 499 with defensive headers', async () => {
         _resetIconCacheStateForTesting();
         let registeredProtocolHandler = null;
         const mockProtocol = {
@@ -1129,6 +1131,346 @@ test('Group 8: macOS App Bundle Icon Resolution & Strict Fallback Cascade (Ticke
             signal: controller.signal
         });
         const resp = await registeredProtocolHandler(req);
-        assert.equal(resp.status, 404, 'Aborted request should return 404');
+        assert.equal(resp.status, 499, 'Aborted request should return 499');
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+});
+
+test('Group 9: Protocol Ingress Hardening, Security Headers & Cancellation (Ticket 02.2.2)', async (t) => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-ingress-test-'));
+    const userDataDir = path.join(tmpDir, 'user-data');
+    await fs.mkdir(userDataDir, { recursive: true });
+
+    const validGameExe = path.join(tmpDir, 'ValidGame.exe');
+    await fs.writeFile(validGameExe, 'valid-mock-content');
+
+    const mockApp = {
+        getPath: () => userDataDir,
+        getAppPath: () => path.resolve(__dirname, '..'),
+        getFileIcon: async () => ({
+            toPNG: () => Buffer.from('mock-shell-png'),
+            isEmpty: () => false,
+            getSize: () => ({ width: 32, height: 32 })
+        })
+    };
+
+    let registeredProtocolHandler = null;
+    let registeredIpcHandler = null;
+    const mockProtocol = {
+        handle: (_scheme, handler) => {
+            registeredProtocolHandler = handler;
+        }
+    };
+    const mockIpcMain = {
+        handle: (_channel, handler) => {
+            registeredIpcHandler = handler;
+        }
+    };
+
+    const pipeline = createIconPipeline({
+        app: mockApp,
+        protocol: mockProtocol,
+        ipcMain: mockIpcMain,
+        sourceRootDir: path.resolve(__dirname, '..'),
+        extractIconOptions: {
+            targetPlatform: 'linux'
+        }
+    });
+    pipeline.registerProtocolHandler();
+    pipeline.registerIpcHandler();
+
+    t.after(async () => {
+        _resetIconCacheStateForTesting();
+        try {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        } catch {}
+    });
+
+    await t.test('isValidIconTargetPath validates paths and rejects unsafe inputs', () => {
+        // Remote UNC network paths
+        assert.equal(isValidIconTargetPath('\\\\server\\share\\game.exe'), false);
+        assert.equal(isValidIconTargetPath('//server/share/game.exe'), false);
+        assert.equal(isValidIconTargetPath('\\\\\\server\\share'), false);
+
+        // Windows NT device namespace prefixes and question marks
+        assert.equal(isValidIconTargetPath('\\??\\UNC\\server\\share\\game.exe'), false);
+        assert.equal(isValidIconTargetPath('/?/UNC/server/share/game.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\?game.exe'), false);
+        assert.equal(isValidIconTargetPath('/usr/games/?game'), false);
+
+        // Windows DOS device names across segments
+        assert.equal(isValidIconTargetPath('CON'), false);
+        assert.equal(isValidIconTargetPath('C:\\CON'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON\\game.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\PRN'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\AUX'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\NUL'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\COM1'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\COM9'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\LPT1'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CONIN$'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CONOUT$'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON.txt'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON:'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON '), false);
+        assert.equal(isValidIconTargetPath('/usr/games/con/game'), false);
+
+        // NTFS Alternate Data Streams (colons beyond drive letter index 1)
+        assert.equal(isValidIconTargetPath('C:\\games\\game.exe:stream'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\game.exe:extra:$DATA'), false);
+        assert.equal(isValidIconTargetPath('/usr/games/game.exe:stream'), false);
+
+        // Null bytes and URL-encoded null bytes
+        assert.equal(isValidIconTargetPath('/games/game\0.exe'), false);
+        assert.equal(isValidIconTargetPath('/games/game%00.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\game\0.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\game%00.exe'), false);
+
+        // Relative paths (not absolute)
+        assert.equal(isValidIconTargetPath('game.exe'), false);
+        assert.equal(isValidIconTargetPath('games/game.exe'), false);
+        assert.equal(isValidIconTargetPath('../games/game.exe'), false);
+        assert.equal(isValidIconTargetPath('.\\game.exe'), false);
+
+        // Non-string or empty inputs
+        assert.equal(isValidIconTargetPath(null), false);
+        assert.equal(isValidIconTargetPath(undefined), false);
+        assert.equal(isValidIconTargetPath(''), false);
+        assert.equal(isValidIconTargetPath(12345), false);
+
+        // Valid paths
+        assert.equal(isValidIconTargetPath('C:\\Games\\Game.exe'), true);
+        assert.equal(isValidIconTargetPath('D:/Games/VisualNovel/Game.exe'), true);
+        assert.equal(isValidIconTargetPath('/usr/games/game.exe'), true);
+        assert.equal(isValidIconTargetPath('/Applications/Game.app'), true);
+        assert.equal(isValidIconTargetPath('C:\\Games\\console.exe'), true);
+        assert.equal(isValidIconTargetPath('C:\\Games\\game.com'), true);
+    });
+
+    await t.test('Protocol returns HTTP 400 with defensive headers on invalid/forbidden paths', async () => {
+        const invalidPaths = [
+            '\\\\server\\share\\game.exe',
+            '//server/share/game.exe',
+            '\\??\\UNC\\server\\share\\game.exe',
+            '/?/UNC/server/share/game.exe',
+            'C:\\games\\CON.exe',
+            'C:\\games\\game.exe:stream',
+            '/games/game\0.exe',
+            '/games/game%00.exe',
+            'relative/game.exe'
+        ];
+
+        for (const badPath of invalidPaths) {
+            const req = new Request(`game-icon://app?path=${encodeURIComponent(badPath)}`);
+            const resp = await registeredProtocolHandler(req);
+            assert.equal(resp.status, 400, `Expected 400 for bad path: ${badPath}`);
+            assert.equal(await resp.text(), 'Invalid or forbidden path');
+            assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+            assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+        }
+
+        // Missing path query parameter
+        const missingReq = new Request('game-icon://app');
+        const missingResp = await registeredProtocolHandler(missingReq);
+        assert.equal(missingResp.status, 400);
+        assert.equal(missingResp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(missingResp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('IPC handler returns null on invalid/forbidden paths', async () => {
+        const invalidPaths = [
+            '\\\\server\\share\\game.exe',
+            '//server/share/game.exe',
+            '\\??\\UNC\\server\\share\\game.exe',
+            'C:\\games\\CON.exe',
+            'C:\\games\\game.exe:stream',
+            '/games/game\0.exe',
+            'relative/game.exe',
+            '',
+            null
+        ];
+
+        for (const badPath of invalidPaths) {
+            const result = await registeredIpcHandler(null, badPath);
+            assert.equal(result, null, `Expected null IPC payload for bad path: ${badPath}`);
+        }
+    });
+
+    await t.test('Client abort returns HTTP 499 with defensive headers at ingress', async () => {
+        const controller = new AbortController();
+        controller.abort();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 499);
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('Client abort during extraction returns HTTP 499 with defensive headers', async () => {
+        const controller = new AbortController();
+        const abortPipeline = createIconPipeline({
+            app: {
+                ...mockApp,
+                getFileIcon: async () => {
+                    controller.abort();
+                    return null;
+                }
+            },
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        abortPipeline.registerProtocolHandler();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 499);
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('Client abort caught in outer error handler returns HTTP 499 with defensive headers', async () => {
+        const controller = new AbortController();
+        const failingPipeline = createIconPipeline({
+            app: {
+                ...mockApp,
+                getPath: () => {
+                    controller.abort();
+                    throw new Error('Mid-flight failure');
+                }
+            },
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        failingPipeline.registerProtocolHandler();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 499);
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('Uniform defensive headers attached across all response statuses (200, 400, 404, 499, 500)', async () => {
+        // 1. 200 Shell fallback / successful extraction
+        const normalPipeline = createIconPipeline({
+            app: mockApp,
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        normalPipeline.registerProtocolHandler();
+
+        const resp200 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`));
+        assert.equal(resp200.status, 200);
+        assert.equal(resp200.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp200.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 2. 200 Cache hit
+        const resp200Cached = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`));
+        assert.equal(resp200Cached.status, 200);
+        assert.equal(resp200Cached.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp200Cached.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 3. 400 Bad request
+        const resp400 = await registeredProtocolHandler(new Request('game-icon://app?path=invalid'));
+        assert.equal(resp400.status, 400);
+        assert.equal(resp400.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp400.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 4. 404 Not found
+        const nonExistentFile = path.join(tmpDir, 'NonExistent.exe');
+        const emptyApp = {
+            getPath: () => userDataDir,
+            getAppPath: () => path.resolve(__dirname, '..'),
+            getFileIcon: async () => null
+        };
+        const emptyPipeline = createIconPipeline({
+            app: emptyApp,
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        emptyPipeline.registerProtocolHandler();
+
+        const resp404 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(nonExistentFile)}`));
+        assert.equal(resp404.status, 404);
+        assert.equal(resp404.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp404.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 5. 499 Client aborted
+        const abortedController = new AbortController();
+        abortedController.abort();
+        const resp499 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: abortedController.signal
+        }));
+        assert.equal(resp499.status, 499);
+        assert.equal(resp499.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp499.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 6. 500 Internal error
+        const throwApp = {
+            getPath: () => {
+                throw new Error('Fatal unexpected disk error');
+            },
+            getAppPath: () => path.resolve(__dirname, '..'),
+            getFileIcon: async () => null
+        };
+        const throwPipeline = createIconPipeline({
+            app: throwApp,
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        throwPipeline.registerProtocolHandler();
+
+        const resp500 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`));
+        assert.equal(resp500.status, 500);
+        assert.equal(resp500.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp500.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
     });
 });

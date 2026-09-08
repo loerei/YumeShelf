@@ -82,6 +82,34 @@ export function findLocalGameImage(targetPath: string): LocalGameImageResult | n
 export { getImageMimeType, LOCAL_IMAGE_CANDIDATE_PATTERNS, LOCAL_IMAGE_EXTENSIONS } from '@yumeshelf/engine';
 export type { LocalGameImageResult } from '@yumeshelf/engine';
 
+export const defensiveHeaders = {
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'"
+};
+
+export function isValidIconTargetPath(targetPath: string): boolean {
+    if (!targetPath || typeof targetPath !== 'string') return false;
+    // Reject null bytes and URL-encoded null bytes
+    if (targetPath.includes('\0') || targetPath.includes('%00')) return false;
+    // Reject remote UNC paths (\\server\share or //server/share or multiple slashes)
+    if (/^[\\\/]{2}/.test(targetPath)) return false;
+    // Reject Windows NT device namespace prefixes (\??\UNC\... or /?/UNC/...) and question mark characters
+    if (targetPath.includes('?') || /^[\\\/]\?/.test(targetPath)) return false;
+    // Disallow colons beyond drive letter designation at index 1 (blocks NTFS ADS and DOS device suffixes)
+    if (targetPath.slice(2).includes(':')) return false;
+    // Cross-platform absolute path verification
+    const isAbsolute = path.isAbsolute(targetPath) || path.posix.isAbsolute(targetPath) || path.win32.isAbsolute(targetPath);
+    if (!isAbsolute) return false;
+
+    // Reject Windows DOS device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9, CONIN$, CONOUT$) across all path segments
+    const normalized = targetPath.replace(/\\/g, '/');
+    const segments = normalized.split('/').filter(Boolean);
+    const dosDeviceRegex = /^(con|prn|aux|nul|com[1-9]|lpt[1-9]|conin\$|conout\$)([.:\s].*)?$/i;
+    if (segments.some(seg => dosDeviceRegex.test(seg))) return false;
+
+    return true;
+}
+
 export interface IconPipeline {
     registerIpcHandler(): void;
     registerProtocolHandler(): void;
@@ -337,7 +365,11 @@ export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPi
         }
     }
 
-    async function resolveIconDataUrl(targetPath: string): Promise<IconPayload> {
+    async function resolveIconDataUrl(targetPath: string): Promise<IconPayload | null> {
+        if (!isValidIconTargetPath(targetPath)) {
+            return null;
+        }
+
         const result = await processIconExtraction(
             targetPath,
             undefined,
@@ -373,9 +405,18 @@ export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPi
 
     async function handleProtocolRequest(request: Request): Promise<Response> {
         try {
+            if (request.signal?.aborted) {
+                return new Response(null, { status: 499, headers: defensiveHeaders });
+            }
+
             const urlObj = new URL(request.url);
             const targetPath = urlObj.searchParams.get('path');
-            if (!targetPath) return new Response('Missing path', { status: 400 });
+            if (!targetPath || !isValidIconTargetPath(targetPath)) {
+                return new Response('Invalid or forbidden path', {
+                    status: 400,
+                    headers: defensiveHeaders
+                });
+            }
 
             const result = await processIconExtraction(
                 targetPath,
@@ -383,18 +424,32 @@ export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPi
                 extractIconOptions
             );
 
-            if (!result) {
-                return new Response('Not found', { status: 404 });
+            if (result === null) {
+                if (request.signal?.aborted) {
+                    return new Response(null, { status: 499, headers: defensiveHeaders });
+                }
+                return new Response('Not found', {
+                    status: 404,
+                    headers: defensiveHeaders
+                });
             }
 
             return new Response(result.buffer as any, {
+                status: 200,
                 headers: {
-                    'Content-Type': result.mimeType || 'image/png'
+                    'Content-Type': result.mimeType || 'image/png',
+                    ...defensiveHeaders
                 }
             });
         } catch (error) {
+            if (request.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+                return new Response(null, { status: 499, headers: defensiveHeaders });
+            }
             console.error('[MAIN][PROTOCOL] game-icon error:', error);
-            return new Response('Internal error', { status: 500 });
+            return new Response('Internal error', {
+                status: 500,
+                headers: defensiveHeaders
+            });
         }
     }
 

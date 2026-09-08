@@ -12,6 +12,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ### For the Nerds
 - [engine] Declared PE resource constants (`RT_ICON`, `RT_GROUP_ICON`, `DEFAULT_MAX_RSRC_SIZE`, `DEFAULT_MAX_RESOURCE_ENTRIES`, `DEFAULT_MAX_RECURSION_DEPTH`, `DEFAULT_MAX_GROUP_ICON_FRAMES`) and interfaces (`PeResourceDecoderOptions`, `PeVersionMetadata`, `ExtractedPeIcon`, `PeResourceSection`) in `pe/types.ts`.
 - [engine] Implemented `withTimeout<T, F = never>(promise, options)` in `utils/timeout.ts` with ingress promise rejection suppression, timer scheduling bounds, and guarantee cleanup in `finally`.
+- [engine] Implemented `PeResourceDecoder` in `pe/resource-decoder.ts` with two-stage header expansion, RVA fallback for packed/renamed sections, bounded tree traversal, and stream bounds enforcement.
 - [engine] Re-exported `DEFAULT_MAX_ARTWORK_SIZE` and PE resource types from `@yumeshelf/engine` root and `@yumeshelf/engine/types`.
 
 ---

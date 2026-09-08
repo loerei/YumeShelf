@@ -19,6 +19,8 @@ const {
     tryGetCachedIconBuffer,
     tryGetCachedIconDataUrl,
     storeHighResIconInCache,
+    deleteIconCacheFileIfUnused,
+    buildIconCacheFingerprint,
     loadIconCacheState,
     flushPendingIconCacheState,
     normalizeExecutablePath,
@@ -771,3 +773,176 @@ test('Group 6: Synthetic Multi-Game Scenario Simulation (End-to-End Invariants)'
     }
 });
 
+
+
+test('Group 7: Disk Cache Path Traversal Hardening (Ticket 01.5.2)', async (t) => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-traversal-test-'));
+    const cacheDir = path.join(tmpDir, 'high-res-icon-cache');
+    await fs.mkdir(cacheDir, { recursive: true });
+
+    const mockApp = {
+        getPath: () => tmpDir,
+        getAppPath: () => tmpDir,
+        getFileIcon: async () => ({
+            toPNG: () => Buffer.from('mock-png'),
+            isEmpty: () => false
+        })
+    };
+
+    const gameExe = path.join(tmpDir, 'test-game.exe');
+    await fs.writeFile(gameExe, 'game-binary-content');
+    const normalizedExe = normalizeExecutablePath(gameExe);
+    const exeStats = await fs.stat(normalizedExe);
+    const validFingerprint = buildIconCacheFingerprint(normalizedExe, exeStats);
+
+    t.after(async () => {
+        _resetIconCacheStateForTesting();
+        try {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        } catch {}
+    });
+
+    await t.test('Rejects relative traversal filenames on reads and deletions', async () => {
+        _resetIconCacheStateForTesting();
+        const sensitiveFile = path.join(tmpDir, 'secret.txt');
+        await fs.writeFile(sensitiveFile, 'sensitive-data');
+
+        const state = await loadIconCacheState(mockApp);
+
+        // 1. Read attempt with relative traversal
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: '../secret.txt',
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+
+        const readResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(readResult, null, 'Relative traversal fileName on read must return null');
+
+        // Multi-level relative traversal
+        state.entriesByPath[normalizedExe].fileName = '../../secret.txt';
+        const deepReadResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(deepReadResult, null, 'Deep relative traversal fileName on read must return null');
+
+        // 2. Deletion attempt with relative traversal
+        await deleteIconCacheFileIfUnused(mockApp, state, '../secret.txt', '');
+        const secretStillExists = await fs.readFile(sensitiveFile, 'utf8').catch(() => null);
+        assert.equal(secretStillExists, 'sensitive-data', 'Relative traversal on delete must not delete file outside cacheDir');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, '../../secret.txt', '');
+        const secretStillExists2 = await fs.readFile(sensitiveFile, 'utf8').catch(() => null);
+        assert.equal(secretStillExists2, 'sensitive-data', 'Deep relative traversal on delete must not delete file outside cacheDir');
+    });
+
+    await t.test('Rejects Windows backslash traversal filenames on reads and deletions', async () => {
+        _resetIconCacheStateForTesting();
+        const victimFile = path.join(tmpDir, 'victim.png');
+        await fs.writeFile(victimFile, 'victim-content');
+
+        const state = await loadIconCacheState(mockApp);
+
+        // 1. Read attempt with backslash traversal
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: '..\\victim.png',
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+
+        const readResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(readResult, null, 'Windows backslash traversal fileName on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = '..\\..\\victim.png';
+        const deepReadResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(deepReadResult, null, 'Deep Windows backslash traversal fileName on read must return null');
+
+        // 2. Deletion attempt with backslash traversal
+        await deleteIconCacheFileIfUnused(mockApp, state, '..\\victim.png', '');
+        const victimStillExists = await fs.readFile(victimFile, 'utf8').catch(() => null);
+        assert.equal(victimStillExists, 'victim-content', 'Backslash traversal on delete must not delete file outside cacheDir');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, '..\\..\\victim.png', '');
+        const victimStillExists2 = await fs.readFile(victimFile, 'utf8').catch(() => null);
+        assert.equal(victimStillExists2, 'victim-content', 'Deep backslash traversal on delete must not delete file outside cacheDir');
+    });
+
+    await t.test('Rejects invalid non-hex or non-PNG filenames', async () => {
+        _resetIconCacheStateForTesting();
+        const nonHexFile = path.join(cacheDir, 'not-a-hash.png');
+        const nonPngFile = path.join(cacheDir, '0123456789abcdef0123456789abcdef01234567.jpg');
+        const invalidShortFile = path.join(cacheDir, 'abc123.png');
+        await fs.writeFile(nonHexFile, 'non-hex-data');
+        await fs.writeFile(nonPngFile, 'non-png-data');
+        await fs.writeFile(invalidShortFile, 'short-hash-data');
+
+        const state = await loadIconCacheState(mockApp);
+
+        // 1. Read attempts with invalid filenames
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: 'not-a-hash.png',
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Non-hex fileName on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = '0123456789abcdef0123456789abcdef01234567.jpg';
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Non-PNG extension on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = 'abc123.png';
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Short hash on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = '';
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Empty string on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = null;
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Null fileName on read must return null');
+
+        // 2. Deletion attempts with invalid filenames
+        await deleteIconCacheFileIfUnused(mockApp, state, 'not-a-hash.png', '');
+        assert.equal(await fs.readFile(nonHexFile, 'utf8').catch(() => null), 'non-hex-data', 'Non-hex file must not be deleted');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, '0123456789abcdef0123456789abcdef01234567.jpg', '');
+        assert.equal(await fs.readFile(nonPngFile, 'utf8').catch(() => null), 'non-png-data', 'Non-PNG file must not be deleted');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, 'abc123.png', '');
+        assert.equal(await fs.readFile(invalidShortFile, 'utf8').catch(() => null), 'short-hash-data', 'Short hash file must not be deleted');
+
+        // Invalid types should not throw
+        await deleteIconCacheFileIfUnused(mockApp, state, '', '');
+        await deleteIconCacheFileIfUnused(mockApp, state, null, '');
+        await deleteIconCacheFileIfUnused(mockApp, state, undefined, '');
+        await deleteIconCacheFileIfUnused(mockApp, state, 12345, '');
+    });
+
+    await t.test('Accepts valid 40-char hex PNG filename and retrieves/deletes cache file correctly', async () => {
+        _resetIconCacheStateForTesting();
+        const validHashName = '0123456789abcdef0123456789abcdef01234567.png';
+        const validFilePath = path.join(cacheDir, validHashName);
+        const validBuffer = Buffer.from('valid-cached-png-content');
+        await fs.writeFile(validFilePath, validBuffer);
+
+        const state = await loadIconCacheState(mockApp);
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: validHashName,
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+
+        // Read succeeds
+        const readBuffer = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.ok(readBuffer, 'Valid cached icon buffer should be returned');
+        assert.deepEqual(readBuffer, validBuffer);
+
+        // Delete succeeds when unused
+        await deleteIconCacheFileIfUnused(mockApp, state, validHashName, normalizedExe);
+        const fileExistsAfterDelete = await fs.readFile(validFilePath).catch(() => null);
+        assert.equal(fileExistsAfterDelete, null, 'Valid cache file should be unlinked when unused');
+    });
+});

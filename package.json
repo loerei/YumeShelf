@@ -4,14 +4,20 @@
   "author": "loerei",
   "description": "YumeShelf Game Library Launcher",
   "main": "dist/main.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.6.2",
   "scripts": {
     "ensure:playtime-helper": "node scripts/ensure-playtime-helper.js",
     "ensure:installer-shell": "node scripts/ensure-installer-shell.js",
     "ensure:installer-shell:fast": "node scripts/ensure-installer-shell.js --fast",
+    "ensure:installer-shell:no-sign": "node scripts/ensure-installer-shell.js --no-sign",
     "organize:build-output": "node scripts/organize-build-output.js",
     "copy:assets": "copyfiles -u 1 \"src/main/save-editor/bin/**/*\" \"src/locales/builtins/**/*\" \"src/icon-extractor.js\" dist",
     "build:engine": "pnpm --filter @yumeshelf/engine build",
-    "build:main": "npm run build:engine && tsc -p tsconfig.main.json",
+    "compile:main": "tsc -p tsconfig.main.json",
+    "build:main": "npm run build:engine && npm run compile:main",
     "start:main": "npm run copy:assets && tsc -p tsconfig.main.json --watch",
     "start:electron": "nodemon --watch src/main --watch src/shared --watch src/main.ts --watch src/preload.ts --ext ts,js --delay 2 --exec \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron dist/main.js\"",
     "start": "node -e \"if(process.platform==='win32')require('child_process').execSync('chcp 65001')\" && npm run ensure:playtime-helper && npm run build:preload && npm run build:main && concurrently -k \"npm run start:main\" \"vite\" \"npm run start:electron\"",
@@ -39,7 +45,8 @@
     "test:single": "node --test",
     "test:icon-sim": "electron .devutil/icon-pipeline-sim",
     "test:engine": "pnpm --filter @yumeshelf/engine test",
-    "test": "npm run build:main && npm run test:vitest && npm run test:node",
+    "test:unit": "npm run test:vitest && npm run test:node",
+    "test": "npm run build:main && npm run test:unit",
     "verify:deps": "node scripts/verify-packaged-dependencies.js",
     "build:preload": "tsup src/preload.ts --out-dir dist --format cjs --external electron",
     "build:ts": "tsup src/main.js --out-dir dist --format cjs"
@@ -47,6 +54,7 @@
   "build": {
     "appId": "com.loerei.yumeshelf",
     "productName": "YumeShelf",
+    "compression": "normal",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/extract-file-icon/**/*",
@@ -79,6 +87,9 @@
         "nsis"
       ],
       "icon": "assets/yumeshelf_icon_highres_4096.png",
+      "signtoolOptions": {
+        "sign": "./scripts/noop-windows-sign.js"
+      },
       "extraResources": [
         {
           "from": "native/playtime-helper/target/release/playtime-helper.exe",
@@ -169,5 +180,13 @@
     "semver": "^7.7.4",
     "tiny-typed-emitter": "^2.1.0",
     "universalify": "^2.0.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller",
+      "esbuild",
+      "extract-file-icon"
+    ]
   }
 }

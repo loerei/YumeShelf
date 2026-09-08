@@ -7,7 +7,7 @@ const shellArtifactPath = path.join(repoRoot, 'build', 'installer-shell-dist', '
 const builderCliPath = path.join(repoRoot, 'node_modules', 'electron-builder', 'cli.js');
 const builderConfigPath = path.join(repoRoot, 'build', 'installer-shell-builder.js');
 
-function runShellBuild({ fast }) {
+function runShellBuild({ fast, noSign }) {
     const args = [
         builderCliPath,
         'build',
@@ -22,6 +22,10 @@ function runShellBuild({ fast }) {
             '--config.win.signAndEditExecutable=false',
             '--config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js'
         );
+    } else if (noSign) {
+        args.push(
+            '--config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js'
+        );
     }
 
     const result = spawnSync(process.execPath, args, {
@@ -29,7 +33,7 @@ function runShellBuild({ fast }) {
         stdio: 'inherit',
         env: {
             ...process.env,
-            CSC_IDENTITY_AUTO_DISCOVERY: fast ? 'false' : process.env.CSC_IDENTITY_AUTO_DISCOVERY
+            CSC_IDENTITY_AUTO_DISCOVERY: (fast || noSign) ? 'false' : process.env.CSC_IDENTITY_AUTO_DISCOVERY
         }
     });
 
@@ -46,7 +50,8 @@ function ensureArtifactPresent() {
 
 function main() {
     const fast = process.argv.includes('--fast');
-    runShellBuild({ fast });
+    const noSign = process.argv.includes('--no-sign') || process.argv.includes('--noop-sign');
+    runShellBuild({ fast, noSign });
     ensureArtifactPresent();
     console.log(`[installer-shell] ready ${path.relative(repoRoot, shellArtifactPath).replace(/\//g, '\\')}`);
 }

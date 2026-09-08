@@ -19,6 +19,8 @@ const {
     tryGetCachedIconBuffer,
     tryGetCachedIconDataUrl,
     storeHighResIconInCache,
+    deleteIconCacheFileIfUnused,
+    buildIconCacheFingerprint,
     loadIconCacheState,
     flushPendingIconCacheState,
     normalizeExecutablePath,
@@ -32,7 +34,9 @@ const {
 
 const {
     createIconPipeline,
-    convertIcoBufferToPng
+    convertIcoBufferToPng,
+    isValidIconTargetPath,
+    defensiveHeaders
 } = require('../dist/main/icon-pipeline/service');
 
 const {
@@ -771,3 +775,708 @@ test('Group 6: Synthetic Multi-Game Scenario Simulation (End-to-End Invariants)'
     }
 });
 
+
+
+test('Group 7: Disk Cache Path Traversal Hardening (Ticket 01.5.2)', async (t) => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-traversal-test-'));
+    const cacheDir = path.join(tmpDir, 'high-res-icon-cache');
+    await fs.mkdir(cacheDir, { recursive: true });
+
+    const mockApp = {
+        getPath: () => tmpDir,
+        getAppPath: () => tmpDir,
+        getFileIcon: async () => ({
+            toPNG: () => Buffer.from('mock-png'),
+            isEmpty: () => false
+        })
+    };
+
+    const gameExe = path.join(tmpDir, 'test-game.exe');
+    await fs.writeFile(gameExe, 'game-binary-content');
+    const normalizedExe = normalizeExecutablePath(gameExe);
+    const exeStats = await fs.stat(normalizedExe);
+    const validFingerprint = buildIconCacheFingerprint(normalizedExe, exeStats);
+
+    t.after(async () => {
+        _resetIconCacheStateForTesting();
+        try {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        } catch {}
+    });
+
+    await t.test('Rejects relative traversal filenames on reads and deletions', async () => {
+        _resetIconCacheStateForTesting();
+        const sensitiveFile = path.join(tmpDir, 'secret.txt');
+        await fs.writeFile(sensitiveFile, 'sensitive-data');
+
+        const state = await loadIconCacheState(mockApp);
+
+        // 1. Read attempt with relative traversal
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: '../secret.txt',
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+
+        const readResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(readResult, null, 'Relative traversal fileName on read must return null');
+
+        // Multi-level relative traversal
+        state.entriesByPath[normalizedExe].fileName = '../../secret.txt';
+        const deepReadResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(deepReadResult, null, 'Deep relative traversal fileName on read must return null');
+
+        // 2. Deletion attempt with relative traversal
+        await deleteIconCacheFileIfUnused(mockApp, state, '../secret.txt', '');
+        const secretStillExists = await fs.readFile(sensitiveFile, 'utf8').catch(() => null);
+        assert.equal(secretStillExists, 'sensitive-data', 'Relative traversal on delete must not delete file outside cacheDir');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, '../../secret.txt', '');
+        const secretStillExists2 = await fs.readFile(sensitiveFile, 'utf8').catch(() => null);
+        assert.equal(secretStillExists2, 'sensitive-data', 'Deep relative traversal on delete must not delete file outside cacheDir');
+    });
+
+    await t.test('Rejects Windows backslash traversal filenames on reads and deletions', async () => {
+        _resetIconCacheStateForTesting();
+        const victimFile = path.join(tmpDir, 'victim.png');
+        await fs.writeFile(victimFile, 'victim-content');
+
+        const state = await loadIconCacheState(mockApp);
+
+        // 1. Read attempt with backslash traversal
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: '..\\victim.png',
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+
+        const readResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(readResult, null, 'Windows backslash traversal fileName on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = '..\\..\\victim.png';
+        const deepReadResult = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.equal(deepReadResult, null, 'Deep Windows backslash traversal fileName on read must return null');
+
+        // 2. Deletion attempt with backslash traversal
+        await deleteIconCacheFileIfUnused(mockApp, state, '..\\victim.png', '');
+        const victimStillExists = await fs.readFile(victimFile, 'utf8').catch(() => null);
+        assert.equal(victimStillExists, 'victim-content', 'Backslash traversal on delete must not delete file outside cacheDir');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, '..\\..\\victim.png', '');
+        const victimStillExists2 = await fs.readFile(victimFile, 'utf8').catch(() => null);
+        assert.equal(victimStillExists2, 'victim-content', 'Deep backslash traversal on delete must not delete file outside cacheDir');
+    });
+
+    await t.test('Rejects invalid non-hex or non-PNG filenames', async () => {
+        _resetIconCacheStateForTesting();
+        const nonHexFile = path.join(cacheDir, 'not-a-hash.png');
+        const nonPngFile = path.join(cacheDir, '0123456789abcdef0123456789abcdef01234567.jpg');
+        const invalidShortFile = path.join(cacheDir, 'abc123.png');
+        await fs.writeFile(nonHexFile, 'non-hex-data');
+        await fs.writeFile(nonPngFile, 'non-png-data');
+        await fs.writeFile(invalidShortFile, 'short-hash-data');
+
+        const state = await loadIconCacheState(mockApp);
+
+        // 1. Read attempts with invalid filenames
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: 'not-a-hash.png',
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Non-hex fileName on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = '0123456789abcdef0123456789abcdef01234567.jpg';
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Non-PNG extension on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = 'abc123.png';
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Short hash on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = '';
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Empty string on read must return null');
+
+        state.entriesByPath[normalizedExe].fileName = null;
+        assert.equal(await tryGetCachedIconBuffer(mockApp, gameExe), null, 'Null fileName on read must return null');
+
+        // 2. Deletion attempts with invalid filenames
+        await deleteIconCacheFileIfUnused(mockApp, state, 'not-a-hash.png', '');
+        assert.equal(await fs.readFile(nonHexFile, 'utf8').catch(() => null), 'non-hex-data', 'Non-hex file must not be deleted');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, '0123456789abcdef0123456789abcdef01234567.jpg', '');
+        assert.equal(await fs.readFile(nonPngFile, 'utf8').catch(() => null), 'non-png-data', 'Non-PNG file must not be deleted');
+
+        await deleteIconCacheFileIfUnused(mockApp, state, 'abc123.png', '');
+        assert.equal(await fs.readFile(invalidShortFile, 'utf8').catch(() => null), 'short-hash-data', 'Short hash file must not be deleted');
+
+        // Invalid types should not throw
+        await deleteIconCacheFileIfUnused(mockApp, state, '', '');
+        await deleteIconCacheFileIfUnused(mockApp, state, null, '');
+        await deleteIconCacheFileIfUnused(mockApp, state, undefined, '');
+        await deleteIconCacheFileIfUnused(mockApp, state, 12345, '');
+    });
+
+    await t.test('Accepts valid 40-char hex PNG filename and retrieves/deletes cache file correctly', async () => {
+        _resetIconCacheStateForTesting();
+        const validHashName = '0123456789abcdef0123456789abcdef01234567.png';
+        const validFilePath = path.join(cacheDir, validHashName);
+        const validBuffer = Buffer.from('valid-cached-png-content');
+        await fs.writeFile(validFilePath, validBuffer);
+
+        const state = await loadIconCacheState(mockApp);
+        state.entriesByPath[normalizedExe] = {
+            fingerprint: validFingerprint,
+            fileName: validHashName,
+            size: exeStats.size,
+            mtimeMs: exeStats.mtimeMs,
+            cachedAtMs: Date.now()
+        };
+
+        // Read succeeds
+        const readBuffer = await tryGetCachedIconBuffer(mockApp, gameExe);
+        assert.ok(readBuffer, 'Valid cached icon buffer should be returned');
+        assert.deepEqual(readBuffer, validBuffer);
+
+        // Delete succeeds when unused
+        await deleteIconCacheFileIfUnused(mockApp, state, validHashName, normalizedExe);
+        const fileExistsAfterDelete = await fs.readFile(validFilePath).catch(() => null);
+        assert.equal(fileExistsAfterDelete, null, 'Valid cache file should be unlinked when unused');
+    });
+
+    await t.test('normalizeExecutablePath preserves POSIX root paths across platforms without backslash corruption', () => {
+        // POSIX absolute path must stay POSIX regardless of platform parameter
+        assert.equal(normalizeExecutablePath('/tmp/game/VisualNovel.app', 'win32'), '/tmp/game/VisualNovel.app');
+        assert.equal(normalizeExecutablePath('/tmp/game/VisualNovel.app', 'linux'), '/tmp/game/VisualNovel.app');
+        assert.equal(normalizeExecutablePath('/var/games/sub//dir', 'win32'), '/var/games/sub/dir');
+
+        // Windows paths with drive letter get Windows normalization
+        assert.equal(normalizeExecutablePath('C:/Games/test.exe', 'linux'), 'C:\\Games\\test.exe');
+        assert.equal(normalizeExecutablePath('D:\\Games\\test.exe', 'win32'), 'D:\\Games\\test.exe');
+    });
+});
+
+test('Group 8: macOS App Bundle Icon Resolution & Strict Fallback Cascade (Ticket 02.2.1)', async (t) => {
+    const rootTmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-mac-bundle-suite-'));
+    const userDataDir = path.join(rootTmpDir, 'user-data');
+    await fs.mkdir(userDataDir, { recursive: true });
+
+    // Bundle 1: for transcoding success
+    const bundle1Dir = path.join(rootTmpDir, 'VisualNovel.app');
+    const resources1Dir = path.join(bundle1Dir, 'Contents', 'Resources');
+    await fs.mkdir(resources1Dir, { recursive: true });
+    const mockIcnsBuffer = Buffer.from('icns\x00\x00\x00\x18mock-raw-icns-bytes');
+    await fs.writeFile(path.join(resources1Dir, 'icon.icns'), mockIcnsBuffer);
+
+    // Bundle 2: for transcoding failure / fallback
+    const bundle2Dir = path.join(rootTmpDir, 'Adventure.app');
+    const resources2Dir = path.join(bundle2Dir, 'Contents', 'Resources');
+    await fs.mkdir(resources2Dir, { recursive: true });
+    await fs.writeFile(path.join(resources2Dir, 'icon.icns'), mockIcnsBuffer);
+
+    let shellFallbackCount = 0;
+    const mockApp = {
+        getPath: () => userDataDir,
+        getAppPath: () => rootTmpDir,
+        getFileIcon: async () => {
+            shellFallbackCount++;
+            return {
+                isEmpty: () => false,
+                toPNG: () => Buffer.from('shell-fallback-png-bytes'),
+                getSize: () => ({ width: 48, height: 48 })
+            };
+        }
+    };
+
+    t.after(async () => {
+        _resetIconCacheStateForTesting();
+        await fs.rm(rootTmpDir, { recursive: true, force: true }).catch(() => {});
+    });
+
+    await t.test('macOS .app bundle ICNS transcodes to PNG and alpha crops returning source app-bundle-extracted', async () => {
+        _resetIconCacheStateForTesting();
+        shellFallbackCount = 0;
+
+        let registeredProtocolHandler = null;
+        let registeredIpcHandler = null;
+        const mockProtocol = {
+            handle: (_scheme, handler) => {
+                registeredProtocolHandler = handler;
+            }
+        };
+        const mockIpcMain = {
+            handle: (_channel, handler) => {
+                registeredIpcHandler = handler;
+            }
+        };
+
+        const mockTranscodedPng = Buffer.from('transcoded-mac-icns-to-png');
+        const mockNativeImage = {
+            createFromBuffer: (buf) => {
+                if (buf && buf.toString().startsWith('icns')) {
+                    return {
+                        isEmpty: () => false,
+                        toPNG: () => mockTranscodedPng,
+                        getSize: () => ({ width: 128, height: 128 }),
+                        toBitmap: () => Buffer.alloc(128 * 128 * 4, 255)
+                    };
+                }
+                return { isEmpty: () => true };
+            }
+        };
+
+        const pipeline = createIconPipeline({
+            app: mockApp,
+            protocol: mockProtocol,
+            ipcMain: mockIpcMain,
+            sourceRootDir: rootTmpDir,
+            nativeImage: mockNativeImage
+        });
+        pipeline.registerProtocolHandler();
+        pipeline.registerIpcHandler();
+
+        // 1. Verify via protocol handler
+        const resp = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(bundle1Dir)}`));
+        assert.equal(resp.status, 200);
+        assert.equal(resp.headers.get('Content-Type'), 'image/png');
+        const bytes = Buffer.from(await resp.arrayBuffer());
+        assert.equal(bytes.toString(), 'transcoded-mac-icns-to-png');
+
+        // 2. Verify via IPC handler (resolveIconDataUrl)
+        const payload = await registeredIpcHandler(null, bundle1Dir);
+        assert.ok(payload);
+        assert.equal(payload.source, 'app-bundle-extracted');
+        assert.ok(payload.dataUrl.startsWith('data:image/png;base64,'));
+        assert.equal(shellFallbackCount, 0, 'Shell fallback must not be called when transcoding succeeds');
+
+        // 3. Verify disk cache write
+        await pipeline.flushCache();
+        const cached = await tryGetCachedIconBuffer(mockApp, bundle1Dir);
+        assert.ok(cached, 'Transcoded PNG should be cached');
+        assert.equal(cached.toString(), 'transcoded-mac-icns-to-png');
+    });
+
+    await t.test('macOS .app bundle strict fallback: bypasses Stage 4 worker pool and falls through to app.getFileIcon when ICNS transcoding fails', async () => {
+        _resetIconCacheStateForTesting();
+        shellFallbackCount = 0;
+
+        let registeredProtocolHandler = null;
+        let registeredIpcHandler = null;
+        const mockProtocol = {
+            handle: (_scheme, handler) => {
+                registeredProtocolHandler = handler;
+            }
+        };
+        const mockIpcMain = {
+            handle: (_channel, handler) => {
+                registeredIpcHandler = handler;
+            }
+        };
+
+        // Mock native image where createFromBuffer throws or returns empty
+        const mockFailingNativeImage = {
+            createFromBuffer: () => {
+                throw new Error('Chromium libpng/icns decoding error');
+            }
+        };
+
+        // Even when emulated platform is win32, macOS .app bundle must bypass Stage 4 worker pool
+        const pipeline = createIconPipeline({
+            app: mockApp,
+            protocol: mockProtocol,
+            ipcMain: mockIpcMain,
+            sourceRootDir: rootTmpDir,
+            nativeImage: mockFailingNativeImage,
+            targetPlatform: 'win32'
+        });
+        pipeline.registerProtocolHandler();
+        pipeline.registerIpcHandler();
+
+        // 1. Verify via protocol handler
+        const resp = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(bundle2Dir)}`));
+        assert.equal(resp.status, 200);
+        // Strict PNG egress: must NOT be image/x-icns
+        assert.equal(resp.headers.get('Content-Type'), 'image/png');
+        const bytes = Buffer.from(await resp.arrayBuffer());
+        assert.notEqual(bytes.toString(), mockIcnsBuffer.toString(), 'Raw .icns must NEVER be returned');
+        assert.equal(bytes.toString(), 'shell-fallback-png-bytes');
+        assert.equal(shellFallbackCount, 1, 'Stage 5 app.getFileIcon must be invoked on transcoding failure');
+
+        // 2. Verify disk cache write with app-file-icon-fallback source
+        await pipeline.flushCache();
+        const cached = await tryGetCachedIconBuffer(mockApp, bundle2Dir);
+        assert.ok(cached, 'Fallback icon should be stored in disk cache');
+        assert.equal(cached.toString(), 'shell-fallback-png-bytes');
+    });
+
+    await t.test('Client abort signal halts extraction cascade returning HTTP 499 with defensive headers', async () => {
+        _resetIconCacheStateForTesting();
+        let registeredProtocolHandler = null;
+        const mockProtocol = {
+            handle: (_scheme, handler) => {
+                registeredProtocolHandler = handler;
+            }
+        };
+
+        const pipeline = createIconPipeline({
+            app: mockApp,
+            protocol: mockProtocol,
+            ipcMain: { handle: () => {} },
+            sourceRootDir: rootTmpDir
+        });
+        pipeline.registerProtocolHandler();
+
+        const controller = new AbortController();
+        controller.abort();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(bundle1Dir)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 499, 'Aborted request should return 499');
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+});
+
+test('Group 9: Protocol Ingress Hardening, Security Headers & Cancellation (Ticket 02.2.2)', async (t) => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'yumeshelf-ingress-test-'));
+    const userDataDir = path.join(tmpDir, 'user-data');
+    await fs.mkdir(userDataDir, { recursive: true });
+
+    const validGameExe = path.join(tmpDir, 'ValidGame.exe');
+    await fs.writeFile(validGameExe, 'valid-mock-content');
+
+    const mockApp = {
+        getPath: () => userDataDir,
+        getAppPath: () => path.resolve(__dirname, '..'),
+        getFileIcon: async () => ({
+            toPNG: () => Buffer.from('mock-shell-png'),
+            isEmpty: () => false,
+            getSize: () => ({ width: 32, height: 32 })
+        })
+    };
+
+    let registeredProtocolHandler = null;
+    let registeredIpcHandler = null;
+    const mockProtocol = {
+        handle: (_scheme, handler) => {
+            registeredProtocolHandler = handler;
+        }
+    };
+    const mockIpcMain = {
+        handle: (_channel, handler) => {
+            registeredIpcHandler = handler;
+        }
+    };
+
+    const pipeline = createIconPipeline({
+        app: mockApp,
+        protocol: mockProtocol,
+        ipcMain: mockIpcMain,
+        sourceRootDir: path.resolve(__dirname, '..'),
+        extractIconOptions: {
+            targetPlatform: 'linux'
+        }
+    });
+    pipeline.registerProtocolHandler();
+    pipeline.registerIpcHandler();
+
+    t.after(async () => {
+        _resetIconCacheStateForTesting();
+        try {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        } catch {}
+    });
+
+    await t.test('isValidIconTargetPath validates paths and rejects unsafe inputs', () => {
+        // Remote UNC network paths
+        assert.equal(isValidIconTargetPath('\\\\server\\share\\game.exe'), false);
+        assert.equal(isValidIconTargetPath('//server/share/game.exe'), false);
+        assert.equal(isValidIconTargetPath('\\\\\\server\\share'), false);
+
+        // Windows NT device namespace prefixes and question marks
+        assert.equal(isValidIconTargetPath('\\??\\UNC\\server\\share\\game.exe'), false);
+        assert.equal(isValidIconTargetPath('/?/UNC/server/share/game.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\?game.exe'), false);
+        assert.equal(isValidIconTargetPath('/usr/games/?game'), false);
+
+        // Windows DOS device names across segments
+        assert.equal(isValidIconTargetPath('CON'), false);
+        assert.equal(isValidIconTargetPath('C:\\CON'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON\\game.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\PRN'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\AUX'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\NUL'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\COM1'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\COM9'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\LPT1'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CONIN$'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CONOUT$'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON.txt'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON:'), false);
+        assert.equal(isValidIconTargetPath('C:\\Games\\CON '), false);
+        assert.equal(isValidIconTargetPath('/usr/games/con/game'), false);
+
+        // NTFS Alternate Data Streams (colons beyond drive letter index 1)
+        assert.equal(isValidIconTargetPath('C:\\games\\game.exe:stream'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\game.exe:extra:$DATA'), false);
+        assert.equal(isValidIconTargetPath('/usr/games/game.exe:stream'), false);
+
+        // Null bytes and URL-encoded null bytes
+        assert.equal(isValidIconTargetPath('/games/game\0.exe'), false);
+        assert.equal(isValidIconTargetPath('/games/game%00.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\game\0.exe'), false);
+        assert.equal(isValidIconTargetPath('C:\\games\\game%00.exe'), false);
+
+        // Relative paths (not absolute)
+        assert.equal(isValidIconTargetPath('game.exe'), false);
+        assert.equal(isValidIconTargetPath('games/game.exe'), false);
+        assert.equal(isValidIconTargetPath('../games/game.exe'), false);
+        assert.equal(isValidIconTargetPath('.\\game.exe'), false);
+
+        // Non-string or empty inputs
+        assert.equal(isValidIconTargetPath(null), false);
+        assert.equal(isValidIconTargetPath(undefined), false);
+        assert.equal(isValidIconTargetPath(''), false);
+        assert.equal(isValidIconTargetPath(12345), false);
+
+        // Valid paths
+        assert.equal(isValidIconTargetPath('C:\\Games\\Game.exe'), true);
+        assert.equal(isValidIconTargetPath('D:/Games/VisualNovel/Game.exe'), true);
+        assert.equal(isValidIconTargetPath('/usr/games/game.exe'), true);
+        assert.equal(isValidIconTargetPath('/Applications/Game.app'), true);
+        assert.equal(isValidIconTargetPath('C:\\Games\\console.exe'), true);
+        assert.equal(isValidIconTargetPath('C:\\Games\\game.com'), true);
+    });
+
+    await t.test('Protocol returns HTTP 400 with defensive headers on invalid/forbidden paths', async () => {
+        const invalidPaths = [
+            '\\\\server\\share\\game.exe',
+            '//server/share/game.exe',
+            '\\??\\UNC\\server\\share\\game.exe',
+            '/?/UNC/server/share/game.exe',
+            'C:\\games\\CON.exe',
+            'C:\\games\\game.exe:stream',
+            '/games/game\0.exe',
+            '/games/game%00.exe',
+            'relative/game.exe'
+        ];
+
+        for (const badPath of invalidPaths) {
+            const req = new Request(`game-icon://app?path=${encodeURIComponent(badPath)}`);
+            const resp = await registeredProtocolHandler(req);
+            assert.equal(resp.status, 400, `Expected 400 for bad path: ${badPath}`);
+            assert.equal(await resp.text(), 'Invalid or forbidden path');
+            assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+            assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+        }
+
+        // Missing path query parameter
+        const missingReq = new Request('game-icon://app');
+        const missingResp = await registeredProtocolHandler(missingReq);
+        assert.equal(missingResp.status, 400);
+        assert.equal(missingResp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(missingResp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('IPC handler returns null on invalid/forbidden paths', async () => {
+        const invalidPaths = [
+            '\\\\server\\share\\game.exe',
+            '//server/share/game.exe',
+            '\\??\\UNC\\server\\share\\game.exe',
+            'C:\\games\\CON.exe',
+            'C:\\games\\game.exe:stream',
+            '/games/game\0.exe',
+            'relative/game.exe',
+            '',
+            null
+        ];
+
+        for (const badPath of invalidPaths) {
+            const result = await registeredIpcHandler(null, badPath);
+            assert.equal(result, null, `Expected null IPC payload for bad path: ${badPath}`);
+        }
+    });
+
+    await t.test('Client abort returns HTTP 499 with defensive headers at ingress', async () => {
+        const controller = new AbortController();
+        controller.abort();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 499);
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('Client abort during extraction returns HTTP 499 with defensive headers', async () => {
+        const controller = new AbortController();
+        const abortPipeline = createIconPipeline({
+            app: {
+                ...mockApp,
+                getFileIcon: async () => {
+                    controller.abort();
+                    return null;
+                }
+            },
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        abortPipeline.registerProtocolHandler();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 499);
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('Client abort caught in outer error handler returns HTTP 499 with defensive headers', async () => {
+        const controller = new AbortController();
+        const failingPipeline = createIconPipeline({
+            app: {
+                ...mockApp,
+                getPath: () => {
+                    controller.abort();
+                    throw new Error('Mid-flight failure');
+                }
+            },
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        failingPipeline.registerProtocolHandler();
+
+        const req = new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: controller.signal
+        });
+        const resp = await registeredProtocolHandler(req);
+        assert.equal(resp.status, 499);
+        assert.equal(resp.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+
+    await t.test('Uniform defensive headers attached across all response statuses (200, 400, 404, 499, 500)', async () => {
+        // 1. 200 Shell fallback / successful extraction
+        const normalPipeline = createIconPipeline({
+            app: mockApp,
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        normalPipeline.registerProtocolHandler();
+
+        const resp200 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`));
+        assert.equal(resp200.status, 200);
+        assert.equal(resp200.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp200.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 2. 200 Cache hit
+        const resp200Cached = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`));
+        assert.equal(resp200Cached.status, 200);
+        assert.equal(resp200Cached.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp200Cached.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 3. 400 Bad request
+        const resp400 = await registeredProtocolHandler(new Request('game-icon://app?path=invalid'));
+        assert.equal(resp400.status, 400);
+        assert.equal(resp400.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp400.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 4. 404 Not found
+        const nonExistentFile = path.join(tmpDir, 'NonExistent.exe');
+        const emptyApp = {
+            getPath: () => userDataDir,
+            getAppPath: () => path.resolve(__dirname, '..'),
+            getFileIcon: async () => null
+        };
+        const emptyPipeline = createIconPipeline({
+            app: emptyApp,
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        emptyPipeline.registerProtocolHandler();
+
+        const resp404 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(nonExistentFile)}`));
+        assert.equal(resp404.status, 404);
+        assert.equal(resp404.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp404.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 5. 499 Client aborted
+        const abortedController = new AbortController();
+        abortedController.abort();
+        const resp499 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`, {
+            signal: abortedController.signal
+        }));
+        assert.equal(resp499.status, 499);
+        assert.equal(resp499.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp499.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+
+        // 6. 500 Internal error
+        const throwApp = {
+            getPath: () => {
+                throw new Error('Fatal unexpected disk error');
+            },
+            getAppPath: () => path.resolve(__dirname, '..'),
+            getFileIcon: async () => null
+        };
+        const throwPipeline = createIconPipeline({
+            app: throwApp,
+            protocol: {
+                handle: (_scheme, handler) => {
+                    registeredProtocolHandler = handler;
+                }
+            },
+            ipcMain: { handle: () => {} },
+            sourceRootDir: path.resolve(__dirname, '..'),
+            extractIconOptions: {
+                targetPlatform: 'linux'
+            }
+        });
+        throwPipeline.registerProtocolHandler();
+
+        const resp500 = await registeredProtocolHandler(new Request(`game-icon://app?path=${encodeURIComponent(validGameExe)}`));
+        assert.equal(resp500.status, 500);
+        assert.equal(resp500.headers.get('X-Content-Type-Options'), 'nosniff');
+        assert.equal(resp500.headers.get('Content-Security-Policy'), "default-src 'none'; style-src 'unsafe-inline'");
+    });
+});

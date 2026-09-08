@@ -52,9 +52,21 @@ import {
   defaultStalenessErrorMessage,
   type StalenessTrackerOptions,
 } from './utils/index.js';
+import {
+  extractGameIcon,
+  type ExtractedGameIcon,
+  type ExtractIconOptions,
+} from './icon/index.js';
+import {
+  extractPeIconAsync,
+  extractPeMetadataAsync,
+  type ExtractedPeIcon,
+  type PeResourceDecoderOptions,
+  type PeVersionMetadata,
+} from './pe/index.js';
 
 export type * from './types.js';
-export { SaveCodecError } from './types.js';
+export { SaveCodecError, DEFAULT_MAX_ARTWORK_SIZE } from './types.js';
 export * from './pe/index.js';
 export * from './binary/index.js';
 export * from './rules/index.js';
@@ -63,6 +75,7 @@ export * from './save-codecs/index.js';
 export * from './fs/index.js';
 export * from './process/index.js';
 export * from './bundle/index.js';
+export * from './icon/index.js';
 export * from './utils/index.js';
 
 const MACHO_MAGICS = new Set<number>([
@@ -288,6 +301,27 @@ export class YumeEngine {
     context?: SaveCodecContext
   ): Promise<Buffer> {
     return encodeSaveFile(strategy, jsonData, context);
+  }
+
+  static async extractIcon(
+    targetPath: string,
+    options?: ExtractIconOptions | IFileSystem
+  ): Promise<ExtractedGameIcon | null> {
+    return extractGameIcon(targetPath, options);
+  }
+
+  static async extractPeIcon(
+    filePath: string,
+    options?: PeResourceDecoderOptions | IFileSystem
+  ): Promise<ExtractedPeIcon | null> {
+    return extractPeIconAsync(filePath, options);
+  }
+
+  static async extractPeMetadata(
+    filePath: string,
+    options?: PeResourceDecoderOptions | IFileSystem
+  ): Promise<PeVersionMetadata | null> {
+    return extractPeMetadataAsync(filePath, options);
   }
 
   static readonly StalenessTracker = StalenessTracker;

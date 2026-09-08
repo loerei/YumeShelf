@@ -10,3 +10,10 @@ export * from './binary-reader.js';
 export * from './import-parser.js';
 export * from './version-parser.js';
 export * from './pe-inspector.js';
+export {
+  PeResourceDecoder,
+  extractPeIcon,
+  extractPeIconAsync,
+  extractPeMetadata,
+  extractPeMetadataAsync,
+} from './resource-decoder.js';

@@ -26,8 +26,11 @@ function createSha1(input: string): string {
     return crypto.createHash('sha1').update(input).digest('hex');
 }
 
-export function normalizeExecutablePath(targetPath: string): string {
-    if (process.platform === 'win32') {
+export function normalizeExecutablePath(targetPath: string, platform: NodeJS.Platform = process.platform): string {
+    if (targetPath.startsWith('/') && !targetPath.startsWith('//')) {
+        return path.posix.normalize(targetPath);
+    }
+    if (platform === 'win32') {
         return path.win32.normalize(targetPath);
     }
     if (/^[a-zA-Z]:[/\\]/.test(targetPath)) {
@@ -160,18 +163,37 @@ export function buildIconCacheFingerprint(normalizedPath: string, stats: { size:
     return createSha1(`${normalizedPath}|${stats.size}|${stats.mtimeMs}`);
 }
 
-export async function deleteIconCacheFileIfUnused(app: CacheAppInterface, state: IconCacheState, fileName: string | null | undefined, exceptPath: string): Promise<void> {
-    if (!fileName) return;
+export async function deleteIconCacheFileIfUnused(
+    app: CacheAppInterface,
+    state: IconCacheState,
+    fileName: string | null | undefined,
+    exceptPath: string
+): Promise<void> {
+    if (!fileName || typeof fileName !== 'string') return;
+
+    // 1. Basename check: reject directory separators
+    if (path.basename(fileName) !== fileName) return;
+
+    // 2. Strict SHA-1 fingerprint filename format
+    if (!/^[a-f0-9]{40}\.png$/i.test(fileName)) return;
+
     const { cacheDir } = resolveCachePaths(app);
+    const resolvedPath = path.resolve(cacheDir, fileName);
+    const resolvedCacheDir = path.resolve(cacheDir);
+    const cacheDirPrefix = resolvedCacheDir.endsWith(path.sep) ? resolvedCacheDir : resolvedCacheDir + path.sep;
+
+    // 3. Containment check within cacheDir
+    if (!resolvedPath.startsWith(cacheDirPrefix)) return;
+
     const stillUsed = Object.entries(state.entriesByPath).some(([entryPath, entry]) => {
         if (exceptPath && entryPath === exceptPath) return false;
         return entry?.fileName === fileName;
     });
     if (stillUsed) return;
+
     try {
-        await fs.unlink(path.join(cacheDir, fileName));
-    } catch {
-    }
+        await fs.unlink(resolvedPath);
+    } catch {}
 }
 
 export async function tryGetCachedIconBuffer(app: CacheAppInterface, targetPath: string): Promise<Buffer | null> {
@@ -192,9 +214,23 @@ export async function tryGetCachedIconBuffer(app: CacheAppInterface, targetPath:
         return null;
     }
 
-    const cacheFilePath = path.join(cacheDir, entry.fileName);
+    if (!entry?.fileName || typeof entry.fileName !== 'string') return null;
+
+    // 1. Basename check: reject directory separators
+    if (path.basename(entry.fileName) !== entry.fileName) return null;
+
+    // 2. Strict SHA-1 fingerprint filename format
+    if (!/^[a-f0-9]{40}\.png$/i.test(entry.fileName)) return null;
+
+    const resolvedPath = path.resolve(cacheDir, entry.fileName);
+    const resolvedCacheDir = path.resolve(cacheDir);
+    const cacheDirPrefix = resolvedCacheDir.endsWith(path.sep) ? resolvedCacheDir : resolvedCacheDir + path.sep;
+
+    // 3. Containment check within cacheDir
+    if (!resolvedPath.startsWith(cacheDirPrefix)) return null;
+
     try {
-        return await fs.readFile(cacheFilePath);
+        return await fs.readFile(resolvedPath);
     } catch {
         return null;
     }

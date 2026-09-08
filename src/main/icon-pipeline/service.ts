@@ -1,19 +1,23 @@
 import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { nativeImage } from 'electron';
 import { cropTransparentPaddingFromBuffer } from './cropper';
 import {
-    tryGetCachedIconDataUrl,
     tryGetCachedIconBuffer,
     storeHighResIconInCache,
     flushPendingIconCacheState
 } from './cache';
 import { createWorkerPool } from './worker-pool';
-import { extractPeIcon } from './pe-resource-decoder';
-import { findDesktopEntryIcon } from './desktop-entry';
+import {
+    YumeEngine,
+    type ExtractIconOptions,
+    type ExtractedGameIcon,
+    resolveBundleRoot,
+    findLocalGameImageSync,
+    type LocalGameImageResult
+} from '@yumeshelf/engine';
 
 export interface IconPipelineAppInterface {
     getPath(name: string): string;
@@ -35,6 +39,8 @@ export interface IconPipelineOptions {
     ipcMain: IconPipelineIpcMainInterface;
     sourceRootDir: string;
     nativeImage?: any;
+    extractIconOptions?: Partial<ExtractIconOptions>;
+    targetPlatform?: NodeJS.Platform;
 }
 
 export interface IconPayload {
@@ -44,58 +50,62 @@ export interface IconPayload {
     debug: any;
 }
 
-export interface LocalGameImageResult {
-    imgPath: string;
-    ext: string;
-}
-
-const LOCAL_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'ico'];
-const LOCAL_IMAGE_CANDIDATE_PATTERNS = [
-    (dir: string, ext: string) => path.join(dir, `icon.${ext}`),
-    (dir: string, ext: string) => path.join(dir, `cover.${ext}`),
-    (dir: string, ext: string) => path.join(dir, `folder.${ext}`),
-    (dir: string, ext: string) => path.join(dir, 'icon', `icon.${ext}`),
-    (dir: string, ext: string) => path.join(dir, 'icon', `cover.${ext}`),
-    (dir: string, ext: string) => path.join(dir, 'www', 'icon', `icon.${ext}`)
-];
-
-export function getImageMimeType(ext: string): string {
-    const cleanExt = ext.replace(/^\./, '').toLowerCase();
-    switch (cleanExt) {
-        case 'jpg':
-        case 'jpeg':
-            return 'image/jpeg';
-        case 'svg':
-            return 'image/svg+xml';
-        case 'ico':
-            return 'image/x-icon';
-        case 'webp':
-            return 'image/webp';
-        case 'png':
-        default:
-            return 'image/png';
-    }
+export interface ProcessedIconResult {
+    buffer: Buffer;
+    mimeType: string;
+    source:
+        | 'cached-high-res'
+        | 'local-image'
+        | 'desktop-entry'
+        | 'pe-rsrc-extracted'
+        | 'pe-rsrc-ico-converted'
+        | 'pe-rsrc-ico'
+        | 'app-bundle-extracted'
+        | 'extracted-high-res'
+        | 'app-file-icon-fallback';
+    width?: number;
+    height?: number;
+    crop?: any;
+    debug?: any;
 }
 
 export function findLocalGameImage(targetPath: string): LocalGameImageResult | null {
-    const dir = path.dirname(targetPath);
-    for (const pattern of LOCAL_IMAGE_CANDIDATE_PATTERNS) {
-        for (const ext of LOCAL_IMAGE_EXTENSIONS) {
-            const imgPath = pattern(dir, ext);
-            if (fsSync.existsSync(imgPath)) {
-                return { imgPath, ext };
-            }
-        }
-    }
+    const result = findLocalGameImageSync(targetPath);
+    if (!result) return null;
+    return {
+        ...result,
+        imgPath: path.normalize(result.imgPath)
+    };
+}
+export { getImageMimeType, LOCAL_IMAGE_CANDIDATE_PATTERNS, LOCAL_IMAGE_EXTENSIONS } from '@yumeshelf/engine';
+export type { LocalGameImageResult } from '@yumeshelf/engine';
 
-    // Check for Linux desktop entry icon
-    const desktopIcon = findDesktopEntryIcon(targetPath);
-    if (desktopIcon) {
-        const ext = path.extname(desktopIcon).replace(/^\./, '').toLowerCase() || 'png';
-        return { imgPath: desktopIcon, ext };
-    }
+export const defensiveHeaders = {
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'"
+};
 
-    return null;
+export function isValidIconTargetPath(targetPath: string): boolean {
+    if (!targetPath || typeof targetPath !== 'string') return false;
+    // Reject null bytes and URL-encoded null bytes
+    if (targetPath.includes('\0') || targetPath.includes('%00')) return false;
+    // Reject remote UNC paths (\\server\share or //server/share or multiple slashes)
+    if (/^[\\/]{2}/.test(targetPath)) return false;
+    // Reject Windows NT device namespace prefixes (\??\UNC\... or /?/UNC/...) and question mark characters
+    if (targetPath.includes('?') || /^[\\/]\?/.test(targetPath)) return false;
+    // Disallow colons beyond drive letter designation at index 1 (blocks NTFS ADS and DOS device suffixes)
+    if (targetPath.slice(2).includes(':')) return false;
+    // Cross-platform absolute path verification
+    const isAbsolute = path.isAbsolute(targetPath) || path.posix.isAbsolute(targetPath) || path.win32.isAbsolute(targetPath);
+    if (!isAbsolute) return false;
+
+    // Reject Windows DOS device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9, CONIN$, CONOUT$) across all path segments
+    const normalized = targetPath.replaceAll('\\', '/');
+    const segments = normalized.split('/').filter(Boolean);
+    const dosDeviceRegex = /^(con|prn|aux|nul|com[1-9]|lpt[1-9]|conin\$|conout\$)([.:\s].*)?$/i;
+    if (segments.some(seg => dosDeviceRegex.test(seg))) return false;
+
+    return true;
 }
 
 export interface IconPipeline {
@@ -145,125 +155,182 @@ export function convertIcoBufferToPng(icoBuffer: Buffer, customNativeImage?: any
     return null;
 }
 
-export function createIconPipeline({
-    app,
-    protocol,
-    ipcMain,
-    sourceRootDir,
-    nativeImage: customNativeImage
-}: IconPipelineOptions): IconPipeline {
+export function createIconPipeline(pipelineOptions: IconPipelineOptions): IconPipeline {
+    const {
+        app,
+        protocol,
+        ipcMain,
+        sourceRootDir,
+        nativeImage: customNativeImage,
+        extractIconOptions,
+        targetPlatform
+    } = pipelineOptions;
     const pool = createWorkerPool({ app, sourceRootDir });
     const nativeImageFactory = customNativeImage ?? nativeImage ?? null;
 
-    async function resolveIconDataUrl(targetPath: string): Promise<IconPayload> {
-        // Stage 1: Cache Hit (checked first to avoid redundant sync file scans on warm cache)
-        const cachedIconDataUrl = await tryGetCachedIconDataUrl(app, targetPath);
-        if (cachedIconDataUrl) {
-            return createIconPayload(cachedIconDataUrl, 'contain', 'cached-high-res');
+    async function processIconExtraction(
+        targetPath: string,
+        signal?: AbortSignal,
+        options?: Partial<ExtractIconOptions>
+    ): Promise<ProcessedIconResult | null> {
+        if (!targetPath || typeof targetPath !== 'string') {
+            return null;
+        }
+        if (signal?.aborted) {
+            return null;
         }
 
-        // Stage 2: Local Game Assets
-        const localImg = findLocalGameImage(targetPath);
-        if (localImg) {
-            try {
-                const buffer = await fs.readFile(localImg.imgPath);
-                const mimeType = getImageMimeType(localImg.ext);
-                return createIconPayload(
-                    `data:${mimeType};base64,${buffer.toString('base64')}`,
-                    'contain',
-                    'local-image',
-                    { imagePath: localImg.imgPath }
-                );
-            } catch (error) {
-                console.error(`[MAIN][ICON] Failed to read local image ${localImg.imgPath}:`, error);
+        // Stage 1: Disk Cache Lookup
+        const cachedBuffer = await tryGetCachedIconBuffer(app, targetPath);
+        if (cachedBuffer) {
+            return {
+                buffer: cachedBuffer,
+                mimeType: 'image/png',
+                source: 'cached-high-res'
+            };
+        }
+
+        // Stage 2 & 3: Headless Engine Delegation
+        let extracted: ExtractedGameIcon | null = null;
+        try {
+            const extractOptions: ExtractIconOptions = {
+                targetPlatform,
+                ...extractIconOptions,
+                ...options,
+                signal: signal ?? options?.signal ?? extractIconOptions?.signal
+            };
+            extracted = await YumeEngine.extractIcon(targetPath, extractOptions);
+        } catch (err) {
+            console.warn(`[MAIN][ICON] Engine extraction error for ${targetPath}:`, err);
+            extracted = null;
+        }
+
+        if (signal?.aborted) {
+            return null;
+        }
+
+        if (extracted !== null) {
+            if (extracted.source === 'local-image' || extracted.source === 'desktop-entry') {
+                return {
+                    buffer: extracted.buffer,
+                    mimeType: extracted.mimeType,
+                    source: extracted.source,
+                    debug: extracted.filePath ? { imagePath: extracted.filePath } : null
+                };
             }
-        }
 
-        // Stage 3: Pure TypeScript PE Resource Decoder (.exe)
-        if (targetPath.toLowerCase().endsWith('.exe')) {
-            try {
-                const peIcon = extractPeIcon(targetPath);
-                if (peIcon) {
-                    if (peIcon.isPng) {
-                        const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(peIcon.buffer);
-                        try {
-                            await storeHighResIconInCache(app, targetPath, croppedBuffer, {
-                                source: 'pe-rsrc',
-                                width: peIcon.width,
-                                height: peIcon.height
-                            });
-                        } catch {}
-                        const highResDataUrl = `data:image/png;base64,${croppedBuffer.toString('base64')}`;
-                        return createIconPayload(
-                            highResDataUrl,
-                            'contain',
-                            'pe-rsrc-extracted',
-                            {
-                                width: peIcon.width,
-                                height: peIcon.height,
-                                crop: cropSummary || null
-                            }
+            if (extracted.source === 'pe-rsrc' || extracted.source === 'pe-resource') {
+                if (extracted.isPng) {
+                    const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(
+                        extracted.buffer,
+                        { nativeImage: nativeImageFactory }
+                    );
+                    storeHighResIconInCache(app, targetPath, croppedBuffer, {
+                        source: 'pe-rsrc',
+                        width: extracted.width,
+                        height: extracted.height
+                    }).catch(() => {});
+                    return {
+                        buffer: croppedBuffer,
+                        mimeType: 'image/png',
+                        source: 'pe-rsrc-extracted',
+                        width: extracted.width,
+                        height: extracted.height,
+                        crop: cropSummary
+                    };
+                } else {
+                    const pngBuf = convertIcoBufferToPng(extracted.buffer, nativeImageFactory);
+                    if (pngBuf) {
+                        const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(
+                            pngBuf,
+                            { nativeImage: nativeImageFactory }
                         );
+                        storeHighResIconInCache(app, targetPath, croppedBuffer, {
+                            source: 'pe-rsrc-ico-converted',
+                            width: extracted.width,
+                            height: extracted.height
+                        }).catch(() => {});
+                        return {
+                            buffer: croppedBuffer,
+                            mimeType: 'image/png',
+                            source: 'pe-rsrc-ico-converted',
+                            width: extracted.width,
+                            height: extracted.height,
+                            crop: cropSummary
+                        };
                     } else {
-                        // Standard ICO: convert to PNG via nativeImage before caching
-                        const pngBuf = convertIcoBufferToPng(peIcon.buffer, nativeImageFactory);
-                        if (pngBuf) {
-                            const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(pngBuf);
-                            try {
-                                await storeHighResIconInCache(app, targetPath, croppedBuffer, {
-                                    source: 'pe-rsrc-ico-converted',
-                                    width: peIcon.width,
-                                    height: peIcon.height
-                                });
-                            } catch {}
-                            const highResDataUrl = `data:image/png;base64,${croppedBuffer.toString('base64')}`;
-                            return createIconPayload(
-                                highResDataUrl,
-                                'contain',
-                                'pe-rsrc-ico-converted',
-                                {
-                                    width: peIcon.width,
-                                    height: peIcon.height,
-                                    crop: cropSummary || null
-                                }
-                            );
-                        } else {
-                            // Fallback: If transcoding fails, return synthesized ICO dataUrl directly (identical to main)
-                            const base64 = peIcon.buffer.toString('base64');
-                            return createIconPayload(
-                                `data:image/x-icon;base64,${base64}`,
-                                'contain',
-                                'pe-rsrc-ico',
-                                { width: peIcon.width, height: peIcon.height }
-                            );
-                        }
+                        return {
+                            buffer: extracted.buffer,
+                            mimeType: 'image/x-icon',
+                            source: 'pe-rsrc-ico',
+                            width: extracted.width,
+                            height: extracted.height
+                        };
                     }
                 }
-            } catch (peErr) {
-                console.warn(`[MAIN][ICON] PE resource extraction error for ${targetPath}:`, peErr);
+            }
+
+            if (extracted.source === 'app-bundle') {
+                if (extracted.isPng) {
+                    const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(
+                        extracted.buffer,
+                        { nativeImage: nativeImageFactory }
+                    );
+                    storeHighResIconInCache(app, targetPath, croppedBuffer, { source: 'app-bundle' }).catch(() => {});
+                    return {
+                        buffer: croppedBuffer,
+                        mimeType: 'image/png',
+                        source: 'app-bundle-extracted',
+                        crop: cropSummary
+                    };
+                } else if (nativeImageFactory && typeof nativeImageFactory.createFromBuffer === 'function') {
+                    try {
+                        const img = nativeImageFactory.createFromBuffer(extracted.buffer);
+                        if (img && typeof img.isEmpty === 'function' && !img.isEmpty() && typeof img.toPNG === 'function') {
+                            const pngBuffer = img.toPNG();
+                            const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(
+                                pngBuffer,
+                                { nativeImage: nativeImageFactory }
+                            );
+                            storeHighResIconInCache(app, targetPath, croppedBuffer, { source: 'app-bundle' }).catch(() => {});
+                            return {
+                                buffer: croppedBuffer,
+                                mimeType: 'image/png',
+                                source: 'app-bundle-extracted',
+                                crop: cropSummary
+                            };
+                        }
+                    } catch {
+                        // Ignore error and fall through to Stage 5
+                    }
+                    // Strict PNG egress: if nativeImageFactory is omitted, throws, or produces an empty/invalid image,
+                    // DO NOT return raw .icns bytes; fall through to Stage 5 (app.getFileIcon).
+                }
             }
         }
 
-        // Stage 4: Worker Pool (Windows native addon fallback)
-        if (process.platform === 'win32') {
+        // Stage 4: Windows Native Worker Pool Fallback (PE binaries only)
+        const isMacBundle = targetPath.toLowerCase().endsWith('.app') || Boolean(resolveBundleRoot(targetPath));
+        const currentPlatform =
+            options?.targetPlatform ?? extractIconOptions?.targetPlatform ?? targetPlatform ?? process.platform;
+
+        if (currentPlatform === 'win32' && !isMacBundle && !signal?.aborted) {
             try {
                 const result = await pool.enqueueExtraction(targetPath);
                 if (result?.base64) {
                     const rawBuffer = Buffer.from(result.base64, 'base64');
-                    const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(rawBuffer);
-                    try {
-                        await storeHighResIconInCache(app, targetPath, croppedBuffer, result.meta || null);
-                    } catch {}
-                    const highResDataUrl = `data:image/png;base64,${croppedBuffer.toString('base64')}`;
-                    return createIconPayload(
-                        highResDataUrl,
-                        'contain',
-                        'extracted-high-res',
-                        {
-                            extractor: result.meta || null,
-                            crop: cropSummary || null
-                        }
+                    const { buffer: croppedBuffer, summary: cropSummary } = cropTransparentPaddingFromBuffer(
+                        rawBuffer,
+                        { nativeImage: nativeImageFactory }
                     );
+                    storeHighResIconInCache(app, targetPath, croppedBuffer, result.meta || null).catch(() => {});
+                    return {
+                        buffer: croppedBuffer,
+                        mimeType: 'image/png',
+                        source: 'extracted-high-res',
+                        crop: cropSummary,
+                        debug: { extractor: result.meta || null }
+                    };
                 }
             } catch (error) {
                 console.error('[MAIN][IPC] extract-file-icon node-worker error:', error);
@@ -271,109 +338,117 @@ export function createIconPipeline({
         }
 
         // Stage 5: App Native File Icon Fallback
-        const icon = await app.getFileIcon(targetPath, { size: 'large' });
-        const fallbackPng = icon.toPNG();
-        const { buffer: croppedFallback, summary: cropSummary } = cropTransparentPaddingFromBuffer(fallbackPng);
+        if (signal?.aborted) {
+            return null;
+        }
+
         try {
-            await storeHighResIconInCache(app, targetPath, croppedFallback, {
+            const icon = await app.getFileIcon(targetPath, { size: 'large' });
+            if (!icon || (typeof icon.isEmpty === 'function' && icon.isEmpty())) return null;
+            const fallbackBuffer = icon.toPNG();
+            const { buffer: croppedFallback, summary: cropSummary } = cropTransparentPaddingFromBuffer(
+                fallbackBuffer,
+                { nativeImage: nativeImageFactory }
+            );
+            storeHighResIconInCache(app, targetPath, croppedFallback, {
                 source: 'app-file-icon-fallback'
-            });
-        } catch {}
-        return createIconPayload(
-            `data:image/png;base64,${croppedFallback.toString('base64')}`,
-            'contain',
-            'app-file-icon-fallback',
-            cropSummary || null
+            }).catch(() => {});
+            return {
+                buffer: croppedFallback,
+                mimeType: 'image/png',
+                source: 'app-file-icon-fallback',
+                crop: cropSummary
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    async function resolveIconDataUrl(targetPath: string): Promise<IconPayload | null> {
+        if (!isValidIconTargetPath(targetPath)) {
+            return null;
+        }
+
+        const result = await processIconExtraction(
+            targetPath,
+            undefined,
+            extractIconOptions
         );
+        if (!result) {
+            return createIconPayload('', 'contain', 'unknown', null);
+        }
+
+        const dataUrl = `data:${result.mimeType};base64,${result.buffer.toString('base64')}`;
+        let debug: any = result.debug ?? null;
+        if (!debug) {
+            if (result.source === 'app-file-icon-fallback') {
+                debug = result.crop || null;
+            } else if (result.source === 'pe-rsrc-ico') {
+                debug = {
+                    ...(result.width !== undefined ? { width: result.width } : {}),
+                    ...(result.height !== undefined ? { height: result.height } : {})
+                };
+            } else if (result.width !== undefined || result.height !== undefined || result.crop) {
+                debug = {
+                    ...(result.width !== undefined ? { width: result.width } : {}),
+                    ...(result.height !== undefined ? { height: result.height } : {}),
+                    crop: result.crop || null
+                };
+            }
+        } else if (result.source === 'extracted-high-res' && result.crop && !debug.crop) {
+            debug = { ...debug, crop: result.crop || null };
+        }
+
+        return createIconPayload(dataUrl, 'contain', result.source, debug);
     }
 
     async function handleProtocolRequest(request: Request): Promise<Response> {
         try {
+            if (request.signal?.aborted) {
+                return new Response(null, { status: 499, headers: defensiveHeaders });
+            }
+
             const urlObj = new URL(request.url);
             const targetPath = urlObj.searchParams.get('path');
-            if (!targetPath) return new Response('Missing path', { status: 400 });
-
-            // Stage 1: Cache Hit (checked first to avoid redundant sync file scans on warm cache)
-            const cachedBuffer = await tryGetCachedIconBuffer(app, targetPath);
-            if (cachedBuffer) {
-                return new Response(cachedBuffer as any, { headers: { 'Content-Type': 'image/png' } });
+            if (!targetPath || !isValidIconTargetPath(targetPath)) {
+                return new Response('Invalid or forbidden path', {
+                    status: 400,
+                    headers: defensiveHeaders
+                });
             }
 
-            // Stage 2: Local Game Assets
-            const localImg = findLocalGameImage(targetPath);
-            if (localImg) {
-                const buffer = await fs.readFile(localImg.imgPath);
-                const contentType = getImageMimeType(localImg.ext);
-                return new Response(buffer, { headers: { 'Content-Type': contentType } });
-            }
+            const result = await processIconExtraction(
+                targetPath,
+                request.signal,
+                extractIconOptions
+            );
 
-            // Stage 3: Pure TypeScript PE Resource Decoder (.exe)
-            if (targetPath.toLowerCase().endsWith('.exe')) {
-                try {
-                    const peIcon = extractPeIcon(targetPath);
-                    if (peIcon) {
-                        if (peIcon.isPng) {
-                            const { buffer: croppedBuffer } = cropTransparentPaddingFromBuffer(peIcon.buffer);
-                            storeHighResIconInCache(app, targetPath, croppedBuffer, {
-                                source: 'pe-rsrc',
-                                width: peIcon.width,
-                                height: peIcon.height
-                            }).catch(() => {});
-                            return new Response(croppedBuffer as any, {
-                                headers: { 'Content-Type': 'image/png' }
-                            });
-                        } else {
-                            // Standard ICO: convert to PNG via nativeImage before caching
-                            const pngBuf = convertIcoBufferToPng(peIcon.buffer, nativeImageFactory);
-                            if (pngBuf) {
-                                const { buffer: croppedBuffer } = cropTransparentPaddingFromBuffer(pngBuf);
-                                storeHighResIconInCache(app, targetPath, croppedBuffer, {
-                                    source: 'pe-rsrc-ico-converted',
-                                    width: peIcon.width,
-                                    height: peIcon.height
-                                }).catch(() => {});
-                                return new Response(croppedBuffer as any, {
-                                    headers: { 'Content-Type': 'image/png' }
-                                });
-                            } else {
-                                // Fallback: If transcoding fails, return raw ICO buffer with image/x-icon (identical to main)
-                                return new Response(peIcon.buffer as any, {
-                                    headers: { 'Content-Type': peIcon.mimeType || 'image/x-icon' }
-                                });
-                            }
-                        }
-                    }
-                } catch (peErr) {
-                    console.warn(`[MAIN][PROTOCOL] PE resource decode error for ${targetPath}:`, peErr);
+            if (result === null) {
+                if (request.signal?.aborted) {
+                    return new Response(null, { status: 499, headers: defensiveHeaders });
                 }
+                return new Response('Not found', {
+                    status: 404,
+                    headers: defensiveHeaders
+                });
             }
 
-            // Stage 4: Worker Pool (Windows native addon fallback)
-            if (process.platform === 'win32') {
-                try {
-                    const result = await pool.enqueueExtraction(targetPath);
-                    if (result?.base64) {
-                        const rawBuffer = Buffer.from(result.base64, 'base64');
-                        const { buffer: croppedBuffer } = cropTransparentPaddingFromBuffer(rawBuffer);
-                        storeHighResIconInCache(app, targetPath, croppedBuffer, result.meta || null).catch(() => {});
-                        return new Response(croppedBuffer as any, { headers: { 'Content-Type': 'image/png' } });
-                    }
-                } catch (error) {
-                    console.error('[MAIN][PROTOCOL] extract-file-icon node-worker error:', error);
+            return new Response(result.buffer as any, {
+                status: 200,
+                headers: {
+                    'Content-Type': result.mimeType || 'image/png',
+                    ...defensiveHeaders
                 }
-            }
-
-            // Stage 5: App Native File Icon Fallback
-            const icon = await app.getFileIcon(targetPath, { size: 'large' });
-            const fallbackPng = icon.toPNG();
-            const { buffer: croppedFallback } = cropTransparentPaddingFromBuffer(fallbackPng);
-            storeHighResIconInCache(app, targetPath, croppedFallback, {
-                source: 'app-file-icon-fallback'
-            }).catch(() => {});
-            return new Response(croppedFallback as any, { headers: { 'Content-Type': 'image/png' } });
+            });
         } catch (error) {
+            if (request.signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+                return new Response(null, { status: 499, headers: defensiveHeaders });
+            }
             console.error('[MAIN][PROTOCOL] game-icon error:', error);
-            return new Response('Internal error', { status: 500 });
+            return new Response('Internal error', {
+                status: 500,
+                headers: defensiveHeaders
+            });
         }
     }
 

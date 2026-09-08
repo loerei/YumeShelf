@@ -13,7 +13,9 @@ const {
 const {
     parseDesktopFileIcon,
     resolveDesktopIconPath,
-    findDesktopEntryIcon
+    findDesktopEntryIcon,
+    resolveDesktopIconPathAsync,
+    findDesktopEntryIconAsync
 } = require('../dist/main/icon-pipeline/desktop-entry');
 
 const {
@@ -44,7 +46,7 @@ function buildMockPeBuffer(options = {}) {
     // Level 3: Subdirectory (Language)
     // Data Entries: Icon and Version Data
 
-    const rsrcBuf = Buffer.alloc(4096);
+    const rsrcBuf = Buffer.alloc(8192);
     let rsrcPos = 0;
 
     // Helper to write directory table
@@ -346,6 +348,25 @@ test('Desktop Entry Resolver: Linux .desktop file icon extraction', async (t) =>
 
         const resolvedFromFile = findDesktopEntryIcon(desktopPath);
         assert.equal(resolvedFromFile, iconPath);
+    });
+
+    await t.test('findDesktopEntryIconAsync and resolveDesktopIconPathAsync locate icons asynchronously', async () => {
+        const asyncDir = path.join(tempDir, 'async_app');
+        fs.mkdirSync(asyncDir, { recursive: true });
+        const desktopPath = path.join(asyncDir, 'game_async.desktop');
+        const iconPath = path.join(asyncDir, 'game_async_banner.png');
+
+        fs.writeFileSync(iconPath, 'mock png async');
+        fs.writeFileSync(desktopPath, `[Desktop Entry]\nName=AsyncGame\nIcon=game_async_banner.png\nExec=./start`);
+
+        const resolvedFromDir = await findDesktopEntryIconAsync(asyncDir);
+        assert.equal(resolvedFromDir, iconPath);
+
+        const resolvedFromFile = await findDesktopEntryIconAsync(desktopPath);
+        assert.equal(resolvedFromFile, iconPath);
+
+        const resolvedDirect = await resolveDesktopIconPathAsync('game_async_banner.png', asyncDir);
+        assert.equal(resolvedDirect, iconPath);
     });
 });
 

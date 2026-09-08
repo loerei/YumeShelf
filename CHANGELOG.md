@@ -4,6 +4,30 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.5] - working
+
+### What Changed
+- Cleaner icon loading across Windows, Linux, and Mac: game icons are now pulled directly from files instead of relying on Windows shell quirks. Linux .desktop entries and macOS .app bundles get their icons pulled automatically, and games with packed or non-standard icon headers still show up crisp.
+- Safer image scanning: if a game folder has corrupt SVG images or weird filenames, YumeShelf validates them safely in memory first so bad files cannot freeze the app or escape the folder.
+- Immediate cancellation when scrolling: if you scroll past games or switch tabs before an icon finishes loading, the app cancels the request instantly instead of doing unnecessary work in the background.
+
+### For the Nerds
+- [engine] Migrated all headless icon extraction logic from the Electron main process into `@yumeshelf/engine` behind a unified `YumeEngine.extractIcon` facade.
+- [engine] Implemented `PeResourceDecoder` with two-stage header read expansion (up to 64 KB), DataDirectory entry 2 RVA fallback for packed executables (UPX), resource tree entry iteration bounds (cap 2048, depth <= 3), frame scoring, and synthetic 22-byte ICO header assembly.
+- [engine] Added Postel's Law UTF-16LE scanner fallback in `parseVsVersionInfo` to extract product and version metadata from non-standard or damaged `VS_VERSIONINFO` headers.
+- [engine] Implemented Linux desktop entry resolution in `bundle/desktop-entry.ts` with parameter seams (`fs`, `env`, `targetPlatform`, `signal`), root containment within `baseDir`, XDG icon search paths, and path traversal rejection.
+- [engine] Implemented macOS `.app` bundle icon resolution in `bundle/app-bundle-inspector.ts` with `Info.plist` parsing, `CFBundleIconFile` sanitization, and fallback directory scanning for `Contents/Resources/*.icns`.
+- [engine] Implemented active SVG content defense in `icon/svg-defense.ts` defending against 7 threat categories, inline XML entity decoding, null bytes, and UTF-16 BOM evasions.
+- [engine] Extracted 36-pattern folder artwork search and Linux `.desktop` fallback with pre-read file size capping (`maxArtworkSize`) into `icon/artwork-search.ts`.
+- [engine] Implemented `withTimeout<T>` promise racing utility in `utils/timeout.ts` with unhandled rejection suppression and timer cleanup in `finally`.
+- [icon-pipeline] Consolidated 5-stage icon extraction cascade into `processIconExtraction` in `src/main/icon-pipeline/service.ts`, delegating headless extraction to `YumeEngine.extractIcon`.
+- [icon-pipeline] Replaced duplicate PE decoding, desktop entry, and artwork search in `src/main/icon-pipeline/` with thin backward-compatibility adapters.
+- [icon-pipeline] Hardened disk cache read and deletion routines in `cache.ts` with 4-tier validation (non-empty string check, `basename` equality, SHA-1 regex `/^[a-f0-9]{40}\.png$/i`, and root prefix containment), and preserved POSIX root path normalization across platform targets.
+- [icon-pipeline] Added `isValidIconTargetPath` in `service.ts` rejecting UNC paths, NT device prefixes, DOS devices, NTFS ADS colons, and null bytes.
+- [icon-pipeline] Attached uniform defensive HTTP headers (`X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`) across all icon protocol responses, and added HTTP 499 client abort termination.
+
+---
+
 ## [2.2.4] - 2026-09-05 — released
 
 ### What Changed

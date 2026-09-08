@@ -5,6 +5,7 @@ import {
   AppBundleInspector,
   resolveBundleRoot,
   classifyAppBundle,
+  findAppBundleIcon,
   YumeEngine,
   MACHO_MAGIC_64_BE,
   CPU_TYPE_ARM64,
@@ -509,5 +510,331 @@ test('macOS .app Bundle Metadata Inspector & resolveBundleRoot (@yumeshelf/engin
       assert.equal(profile.arch, 'arm64');
       assert.equal(profile.detectedBy, 'macOS App Bundle (Unclassified)');
     });
+  });
+});
+
+
+test('findAppBundleIcon (@yumeshelf/engine)', async (t) => {
+  const dummyIcns = Buffer.from('icns-binary-content');
+  const dummyPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52]);
+
+  await t.test('1. Icon resolution via Info.plist with CFBundleIconFile (with and without .icns suffix)', async () => {
+    // 1a. with .icns suffix
+    const fs1 = new MockFileSystemProvider();
+    fs1.mkdir('/Games/App1.app/Contents/Resources');
+    fs1.writeFile(
+      '/Games/App1.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIconFile</key>
+  <string>CustomIcon.icns</string>
+</dict>
+</plist>`
+    );
+    fs1.writeFile('/Games/App1.app/Contents/Resources/CustomIcon.icns', dummyIcns);
+
+    const result1 = await findAppBundleIcon('/Games/App1.app', fs1);
+    assert.ok(result1);
+    assert.deepEqual(result1.buffer, dummyIcns);
+    assert.equal(result1.ext, 'icns');
+    assert.equal(result1.path, '/Games/App1.app/Contents/Resources/CustomIcon.icns');
+
+    // 1b. without .icns suffix (should append .icns)
+    const fs2 = new MockFileSystemProvider();
+    fs2.mkdir('/Games/App2.app/Contents/Resources');
+    fs2.writeFile(
+      '/Games/App2.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
+</dict>
+</plist>`
+    );
+    fs2.writeFile('/Games/App2.app/Contents/Resources/AppIcon.icns', dummyIcns);
+
+    const result2 = await findAppBundleIcon('/Games/App2.app', { fs: fs2 });
+    assert.ok(result2);
+    assert.deepEqual(result2.buffer, dummyIcns);
+    assert.equal(result2.ext, 'icns');
+    assert.equal(result2.path, '/Games/App2.app/Contents/Resources/AppIcon.icns');
+
+    // 1c. via CFBundleIconName fallback in Info.plist
+    const fs3 = new MockFileSystemProvider();
+    fs3.mkdir('/Games/App3.app/Contents/Resources');
+    fs3.writeFile(
+      '/Games/App3.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIconName</key>
+  <string>NamedIcon</string>
+</dict>
+</plist>`
+    );
+    fs3.writeFile('/Games/App3.app/Contents/Resources/NamedIcon.icns', dummyIcns);
+
+    const result3 = await findAppBundleIcon('/Games/App3.app', fs3);
+    assert.ok(result3);
+    assert.deepEqual(result3.buffer, dummyIcns);
+    assert.equal(result3.ext, 'icns');
+    assert.equal(result3.path, '/Games/App3.app/Contents/Resources/NamedIcon.icns');
+  });
+
+  await t.test('2. Fallback to Contents/Resources/*.icns directory scan when CFBundleIconFile is omitted or points to non-existent file', async () => {
+    // 2a. CFBundleIconFile omitted entirely
+    const fs1 = new MockFileSystemProvider();
+    fs1.mkdir('/Games/App.app/Contents/Resources');
+    fs1.writeFile(
+      '/Games/App.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleExecutable</key><string>Game</string></dict></plist>`
+    );
+    fs1.writeFile('/Games/App.app/Contents/Resources/random.icns', dummyIcns);
+
+    const result1 = await findAppBundleIcon('/Games/App.app', fs1);
+    assert.ok(result1);
+    assert.deepEqual(result1.buffer, dummyIcns);
+    assert.equal(result1.ext, 'icns');
+    assert.equal(result1.path, '/Games/App.app/Contents/Resources/random.icns');
+
+    // 2b. CFBundleIconFile points to non-existent file -> falls back to directory scan
+    const fs2 = new MockFileSystemProvider();
+    fs2.mkdir('/Games/App.app/Contents/Resources');
+    fs2.writeFile(
+      '/Games/App.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>MissingIcon.icns</string></dict></plist>`
+    );
+    fs2.writeFile('/Games/App.app/Contents/Resources/fallback.icns', dummyIcns);
+
+    const result2 = await findAppBundleIcon('/Games/App.app', fs2);
+    assert.ok(result2);
+    assert.deepEqual(result2.buffer, dummyIcns);
+    assert.equal(result2.ext, 'icns');
+    assert.equal(result2.path, '/Games/App.app/Contents/Resources/fallback.icns');
+
+    // 2c. Info.plist corrupted -> falls back to directory scan
+    const fs3 = new MockFileSystemProvider();
+    fs3.mkdir('/Games/App.app/Contents/Resources');
+    fs3.writeFile('/Games/App.app/Contents/Info.plist', 'malformed-not-a-plist-corrupted');
+    fs3.writeFile('/Games/App.app/Contents/Resources/recovered.icns', dummyIcns);
+
+    const result3 = await findAppBundleIcon('/Games/App.app', fs3);
+    assert.ok(result3);
+    assert.deepEqual(result3.buffer, dummyIcns);
+    assert.equal(result3.ext, 'icns');
+    assert.equal(result3.path, '/Games/App.app/Contents/Resources/recovered.icns');
+  });
+
+  await t.test('3. Priority ordering in directory scan (icon.icns prioritized over other candidates)', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.mkdir('/Games/App.app/Contents/Resources');
+    fs.writeFile('/Games/App.app/Contents/Resources/a_first_alphabetical.icns', Buffer.from('alpha-icns'));
+    fs.writeFile('/Games/App.app/Contents/Resources/game.icns', Buffer.from('game-icns'));
+    fs.writeFile('/Games/App.app/Contents/Resources/appicon.icns', Buffer.from('appicon-icns'));
+    fs.writeFile('/Games/App.app/Contents/Resources/icon.icns', Buffer.from('icon-icns'));
+
+    // icon.icns is prioritized over appicon, game, and alphabetical
+    const result = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(result);
+    assert.deepEqual(result.buffer, Buffer.from('icon-icns'));
+    assert.equal(result.path, '/Games/App.app/Contents/Resources/icon.icns');
+
+    // When icon.icns is absent, appicon.icns is prioritized
+    fs.deleteFile('/Games/App.app/Contents/Resources/icon.icns');
+    const result2 = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(result2);
+    assert.deepEqual(result2.buffer, Buffer.from('appicon-icns'));
+    assert.equal(result2.path, '/Games/App.app/Contents/Resources/appicon.icns');
+
+    // When appicon.icns is absent, game.icns is prioritized
+    fs.deleteFile('/Games/App.app/Contents/Resources/appicon.icns');
+    const result3 = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(result3);
+    assert.deepEqual(result3.buffer, Buffer.from('game-icns'));
+    assert.equal(result3.path, '/Games/App.app/Contents/Resources/game.icns');
+
+    // When all well-known names are absent, alphabetical order is used
+    fs.deleteFile('/Games/App.app/Contents/Resources/game.icns');
+    const result4 = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(result4);
+    assert.deepEqual(result4.buffer, Buffer.from('alpha-icns'));
+    assert.equal(result4.path, '/Games/App.app/Contents/Resources/a_first_alphabetical.icns');
+  });
+
+  await t.test('4. Sanitization against directory traversal, path separators, and null bytes in CFBundleIconFile', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.mkdir('/Games/App.app/Contents/Resources');
+    fs.writeFile('/Games/evil.icns', Buffer.from('evil-payload'));
+    fs.writeFile('/Games/App.app/Contents/Resources/safe.icns', dummyIcns);
+
+    // Traversal payload in CFBundleIconFile: ../../evil.icns
+    fs.writeFile(
+      '/Games/App.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>../../evil.icns</string></dict></plist>`
+    );
+    const result = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(result);
+    // Must fall back to safe.icns in Resources and NOT load evil.icns
+    assert.deepEqual(result.buffer, dummyIcns);
+    assert.equal(result.path, '/Games/App.app/Contents/Resources/safe.icns');
+
+    // Forward slash separator: SubDir/icon.icns
+    fs.writeFile(
+      '/Games/App.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>SubDir/icon.icns</string></dict></plist>`
+    );
+    const resultSlash = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(resultSlash);
+    assert.deepEqual(resultSlash.buffer, dummyIcns);
+
+    // Backslash separator: ..\\evil.icns
+    fs.writeFile(
+      '/Games/App.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>..\\evil.icns</string></dict></plist>`
+    );
+    const resultBackslash = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(resultBackslash);
+    assert.deepEqual(resultBackslash.buffer, dummyIcns);
+
+    // Null byte injection: icon\0evil.icns
+    fs.writeFile(
+      '/Games/App.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>icon\0evil.icns</string></dict></plist>`
+    );
+    const resultNull = await findAppBundleIcon('/Games/App.app', fs);
+    assert.ok(resultNull);
+    assert.deepEqual(resultNull.buffer, dummyIcns);
+  });
+
+  await t.test('5. Cross-platform POSIX path construction: candidate icon paths use cross-platform forward slashes', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.mkdir('C:/Games/WinApp.app/Contents/Resources');
+    fs.writeFile(
+      'C:/Games/WinApp.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>AppIcon.icns</string></dict></plist>`
+    );
+    fs.writeFile('C:/Games/WinApp.app/Contents/Resources/AppIcon.icns', dummyIcns);
+
+    // Pass bundle path with Windows backslashes
+    const result = await findAppBundleIcon('C:\\Games\\WinApp.app', fs);
+    assert.ok(result);
+    assert.ok(result.path);
+    // Candidate path must use forward slashes so MockFileSystemProvider and POSIX paths resolve without ENOENT
+    assert.ok(!result.path.includes('\\'), 'Candidate path must not contain backslashes');
+    assert.equal(result.path, 'C:/Games/WinApp.app/Contents/Resources/AppIcon.icns');
+  });
+
+  await t.test('6. Dynamic format resolution: returns ext: "png" or ext: "icns"', async () => {
+    // 6a. Resolving PNG asset via Info.plist
+    const fs1 = new MockFileSystemProvider();
+    fs1.mkdir('/Games/PngApp.app/Contents/Resources');
+    fs1.writeFile(
+      '/Games/PngApp.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>icon.png</string></dict></plist>`
+    );
+    fs1.writeFile('/Games/PngApp.app/Contents/Resources/icon.png', dummyPng);
+
+    const resultPng = await findAppBundleIcon('/Games/PngApp.app', fs1);
+    assert.ok(resultPng);
+    assert.equal(resultPng.ext, 'png');
+    assert.deepEqual(resultPng.buffer, dummyPng);
+
+    // 6b. Resolving PNG asset via directory scan fallback
+    const fs2 = new MockFileSystemProvider();
+    fs2.mkdir('/Games/PngFallback.app/Contents/Resources');
+    fs2.writeFile('/Games/PngFallback.app/Contents/Resources/game_logo.png', dummyPng);
+
+    const resultFallbackPng = await findAppBundleIcon('/Games/PngFallback.app', fs2);
+    assert.ok(resultFallbackPng);
+    assert.equal(resultFallbackPng.ext, 'png');
+    assert.deepEqual(resultFallbackPng.buffer, dummyPng);
+
+    // 6c. Resolving ICNS asset
+    const fs3 = new MockFileSystemProvider();
+    fs3.mkdir('/Games/IcnsApp.app/Contents/Resources');
+    fs3.writeFile('/Games/IcnsApp.app/Contents/Resources/icon.icns', dummyIcns);
+
+    const resultIcns = await findAppBundleIcon('/Games/IcnsApp.app', fs3);
+    assert.ok(resultIcns);
+    assert.equal(resultIcns.ext, 'icns');
+    assert.deepEqual(resultIcns.buffer, dummyIcns);
+  });
+
+  await t.test('7. Pre-read candidate file size check: rejection of oversized icon files exceeding maxArtworkSize / maxRsrcSize', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.mkdir('/Games/Huge.app/Contents/Resources');
+    const hugeBuf = Buffer.alloc(1000);
+    const smallBuf = Buffer.from('small-icon');
+
+    fs.writeFile(
+      '/Games/Huge.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>HugeIcon.icns</string></dict></plist>`
+    );
+    fs.writeFile('/Games/Huge.app/Contents/Resources/HugeIcon.icns', hugeBuf);
+    fs.writeFile('/Games/Huge.app/Contents/Resources/SmallIcon.icns', smallBuf);
+
+    // With maxArtworkSize: 500, HugeIcon.icns (1000 bytes) should be rejected and fall through to SmallIcon.icns
+    const result = await findAppBundleIcon('/Games/Huge.app', { fs, maxArtworkSize: 500 });
+    assert.ok(result);
+    assert.deepEqual(result.buffer, smallBuf);
+    assert.equal(result.path, '/Games/Huge.app/Contents/Resources/SmallIcon.icns');
+
+    // If all icons exceed maxSize, returns null
+    const resultNone = await findAppBundleIcon('/Games/Huge.app', { fs, maxArtworkSize: 5 });
+    assert.equal(resultNone, null);
+
+    // Empty (0-byte) file should also be skipped
+    fs.writeFile('/Games/Huge.app/Contents/Resources/Empty.icns', Buffer.alloc(0));
+    fs.writeFile(
+      '/Games/Huge.app/Contents/Info.plist',
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>CFBundleIconFile</key><string>Empty.icns</string></dict></plist>`
+    );
+    const resultEmptyFallback = await findAppBundleIcon('/Games/Huge.app', { fs, maxArtworkSize: 500 });
+    assert.ok(resultEmptyFallback);
+    assert.deepEqual(resultEmptyFallback.buffer, smallBuf);
+  });
+
+  await t.test('8. Abort signal responsiveness: immediate termination if signal.aborted is true', async () => {
+    const fs = new MockFileSystemProvider();
+    fs.mkdir('/Games/Abort.app/Contents/Resources');
+    fs.writeFile('/Games/Abort.app/Contents/Resources/icon.icns', dummyIcns);
+
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await findAppBundleIcon('/Games/Abort.app', { fs, signal: controller.signal });
+    assert.equal(result, null);
+  });
+
+  await t.test('9. Return null when target path is not a macOS .app bundle or contains no icons', async () => {
+    const fs = new MockFileSystemProvider();
+
+    // Not an .app bundle
+    assert.equal(await findAppBundleIcon('/Games/RegularFolder', fs), null);
+    assert.equal(await findAppBundleIcon('', fs), null);
+    assert.equal(await findAppBundleIcon(null as any, fs), null);
+
+    // .app bundle with no Resources directory
+    fs.mkdir('/Games/Empty.app');
+    assert.equal(await findAppBundleIcon('/Games/Empty.app', fs), null);
+
+    // .app bundle with empty Resources directory
+    fs.mkdir('/Games/NoIcons.app/Contents/Resources');
+    assert.equal(await findAppBundleIcon('/Games/NoIcons.app', fs), null);
   });
 });

@@ -1,84 +1,85 @@
 # Contributing to YumeShelf
 
-Thank you for your interest in contributing to YumeShelf. This document describes the workflow, branch structure, and code quality requirements expected from contributors.
+Hi. If you want to help make YumeShelf better, contributions are very welcome.
 
-Please read through this document before submitting a pull request.
+If you want to work together, request a feature, or discuss something directly with me, feel free to DM me on Discord at https://discord.com/users/tetehahahahaha.
 
----
-
-## 1. Branching Strategy & Issue Linking (GitHub Flow)
-
-We follow a clean **GitHub Flow** branching model with only one long-lived branch:
-
-* **`main`**: The absolute source of truth. Always compilable and containing the latest production-ready features.
-* **Short-lived Feature Branches**: All development (features, bugfixes, refactoring, documentation) must be done in short-lived branches branched off `main`.
-  * **Naming convention**: `feat/your-feature-name`, `fix/bug-description`, `docs/update-readme`.
-  * Once your Pull Request is merged into `main`, the branch will be deleted automatically.
-
-> [!IMPORTANT]
-> **Mandatory Issue Linking:** Every Pull Request **must** be linked to an existing, pre-approved GitHub Issue. In your PR description, please use GitHub keywords to close the corresponding issue (e.g., `Closes #123` or `Fixes #45`). Unlinked Pull Requests will not be reviewed.
+You do not need to follow a 10-step corporate process here. Just keep things simple and follow the practical rules below.
 
 ---
 
-## 2. Commit Message Convention
+## Opening Pull Requests
 
-To automate changelog generation and keep history structured, we strictly enforce **Conventional Commits** formatting. All commit messages must follow the format:
-
-`<type>(<scope>): <short description>`
-
-### Acceptable Types:
-* **`feat`**: A new feature (e.g., `feat(save-editor): add support for unity mono binary saves`).
-* **`fix`**: A bug fix (e.g., `fix(translation): resolve github api authentication crash`).
-* **`docs`**: Documentation changes only (e.g., `docs(contributing): update quality gate requirements`).
-* **`style`**: Changes that do not affect the meaning of the code (formatting, white-space, semi-colons, etc.).
-* **`refactor`**: A code change that neither fixes a bug nor adds a feature.
-* **`perf`**: A code change that improves performance.
-* **`test`**: Adding missing tests or correcting existing tests.
-* **`chore`**: Updates to build tasks, package manager configs, etc.
+- **Small fixes and bugs**: you do not need to open an issue first or ask for permission. If you spotted a bug, a broken path, or a typo, just fix it and open a PR.
+- **Big features or architectural changes**: please open an issue, start a discussion, or ping me first. That way we can talk through whether it fits where the app is heading before you spend an entire weekend writing code.
+- **Keep PRs small**: smaller PRs that touch one specific thing get reviewed and merged quickly. Massive PRs that rewrite half the codebase usually sit around forever because they are painful to review.
 
 ---
 
-## 3. Strict Coding Standards
+## Getting Started
 
-### A. Main Process (TypeScript & ESM)
-* The compiler is configured with `"strict": true`. Do **not** use `// @ts-nocheck` or `// @ts-ignore` to suppress compilation errors.
-* Avoid `any` types. Declare precise type interfaces for configurations, options, and callbacks.
-* Use standard ESM imports and exports (`import` / `export`) instead of CommonJS (`require`).
+1. **Clone the repo**:
+   ```bash
+   git clone https://github.com/loerei/YumeShelf.git
+   cd YumeShelf
+   ```
 
-### B. Renderer Process (React, Vite & CSS)
-When contributing to the Renderer:
-* **CSS**: Use vanilla CSS. Prefer consistent, purposeful color choices using HSL values, and use a defined font stack (e.g. Google Fonts: Outfit, Inter) rather than browser defaults.
-* **Interactions**: CSS transitions, hover effects, and animations should be intentional — avoid visual noise, prefer subtlety.
-* **React**: Keep components small and focused on a single responsibility.
-* **TypeScript**: Type all React props and state variables explicitly.
+2. **Install dependencies**:
+   We use `pnpm` for package management:
+   ```bash
+   pnpm install
+   ```
+
+3. **Run dev mode**:
+   ```bash
+   npm start
+   ```
+
+4. **Run tests**:
+   ```bash
+   npm test
+   ```
 
 ---
 
-## 4. Code Quality Gates (CI/CD)
+## Architectural Rules (The Important Stuff)
 
-Before committing and submitting your PR, your changes must pass our local quality gates:
+A few things will get your PR blocked if ignored:
 
-### 1. Code Formatting (Prettier)
-All code must be formatted using Prettier. You can format the entire project by running:
+1. **No hardcoded Windows paths (MultiOS)**:
+   YumeShelf runs on Windows, Linux, and macOS. Never hardcode backslashes (`\`), drive letters (`C:`), or use `path.win32` on generic paths. Always use `path.normalize` or cross-platform utilities. (I mostly test on Windows because I do not have spare Mac hardware lying around, so Linux and Mac testing help is always appreciated).
+
+2. **Game engine and save logic belongs in `@yumeshelf/engine`**:
+   All low-level binary inspection, save folder discovery, and save file decoders/encoders live inside `packages/yume-engine/`.
+   The main process (`src/main/`) is just an orchestration layer. Do not put raw PE binary parsers or custom crypto loops directly in `src/main/`. Put them in `packages/yume-engine/` and expose them through `YumeEngine`.
+
+3. **Frontend is vanilla TypeScript**:
+   The UI is built with plain TypeScript and standard DOM manipulation, bundled via Vite. There is no React here. Please keep components straightforward and do not try to introduce heavy frontend frameworks.
+
+---
+
+## Commit Messages
+
+We use Conventional Commits so the release script can automatically generate changelogs and release notes without manual copy-pasting:
+
+- `feat(scope): short description` for new features
+- `fix(scope): short description` for bug fixes
+- `docs(scope): short description` for documentation
+- `refactor(scope): short description` for code cleanup
+- `test(scope): short description` for tests
+
+Examples:
+- `fix(library-state): prevent empty config wipe on degraded read`
+- `feat(save-editor): add renpy protocol 5 decoder`
+
+---
+
+## Before You Push
+
+Run the test suite locally:
+
 ```bash
-npm run format
+npm test
 ```
 
-### 2. Code Linting (ESLint)
-Ensure there are no linting warnings or errors:
-```bash
-npm run lint
-```
-
-### 3. Static Type Verification
-The Main process must compile cleanly with strict flags:
-```bash
-npm run build:main
-```
-
-### 4. Test Coverage
-Automated static analysis (e.g. SonarQube) is not yet configured for this project. In the meantime:
-* Any new core business logic should be accompanied by appropriate tests where feasible.
-* Strict typing (`strict: true`) must be maintained — do not regress type coverage.
-
-Thank you for contributing to YumeShelf.
+If the TypeScript build passes and all tests are green, your PR should sail through GitHub Actions CI and SonarCloud without issues.

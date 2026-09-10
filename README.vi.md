@@ -49,4 +49,6 @@ YumeShelf và nhân phân tích **YumeEngine** được phát triển dựa trê
 
 ### Đóng góp
 
-YumeShelf là phần mềm mã nguồn mở và liên tục phát triển. Mọi đóng góp thử nghiệm trên các bản phân phối Linux, bản dịch, ý tưởng tính năng hoặc báo lỗi đều rất được hoan nghênh.
+YumeShelf là phần mềm mã nguồn mở và liên tục phát triển. Mọi đóng góp thử nghiệm trên các bản phân phối Linux, bản dịch, ý tưởng tính năng hoặc báo lỗi đều rất được hoan nghênh. Xem qua [CONTRIBUTING.md](CONTRIBUTING.md) để biết cách chạy code.
+
+Nếu bạn muốn hợp tác, yêu cầu tính năng hoặc thảo luận trực tiếp với mình, có thể nhắn qua Discord: https://discord.com/users/tetehahahahaha.

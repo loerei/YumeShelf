@@ -26,6 +26,7 @@ export interface PlaytimeSessionManagerOptions {
     app: any;
     BrowserWindow: any;
     libraryState: any;
+    refreshIntervalMs?: number;
 }
 
 export interface PlaytimeSessionManager {
@@ -39,6 +40,7 @@ export interface PlaytimeSessionManager {
     overlayGames(games: any[]): any[];
     refreshSessions(options?: { recover?: boolean; emit?: boolean }): Promise<SessionJournal[]>;
     getRuntimeSnapshot(): { journals: SessionJournal[]; gameState: any[] };
+    dispose(): void;
 }
 
 function log(message: string): void {
@@ -48,7 +50,8 @@ function log(message: string): void {
 export function createPlaytimeSessionManager({
     app,
     BrowserWindow,
-    libraryState
+    libraryState,
+    refreshIntervalMs = SESSION_REFRESH_INTERVAL_MS
 }: PlaytimeSessionManagerOptions): PlaytimeSessionManager {
     const dbFilePath = libraryState.getDbFilePath();
     const sessionsDir = path.join(app.getPath('userData'), 'playtime-sessions');
@@ -162,7 +165,10 @@ export function createPlaytimeSessionManager({
             if (next.active && (!previous.active || previous.accruedMs !== next.accruedMs || previous.sessionIds?.length !== next.sessionIds?.length)) {
                 BrowserWindow.getAllWindows().forEach((windowRef: any) => {
                     if (!windowRef || windowRef.isDestroyed()) return;
-                    windowRef.webContents.send('game-playtime-updated', { gameKey });
+                    windowRef.webContents.send('game-playtime-updated', {
+                        gameKey,
+                        accruedMs: Math.max(0, next.accruedMs || 0)
+                    });
                 });
             }
         });
@@ -199,7 +205,10 @@ export function createPlaytimeSessionManager({
                 refreshSessions({ recover: true, emit: true }).catch((error) => {
                     console.error('[PLAYTIME][SESSIONS] periodic refresh failed:', error);
                 });
-            }, SESSION_REFRESH_INTERVAL_MS);
+            }, refreshIntervalMs);
+            if (typeof refreshTimer.unref === 'function') {
+                refreshTimer.unref();
+            }
         }
     }
 
@@ -279,11 +288,13 @@ export function createPlaytimeSessionManager({
             if (!isRunning) {
                 return {
                     ...game,
+                    basePlaytime: game.playtime || 0,
                     isRunning: false
                 };
             }
             return {
                 ...game,
+                basePlaytime: game.playtime || 0,
                 isRunning: true,
                 playtime: (game.playtime || 0) + accruedMs
             };
@@ -300,11 +311,19 @@ export function createPlaytimeSessionManager({
         };
     }
 
+    function dispose(): void {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+    }
+
     return {
         initialize,
         launchTrackedGame,
         overlayGames,
         refreshSessions,
-        getRuntimeSnapshot
+        getRuntimeSnapshot,
+        dispose
     };
 }

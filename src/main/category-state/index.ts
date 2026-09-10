@@ -12,15 +12,20 @@ import {
     CategoryTree,
     CategoryState
 } from './tree-utils';
+import {
+    writeAtomicJson,
+    readJsonWithRetry,
+    createSerializedQueue,
+    AtomicFsAdapter
+} from '../core/shared-io';
 
-export interface CategoryStateFs {
-    readFile(path: string, options: 'utf8'): Promise<string>;
-    writeFile(path: string, data: string): Promise<void>;
-}
+export type CategoryStateFs = AtomicFsAdapter;
 
 export interface CategoryStateOptions {
     fs: CategoryStateFs;
     stateFile: string;
+    retryCount?: number;
+    retryDelayMs?: number;
 }
 
 export interface CategoryStateService {
@@ -34,17 +39,75 @@ export interface CategoryStateService {
     removeGameFromCategory(gameId: string, categoryId: string): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }>;
     renameCategory(categoryId: string, name: string): Promise<{ ok: boolean; tree?: CategoryTree; reason?: string }>;
     saveCategoryState(nextState: CategoryState): Promise<CategoryState>;
+    isDegraded(): boolean;
 }
 
-export function createCategoryState({ fs, stateFile }: CategoryStateOptions): CategoryStateService {
+export function createCategoryState({
+    fs,
+    stateFile,
+    retryCount,
+    retryDelayMs
+}: CategoryStateOptions): CategoryStateService {
+    let cachedState: CategoryState | null = null;
+    let isDegradedState = false;
+    const serializedQueue = createSerializedQueue();
+
+    const isDegraded = (): boolean => isDegradedState;
+
     async function loadCategoryState(): Promise<CategoryState> {
+        if (!stateFile) {
+            return cachedState || {
+                version: CATEGORY_STATE_VERSION,
+                tree: [],
+                assignments: {}
+            };
+        }
+
         try {
-            const raw = JSON.parse(await fs.readFile(stateFile, 'utf8'));
+            if (typeof fs.stat === 'function') {
+                try {
+                    const stats = await fs.stat(stateFile);
+                    if (stats && stats.size === 0) {
+                        isDegradedState = true;
+                        return cachedState || {
+                            version: CATEGORY_STATE_VERSION,
+                            tree: [],
+                            assignments: {}
+                        };
+                    }
+                } catch (statErr: any) {
+                    if (statErr?.code === 'ENOENT') {
+                        isDegradedState = false;
+                        return {
+                            version: CATEGORY_STATE_VERSION,
+                            tree: [],
+                            assignments: {}
+                        };
+                    }
+                }
+            }
+
+            const raw = await readJsonWithRetry(stateFile, {
+                fs,
+                retryCount,
+                retryDelayMs
+            });
             const normalized = normalizeCategoryState(raw);
-            await saveCategoryState(normalized);
+            cachedState = normalized;
+            isDegradedState = false;
+            // Pure read: do not write to disk on load
             return normalized;
-        } catch {
-            return {
+        } catch (error: any) {
+            if (error?.code === 'ENOENT') {
+                isDegradedState = false;
+                return {
+                    version: CATEGORY_STATE_VERSION,
+                    tree: [],
+                    assignments: {}
+                };
+            }
+            isDegradedState = true;
+            return cachedState || {
                 version: CATEGORY_STATE_VERSION,
                 tree: [],
                 assignments: {}
@@ -52,15 +115,21 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         }
     }
 
-    async function saveCategoryState(nextState: CategoryState): Promise<CategoryState> {
+    async function persistCategoryStateDirectly(nextState: CategoryState): Promise<CategoryState> {
+        if (isDegraded()) {
+            console.warn('[CATEGORY_STATE] Persistence aborted: category state is in DEGRADED state.');
+            return cachedState || nextState;
+        }
+
         const normalized = normalizeCategoryState(nextState);
         if (stateFile) {
-            const dir = path.dirname(stateFile);
-            if (typeof (fs as any)?.mkdir === 'function') {
-                await (fs as any).mkdir(dir, { recursive: true });
-            }
+            await writeAtomicJson(stateFile, normalized, {
+                fs,
+                retryCount,
+                retryDelayMs
+            });
+            cachedState = normalized;
         }
-        await fs.writeFile(stateFile, JSON.stringify(normalized, null, 2));
         return normalized;
     }
 
@@ -74,6 +143,9 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
     }
 
     async function createCategory({ parentId = null, name }: { parentId?: string | null; name: string }): Promise<{ ok: boolean; category?: CategoryNode; tree?: CategoryTree; reason?: string }> {
+        if (isDegraded()) {
+            return { ok: false, reason: 'degraded-state' };
+        }
         const normalizedName = normalizeCategoryName(name);
         if (!normalizedName) {
             return { ok: false, reason: 'invalid-name' };
@@ -87,7 +159,7 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         const parentKey = normalizeCategoryId(parentId);
         if (!parentKey) {
             state.tree = [...state.tree, nextNode];
-            await saveCategoryState(state);
+            await persistCategoryStateDirectly(state);
             return { ok: true, category: nextNode, tree: state.tree };
         }
 
@@ -112,11 +184,14 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         if (!inserted) {
             return { ok: false, reason: 'parent-not-found' };
         }
-        await saveCategoryState(state);
+        await persistCategoryStateDirectly(state);
         return { ok: true, category: nextNode, tree: state.tree };
     }
 
     async function renameCategory(categoryId: string, name: string): Promise<{ ok: boolean; tree?: CategoryTree; reason?: string }> {
+        if (isDegraded()) {
+            return { ok: false, reason: 'degraded-state' };
+        }
         const normalizedId = normalizeCategoryId(categoryId);
         const normalizedName = normalizeCategoryName(name);
         if (!normalizedId || !normalizedName) {
@@ -142,11 +217,14 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         if (!renamed) {
             return { ok: false, reason: 'not-found' };
         }
-        await saveCategoryState(state);
+        await persistCategoryStateDirectly(state);
         return { ok: true, tree: state.tree };
     }
 
     async function deleteCategory(categoryId: string): Promise<{ ok: boolean; tree?: CategoryTree; removedIds?: string[]; reason?: string }> {
+        if (isDegraded()) {
+            return { ok: false, reason: 'degraded-state' };
+        }
         const normalizedId = normalizeCategoryId(categoryId);
         if (!normalizedId) {
             return { ok: false, reason: 'invalid-id' };
@@ -158,11 +236,14 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         }
         state.tree = tree;
         state.assignments = pruneAssignments(state.assignments, removedIds);
-        await saveCategoryState(state);
+        await persistCategoryStateDirectly(state);
         return { ok: true, tree: state.tree, removedIds: [...removedIds] };
     }
 
     async function assignGameToCategory(gameId: string, categoryId: string): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }> {
+        if (isDegraded()) {
+            return { ok: false, reason: 'degraded-state' };
+        }
         const normalizedGameId = String(gameId || '').trim();
         const normalizedCategoryId = normalizeCategoryId(categoryId);
         if (!normalizedGameId || !normalizedCategoryId) {
@@ -176,11 +257,14 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         const nextIds = new Set(state.assignments[normalizedGameId] || []);
         nextIds.add(normalizedCategoryId);
         state.assignments[normalizedGameId] = [...nextIds];
-        await saveCategoryState(state);
+        await persistCategoryStateDirectly(state);
         return { ok: true, categoryIds: state.assignments[normalizedGameId] };
     }
 
     async function assignGameCategories(gameId: string, categoryIds: string[]): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }> {
+        if (isDegraded()) {
+            return { ok: false, reason: 'degraded-state' };
+        }
         const normalizedGameId = String(gameId || '').trim();
         if (!normalizedGameId) {
             return { ok: false, reason: 'invalid-game-id' };
@@ -195,11 +279,14 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         } else {
             delete state.assignments[normalizedGameId];
         }
-        await saveCategoryState(state);
+        await persistCategoryStateDirectly(state);
         return { ok: true, categoryIds: state.assignments[normalizedGameId] || [] };
     }
 
     async function removeGameFromCategory(gameId: string, categoryId: string): Promise<{ ok: boolean; categoryIds?: string[]; reason?: string }> {
+        if (isDegraded()) {
+            return { ok: false, reason: 'degraded-state' };
+        }
         const normalizedGameId = String(gameId || '').trim();
         const normalizedCategoryId = normalizeCategoryId(categoryId);
         if (!normalizedGameId || !normalizedCategoryId) {
@@ -213,20 +300,28 @@ export function createCategoryState({ fs, stateFile }: CategoryStateOptions): Ca
         } else {
             delete state.assignments[normalizedGameId];
         }
-        await saveCategoryState(state);
+        await persistCategoryStateDirectly(state);
         return { ok: true, categoryIds: state.assignments[normalizedGameId] || [] };
     }
 
     return {
-        assignGameCategories,
-        assignGameToCategory,
-        createCategory,
-        deleteCategory,
+        assignGameCategories: (gameId: string, categoryIds: string[]) =>
+            serializedQueue(() => assignGameCategories(gameId, categoryIds)),
+        assignGameToCategory: (gameId: string, categoryId: string) =>
+            serializedQueue(() => assignGameToCategory(gameId, categoryId)),
+        createCategory: (opts: { parentId?: string | null; name: string }) =>
+            serializedQueue(() => createCategory(opts)),
+        deleteCategory: (categoryId: string) =>
+            serializedQueue(() => deleteCategory(categoryId)),
         getAssignmentsForGameId,
         getCategoryTree,
         loadCategoryState,
-        removeGameFromCategory,
-        renameCategory,
-        saveCategoryState
+        removeGameFromCategory: (gameId: string, categoryId: string) =>
+            serializedQueue(() => removeGameFromCategory(gameId, categoryId)),
+        renameCategory: (categoryId: string, name: string) =>
+            serializedQueue(() => renameCategory(categoryId, name)),
+        saveCategoryState: (nextState: CategoryState) =>
+            serializedQueue(() => persistCategoryStateDirectly(nextState)),
+        isDegraded
     };
 }

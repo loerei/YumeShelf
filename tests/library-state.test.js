@@ -478,3 +478,107 @@ test('setSaveFolderOverride persists and clears override in DB', async () => {
     savedDb = db.read();
     assert.equal(savedDb.games['MyGame'].saveFolderOverride, undefined);
 });
+
+test('library-state: degraded state protects 0-byte or corrupted files from destructive overwrites and recovers', async () => {
+    const rootPath = await makeTempDir();
+    const dbFilePath = path.join(rootPath, 'library_db.json');
+
+    const state = createLibraryState({
+        categoryState: null,
+        defaultGamesDir: path.join(rootPath, 'DefaultLibrary'),
+        dialog: null,
+        fs,
+        fsSync,
+        dbFilePath
+    });
+
+    // Cold start (missing file) is NOT degraded
+    assert.equal(state.isDegraded(), false);
+    const initial = await state.loadDB();
+    assert.deepEqual(initial, {});
+    assert.equal(state.isDegraded(), false);
+
+    // Simulate 0-byte truncated file
+    await fs.writeFile(dbFilePath, '');
+    assert.equal((await fs.stat(dbFilePath)).size, 0);
+
+    const loadedWhenTruncated = await state.loadDB();
+    assert.deepEqual(loadedWhenTruncated, {});
+    assert.equal(state.isDegraded(), true);
+
+    // Compound mutator and saveDB should abort write while degraded
+    await state.saveDB({ corruptedOverwrite: true });
+    // Verify file on disk is still 0 bytes and was NOT overwritten
+    assert.equal((await fs.stat(dbFilePath)).size, 0);
+
+    // Simulate restoring valid database
+    const validDb = { config: { libraryPaths: [] }, games: { myGame: { name: 'Valid' } } };
+    await fs.writeFile(dbFilePath, JSON.stringify(validDb));
+
+    const recovered = await state.loadDB();
+    assert.deepEqual(recovered, validDb);
+    assert.equal(state.isDegraded(), false);
+
+    // Now saveDB should persist cleanly
+    await state.saveDB({ ...validDb, saved: true });
+    const finalContent = JSON.parse(await fs.readFile(dbFilePath, 'utf8'));
+    assert.equal(finalContent.saved, true);
+});
+
+test('library-state: inactive library path games are retained with directory boundary prefix matching', async () => {
+    const rootPath = await makeTempDir();
+    const activeLib = path.join(rootPath, 'ActiveLibrary');
+    const inactiveLib = path.join(rootPath, 'ExternalDrive', 'Games');
+    const siblingLib = path.join(rootPath, 'ExternalDrive', 'GamesExtra');
+
+    await fs.mkdir(activeLib, { recursive: true });
+    const activeGameFolder = path.join(activeLib, 'ActiveGame');
+    await writeExe(path.join(activeGameFolder, 'Game.exe'));
+
+    // Note: inactiveLib and siblingLib do NOT exist on disk (simulating disconnected drive)
+    const initialDb = {
+        config: {
+            libraryPaths: [activeLib, inactiveLib]
+        },
+        games: {
+            'inactive:game1': {
+                name: 'Inactive Game 1',
+                folderPath: path.join(inactiveLib, 'Game1'),
+                exePath: path.join(inactiveLib, 'Game1', 'Game.exe'),
+                favorite: true
+            },
+            'sibling:game2': {
+                name: 'Sibling Game 2',
+                folderPath: path.join(siblingLib, 'Game2'),
+                exePath: path.join(siblingLib, 'Game2', 'Game.exe')
+            },
+            'malformed:game3': {
+                name: 'Malformed No FolderPath'
+                // folderPath omitted or undefined
+            }
+        }
+    };
+
+    const harness = createLibraryHarness(rootPath, initialDb);
+    const result = await harness.state.loadGamesForConfig({
+        libraryPaths: [activeLib, inactiveLib],
+        maxDepth: 2
+    });
+
+    const savedDb = harness.db.read();
+
+    // Inactive game must be preserved in savedDb.games
+    assert.ok(savedDb.games['inactive:game1'], 'inactive:game1 should be retained');
+    assert.equal(savedDb.games['inactive:game1'].favorite, true);
+
+    // Sibling directory game sharing prefix must NOT match inactiveLib and should be pruned
+    assert.equal(savedDb.games['sibling:game2'], undefined, 'sibling:game2 should not match inactiveLib');
+
+    // Malformed record without valid folderPath must be safely bypassed
+    assert.equal(savedDb.games['malformed:game3'], undefined);
+
+    // Active game must be scanned and present
+    const activeGameFound = Object.values(savedDb.games).find((g) => g.folderName === 'ActiveGame');
+    assert.ok(activeGameFound, 'Active game should be scanned and present');
+});
+

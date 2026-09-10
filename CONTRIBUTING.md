@@ -2,7 +2,7 @@
 
 Hi. If you want to help make YumeShelf better, contributions are very welcome.
 
-If you want to work together, request a feature, or discuss something directly with me, feel free to DM me on Discord at https://discord.com/users/tetehahahahaha.
+If you want to work together, request a feature, or discuss something directly with me, feel free to DM me on Discord at https://discord.com/users/1440660675314585732.
 
 You do not need to follow a 10-step corporate process here. Just keep things simple and follow the practical rules below.
 

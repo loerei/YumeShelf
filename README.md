@@ -100,7 +100,7 @@ YumeShelf and the **YumeEngine** core extraction are built upon foundational ope
 
 YumeShelf is open-source and constantly evolving. If anyone wants to help test on different Linux distros, submit translations, suggest new features, or report bugs, PRs and feedback are welcome. Check [CONTRIBUTING.md](CONTRIBUTING.md) for quick guidelines.
 
-If you want to work together, request a feature, or discuss something directly with me, feel free to DM me on Discord at https://discord.com/users/tetehahahahaha.
+If you want to work together, request a feature, or discuss something directly with me, feel free to DM me on Discord at https://discord.com/users/1440660675314585732.
 
 ---
 

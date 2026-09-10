@@ -34,6 +34,10 @@ function main() {
         process.exit(1);
     }
 
+    const headingLine = startMatch[0].trim();
+    const titleMatch = /:\s*([^—\r\n]+?)(?:\s*—\s*released)?\s*$/.exec(headingLine);
+    const versionTitle = titleMatch ? titleMatch[1].trim() : '';
+
     const startIdx = startMatch.index + startMatch[0].length;
     // Find next ## [...] heading or end of file
     const nextSectionMatch = /^## \[/m.exec(fullChangelog.slice(startIdx));
@@ -41,7 +45,7 @@ function main() {
         ? fullChangelog.slice(startIdx, startIdx + nextSectionMatch.index)
         : fullChangelog.slice(startIdx);
 
-    console.log(`Compiling release notes for v${version} from CHANGELOG.md`);
+    console.log(`Compiling release notes for v${version}${versionTitle ? ` ("${versionTitle}")` : ''} from CHANGELOG.md`);
 
     // 3. Strip technical bracket tags "- [tag-name] message" -> "- message"
     let cleanBody = rawBlock.replace(/^(\s*-\s+)\[[^\]]+\]\s*/gm, '$1');
@@ -77,6 +81,10 @@ function main() {
         .replace(/\n{3,}/g, '\n\n')
         .trim() + '\n';
 
+    if (versionTitle && !finalCleanBody.startsWith(`# ${versionTitle}`)) {
+        finalCleanBody = `# ${versionTitle}\n\n` + finalCleanBody;
+    }
+
     // 5. Write compiled release notes
     const outDir = path.join(repoRoot, 'docs', 'changelogs');
     if (!fs.existsSync(outDir)) {
@@ -94,12 +102,13 @@ function main() {
     // 6. If --release flag, mark version heading with release date in CHANGELOG.md
     if (hasReleaseFlag) {
         const nowDate = new Date().toISOString().slice(0, 10);
+        const headingSuffix = versionTitle ? `: ${versionTitle} — released\n` : ' — released\n';
         const updatedChangelog = fullChangelog.replace(
             versionHeadingRe,
-            `## [${version}] - ${nowDate} — released\n`
+            `## [${version}] - ${nowDate}${headingSuffix}`
         );
         fs.writeFileSync(changelogPath, updatedChangelog, 'utf8');
-        console.log(`Updated CHANGELOG.md: marked [${version}] as released on ${nowDate}`);
+        console.log(`Updated CHANGELOG.md: marked [${version}] as released on ${nowDate}${versionTitle ? ` ("${versionTitle}")` : ''}`);
     } else {
         console.log(`Dry run complete. Use --release flag to mark [${version}] as released in CHANGELOG.md.`);
     }

@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.6] - working
+## [2.2.6] - working: Fixed Library Wiping Bug While Playing
 
 ### What Changed
 - Your library, favorites, and categories will not get wiped while playing games anymore: YumeShelf used to trigger a full disk rescan every 5 seconds while a game was running. If Windows locked the database file or a read raced with a write, it could reset your library folders and favorites back to empty defaults. Playtime now updates cleanly in memory while you play, and writes are safe and atomic.

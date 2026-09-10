@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { formatPlaytime, timeSince } from '../utils/formatting';
+import { getGameKey } from '../library-order';
 
 function escapeCssSelector(value) {
     if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
@@ -67,19 +68,32 @@ export function bindIpcEvents({
             const strings = typeof getStrings === 'function' ? getStrings() : {};
             const recentStatusText = timeSince(target.lastPlayed, getStrings);
 
-            const repKey = target.gameKey || target.gameId;
-            if (repKey) {
-                const escapedRepKey = escapeCssSelector(repKey);
-                const gridCards = documentRef.querySelectorAll(`.game-card[data-game-key="${escapedRepKey}"]:not(.stack-overlay-card)`);
+            const candidateKeys = new Set([
+                typeof getGameKey === 'function' ? getGameKey(target) : null,
+                target.gameId,
+                target.gameKey,
+                gameKey
+            ].filter(Boolean));
+            if (candidateKeys.size > 0) {
+                const gridSelector = Array.from(candidateKeys)
+                    .map((key) => `.game-card[data-game-key="${escapeCssSelector(key)}"]:not(.stack-overlay-card)`)
+                    .join(', ');
+                const gridCards = documentRef.querySelectorAll(gridSelector);
                 gridCards.forEach((card) => {
                     const statusEl = card.querySelector('.game-status');
                     if (statusEl) statusEl.textContent = recentStatusText;
                 });
             }
 
-            if (gameKey) {
-                const escapedInstanceKey = escapeCssSelector(gameKey);
-                const overlayCards = documentRef.querySelectorAll(`.stack-overlay-card[data-game-key="${escapedInstanceKey}"]`);
+            const instanceCandidateKeys = new Set([
+                gameKey,
+                ...(Array.isArray(target.instances) ? target.instances.flatMap((i) => [i.gameKey, i.gameId, i.instanceId]) : [])
+            ].filter(Boolean));
+            if (instanceCandidateKeys.size > 0) {
+                const overlaySelector = Array.from(instanceCandidateKeys)
+                    .map((key) => `.stack-overlay-card[data-game-key="${escapeCssSelector(key)}"]`)
+                    .join(', ');
+                const overlayCards = documentRef.querySelectorAll(overlaySelector);
                 overlayCards.forEach((card) => {
                     const statusEl = card.querySelector('.game-status');
                     if (statusEl) statusEl.textContent = recentStatusText;
@@ -157,10 +171,17 @@ export function bindIpcEvents({
             const playingText = strings?.status_playing || 'Playing';
 
             // 1. Representative cards in library grid
-            const repKey = target.gameKey || target.gameId;
-            if (repKey) {
-                const escapedRepKey = escapeCssSelector(repKey);
-                const gridCards = documentRef.querySelectorAll(`.game-card[data-game-key="${escapedRepKey}"]:not(.stack-overlay-card)`);
+            const candidateKeys = new Set([
+                typeof getGameKey === 'function' ? getGameKey(target) : null,
+                target.gameId,
+                target.gameKey,
+                gameKey
+            ].filter(Boolean));
+            if (candidateKeys.size > 0) {
+                const gridSelector = Array.from(candidateKeys)
+                    .map((key) => `.game-card[data-game-key="${escapeCssSelector(key)}"]:not(.stack-overlay-card)`)
+                    .join(', ');
+                const gridCards = documentRef.querySelectorAll(gridSelector);
                 gridCards.forEach((card) => {
                     const playtimeEl = card.querySelector('.game-playtime');
                     if (playtimeEl) playtimeEl.textContent = formatPlaytime(target.playtime);
@@ -170,15 +191,25 @@ export function bindIpcEvents({
             }
 
             // 2. Child instance cards in an open duplicate stack overlay modal
-            const escapedInstanceKey = escapeCssSelector(gameKey);
-            const overlayCards = documentRef.querySelectorAll(`.stack-overlay-card[data-game-key="${escapedInstanceKey}"]`);
-            overlayCards.forEach((card) => {
-                const playtimeEl = card.querySelector('.game-playtime');
-                const instancePlaytime = activeChildInstance ? activeChildInstance.playtime : target.playtime;
-                if (playtimeEl) playtimeEl.textContent = formatPlaytime(instancePlaytime);
-                const statusEl = card.querySelector('.game-status');
-                if (statusEl) statusEl.textContent = playingText;
-            });
+            const instanceCandidateKeys = new Set([
+                gameKey,
+                activeChildInstance?.gameKey,
+                activeChildInstance?.gameId,
+                activeChildInstance?.instanceId
+            ].filter(Boolean));
+            if (instanceCandidateKeys.size > 0) {
+                const overlaySelector = Array.from(instanceCandidateKeys)
+                    .map((key) => `.stack-overlay-card[data-game-key="${escapeCssSelector(key)}"]`)
+                    .join(', ');
+                const overlayCards = documentRef.querySelectorAll(overlaySelector);
+                overlayCards.forEach((card) => {
+                    const playtimeEl = card.querySelector('.game-playtime');
+                    const instancePlaytime = activeChildInstance ? activeChildInstance.playtime : target.playtime;
+                    if (playtimeEl) playtimeEl.textContent = formatPlaytime(instancePlaytime);
+                    const statusEl = card.querySelector('.game-status');
+                    if (statusEl) statusEl.textContent = playingText;
+                });
+            }
         }
     });
 

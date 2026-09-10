@@ -231,4 +231,68 @@ describe('bindIpcEvents - Playtime & Game Lifecycle Handling', () => {
         expect(setAllGames).toHaveBeenCalledTimes(1);
         expect(sortGames).toHaveBeenCalledTimes(1);
     });
+
+    it('updates card to Playing and increments playtime when gameId differs from gameKey (continuity ID)', async () => {
+        let playtimeUpdatedHandler;
+        let gameStoppedHandler;
+        const mockElectronAPI = {
+            onBootStatus: vi.fn(),
+            onGameStopped: (cb) => { gameStoppedHandler = cb; },
+            onGamePlaytimeUpdated: (cb) => { playtimeUpdatedHandler = cb; },
+            onTranslationStatus: vi.fn(),
+            getGames: vi.fn().mockResolvedValue([])
+        };
+
+        const targetGame = {
+            gameId: 'game:folder:living with a little fox girl|exe:game',
+            gameKey: 'living with a little fox girl',
+            playtime: 0,
+            basePlaytime: 0,
+            isRunning: false
+        };
+
+        const gridCard = createMockCard('game:folder:living with a little fox girl|exe:game', false);
+
+        const mockDocument = {
+            querySelectorAll: (selector) => {
+                const unescaped = selector.replace(/\\/g, '');
+                if (unescaped.includes(':not(.stack-overlay-card)') && (
+                    unescaped.includes('living with a little fox girl') || unescaped.includes('exe:game')
+                )) {
+                    return [gridCard];
+                }
+                return [];
+            }
+        };
+
+        bindIpcEvents({
+            electronAPI: mockElectronAPI,
+            bootController: { show: vi.fn(), hide: vi.fn() },
+            updateNotificationFeature: {},
+            getAllGames: () => [targetGame],
+            getCurrentSort: () => 'name',
+            setAllGames: vi.fn(),
+            setRunningFlag: (key, isRunning) => { targetGame.isRunning = isRunning; },
+            sortGames: vi.fn(),
+            documentRef: mockDocument,
+            getStrings: () => ({ status_playing: 'Playing', status_recent: 'Just now' })
+        });
+
+        await playtimeUpdatedHandler({
+            gameKey: 'game:folder:living with a little fox girl|exe:game',
+            accruedMs: 65000
+        });
+
+        expect(targetGame.isRunning).toBe(true);
+        expect(targetGame.playtime).toBe(65000);
+        expect(gridCard.querySelector('.game-status').textContent).toBe('Playing');
+        expect(gridCard.querySelector('.game-playtime').textContent).toBe('1m');
+
+        // Now stop the game and verify fast transition to 'Just now'
+        await gameStoppedHandler({
+            gameKey: 'game:folder:living with a little fox girl|exe:game'
+        });
+        expect(targetGame.isRunning).toBe(false);
+        expect(gridCard.querySelector('.game-status').textContent).toBe('Just now');
+    });
 });

@@ -6,11 +6,13 @@ Audits whether the Directive Artifact (DA) establishes an optimal, incremental, 
 
 Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Treat all phase breakdowns, ticket boundaries, and sequencing as a first-draft proposal regardless of git history, commit frequency, or edit timestamps. Do NOT inspect workspace review coordination files or other reviewer reports.
 
+- **Review Workspace Binding**: The review workspace directory `<review_dir>` is assigned dynamically per session and passed via your invocation prompt (`Review Workspace: <review_dir>`, `Domain Context: <review_dir>/Context.md`, `Output Path: <review_dir>/reports/<Role>.md`) and defined in `<review_dir>/Context.md`. In all file paths throughout this guide containing `<review_dir>`, substitute this assigned directory path.
+
 **Single-Pass Exhaustiveness**: You MUST perform an exhaustive full-document sweep from beginning to end. Report an unabridged inventory of ALL progress, sequencing, and work-breakdown defects across the entire document in a single pass. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
 
 **Ground-Truth Alignment**:
 - Ground ticket breakdowns in actual codebase dependencies and test suites. Do NOT demand speculative ticket splits for stable, working modules.
-- **Dependency Lineage Alignment**: If `.scratch/deep-review/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
+- **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
   - Verify that the target DA's milestones and ticket prerequisites correctly sequence with `Upstream` DAs (ensuring target tickets do not attempt to implement upstream capabilities or assume upstream milestones are complete without explicit staging).
 - Follow Postel's Law: Preserve backward-compatible decoding during transitional milestone phases.
 
@@ -18,6 +20,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 - **Ground-Truth**: Verify on disk that referenced modules, files, or tickets exist before prescribing relocation, splitting, or phase sequencing, and verify boundary contracts are updated symmetrically.
 - **Macro Flow**: Verify that the proposed breakdown maintains dependency order and does not create deadlocks across phases.
 - **System Invariants vs. Implementation Mechanics**: Audit ONLY for **System Invariants** (e.g. structural seams, threat models, lifecycle bounds, cross-boundary contracts) that standard TDD misses without explicit specification. Ticket code snippets are illustrative examples, not production code; NEVER report internal implementation mechanics (e.g. syntax, types, exports, regex flags) as blocking defects. If a required behavior or edge case is missing, demand an **Acceptance Criterion**; NEVER rewrite or patch code snippets.
+- **Technical Impasse & Infeasibility Reporting**: If an audited requirement, ticket premise, or dependency is technically impossible or blocked by hard platform constraints (e.g. OS sandbox, CORS/same-origin, missing third-party capability, physical resource ceiling) with no viable in-scope fix: NEVER invent hallucinated workarounds and NEVER conceal the issue. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths` if known.
 
 ## Mandatory Audit Questions
 
@@ -41,6 +44,7 @@ When restructuring multi-phase PRDs or tickets, reviewers MUST formulate finding
 - **`DEMOTE_PRD_TO_TICKET`**: Demote an overly trivial PRD into a single ticket within an existing parent PRD.
 
 ### 3. Micro & Ticket-Level Actions (Ticket ↔ Ticket)
+- **`[IMPASSE]`**: Identify an insurmountable platform or technical impossibility in a ticket or phase premise where no viable in-scope work breakdown restructuring exists.
 - **`SPLIT_TICKET_TRACER_BULLETS`**: Split a monolithic ticket into sequential tracer bullets using **Hierarchical Dot Notation** (e.g., `Ticket 3` $\rightarrow$ `Ticket 3.1` and `Ticket 3.2`; `Ticket 3.2` $\rightarrow$ `Ticket 3.2.1` and `Ticket 3.2.2`). NEVER renumber subsequent tickets (`04 -> 05`).
 - **`MERGE_TICKETS`**: Combine fragmented tickets that cannot be independently tested or delivered in isolation into a single cohesive ticket.
 - **`REORDER_TICKETS`**: Re-sequence tickets within a phase to build data models, contracts, and test seams before consuming logic.
@@ -71,19 +75,21 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 - Return `STATUS: REVISIONS NEEDED` if tickets are monolithic/unsplit, have broken/forward dependencies, leak scope across phase boundaries, or lack incremental verifiability.
 - Return `STATUS: PASS` if the work breakdown structure is strictly incremental, dependency-sound, and granularly decomposed into tracer bullets.
+- Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
 - NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
 
 ## Standard Output Protocol
 
-Save evaluation to `.scratch/deep-review/reports/Progress.md` via `write_to_file` using this format:
+Save evaluation to `<review_dir>/reports/Progress.md` via `write_to_file` using this format:
 
 ### Review Evaluation: Progress & Work Breakdown Reviewer
 
-- **Status**: `STATUS: PASS` or `STATUS: REVISIONS NEEDED`
+- **Status**: `STATUS: PASS`, `STATUS: REVISIONS NEEDED`, or `STATUS: INFEASIBLE`
 
 ### Blocking Issues (Exhaustive List of ALL Identified Defects):
-<!-- Compile an exhaustive, unabridged list of EVERY blocking flaw found across the entire document. Do NOT truncate or defer issues. -->
+<!-- Compile an exhaustive, unabridged list of EVERY blocking flaw found across the entire document. Do NOT truncate or defer issues. If at least one infeasible defect is present, the overall report status MUST be STATUS: INFEASIBLE; fixable defects may still be documented below for comprehensive single-pass audit fidelity. -->
 
+<!-- For Fixable WBS Defects -->
 1. **[<ACTION_NAME>] <Issue Title 1>**:
    - **Target Scope / Source**: `<Source_Files_or_Tickets>`
    - **Target Destination**: `<Target_Files_or_New_PRD_Path>`
@@ -92,12 +98,12 @@ Save evaluation to `.scratch/deep-review/reports/Progress.md` via `write_to_file
    - **Ground-Truth Proof**: <Path to existing files, modules, or tickets on disk/spec verifying dependency exists, or verified target destination location for newly planned tickets/files>
    - **Macro Flow Proof**: <Verification that delivery sequence, phase prerequisites, and milestone boundaries remain acyclic and deliverable>
 
-2. **[<ACTION_NAME>] <Issue Title 2>**:
+<!-- For Infeasible WBS Defects (forces overall report Status to STATUS: INFEASIBLE) -->
+1. **[IMPASSE] <Issue Title 1>**:
    - **Target Scope / Source**: `<Source_Files_or_Tickets>`
-   - **Target Destination**: `<Target_Files_or_New_PRD_Path>`
-   - **Technical Rationale**: <Why this restructuring is required for incremental deliverability or dependency soundness>
-   - **Required Transformation**: <Step-by-step instructions on splitting, merging, extracting, or reordering>
-   - **Ground-Truth Proof**: <Path to existing files, modules, or tickets on disk/spec verifying dependency exists, or verified target destination location for newly planned tickets/files>
+   - **Technical Rationale**: <Technical rationale explaining why the ticket or phase premise is impossible>
+   - **Infeasibility Proof**: <Empirical proof and sandbox traces demonstrating why the requirement is technically impossible under target constraints>
+   - **Alternative Architectural Paths**: <Viable architectural pivot options, or state if dead-end>
    - **Macro Flow Proof**: <Verification that delivery sequence, phase prerequisites, and milestone boundaries remain acyclic and deliverable>
 
 ### Suggestions for Improvement (Non-blocking):
@@ -108,26 +114,26 @@ Once your report is written, send a notification message back to Host via `send_
 
 ## Gate Response Protocol (Host Interaction)
 
-If Host determines that any issue in your report lacks Ground-Truth Proof, lacks Macro Flow Proof, cites non-existent codebase APIs, breaks boundary contract symmetry, introduces cross-section contradictions, or violates scope boundaries, Host will file `.scratch/deep-review/reports/Progress_Gated_Issues.md` and notify you via message.
+If Host determines that any issue in your report lacks Ground-Truth Proof, lacks Macro Flow Proof, cites non-existent codebase APIs, breaks boundary contract symmetry, introduces cross-section contradictions, asserts an ungrounded infeasibility claim, or violates scope boundaries, Host will file `<review_dir>/reports/Progress_Gated_Issues.md` and notify you via message.
 
-Upon receiving a gating notification from Host, you MUST read `.scratch/deep-review/reports/Progress_Gated_Issues.md` via `view_file` and choose one of three actions:
+Upon receiving a gating notification from Host, you MUST read `<review_dir>/reports/Progress_Gated_Issues.md` via `view_file` and choose one of three actions:
 
 1. **Refine / Complete as Requested**:
-   - If the defect is real but your proposed transformation was ungrounded, broke boundary symmetry, or introduced intra-DA contradictions:
-   - Edit `.scratch/deep-review/reports/Progress.md` in-place via native `write_to_file`.
-   - Strip invalid snippets and restate the transformation as an abstract, unambiguous specification requirement, or provide verified ground-truth proof. If gated for `Asymmetric Boundary Contract`, update the transformation to symmetrically include all affected internal boundary endpoints. If gated for `Cross-Section Contradiction`, update the transformation to harmonize dependent sections.
-   - If `.scratch/deep-review/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
+   - If the defect is real but your proposed transformation was ungrounded, broke boundary symmetry, introduced intra-DA contradictions, or asserted a speculative impasse where standard configuration, seam, or work breakdown restructuring exists:
+   - Edit `<review_dir>/reports/Progress.md` in-place via native `write_to_file`.
+   - Strip invalid snippets and restate the transformation as an abstract, unambiguous specification requirement, or provide verified ground-truth proof. If gated for `Asymmetric Boundary Contract`, update the transformation to symmetrically include all affected internal boundary endpoints. If gated for `Cross-Section Contradiction`, update the transformation to harmonize dependent sections. If converting a speculative impasse claim to a fixable defect, provide concrete `Required Transformation` alongside `Target Scope / Source`, `Target Destination`, `Technical Rationale`, `Ground-Truth Proof`, and `Macro Flow Proof`, and update report header from `- **Status**: STATUS: INFEASIBLE` to `- **Status**: STATUS: REVISIONS NEEDED`.
+   - If `<review_dir>/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
 
 2. **Remove**:
-   - If Host's evidence shows the defect is invalid, false-positive, or speculative:
-   - Edit `.scratch/deep-review/reports/Progress.md` in-place via native `write_to_file`, removing that issue completely.
-   - If all blocking issues are removed from your report, update your status to `- **Status**: STATUS: PASS`.
-   - If `.scratch/deep-review/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
+   - If Host's evidence shows the defect or platform barrier claim is invalid, false-positive, or speculative:
+   - Edit `<review_dir>/reports/Progress.md` in-place via native `write_to_file`, removing that issue completely.
+   - If all blocking issues are removed from your report, update your status to `- **Status**: STATUS: PASS`; if other fixable defects remain, update your status to `- **Status**: STATUS: REVISIONS NEEDED`.
+   - If `<review_dir>/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
 
 3. **Reject Gating/Removal and Explain**:
-   - If you have concrete, differing codebase evidence proving the defect and proposed fix are correct and complete:
-   - Author `.scratch/deep-review/reports/Progress_Explain.md` via native `write_to_file`, detailing the exact file paths, line numbers, and runtime data flow that prove validity.
-   - You MUST ALSO update `.scratch/deep-review/reports/Progress.md` in-place to integrate the substantiated `Ground-Truth Proof`, `Macro Flow Proof`, and clean remediation text, ensuring `Progress.md` remains the clean single source of truth for Host aggregation.
+   - If you have concrete, differing codebase evidence proving the defect, proposed fix, or technical impasse are correct and complete:
+   - Author `<review_dir>/reports/Progress_Explain.md` via native `write_to_file`, detailing the exact file paths, line numbers, runtime data flow, or empirical probe logs / sandbox traces that prove validity.
+   - You MUST ALSO update `<review_dir>/reports/Progress.md` in-place to integrate the substantiated `Ground-Truth Proof`, `Macro Flow Proof`, and clean remediation text (or verified `Infeasibility Proof` and `Alternative Architectural Paths`), ensuring `Progress.md` remains the clean single source of truth for Host aggregation.
    - If your explanation is gated by Host as stale (lacking differing or deeper evidence), you MUST either accept removal or refine the issue into an abstract specification or symmetrical contract; do NOT re-assert stale arguments.
 
 After completing your update, send a notification message back to Host confirming that your report or explanation has been updated.

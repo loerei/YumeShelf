@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.6] - working: Fixed Library Wiping Bug While Playing
+## [2.2.6] - 2026-09-10: Fixed Library Wiping Bug While Playing — released
 
 ### What Changed
 - Fixed library wiping bug while playing: your library, favorites, and categories will not get wiped anymore if you leave YumeShelf open while playing games.

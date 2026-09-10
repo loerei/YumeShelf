@@ -8,7 +8,7 @@ import * as https from 'node:https';
 export interface AtomicFsAdapter {
     writeFile(path: string, data: string): Promise<void>;
     readFile?(path: string, options?: any): Promise<string>;
-    stat?(path: string): Promise<{ size: number } | any>;
+    stat?(path: string): Promise<{ size?: number; [key: string]: any }>;
     rename?(oldPath: string, newPath: string): Promise<void>;
     unlink?(path: string): Promise<void>;
     mkdir?(path: string, options?: any): Promise<void>;
@@ -38,7 +38,7 @@ export async function writeAtomicJson(
         return;
     }
 
-    const highEntropy = Math.random().toString(36).slice(2);
+    const highEntropy = crypto.randomBytes(6).toString('hex');
     const tmpSuffix = options?.tmpSuffix || `tmp.${process.pid}.${Date.now()}.${highEntropy}`;
     const tmpPath = `${filePath}.${tmpSuffix}`;
 
@@ -104,7 +104,7 @@ export async function readJsonWithRetry<T = any>(
     while (true) {
         try {
             const content = await readFileFn(filePath);
-            if (!content || !content.trim()) {
+            if (!content?.trim()) {
                 throw new Error(`Unexpected empty JSON file: ${filePath}`);
             }
             return JSON.parse(content) as T;

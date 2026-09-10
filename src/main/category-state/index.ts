@@ -1,4 +1,3 @@
-import * as path from 'node:path';
 import {
     CATEGORY_STATE_VERSION,
     normalizeCategoryId,
@@ -67,7 +66,7 @@ export function createCategoryState({
             if (typeof fs.stat === 'function') {
                 try {
                     const stats = await fs.stat(stateFile);
-                    if (stats && stats.size === 0) {
+                    if (stats?.size === 0) {
                         isDegradedState = true;
                         return cachedState || {
                             version: CATEGORY_STATE_VERSION,

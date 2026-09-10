@@ -1,4 +1,3 @@
-import * as path from 'node:path';
 import * as scanner from './scanner';
 import * as continuity from './continuity';
 import * as config from './config';
@@ -84,7 +83,7 @@ export function createLibraryState(options: LibraryContext) {
                 if (typeof options.fs?.stat === 'function') {
                     try {
                         const stats = await options.fs.stat(options.dbFilePath);
-                        if (stats && stats.size === 0) {
+                        if (stats?.size === 0) {
                             isDegradedState = true;
                             return cachedDb || {};
                         }

@@ -6,7 +6,7 @@ function escapeCssSelector(value) {
     if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
         return CSS.escape(value);
     }
-    return String(value || '').replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, '\\$1');
+    return String(value || '').replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, String.raw`\$1`);
 }
 
 export function bindIpcEvents({
@@ -65,7 +65,6 @@ export function bindIpcEvents({
 
         // Fast synchronous DOM update (<100ms) before async library reload
         if (documentRef && target) {
-            const strings = typeof getStrings === 'function' ? getStrings() : {};
             const recentStatusText = timeSince(target.lastPlayed, getStrings);
 
             const candidateKeys = new Set([

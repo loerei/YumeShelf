@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import {
     normalizeLibraryConfigShape,
     normalizePathForComparison,
@@ -18,6 +19,14 @@ import {
     normalizeGameRecord,
     buildLogicalGames
 } from './continuity';
+
+function isPathWithinDirectory(targetPath: string, parentDir: string): boolean {
+    const normTarget = path.normalize(targetPath).toLowerCase();
+    const normParent = path.normalize(parentDir).toLowerCase();
+    if (normTarget === normParent) return true;
+    const parentWithSep = normParent.endsWith(path.sep) ? normParent : normParent + path.sep;
+    return normTarget.startsWith(parentWithSep);
+}
 
 function readStoredGames(db: any): Record<string, any> {
     return isPlainObject(db.games) ? db.games : {};
@@ -184,23 +193,87 @@ export async function loadGamesForConfig(context: any, config: LibraryConfig): P
         })
     );
 
-    const nextGames: Record<string, any> = {};
+    const scannedGames: Record<string, any> = {};
     for (const item of candidateResults) {
         if (item) {
-            nextGames[item.gameKey] = item.record;
+            scannedGames[item.gameKey] = item.record;
         }
     }
 
-    db.config = normalizedConfig;
-    db.titleResolutionConfig = {
-        titleDisplayMode: normalizedConfig.titleDisplayMode,
-        displayProductCodes: normalizedConfig.displayProductCodes,
-        preferredLocale: normalizedConfig.preferredLocale
+    const persistPhase = async () => {
+        if (context.isDegraded?.() === true) {
+            console.warn('[LOADER] Persistence aborted: library state is in DEGRADED state.');
+            return scannedGames;
+        }
+
+        const latestDb = await loadDB();
+        if (context.isDegraded?.() === true) {
+            console.warn('[LOADER] Persistence aborted: library state is in DEGRADED state after loadDB.');
+            return scannedGames;
+        }
+
+        const latestStoredGames = readStoredGames(latestDb);
+        const nextGames: Record<string, any> = {};
+
+        for (const [gameKey, scannedRecord] of Object.entries(scannedGames)) {
+            const latest = latestStoredGames[gameKey];
+            if (latest) {
+                const recordCopy = { ...scannedRecord };
+                if (typeof latest.favorite === 'boolean') recordCopy.favorite = latest.favorite;
+                if (typeof latest.playtime === 'number') recordCopy.playtime = latest.playtime;
+                if (typeof latest.lastPlayed === 'number') recordCopy.lastPlayed = latest.lastPlayed;
+                if (typeof latest.runInBackground === 'boolean') recordCopy.runInBackground = latest.runInBackground;
+                if (typeof latest.autoTranslate === 'boolean') recordCopy.autoTranslate = latest.autoTranslate;
+                if (latest.saveFolderOverride !== undefined) recordCopy.saveFolderOverride = latest.saveFolderOverride;
+                if (latest.customName && latest.name) {
+                    recordCopy.name = latest.name;
+                    recordCopy.customName = true;
+                }
+                nextGames[gameKey] = recordCopy;
+            } else {
+                nextGames[gameKey] = scannedRecord;
+            }
+        }
+
+        const inactivePaths = normalizedConfig.libraryPaths.filter((p: string) =>
+            !activePaths.some((ap: string) => normalizePathForComparison(ap) === normalizePathForComparison(p))
+        );
+
+        if (inactivePaths.length > 0) {
+            for (const [storedGameKey, record] of Object.entries(latestStoredGames)) {
+                if (typeof (record as any)?.folderPath === 'string' && (record as any).folderPath.trim().length > 0) {
+                    const matchesInactive = inactivePaths.some((ip: string) =>
+                        isPathWithinDirectory((record as any).folderPath, ip)
+                    );
+                    if (matchesInactive && !nextGames[storedGameKey]) {
+                        nextGames[storedGameKey] = record;
+                    }
+                }
+            }
+        }
+
+        const mergedConfig = normalizeLibraryConfigShape(latestDb.config || normalizedConfig);
+        const combinedPaths = Array.from(new Set([
+            ...(latestDb.config?.libraryPaths || []),
+            ...normalizedConfig.libraryPaths
+        ]));
+        mergedConfig.libraryPaths = combinedPaths.length > 0 ? combinedPaths : normalizedConfig.libraryPaths;
+        mergedConfig.libraryPath = mergedConfig.libraryPaths[0] || '';
+
+        latestDb.config = mergedConfig;
+        latestDb.titleResolutionConfig = {
+            titleDisplayMode: normalizedConfig.titleDisplayMode,
+            displayProductCodes: normalizedConfig.displayProductCodes,
+            preferredLocale: normalizedConfig.preferredLocale
+        };
+        latestDb.games = nextGames;
+        removeLegacyGames(latestDb);
+        await (context.persistDbDirectly || saveDB)(latestDb);
+        return nextGames;
     };
-    db.games = nextGames;
-    removeLegacyGames(db);
-    await saveDB(db);
-    const normalizedGames = Object.entries(nextGames).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
+
+    const finalGames = context.queue ? await context.queue(persistPhase) : await persistPhase();
+    const normalizedGames = Object.entries(finalGames).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
     const categorySnapshot = categoryState && typeof categoryState.loadCategoryState === 'function'
         ? await categoryState.loadCategoryState()
         : { assignments: {} };

@@ -4,6 +4,26 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.6] - working: Fixed Library Wiping Bug While Playing
+
+### What Changed
+- Fixed library wiping bug while playing: your library, favorites, and categories will not get wiped anymore if you leave YumeShelf open while playing games.
+
+### For the Nerds
+- [core] Added `writeAtomicJson` with unique high-entropy temporary file tokens, Windows EBUSY/EPERM retry policies, and atomic filesystem rename in `src/main/core/shared-io.ts`.
+- [core] Added `readJsonWithRetry` with fast-fail ENOENT handling and `createSerializedQueue` single-lane FIFO promise serializer in `src/main/core/shared-io.ts`.
+- [library-state] Wrapped read-modify-write database operations inside `createSerializedQueue` and introduced unqueued internal persistence (`persistDbDirectly`) to prevent self-deadlocks.
+- [library-state] Added `isDegraded()` state machine across `library-state` and `category-state` that blocks destructive overwrites when on-disk state files are truncated (0 bytes) or corrupted.
+- [library-state] Guarded `resolveLibraryConfig` against persisting empty database configurations when `db.games` is missing or state is degraded.
+- [library-state] Retained game records belonging to inactive configured paths (e.g. disconnected drives) using directory boundary-aware path prefix matching in `loader.ts`.
+- [category-state] Made `loadCategoryState` a pure read operation by removing self-mutating disk saves on load.
+- [playtime] Updated `emitSessionEvents` in `playtime-session-manager.ts` to broadcast monotonic cumulative `accruedMs` and exposed `basePlaytime` in `overlayGames`.
+- [renderer] Updated `onGamePlaytimeUpdated` in `ipc-events.ts` to update card playtime and playing status in memory without triggering full `electronAPI.getGames()` disk rescans.
+- [renderer] Updated `onGameStopped` to update `.game-status` to localized recent elapsed time ("Just now") synchronously before asynchronous backend library reload.
+- [tests] Added test suites for atomic shared-io (`tests/shared-io.test.js`), playtime session manager (`tests/playtime-session-manager.test.js`), library concurrency (`tests/library-state-concurrency.test.js`), category concurrency (`tests/category-state-concurrency.test.js`), and renderer IPC events (`src/renderer/events/ipc-events.test.ts`).
+
+---
+
 ## [2.2.5] - 2026-09-08 — released
 
 ### What Changed

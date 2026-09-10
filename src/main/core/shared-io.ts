@@ -1,8 +1,145 @@
 import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
+import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import * as http from 'node:http';
 import * as https from 'node:https';
+
+export interface AtomicFsAdapter {
+    writeFile(path: string, data: string): Promise<void>;
+    readFile?(path: string, options?: any): Promise<string>;
+    stat?(path: string): Promise<{ size?: number; [key: string]: any }>;
+    rename?(oldPath: string, newPath: string): Promise<void>;
+    unlink?(path: string): Promise<void>;
+    mkdir?(path: string, options?: any): Promise<void>;
+}
+
+export async function writeAtomicJson(
+    filePath: string,
+    data: unknown,
+    options?: {
+        fs?: AtomicFsAdapter;
+        tmpSuffix?: string;
+        retryCount?: number;
+        retryDelayMs?: number;
+    }
+): Promise<void> {
+    const json = JSON.stringify(data, null, 2);
+    const parentDir = path.dirname(filePath);
+
+    if (options?.fs) {
+        await options.fs.mkdir?.(parentDir, { recursive: true });
+    } else {
+        await fs.mkdir(parentDir, { recursive: true });
+    }
+
+    if (options?.fs && typeof options.fs.rename !== 'function') {
+        await options.fs.writeFile(filePath, json);
+        return;
+    }
+
+    const highEntropy = crypto.randomBytes(6).toString('hex');
+    const tmpSuffix = options?.tmpSuffix || `tmp.${process.pid}.${Date.now()}.${highEntropy}`;
+    const tmpPath = `${filePath}.${tmpSuffix}`;
+
+    const writeFileFn = options?.fs
+        ? (p: string, d: string) => options.fs!.writeFile(p, d)
+        : (p: string, d: string) => fs.writeFile(p, d, 'utf8');
+
+    const renameFn = options?.fs?.rename
+        ? (oldP: string, newP: string) => options.fs!.rename!(oldP, newP)
+        : (oldP: string, newP: string) => fs.rename(oldP, newP);
+
+    const unlinkFn = options?.fs
+        ? async (p: string) => { await options.fs!.unlink?.(p); }
+        : async (p: string) => { await fs.unlink(p); };
+
+    try {
+        await writeFileFn(tmpPath, json);
+
+        const retryCount = options?.retryCount ?? 3;
+        const retryDelayMs = options?.retryDelayMs ?? 40;
+
+        let attempt = 0;
+        while (true) {
+            try {
+                await renameFn(tmpPath, filePath);
+                break;
+            } catch (err: any) {
+                attempt++;
+                const isRetryable = ['EBUSY', 'EPERM', 'EACCES'].includes(err?.code);
+                if (isRetryable && attempt <= retryCount) {
+                    await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+                    continue;
+                }
+                throw err;
+            }
+        }
+    } catch (error) {
+        try {
+            await unlinkFn(tmpPath);
+        } catch {
+            // Safely suppress secondary unlink errors while rethrowing primary error
+        }
+        throw error;
+    }
+}
+
+export async function readJsonWithRetry<T = any>(
+    filePath: string,
+    options?: {
+        fs?: AtomicFsAdapter;
+        retryCount?: number;
+        retryDelayMs?: number;
+    }
+): Promise<T> {
+    const retryCount = options?.retryCount ?? 3;
+    const retryDelayMs = options?.retryDelayMs ?? 40;
+
+    const readFileFn = options?.fs?.readFile
+        ? (p: string) => options.fs!.readFile!(p, 'utf8')
+        : (p: string) => fs.readFile(p, 'utf8');
+
+    let attempt = 0;
+    while (true) {
+        try {
+            const content = await readFileFn(filePath);
+            if (!content?.trim()) {
+                throw new Error(`Unexpected empty JSON file: ${filePath}`);
+            }
+            return JSON.parse(content) as T;
+        } catch (err: any) {
+            if (err?.code === 'ENOENT') {
+                throw err;
+            }
+            attempt++;
+            if (attempt <= retryCount) {
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+                continue;
+            }
+            throw err;
+        }
+    }
+}
+
+export function createSerializedQueue(): <T>(task: () => Promise<T>) => Promise<T> {
+    let pending = Promise.resolve();
+
+    return function enqueue<T>(task: () => Promise<T>): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            pending = pending.then(async () => {
+                try {
+                    const result = await task();
+                    resolve(result);
+                } catch (err) {
+                    reject(err);
+                }
+            }).catch(() => {
+                // Guaranteed error isolation for subsequent tasks
+            });
+        });
+    };
+}
 
 export async function ensureDir(dirPath: string): Promise<void> {
     await fs.mkdir(dirPath, { recursive: true });

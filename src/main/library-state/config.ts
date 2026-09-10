@@ -1,4 +1,4 @@
-import { normalizeLibraryConfigShape, LibraryConfig } from './scanner';
+import { normalizeLibraryConfigShape, isPlainObject, LibraryConfig } from './scanner';
 
 export async function resolveLibraryConfig(context: any): Promise<LibraryConfig | null> {
     const { defaultGamesDir, fsSync, loadDB, saveDB } = context;
@@ -12,15 +12,20 @@ export async function resolveLibraryConfig(context: any): Promise<LibraryConfig 
         config.libraryPath = defaultGamesDir;
     }
 
-    db.config = config;
-    await saveDB(db);
+    const hasGames = isPlainObject(db.games);
+    const existingConfig = db.config ? normalizeLibraryConfigShape(db.config) : null;
+    const configChanged = !existingConfig || JSON.stringify(existingConfig) !== JSON.stringify(config);
+
+    if (configChanged && !context.isDegraded?.() && hasGames) {
+        db.config = config;
+        await saveDB(db);
+    }
     return config;
 }
 
 export async function setupLibrary(context: any, type: 'default' | 'custom'): Promise<LibraryConfig | null> {
-    const { defaultGamesDir, dialog, fsSync, loadDB, saveDB } = context;
-    const db = await loadDB();
-    const currentConfig = normalizeLibraryConfigShape(db.config);
+    const { defaultGamesDir, dialog, fsSync, loadDB, persistDbDirectly, saveDB, queue } = context;
+    const saveFn = persistDbDirectly || saveDB;
     let nextLibraryPath = '';
 
     if (type === 'default') {
@@ -34,35 +39,47 @@ export async function setupLibrary(context: any, type: 'default' | 'custom'): Pr
         nextLibraryPath = result.filePaths[0];
     }
 
-    const nextConfig = normalizeLibraryConfigShape({
-        ...currentConfig,
-        libraryPaths: [nextLibraryPath]
-    });
-    db.config = nextConfig;
-    await saveDB(db);
-    return nextConfig;
+    const persistTask = async () => {
+        const db = await loadDB();
+        const currentConfig = normalizeLibraryConfigShape(db.config);
+        const nextConfig = normalizeLibraryConfigShape({
+            ...currentConfig,
+            libraryPaths: [nextLibraryPath]
+        });
+        db.config = nextConfig;
+        await saveFn(db);
+        return nextConfig;
+    };
+
+    return queue ? queue(persistTask) : persistTask();
 }
 
 export async function addLibraryPath(context: any): Promise<LibraryConfig | null> {
-    const { dialog, loadDB, saveDB } = context;
+    const { dialog, loadDB, persistDbDirectly, saveDB, queue } = context;
+    const saveFn = persistDbDirectly || saveDB;
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
     if (result.canceled) return null;
     const nextPath = result.filePaths[0];
 
-    const db = await loadDB();
-    const config = normalizeLibraryConfigShape(db.config);
+    const persistTask = async () => {
+        const db = await loadDB();
+        const config = normalizeLibraryConfigShape(db.config);
 
-    if (!config.libraryPaths.includes(nextPath)) {
-        config.libraryPaths.push(nextPath);
-        config.libraryPath = config.libraryPaths[0] || '';
-        db.config = config;
-        await saveDB(db);
-    }
-    return config;
+        if (!config.libraryPaths.includes(nextPath)) {
+            config.libraryPaths.push(nextPath);
+            config.libraryPath = config.libraryPaths[0] || '';
+            db.config = config;
+            await saveFn(db);
+        }
+        return config;
+    };
+
+    return queue ? queue(persistTask) : persistTask();
 }
 
 export async function removeLibraryPath(context: any, targetPath: string): Promise<LibraryConfig | null> {
-    const { loadDB, saveDB } = context;
+    const { loadDB, persistDbDirectly, saveDB } = context;
+    const saveFn = persistDbDirectly || saveDB;
     const db = await loadDB();
     const config = normalizeLibraryConfigShape(db.config);
 
@@ -71,13 +88,14 @@ export async function removeLibraryPath(context: any, targetPath: string): Promi
         config.libraryPaths.splice(index, 1);
         config.libraryPath = config.libraryPaths[0] || '';
         db.config = config;
-        await saveDB(db);
+        await saveFn(db);
     }
     return config;
 }
 
 export async function changeLibraryPath(context: any, oldPath: string): Promise<LibraryConfig | null> {
-    const { dialog, loadDB, saveDB } = context;
+    const { dialog, loadDB, persistDbDirectly, saveDB, queue } = context;
+    const saveFn = persistDbDirectly || saveDB;
     const dbForCheck = await loadDB();
     const configForCheck = normalizeLibraryConfigShape(dbForCheck.config);
     const targetIndex = configForCheck.libraryPaths.indexOf(oldPath);
@@ -90,20 +108,25 @@ export async function changeLibraryPath(context: any, oldPath: string): Promise<
     if (result.canceled) return null;
     const newPath = result.filePaths[0];
 
-    const db = await loadDB();
-    const config = normalizeLibraryConfigShape(db.config);
-    const idx = config.libraryPaths.indexOf(oldPath);
-    if (idx !== -1) {
-        config.libraryPaths[idx] = newPath;
-        config.libraryPath = config.libraryPaths[0] || '';
-        db.config = config;
-        await saveDB(db);
-    }
-    return config;
+    const persistTask = async () => {
+        const db = await loadDB();
+        const config = normalizeLibraryConfigShape(db.config);
+        const idx = config.libraryPaths.indexOf(oldPath);
+        if (idx !== -1) {
+            config.libraryPaths[idx] = newPath;
+            config.libraryPath = config.libraryPaths[0] || '';
+            db.config = config;
+            await saveFn(db);
+        }
+        return config;
+    };
+
+    return queue ? queue(persistTask) : persistTask();
 }
 
 export async function updateLibraryConfig(context: any, updates: Partial<LibraryConfig> = {}): Promise<LibraryConfig> {
-    const { loadDB, saveDB } = context;
+    const { loadDB, persistDbDirectly, saveDB } = context;
+    const saveFn = persistDbDirectly || saveDB;
     const db = await loadDB();
     const currentConfig = normalizeLibraryConfigShape(db.config);
     const nextConfig = normalizeLibraryConfigShape({
@@ -111,7 +134,7 @@ export async function updateLibraryConfig(context: any, updates: Partial<Library
         ...updates
     });
     db.config = nextConfig;
-    await saveDB(db);
+    await saveFn(db);
     return nextConfig;
 }
 

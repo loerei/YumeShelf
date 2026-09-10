@@ -1,4 +1,14 @@
 // @ts-nocheck
+import { formatPlaytime, timeSince } from '../utils/formatting';
+import { getGameKey } from '../library-order';
+
+function escapeCssSelector(value) {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+        return CSS.escape(value);
+    }
+    return String(value || '').replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, String.raw`\$1`);
+}
+
 export function bindIpcEvents({
     electronAPI,
     bootController,
@@ -7,7 +17,9 @@ export function bindIpcEvents({
     getCurrentSort,
     setAllGames,
     setRunningFlag,
-    sortGames
+    sortGames,
+    documentRef = typeof document !== 'undefined' ? document : null,
+    getStrings
 }) {
     electronAPI.onBootStatus((payload) => {
         bootController.show(payload);
@@ -15,24 +27,189 @@ export function bindIpcEvents({
 
     electronAPI.onGameStopped(async (payload) => {
         console.log('[FRONTEND] Received \'game-stopped\' event for gameKey:', payload ? payload.gameKey : 'unknown');
-        if (payload?.gameKey) {
-            setRunningFlag(payload.gameKey, false);
-            console.log(`[FRONTEND] Set target.isRunning=false synchronously for ${payload.gameKey}`);
+        const gameKey = payload?.gameKey;
+        if (gameKey) {
+            if (typeof setRunningFlag === 'function') {
+                setRunningFlag(gameKey, false);
+            }
+            console.log(`[FRONTEND] Set target.isRunning=false synchronously for ${gameKey}`);
         }
-        console.log('[FRONTEND] Fetching games from backend via getGames()');
-        const games = await electronAPI.getGames();
-        console.log(`[FRONTEND] Received ${games.length} games from backend`);
-        setAllGames(games);
-        console.log('[FRONTEND] Re-sorting grid cards');
-        sortGames(getCurrentSort());
+
+        const allGames = typeof getAllGames === 'function' ? (getAllGames() || []) : [];
+        const target = allGames.find((game) => (
+            game.gameId === gameKey
+            || game.gameKey === gameKey
+            || (Array.isArray(game.instances) && game.instances.some((instance) => (
+                instance.gameId === gameKey
+                || instance.gameKey === gameKey
+            )))
+        ));
+
+        const now = Date.now();
+        if (target) {
+            delete target._sessionBasePlaytime;
+            target.isRunning = false;
+            target.lastPlayed = now;
+
+            if (Array.isArray(target.instances)) {
+                for (const instance of target.instances) {
+                    if (instance.gameId === gameKey || instance.gameKey === gameKey) {
+                        delete instance._sessionBasePlaytime;
+                        instance.isRunning = false;
+                        instance.lastPlayed = now;
+                    }
+                }
+                target.isRunning = target.instances.some((inst) => inst.isRunning);
+            }
+        }
+
+        // Fast synchronous DOM update (<100ms) before async library reload
+        if (documentRef && target) {
+            const recentStatusText = timeSince(target.lastPlayed, getStrings);
+
+            const candidateKeys = new Set([
+                typeof getGameKey === 'function' ? getGameKey(target) : null,
+                target.gameId,
+                target.gameKey,
+                gameKey
+            ].filter(Boolean));
+            if (candidateKeys.size > 0) {
+                const gridSelector = Array.from(candidateKeys)
+                    .map((key) => `.game-card[data-game-key="${escapeCssSelector(key)}"]:not(.stack-overlay-card)`)
+                    .join(', ');
+                const gridCards = documentRef.querySelectorAll(gridSelector);
+                gridCards.forEach((card) => {
+                    const statusEl = card.querySelector('.game-status');
+                    if (statusEl) statusEl.textContent = recentStatusText;
+                });
+            }
+
+            const instanceCandidateKeys = new Set([
+                gameKey,
+                ...(Array.isArray(target.instances) ? target.instances.flatMap((i) => [i.gameKey, i.gameId, i.instanceId]) : [])
+            ].filter(Boolean));
+            if (instanceCandidateKeys.size > 0) {
+                const overlaySelector = Array.from(instanceCandidateKeys)
+                    .map((key) => `.stack-overlay-card[data-game-key="${escapeCssSelector(key)}"]`)
+                    .join(', ');
+                const overlayCards = documentRef.querySelectorAll(overlaySelector);
+                overlayCards.forEach((card) => {
+                    const statusEl = card.querySelector('.game-status');
+                    if (statusEl) statusEl.textContent = recentStatusText;
+                });
+            }
+        }
+
+        try {
+            console.log('[FRONTEND] Fetching games from backend via getGames()');
+            const games = await electronAPI.getGames();
+            console.log(`[FRONTEND] Received ${games.length} games from backend`);
+            if (typeof setAllGames === 'function') {
+                setAllGames(games);
+            }
+            console.log('[FRONTEND] Re-sorting grid cards');
+            if (typeof sortGames === 'function') {
+                sortGames(typeof getCurrentSort === 'function' ? getCurrentSort() : undefined);
+            }
+        } catch (error) {
+            console.warn('[FRONTEND] Failed to reload games after game-stopped:', error);
+        }
     });
 
     electronAPI.onGamePlaytimeUpdated(async (payload) => {
         console.log('[FRONTEND] Received \'game-playtime-updated\' event for gameKey:', payload ? payload.gameKey : 'unknown');
-        const games = await electronAPI.getGames();
-        console.log(`[FRONTEND] Fetched ${games.length} games after game-playtime-updated.`);
-        setAllGames(games);
-        sortGames(getCurrentSort());
+        const gameKey = payload?.gameKey;
+        if (!gameKey) return;
+        const rawAccrued = payload?.accruedMs;
+        const safeAccruedMs = Number.isFinite(rawAccrued) ? Math.max(0, rawAccrued) : 0;
+
+        const allGames = typeof getAllGames === 'function' ? (getAllGames() || []) : [];
+        const target = allGames.find((game) => (
+            game.gameId === gameKey
+            || game.gameKey === gameKey
+            || (Array.isArray(game.instances) && game.instances.some((instance) => (
+                instance.gameId === gameKey
+                || instance.gameKey === gameKey
+            )))
+        ));
+
+        if (!target) {
+            console.warn('[FRONTEND] Game not found for playtime update:', gameKey);
+            return;
+        }
+
+        // Calibrate session baseline before setting running flag
+        if (target._sessionBasePlaytime === undefined) {
+            target._sessionBasePlaytime = target.basePlaytime ?? (target.isRunning ? Math.max(0, (target.playtime || 0) - safeAccruedMs) : (target.playtime || 0));
+        }
+        target.playtime = target._sessionBasePlaytime + safeAccruedMs;
+
+        let activeChildInstance = null;
+        if (Array.isArray(target.instances)) {
+            for (const instance of target.instances) {
+                if (instance.gameId === gameKey || instance.gameKey === gameKey) {
+                    if (instance._sessionBasePlaytime === undefined) {
+                        instance._sessionBasePlaytime = instance.basePlaytime ?? (instance.isRunning ? Math.max(0, (instance.playtime || 0) - safeAccruedMs) : (instance.playtime || 0));
+                    }
+                    instance.playtime = instance._sessionBasePlaytime + safeAccruedMs;
+                    instance.isRunning = true;
+                    activeChildInstance = instance;
+                }
+            }
+        }
+
+        if (typeof setRunningFlag === 'function') {
+            setRunningFlag(gameKey, true);
+        } else {
+            target.isRunning = true;
+        }
+
+        // DOM update
+        if (documentRef) {
+            const strings = typeof getStrings === 'function' ? getStrings() : {};
+            const playingText = strings?.status_playing || 'Playing';
+
+            // 1. Representative cards in library grid
+            const candidateKeys = new Set([
+                typeof getGameKey === 'function' ? getGameKey(target) : null,
+                target.gameId,
+                target.gameKey,
+                gameKey
+            ].filter(Boolean));
+            if (candidateKeys.size > 0) {
+                const gridSelector = Array.from(candidateKeys)
+                    .map((key) => `.game-card[data-game-key="${escapeCssSelector(key)}"]:not(.stack-overlay-card)`)
+                    .join(', ');
+                const gridCards = documentRef.querySelectorAll(gridSelector);
+                gridCards.forEach((card) => {
+                    const playtimeEl = card.querySelector('.game-playtime');
+                    if (playtimeEl) playtimeEl.textContent = formatPlaytime(target.playtime);
+                    const statusEl = card.querySelector('.game-status');
+                    if (statusEl) statusEl.textContent = playingText;
+                });
+            }
+
+            // 2. Child instance cards in an open duplicate stack overlay modal
+            const instanceCandidateKeys = new Set([
+                gameKey,
+                activeChildInstance?.gameKey,
+                activeChildInstance?.gameId,
+                activeChildInstance?.instanceId
+            ].filter(Boolean));
+            if (instanceCandidateKeys.size > 0) {
+                const overlaySelector = Array.from(instanceCandidateKeys)
+                    .map((key) => `.stack-overlay-card[data-game-key="${escapeCssSelector(key)}"]`)
+                    .join(', ');
+                const overlayCards = documentRef.querySelectorAll(overlaySelector);
+                overlayCards.forEach((card) => {
+                    const playtimeEl = card.querySelector('.game-playtime');
+                    const instancePlaytime = activeChildInstance ? activeChildInstance.playtime : target.playtime;
+                    if (playtimeEl) playtimeEl.textContent = formatPlaytime(instancePlaytime);
+                    const statusEl = card.querySelector('.game-status');
+                    if (statusEl) statusEl.textContent = playingText;
+                });
+            }
+        }
     });
 
     electronAPI.onTranslationStatus((payload) => {

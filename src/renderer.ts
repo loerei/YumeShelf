@@ -53,7 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 target.isRunning = isRunning;
             }
         },
-        sortGames: (type) => composition.libraryRuntime.sortGames(type)
+        sortGames: (type) => composition.libraryRuntime.sortGames(type),
+        getStrings: composition.getStrings
     });
 
     bindControlEvents({

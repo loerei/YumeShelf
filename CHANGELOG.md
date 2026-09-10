@@ -7,9 +7,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.2.6] - working: Fixed Library Wiping Bug While Playing
 
 ### What Changed
-- Your library, favorites, and categories will not get wiped while playing games anymore: YumeShelf used to trigger a full disk rescan every 5 seconds while a game was running. If Windows locked the database file or a read raced with a write, it could reset your library folders and favorites back to empty defaults. Playtime now updates cleanly in memory while you play, and writes are safe and atomic.
-- Corrupted or 0-byte database files will not overwrite your real data: if Windows or a sudden crash leaves a database file empty or damaged, the app enters a safe mode and refuses to save empty files over your real data until it recovers.
-- Folders on unplugged external drives stay in your library: previously if you rescanned while an external hard drive was disconnected, the app pruned all games from that drive. They are now kept intact until the drive is plugged back in.
+- Fixed library wiping bug while playing: your library, favorites, and categories will not get wiped anymore if you leave YumeShelf open while playing games.
 
 ### For the Nerds
 - [core] Added `writeAtomicJson` with unique high-entropy temporary file tokens, Windows EBUSY/EPERM retry policies, and atomic filesystem rename in `src/main/core/shared-io.ts`.

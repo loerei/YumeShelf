@@ -163,7 +163,9 @@ export class NsisUpdaterStrategyAdapter implements AppUpdaterStrategy {
                 releasePageUrl: serviceOrOptions.releasePageUrl || APP_UPDATE_RELEASE_PAGE_URL,
                 resolveFeedOverride: serviceOrOptions.resolveFeedOverride,
                 updateCacheDir: serviceOrOptions.updateCacheDir || (serviceOrOptions.app ? path.join(serviceOrOptions.app.getPath('userData'), 'app-update-cache') : ''),
-                postUpdateMarkerFile: serviceOrOptions.postUpdateMarkerFile || (serviceOrOptions.app ? path.join(serviceOrOptions.app.getPath('userData'), 'app-update-cache', 'post-update.json') : '')
+                postUpdateMarkerFile: serviceOrOptions.postUpdateMarkerFile || (serviceOrOptions.app ? path.join(serviceOrOptions.app.getPath('userData'), 'app-update-cache', 'post-update.json') : ''),
+                downloadTimeoutMs: serviceOrOptions.downloadTimeoutMs,
+                fetch: serviceOrOptions.fetch
             });
         }
     }

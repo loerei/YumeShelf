@@ -21,6 +21,8 @@ export interface NsisUpdaterServiceConfig {
     resolveFeedOverride?: (options: any) => Promise<any>;
     updateCacheDir: string;
     postUpdateMarkerFile: string;
+    fetch?: typeof fetch;
+    downloadTimeoutMs?: number;
 }
 
 export function createNsisUpdaterService({
@@ -32,7 +34,9 @@ export function createNsisUpdaterService({
     releasePageUrl,
     resolveFeedOverride,
     updateCacheDir,
-    postUpdateMarkerFile
+    postUpdateMarkerFile,
+    fetch,
+    downloadTimeoutMs
 }: NsisUpdaterServiceConfig) {
     // Shared State Contract
     const state: any = {
@@ -255,7 +259,9 @@ export function createNsisUpdaterService({
         configureUpdaterFeed,
         resolveRuntime,
         appendUpdateLog,
-        VERBOSE_UPDATE_LOG
+        VERBOSE_UPDATE_LOG,
+        fetch,
+        downloadTimeoutMs
     });
 
     async function checkForUpdates() {

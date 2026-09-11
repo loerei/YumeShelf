@@ -4,6 +4,21 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.2.7] - working
+
+### What Changed
+- Faster, reliable auto-updates: update downloads no longer crawl to a halt or freeze near 97%. Downloads now stream continuously at full internet speed without hitting CDN throttling limits.
+
+### For the Nerds
+- [nsis-updater] Replaced 8-connection parallel Range requests with sequential single stream downloading via `fetch` and `fs.open` streaming writes in `src/main/nsis-updater/download.ts`, eliminating GitHub Releases / CloudFront CDN rate-limiting.
+- [nsis-updater] Added streaming SHA-512 calculation in-flight during disk write, eliminating redundant second-pass disk reads.
+- [nsis-updater] Enforced HTTPS scheme validation and normalized hex SHA-512 hashes to canonical Base64 for state storage compatibility with `getValidatedDeferredInstallState()`.
+- [nsis-updater] Added deterministic stall watchdog timer with parameter seams (`downloadTimeoutMs`, `fetch`) and Windows NTFS `EBUSY`/`EPERM` file handle safety in `try ... finally`.
+- [nsis-updater] Threaded parameter seams across `NsisUpdaterStrategyAdapter`, `createNsisUpdaterService`, and `setupUpdateFlow`.
+- [tests] Added unit test suite `tests/nsis-updater.test.js` covering download integrity, hex hash normalization, watchdog stall timeouts, SEC-08 enforcement, and protocol checks.
+
+---
+
 ## [2.2.6] - 2026-09-10: Fixed Library Wiping Bug While Playing — released
 
 ### What Changed

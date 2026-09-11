@@ -97,9 +97,9 @@ Invoke the registered `review_host` subagent via `invoke_subagent`:
 - `Role`: `"Review Host & Critical Gate"`
 - `Prompt`:
   - **Round 1 (Initial)**:
-    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. Execute review round per guides.`
+    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. FIRST read the listed files, then execute review round per guides.`
   - **Round N+1 (Targeted or Full Sweep)**:
-    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. State: <review_dir>/host/State.md. Execute review round per guides.`
+    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. State: <review_dir>/host/State.md. FIRST read the listed files, then execute review round per guides.`
 
 ### Step 3: Handle Host Verdict
 

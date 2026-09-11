@@ -14,10 +14,18 @@ export function normalizeText(value: any, fallback: any = ''): any {
 export function classifyErrorReason(error: any): string {
     const code = String(error?.code || '').toLowerCase();
     const message = String(error?.message || error || '').toLowerCase();
-    if (message.includes('checksum') || message.includes('sha512')) return 'checksum';
+    if (message.includes('insecure-transport') || message.includes('non-https') || message.includes('insecure transport')) {
+        return 'insecure-transport';
+    }
+    if (message.includes('checksum') || message.includes('sha512') || message.includes('integrity mismatch') || message.includes('security error')) {
+        return 'checksum';
+    }
     if (message.includes('signature')) return 'signature';
     if (code === 'enoent' || message.includes('no such file')) return 'missing-installer';
-    if (code === 'econnreset' || code === 'econnrefused' || code === 'enetunreach' || code === 'ehostunreach' || code === 'eai_again' || message.includes('network') || message.includes('offline') || message.includes('timed out')) {
+    if (message.includes('timed out') || message.includes('timeout') || message.includes('stalled') || code === 'etimedout' || code === 'esockettimedout') {
+        return 'timeout';
+    }
+    if (code === 'econnreset' || code === 'econnrefused' || code === 'enetunreach' || code === 'ehostunreach' || code === 'eai_again' || message.includes('network') || message.includes('offline')) {
         return 'offline';
     }
     return code || 'download';

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
-import * as fsSync from 'node:fs';
 import * as path from 'node:path';
-import { buildDownloadedState, sha512FileBase64, pickReleaseName, pickReleaseNotes } from './update-info';
+import * as crypto from 'node:crypto';
+import { buildDownloadedState, pickReleaseName, pickReleaseNotes } from './update-info';
 import { classifyErrorReason } from './runtime';
 import { UpdaterState, UpdaterStateFiles } from './state-files';
 
@@ -18,6 +18,8 @@ export interface DownloadUpdateContext {
     appendUpdateLog: (message: string) => any;
     VERBOSE_UPDATE_LOG?: boolean;
     checkForUpdates: () => Promise<any>;
+    fetch?: typeof fetch;
+    downloadTimeoutMs?: number;
 }
 
 export async function downloadUpdate(context: DownloadUpdateContext, releaseMetadata: any = {}): Promise<any> {
@@ -78,6 +80,10 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
     });
 
     state.activeDownloadPromise = (async () => {
+        let tempInstallerPath: string | null = null;
+        let watchdogTimer: NodeJS.Timeout | null = null;
+        const abortController = new AbortController();
+
         try {
             const version = updateState.updateInfo.version;
             const files = Array.isArray(updateState.updateInfo.files) ? updateState.updateInfo.files : [];
@@ -87,7 +93,13 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
             }) || files[0];
 
             const fileName = fileEntry?.url || fileEntry?.name || fileEntry?.path || `YumeShelf-Setup-${version}.exe`;
-            const expectedSha512 = fileEntry?.sha512 || updateState.updateInfo.sha512 || null;
+            const rawExpectedSha512 = fileEntry?.sha512 || updateState.updateInfo.sha512 || null;
+
+            // SEC-08: Enforce expectedSha512 must be present up-front!
+            if (!rawExpectedSha512) {
+                throw new Error('Security Error: expected SHA-512 metadata is missing. Download rejected.');
+            }
+            const expectedSha512 = String(rawExpectedSha512).trim();
 
             const runtime = resolveRuntime();
             const { feedOverride } = await configureUpdaterFeed(runtime);
@@ -99,26 +111,56 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
                 downloadUrl = `${base.replace(/\/$/, '')}/${encodedFileName}`;
             }
 
-            const installerPath = path.join(updateCacheDir, fileName);
+            // URL Protocol Sanitization: Mandate HTTPS scheme
+            let parsedUrl: URL;
+            try {
+                parsedUrl = new URL(downloadUrl);
+            } catch {
+                throw new Error(`invalid-artifact-url: ${downloadUrl}`);
+            }
+
+            if (parsedUrl.protocol !== 'https:') {
+                await appendUpdateLog(`nsis-updater download rejected non-https url=${downloadUrl}`);
+                throw new Error(`insecure-transport: URL scheme must be https, got ${parsedUrl.protocol}`);
+            }
+
+            const targetFileName = path.basename(parsedUrl.pathname) || `YumeShelf-Setup-${version}.exe`;
+            const installerPath = path.join(updateCacheDir, targetFileName);
             await ensureDir(path.dirname(installerPath));
 
+            tempInstallerPath = `${installerPath}.download.${Date.now()}`;
+
             if (VERBOSE_UPDATE_LOG) {
-                await appendUpdateLog(`nsis-updater parallel-download started url=${downloadUrl} target=${installerPath} sha512=${expectedSha512 || 'none'}`);
+                await appendUpdateLog(`nsis-updater single-stream started url=${downloadUrl} target=${installerPath} temp=${tempInstallerPath} sha512=${expectedSha512}`);
             }
 
-            // 1. Fetch download size and check range support
-            const headRes = await fetch(downloadUrl, { method: 'HEAD', redirect: 'follow' });
-            if (!headRes.ok) {
-                throw new Error(`Failed to query download headers: ${headRes.status} ${headRes.statusText}`);
+            const timeoutMs = context.downloadTimeoutMs ?? 30000;
+            const resetWatchdog = () => {
+                if (watchdogTimer) {
+                    clearTimeout(watchdogTimer);
+                }
+                watchdogTimer = setTimeout(() => {
+                    abortController.abort(new Error(`Download stalled: no data received for ${timeoutMs}ms`));
+                }, timeoutMs);
+            };
+
+            const fetchFn = context.fetch ?? globalThis.fetch;
+            resetWatchdog();
+
+            const res = await fetchFn(downloadUrl, {
+                signal: abortController.signal,
+                redirect: 'follow'
+            });
+
+            if (!res.ok) {
+                throw new Error(`Failed to download installer: ${res.status} ${res.statusText}`);
+            }
+            if (!res.body) {
+                throw new Error('Response returned empty body');
             }
 
-            const acceptRanges = headRes.headers.get('accept-ranges');
-            const contentLengthStr = headRes.headers.get('content-length');
+            const contentLengthStr = res.headers.get('content-length');
             const contentLength = contentLengthStr ? Number.parseInt(contentLengthStr, 10) : Number.NaN;
-
-            if (VERBOSE_UPDATE_LOG) {
-                await appendUpdateLog(`nsis-updater parallel-download info accept-ranges=${acceptRanges} content-length=${contentLength}`);
-            }
 
             let downloadedTotal = 0;
             let lastBytes = 0;
@@ -142,105 +184,62 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
                 }
             }
 
-            // Fallback to single-stream sequential if accepts-ranges is not supported or content length is missing
-            if (acceptRanges !== 'bytes' || Number.isNaN(contentLength) || contentLength <= 0) {
-                if (VERBOSE_UPDATE_LOG) {
-                    await appendUpdateLog(`nsis-updater parallel-download range-requests unsupported, falling back to single stream`);
+            const hash = crypto.createHash('sha512');
+            const fileHandle = await fs.open(tempInstallerPath, 'w');
+
+            try {
+                for await (const chunk of (res.body as any)) {
+                    resetWatchdog();
+                    const chunkBuf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+                    await fileHandle.write(chunkBuf);
+                    hash.update(chunkBuf);
+                    reportProgress(chunkBuf.length);
                 }
-                const res = await fetch(downloadUrl, { redirect: 'follow' });
-                if (!res.ok) {
-                    throw new Error(`Failed to download installer stream: ${res.status} ${res.statusText}`);
+            } finally {
+                if (watchdogTimer) {
+                    clearTimeout(watchdogTimer);
+                    watchdogTimer = null;
                 }
-                if (!res.body) {
-                    throw new Error('Response returned empty body');
-                }
-
-                const fileStream = fsSync.createWriteStream(installerPath);
-                try {
-                    for await (const chunk of res.body as any) {
-                        const chunkBuf = Buffer.from(chunk);
-                        fileStream.write(chunkBuf);
-                        reportProgress(chunkBuf.length);
-                    }
-                } finally {
-                    fileStream.end();
-                }
-            } else {
-                // Pre-allocate the target installer file
-                const fileHandle = await fs.open(installerPath, 'w');
-                try {
-                    await fileHandle.truncate(contentLength);
-
-                    const connections = 8;
-                    const chunkSize = Math.ceil(contentLength / connections);
-                    const chunkPromises = [];
-
-                    if (VERBOSE_UPDATE_LOG) {
-                        await appendUpdateLog(`nsis-updater parallel-download downloading via ${connections} parallel connections...`);
-                    }
-
-                    for (let i = 0; i < connections; i++) {
-                        const start = i * chunkSize;
-                        const end = Math.min(start + chunkSize - 1, contentLength - 1);
-
-                        chunkPromises.push((async () => {
-                            const res = await fetch(downloadUrl, {
-                                headers: {
-                                    'Range': `bytes=${start}-${end}`
-                                },
-                                redirect: 'follow'
-                            });
-                            if (!res.ok) {
-                                throw new Error(`Connection ${i} failed with status ${res.status}`);
-                            }
-                            if (!res.body) {
-                                throw new Error(`Connection ${i} returned empty body`);
-                            }
-
-                            let offset = start;
-                            for await (const chunk of res.body as any) {
-                                const chunkBuf = Buffer.from(chunk);
-                                await fileHandle.write(chunkBuf, 0, chunkBuf.length, offset);
-                                offset += chunkBuf.length;
-                                reportProgress(chunkBuf.length);
-                            }
-                        })());
-                    }
-
-                    await Promise.all(chunkPromises);
-                } finally {
-                    await fileHandle.close();
-                }
+                await fileHandle.close();
             }
 
-            // Final integrity verification check
-            if (expectedSha512) {
-                if (VERBOSE_UPDATE_LOG) {
-                    await appendUpdateLog(`nsis-updater parallel-download verifying SHA-512...`);
-                }
-                const actualSha = await sha512FileBase64(installerPath);
-                if (actualSha !== expectedSha512) {
-                    try {
-                        await fs.unlink(installerPath);
-                    } catch {}
-                    throw new Error(`Integrity mismatch. Expected SHA-512 ${expectedSha512}, but calculated ${actualSha}`);
-                }
-                if (VERBOSE_UPDATE_LOG) {
-                    await appendUpdateLog(`nsis-updater parallel-download SHA-512 validation passed!`);
-                }
-            } else {
-                // SEC-08: Enforce expectedSha512 must be present!
-                try {
-                    await fs.unlink(installerPath);
-                } catch {}
-                throw new Error('Security Error: expected SHA-512 metadata is missing. Download rejected.');
+            if (downloadedTotal === 0) {
+                throw new Error('Downloaded installer stream was empty (0 bytes received)');
             }
+
+            // Verify SHA-512 Checksum (support both Base64 and Hex comparison)
+            const computedBase64 = hash.digest('base64');
+            const computedHex = Buffer.from(computedBase64, 'base64').toString('hex');
+
+            const matches = expectedSha512 === computedBase64 || expectedSha512.toLowerCase() === computedHex.toLowerCase();
+            if (!matches) {
+                throw new Error(`Integrity mismatch. Expected SHA-512 ${expectedSha512}, but calculated ${computedBase64} (hex: ${computedHex})`);
+            }
+
+            if (VERBOSE_UPDATE_LOG) {
+                await appendUpdateLog(`nsis-updater single-stream SHA-512 validation passed!`);
+            }
+
+            // Finalize target file with atomic rename
+            try {
+                await fs.rm(installerPath, { force: true });
+            } catch {}
+            await fs.rename(tempInstallerPath, installerPath);
+            tempInstallerPath = null;
+
+            // Normalize expectedSha512 to canonical Base64 for state storage
+            // To ensure compatibility with getValidatedDeferredInstallState() which uses sha512FileBase64
+            const canonicalExpectedSha512 = (/^[0-9a-fA-F]{128}$/.test(expectedSha512))
+                ? Buffer.from(expectedSha512, 'hex').toString('base64')
+                : expectedSha512;
 
             const downloadedState = buildDownloadedState(
                 updateState.updateInfo,
                 installerPath,
                 releaseMetadata.releaseUrl || updateState.releaseUrl
             ) as any;
+            downloadedState.expectedSha512 = canonicalExpectedSha512;
+
             if (releaseMetadata.releaseName) {
                 downloadedState.releaseName = releaseMetadata.releaseName;
             }
@@ -278,14 +277,21 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
                 update: readyUpdate
             };
         } catch (error) {
-            const reason = classifyErrorReason(error);
-            await appendUpdateLog(`nsis-updater download-failed reason=${reason} error=${String((error as any)?.stack || error || '')}`);
-            
-            // Cleanup partial file on failure to avoid corruption in next check
-            try {
-                const fileName = `YumeShelf-Setup-${updateState.updateInfo?.version}.exe`;
-                await fs.unlink(path.join(updateCacheDir, fileName));
-            } catch {}
+            let effectiveError: any = error;
+            if (abortController.signal.aborted && (abortController.signal as any).reason) {
+                effectiveError = (abortController.signal as any).reason;
+            } else if (String((error as any)?.name || '').toLowerCase() === 'aborterror' || String((error as any)?.message || '').toLowerCase().includes('abort')) {
+                effectiveError = new Error(`Download timed out or aborted`);
+            }
+            const reason = classifyErrorReason(effectiveError);
+            await appendUpdateLog(`nsis-updater download-failed reason=${reason} error=${String((effectiveError as any)?.stack || effectiveError || '')}`);
+
+            // Cleanup temp file on failure
+            if (tempInstallerPath) {
+                try {
+                    await fs.rm(tempInstallerPath, { force: true });
+                } catch {}
+            }
 
             emitStatus({
                 error: String((error as any)?.message || error || ''),
@@ -310,6 +316,10 @@ export async function downloadUpdate(context: DownloadUpdateContext, releaseMeta
                 reason
             };
         } finally {
+            if (watchdogTimer) {
+                clearTimeout(watchdogTimer);
+                watchdogTimer = null;
+            }
             state.activeDownloadPromise = null;
         }
     })();

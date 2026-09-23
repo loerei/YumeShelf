@@ -1,4 +1,4 @@
-name: Parallel Release Pipeline (Windows & Linux)
+name: Parallel Release Pipeline (Windows, Linux & macOS)
 
 on:
   push:
@@ -177,10 +177,105 @@ jobs:
             build_output/linux/sha256/YumeShelf-*.tar.gz.sha256
           retention-days: 1
 
+  build-macos:
+    name: Build macOS Universal Package (arm64 & x64)
+    runs-on: macos-14
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Cache Rust Toolchain & Target Artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "native/playtime-helper -> native/playtime-helper/target"
+
+      - name: Cache Electron & Electron Builder Assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and Package macOS Release
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm run ensure:playtime-helper:universal
+          npm run build:preload
+          npm run build:main
+          npm run copy:assets
+          npm run build:vite
+          npm run verify:deps
+          npx electron-builder --mac --universal --publish never
+          node scripts/organize-build-output.js
+          node scripts/write-release-checksum.js
+          cat << 'EOF' > build_output/mac/ForMacBeta.txt
+          YumeShelf macOS Beta Instructions
+          =================================
+
+          I don't have an Apple Developer certificate ($99/year and I'm broke), so macOS Gatekeeper
+          will block YumeShelf on first launch with a warning saying the app is damaged or cannot be opened.
+
+          How to open:
+
+          Option 1 (Fastest - 1 Terminal command):
+          1. Open Terminal (Applications > Utilities > Terminal).
+          2. Run:
+             xattr -cr /Applications/YumeShelf.app
+             (If it says "Permission denied", add sudo: sudo xattr -cr /Applications/YumeShelf.app)
+             (If you placed YumeShelf elsewhere, type "xattr -cr " and drag YumeShelf.app into Terminal).
+          3. Open YumeShelf normally.
+
+          Option 2 (GUI - No Terminal):
+          1. Try opening YumeShelf once (it will get blocked).
+          2. Go to System Settings > Privacy & Security.
+          3. Scroll down to Security, find "YumeShelf was blocked..." and click "Open Anyway".
+
+          Because I have no Mac to test this on, the beta is likely broken somewhere. If you find any bug, drop it here:
+          https://github.com/loerei/YumeShelf/issues
+
+          Thanks for testing this out.
+          EOF
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-release-assets
+          path: |
+            build_output/mac/application/YumeShelf-*.dmg
+            build_output/mac/application/YumeShelf-*.zip
+            build_output/mac/blockmap/YumeShelf-*.dmg.blockmap
+            build_output/mac/feed/latest-mac.yml
+            build_output/mac/sha256/*.sha256
+            build_output/mac/ForMacBeta.txt
+          retention-days: 1
+
   publish-release:
     name: Consolidate & Publish GitHub Release
     if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -223,6 +318,12 @@ jobs:
           name: linux-release-assets
           path: dist-release/linux
 
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-release-assets
+          path: dist-release/mac
+
       - name: Create or Update GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -233,7 +334,7 @@ jobs:
 
           echo "Publishing GitHub Release $TAG with compiled notes from $NOTES_FILE..."
           
-          # Find all release assets across windows and linux download directories
+          # Find all release assets across windows, linux and macos download directories
           ASSETS=( $(find dist-release -type f) )
           echo "Discovered ${#ASSETS[@]} release asset files to attach."
 

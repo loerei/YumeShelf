@@ -26,11 +26,15 @@ test('getNativeHelperReleasePath returns release binary path matching platform',
 
     const linuxPath = getNativeHelperReleasePath('linux');
     assert.match(linuxPath, /[\\/]target[\\/]release[\\/]playtime-helper$/);
+
+    const darwinPath = getNativeHelperReleasePath('darwin');
+    assert.match(darwinPath, /[\\/]target[\\/]release[\\/]playtime-helper$/);
 });
 
 test('getPackagedHelperRelativePath returns relative path matching platform', () => {
     assert.equal(getPackagedHelperRelativePath('win32'), path.join('native', 'playtime-helper', 'playtime-helper.exe'));
     assert.equal(getPackagedHelperRelativePath('linux'), path.join('native', 'playtime-helper', 'playtime-helper'));
+    assert.equal(getPackagedHelperRelativePath('darwin'), path.join('native', 'playtime-helper', 'playtime-helper'));
 });
 
 test('resolvePackagedHelperPath resolves binary under resourcesPath', () => {
@@ -40,6 +44,9 @@ test('resolvePackagedHelperPath resolves binary under resourcesPath', () => {
 
     const linuxPath = resolvePackagedHelperPath(mockResources, 'linux');
     assert.equal(linuxPath, path.join(mockResources, 'native', 'playtime-helper', 'playtime-helper'));
+
+    const darwinPath = resolvePackagedHelperPath(mockResources, 'darwin');
+    assert.equal(darwinPath, path.join(mockResources, 'native', 'playtime-helper', 'playtime-helper'));
 });
 
 test('resolvePlaytimeHelperPath handles packaged vs development mode across platforms', () => {
@@ -60,12 +67,25 @@ test('resolvePlaytimeHelperPath handles packaged vs development mode across plat
     });
     assert.equal(packagedLinux, path.join(mockResources, 'native', 'playtime-helper', 'playtime-helper'));
 
+    const packagedDarwin = resolvePlaytimeHelperPath({
+        app: { isPackaged: true },
+        resourcesPath: mockResources,
+        platform: 'darwin'
+    });
+    assert.equal(packagedDarwin, path.join(mockResources, 'native', 'playtime-helper', 'playtime-helper'));
+
     // Dev mode
     const devLinux = resolvePlaytimeHelperPath({
         app: { isPackaged: false },
         platform: 'linux'
     });
     assert.match(devLinux, /[\\/]target[\\/]release[\\/]playtime-helper$/);
+
+    const devDarwin = resolvePlaytimeHelperPath({
+        app: { isPackaged: false },
+        platform: 'darwin'
+    });
+    assert.match(devDarwin, /[\\/]target[\\/]release[\\/]playtime-helper$/);
 });
 
 test('assertPlaytimeHelperExists validates helper binary existence', async () => {

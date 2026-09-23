@@ -1,9 +1,10 @@
 import { TelemetryShipper } from '../../telemetry/shipper';
 import { YumeEngine } from '@yumeshelf/engine';
+import type { SaveFormatStrategy } from '../engine';
 
-class PureJsonFormat {
-    match(fileName: string): boolean {
-        return YumeEngine.detectSaveStrategy(fileName) === 'pure-json';
+class PureJsonFormat implements SaveFormatStrategy {
+    match(fileName: string, rawData?: Buffer, jsonData?: any, options?: any): boolean {
+        return YumeEngine.detectSaveStrategy(fileName, rawData, jsonData, options) === 'pure-json';
     }
 
     async decode(rawData: Buffer): Promise<any> {

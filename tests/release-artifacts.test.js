@@ -90,6 +90,7 @@ test('Release Artifacts: modular helper exports and macOS paths contract', async
         assert.equal(isMacArtifactName('latest-mac.yml'), false);
         assert.equal(isMacArtifactName('YumeShelf-2.1.2.dmg.blockmap'), false);
         assert.equal(isMacArtifactName('YumeShelf-2.1.2.dmg.sha256'), false);
+        assert.strictEqual(isMacArtifactName('ForMacBeta.txt'), false);
     });
 
     await t.test('resolves macOS dmg and zip paths for a given version', () => {
@@ -152,6 +153,10 @@ test('Organize Build Output: classification rules and collision prevention', asy
         assert.equal(classifyEntry('builder-effective-config.yaml', tempDir), path.join(tempDir, 'metadata'));
         assert.equal(classifyEntry('.icon-ico', tempDir), path.join(tempDir, 'internal'));
         assert.equal(classifyEntry('release-recreate', tempDir), path.join(tempDir, 'internal'));
+
+        // Documentation helper asset is ignored by classifyEntry and classifyMacNestedEntry
+        assert.equal(classifyEntry('ForMacBeta.txt', tempDir), null);
+        assert.equal(classifyMacNestedEntry('ForMacBeta.txt', tempDir), null);
     });
 
     await t.test('classifyEntry intercepts unpacked macOS directories preventing collision with reserved mac category directory', () => {
@@ -316,12 +321,15 @@ test('macOS Packaging: package.json build targets, extraResources relocation, an
     });
 
     await t.test('package.json contains build:mac and package:mac scripts with identity auto discovery disabled', () => {
+        assert.ok(pkg.scripts['ensure:playtime-helper:universal'], 'ensure:playtime-helper:universal script must exist');
         assert.ok(pkg.scripts['build:mac'], 'build:mac script must exist');
         assert.ok(pkg.scripts['build:mac'].includes('electron-builder --mac'));
+        assert.ok(pkg.scripts['build:mac'].includes('--universal'));
         assert.ok(pkg.scripts['build:mac'].includes('CSC_IDENTITY_AUTO_DISCOVERY=false'));
 
         assert.ok(pkg.scripts['package:mac'], 'package:mac script must exist');
         assert.ok(pkg.scripts['package:mac'].includes('electron-builder --mac'));
+        assert.ok(pkg.scripts['package:mac'].includes('--universal'));
     });
 });
 

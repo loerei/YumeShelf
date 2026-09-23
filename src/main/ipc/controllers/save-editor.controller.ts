@@ -122,7 +122,32 @@ export class SaveEditorIpcController {
 
         const activeLoads = new Map<string, Set<() => void>>();
 
-        ipcMain.handle('save-editor:load-data', async (event, { gameKey, fileName, earlyExit, stalenessTimeoutMs }) => {
+const ALLOWED_SAVE_OPTIONS = new Set([
+    'outerKey',
+    'outerIv',
+    'innerKey',
+    'innerIv',
+    'rawPlaintextFields',
+    'earlyExit',
+    'stalenessTimeoutMs'
+]);
+
+function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
+    const safeOptions = rawOptions && typeof rawOptions === 'object' && !Array.isArray(rawOptions) ? rawOptions : {};
+    const sanitized: Record<string, any> = {};
+    for (const key of Object.keys(safeOptions)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            continue;
+        }
+        if (ALLOWED_SAVE_OPTIONS.has(key)) {
+            sanitized[key] = safeOptions[key];
+        }
+    }
+    return sanitized;
+}
+
+        ipcMain.handle('save-editor:load-data', async (event, payload: any) => {
+            const { gameKey, fileName, earlyExit, stalenessTimeoutMs, options } = payload || {};
             console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
             const key = `${gameKey}:${fileName}`;
             let cancelled = false;
@@ -136,30 +161,48 @@ export class SaveEditorIpcController {
             }
             loadSet.add(cancelFn);
 
+            const sanitizedOptions = sanitizeSaveOptions(options);
+            let resolvedEarlyExit = true;
+            if (earlyExit !== undefined) {
+                resolvedEarlyExit = Boolean(earlyExit);
+            } else if (sanitizedOptions.earlyExit !== undefined) {
+                resolvedEarlyExit = Boolean(sanitizedOptions.earlyExit);
+            }
+
+            let resolvedStalenessTimeoutMs = 10000;
+            if (stalenessTimeoutMs !== undefined) {
+                resolvedStalenessTimeoutMs = Number(stalenessTimeoutMs);
+            } else if (sanitizedOptions.stalenessTimeoutMs !== undefined) {
+                resolvedStalenessTimeoutMs = Number(sanitizedOptions.stalenessTimeoutMs);
+            }
+
+            const mergedOptions = {
+                ...sanitizedOptions,
+                earlyExit: resolvedEarlyExit,
+                stalenessTimeoutMs: resolvedStalenessTimeoutMs,
+                onProgress: (prog: { current?: number; total?: number; percent?: number; unit?: string; pos?: number; totalBytes?: number; iterations?: number }) => {
+                    if (!event?.sender?.isDestroyed?.()) {
+                        const current = prog.current ?? prog.pos ?? 0;
+                        const total = prog.total ?? prog.totalBytes ?? 0;
+                        const percent = prog.percent ?? (total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0);
+                        const unit = prog.unit ?? 'bytes';
+                        event?.sender?.send?.('save-editor:load-progress', {
+                            gameKey,
+                            fileName,
+                            current,
+                            total,
+                            percent,
+                            unit,
+                            pos: current,
+                            totalBytes: total,
+                        });
+                    }
+                },
+                shouldCancel: () => cancelled,
+            };
+
             try {
-                return await saveEditorService?.loadSaveData(gameKey, fileName, {
-                    earlyExit: earlyExit !== undefined ? Boolean(earlyExit) : true,
-                    stalenessTimeoutMs: stalenessTimeoutMs !== undefined ? Number(stalenessTimeoutMs) : 10000,
-                    onProgress: (prog: { current?: number; total?: number; percent?: number; unit?: string; pos?: number; totalBytes?: number; iterations?: number }) => {
-                        if (!event.sender.isDestroyed()) {
-                            const current = prog.current ?? prog.pos ?? 0;
-                            const total = prog.total ?? prog.totalBytes ?? 0;
-                            const percent = prog.percent ?? (total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0);
-                            const unit = prog.unit ?? 'bytes';
-                            event.sender.send('save-editor:load-progress', {
-                                gameKey,
-                                fileName,
-                                current,
-                                total,
-                                percent,
-                                unit,
-                                pos: current,
-                                totalBytes: total,
-                            });
-                        }
-                    },
-                    shouldCancel: () => cancelled,
-                });
+                return await saveEditorService?.loadSaveData(gameKey, fileName, mergedOptions);
             } finally {
                 const currentSet = activeLoads.get(key);
                 if (currentSet) {
@@ -185,9 +228,11 @@ export class SaveEditorIpcController {
             return { cancelled: false };
         });
 
-        ipcMain.handle('save-editor:write-data', async (_event, { gameKey, fileName, data }) => {
+        ipcMain.handle('save-editor:write-data', async (_event, payload: any) => {
+            const { gameKey, fileName, data, options } = payload || {};
             console.log(`[IPC] save-editor:write-data gameKey: ${gameKey}, fileName: ${fileName}`);
-            return saveEditorService?.writeSaveData(gameKey, fileName, data);
+            const sanitizedOptions = sanitizeSaveOptions(options);
+            return saveEditorService?.writeSaveData(gameKey, fileName, data, sanitizedOptions);
         });
 
         ipcMain.handle('save-editor:rename-file', async (_event, { gameKey, oldFileName, newFileName, overwrite }) => {

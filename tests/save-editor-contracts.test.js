@@ -18,7 +18,8 @@ const formats = {
     'unity-mono-bin': getFormat('unity-mono-bin'),
     'pure-json': getFormat('pure-json'),
     'simple-keyed-json': getFormat('simple-keyed-json'),
-    'bakin-sgs': getFormat('bakin-sgs')
+    'bakin-sgs': getFormat('bakin-sgs'),
+    'tinc-double-aes-json': getFormat('tinc-double-aes-json')
 };
 
 test('Strict Strategy Interface Contracts - All formats must implement standard API', () => {
@@ -363,3 +364,136 @@ test('RenPy Format Contract - Default and Explicit earlyExit and stalenessTimeou
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 });
+
+function makeSyntheticTincBuffer(options) {
+    const DEFAULT_OUTER_KEY = Buffer.from('d5wAqPJLlmJCZowMt1phICUyBSA9wErz', 'utf8');
+    const DEFAULT_OUTER_IV = Buffer.from('d5wAqPJLlmJCZowM', 'utf8');
+    const DEFAULT_INNER_KEY = Buffer.from('PJC7HnliwcxXw4FM8Ep3sX9NIL3R5CZn', 'utf8');
+    const DEFAULT_INNER_IV = Buffer.from('PJC7HnliwcxXw4FM', 'utf8');
+
+    const oKey = options?.outerKey ? Buffer.from(options.outerKey, 'utf8') : DEFAULT_OUTER_KEY;
+    const oIv = options?.outerIv
+        ? Buffer.from(options.outerIv, 'utf8')
+        : (options?.outerKey ? Buffer.from(oKey).subarray(0, 16) : DEFAULT_OUTER_IV);
+    const iKey = options?.innerKey ? Buffer.from(options.innerKey, 'utf8') : DEFAULT_INNER_KEY;
+    const iIv = options?.innerIv
+        ? Buffer.from(options.innerIv, 'utf8')
+        : (options?.innerKey ? Buffer.from(iKey).subarray(0, 16) : DEFAULT_INNER_IV);
+
+    const cInner = crypto.createCipheriv('aes-256-cbc', iKey, iIv);
+    const encVal = Buffer.concat([cInner.update(Buffer.from('60', 'utf8')), cInner.final()]).toString('base64');
+
+    const payload = options?.payload || {
+        creationDate: '2026-09-23T12:00:00Z',
+        creationUpdate: '1.0.0',
+        data_resource_money: encVal,
+        data_ownedItems: ['item_1']
+    };
+
+    const cOuter = crypto.createCipheriv('aes-256-cbc', oKey, oIv);
+    const outerEnc = Buffer.concat([
+        cOuter.update(Buffer.from(JSON.stringify(payload), 'utf8')),
+        cOuter.final()
+    ]);
+    return Buffer.from(outerEnc.toString('base64'), 'utf8');
+}
+
+test('TincDoubleAesJson Format Contract - Strategy Interface & 2-tier AES-256-CBC matching, decode, encode, metadata', async () => {
+    const strategy = formats['tinc-double-aes-json'];
+    assert.ok(strategy);
+    assert.equal(typeof strategy.match, 'function');
+    assert.equal(typeof strategy.decode, 'function');
+    assert.equal(typeof strategy.encode, 'function');
+    assert.equal(typeof strategy.metadata, 'function');
+
+    const validTincBuffer = makeSyntheticTincBuffer();
+    const customKey = 'customOuterKey123456789012345678';
+    const customTincBuffer = makeSyntheticTincBuffer({ outerKey: customKey });
+
+    // Match file by filename-only query returns false
+    assert.equal(strategy.match('saveSlot1.json'), false);
+    assert.equal(strategy.match('saveSlot1.sav'), false);
+
+    // Match file via buffer sniffing
+    assert.equal(strategy.match('saveSlot1.json', validTincBuffer), true);
+
+    // Match file encrypted with custom keys via buffer sniffing when options are passed
+    assert.equal(strategy.match('saveSlot1.json', customTincBuffer, undefined, { outerKey: customKey }), true);
+
+    // Match file via JSON object $type
+    assert.equal(strategy.match('saveSlot1.json', undefined, { $type: 'TincDoubleAesJsonSave' }), true);
+    assert.equal(strategy.match('saveSlot1.json', undefined, { $type: 'PureJsonSave' }), false);
+
+    // Round-trip encode/decode and metadata preservation
+    const decoded = await strategy.decode(validTincBuffer, undefined, 'saveSlot1.json');
+    assert.equal(decoded.$type, 'TincDoubleAesJsonSave');
+    assert.equal(decoded.data_resource_money, '60');
+    assert.deepEqual(decoded.data_ownedItems, ['item_1']);
+
+    const metadata = await strategy.metadata(decoded);
+    assert.equal(metadata.gameTitle, 'TINC Save File');
+
+    const encoded = await strategy.encode(decoded, undefined, 'saveSlot1.json');
+    assert.ok(Buffer.isBuffer(encoded));
+    assert.equal(strategy.match('saveSlot1.json', encoded), true);
+});
+
+test('SaveDataEngine - End-to-end routing and custom key forwarding for TINC Double AES saves', async () => {
+    const { SaveDataEngine } = require('../dist/main/save-editor/engine');
+    const os = require('node:os');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yumeshelf_tinc_routing_'));
+
+    try {
+        const validTincBuffer = makeSyntheticTincBuffer();
+        const defaultSavePath = path.join(tempDir, 'saveSlot1.json');
+        fs.writeFileSync(defaultSavePath, validTincBuffer);
+
+        const customOuterKey = 'customOuterKey123456789012345678';
+        const customInnerKey = 'customInnerKey123456789012345678';
+        const customTincBuffer = makeSyntheticTincBuffer({ outerKey: customOuterKey, innerKey: customInnerKey });
+        const customSavePath = path.join(tempDir, 'saveSlot2.json');
+        fs.writeFileSync(customSavePath, customTincBuffer);
+
+        const mockConfig = {
+            async getGamePaths() {
+                return { exeDir: tempDir, saveDir: tempDir, dataDir: tempDir, langDataDir: null };
+            },
+            async loadMetadata() { return {}; }
+        };
+
+        const engine = new SaveDataEngine(mockConfig);
+
+        // 1. loadSave on valid TINC buffer routes to tinc-double-aes-json rather than pure-json
+        const { data: loadedData, metadata: loadedMeta } = await engine.loadSave('mockGame', 'saveSlot1.json');
+        assert.equal(loadedData.$type, 'TincDoubleAesJsonSave');
+        assert.equal(loadedData.data_resource_money, '60');
+        assert.ok(loadedData._userMappings !== undefined);
+        assert.equal(loadedMeta.gameTitle, 'TINC Save File');
+
+        // 2. loadSave with custom keys routes accurately and forwards options
+        const { data: loadedCustom } = await engine.loadSave('mockGame', 'saveSlot2.json', {
+            outerKey: customOuterKey,
+            innerKey: customInnerKey
+        });
+        assert.equal(loadedCustom.$type, 'TincDoubleAesJsonSave');
+        assert.equal(loadedCustom.data_resource_money, '60');
+
+        // 3. writeSave routes to tinc-double-aes-json via $type, merges options, and encodes accurately
+        loadedCustom.data_resource_money = '999';
+        const writeResult = await engine.writeSave('mockGame', 'saveSlot2.json', loadedCustom, {
+            outerKey: customOuterKey,
+            innerKey: customInnerKey
+        });
+        assert.equal(writeResult.ok, true);
+
+        // Verify written file can be reloaded
+        const { data: reloadedCustom } = await engine.loadSave('mockGame', 'saveSlot2.json', {
+            outerKey: customOuterKey,
+            innerKey: customInnerKey
+        });
+        assert.equal(reloadedCustom.data_resource_money, '999');
+    } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+});
+

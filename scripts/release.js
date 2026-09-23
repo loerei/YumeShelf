@@ -48,7 +48,7 @@ console.log(`\n🚀 Starting YumeShelf Release Process for v${targetVersion} ${i
 if (isLocalOnly) {
   console.log('ℹ Mode: Local Offline Build (building Windows installer locally)');
 } else {
-  console.log('⚡ Mode: Cloud-Parallel Matrix (delegating Windows & Linux packaging to GitHub Actions)');
+  console.log('⚡ Mode: Cloud-Parallel Matrix (delegating Windows, Linux & macOS packaging to GitHub Actions)');
 }
 
 // 1. Sync version in package.json if needed
@@ -116,6 +116,6 @@ if (isLocalOnly) {
   console.log(`\n🎉 Release v${targetVersion} tag pushed successfully!`);
   console.log('⚡ GitHub Actions has started the parallel multi-platform release pipeline:');
   console.log(`   🔗 https://github.com/loerei/YumeShelf/actions/workflows/release.yml`);
-  console.log(`   Windows & Linux installers will be compiled in parallel and attached to:`);
+  console.log(`   Windows, Linux & macOS installers will be compiled in parallel and attached to:`);
   console.log(`   📦 https://github.com/loerei/YumeShelf/releases/tag/v${targetVersion}\n`);
 }

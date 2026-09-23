@@ -8,12 +8,13 @@ import rpgMakerMv from './formats/rpg-maker-mv';
 import rpgWolfSav from './formats/rpg-wolf-sav';
 import unityMonoBin from './formats/unity-mono-bin';
 import renpy from './formats/renpy';
+import tincDoubleAesJson from './formats/tinc-double-aes-json';
 import simpleKeyedJson from './formats/simple-keyed-json';
 import pureJson from './formats/pure-json';
 import bakinSgs from './formats/bakin-sgs';
 
 export interface SaveFormatStrategy {
-    match(fileName: string): boolean;
+    match(fileName: string, rawData?: Buffer, jsonData?: any, options?: any): boolean;
     decode(rawData: Buffer, paths?: any, fileName?: string): Promise<any>;
     encode(jsonData: any, paths?: any, fileName?: string): Promise<Buffer>;
     metadata?(jsonData: any, paths?: any, fileName?: string): Promise<any>;
@@ -44,14 +45,15 @@ export class SaveDataEngine {
             rpgWolfSav,
             unityMonoBin,
             renpy,
+            tincDoubleAesJson,
             simpleKeyedJson,
             pureJson,
             bakinSgs
         ];
     }
 
-    findFormat(fileName: string): SaveFormatStrategy {
-        const matched = this.formats.find(f => f.match(fileName));
+    findFormat(fileName: string, rawData?: Buffer, jsonData?: any, options?: any): SaveFormatStrategy {
+        const matched = this.formats.find(f => f.match(fileName, rawData, jsonData, options));
         if (!matched) {
             throw new Error(`Unsupported save file format for file: ${fileName}`);
         }
@@ -75,8 +77,8 @@ export class SaveDataEngine {
         const savePath = this.resolveSafePath(paths.saveDir, fileName);
         const rawData = await fs.readFile(savePath);
 
-        const format = this.findFormat(fileName);
-        const decodeContext = options ? { ...paths, ...options } : paths;
+        const format = this.findFormat(fileName, rawData, undefined, options);
+        const decodeContext = options ? { ...options, ...paths } : paths;
         const jsonData = await format.decode(rawData, decodeContext, fileName);
 
         // Inject user variable mappings
@@ -91,17 +93,18 @@ export class SaveDataEngine {
         return { data: jsonData, metadata };
     }
 
-    async writeSave(gameKey: string, fileName: string, jsonData: any) {
+    async writeSave(gameKey: string, fileName: string, jsonData: any, options?: any) {
         const paths = await this.config.getGamePaths(gameKey);
         if (!paths) throw new Error('Could not resolve game paths');
 
         const savePath = this.resolveSafePath(paths.saveDir, fileName);
-        const format = this.findFormat(fileName);
+        const format = this.findFormat(fileName, undefined, jsonData, options);
 
         // Sanitize internal YumeShelf UI metadata
         const cleanData = this.sanitizeSaveData(jsonData);
+        const encodeContext = options ? { ...options, ...paths } : paths;
 
-        const outputBuffer = await format.encode(cleanData, paths, fileName);
+        const outputBuffer = await format.encode(cleanData, encodeContext, fileName);
 
         // Atomic backup creation
         try {

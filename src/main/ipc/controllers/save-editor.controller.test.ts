@@ -344,4 +344,95 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             expect(files).toEqual([]);
         });
     });
+
+    describe('save-editor:load-data and save-editor:write-data options sanitization', () => {
+        it('sanitizes options, removes prototype pollution, and forwards valid options to loadSaveData', async () => {
+            const mockSaveEditorService = {
+                loadSaveData: vi.fn(async (_gameKey: string, _fileName: string, _options?: Record<string, unknown>) => ({ data: {}, metadata: {} })),
+                writeSaveData: vi.fn(async (_gameKey: string, _fileName: string, _data: unknown, _options?: Record<string, unknown>) => ({ ok: true })),
+            };
+            const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+            const handler = handlers.get('save-editor:load-data')!;
+            expect(handler).toBeDefined();
+
+            const maliciousOptions = {
+                outerKey: 'testOuterKey',
+                outerIv: 'testOuterIv',
+                innerKey: 'testInnerKey',
+                innerIv: 'testInnerIv',
+                rawPlaintextFields: ['data_custom'],
+                disallowedField: 'shouldBeStripped',
+                __proto__: { evil: true },
+                constructor: 'corrupt',
+                prototype: 'polluted',
+            };
+
+            await handler(
+                { sender: { isDestroyed: () => false, send: vi.fn() } },
+                {
+                    gameKey: 'valid-game',
+                    fileName: 'saveSlot1.json',
+                    earlyExit: false,
+                    stalenessTimeoutMs: 5000,
+                    options: maliciousOptions,
+                }
+            );
+
+            expect(mockSaveEditorService.loadSaveData).toHaveBeenCalledTimes(1);
+            const callArgs = mockSaveEditorService.loadSaveData.mock.calls[0];
+            expect(callArgs[0]).toBe('valid-game');
+            expect(callArgs[1]).toBe('saveSlot1.json');
+            const passedOptions = callArgs[2];
+            expect(passedOptions.outerKey).toBe('testOuterKey');
+            expect(passedOptions.outerIv).toBe('testOuterIv');
+            expect(passedOptions.innerKey).toBe('testInnerKey');
+            expect(passedOptions.innerIv).toBe('testInnerIv');
+            expect(passedOptions.rawPlaintextFields).toEqual(['data_custom']);
+            expect(passedOptions.earlyExit).toBe(false);
+            expect(passedOptions.stalenessTimeoutMs).toBe(5000);
+            expect(passedOptions.disallowedField).toBeUndefined();
+            expect(passedOptions.__proto__?.evil).toBeUndefined();
+            expect(passedOptions.constructor).toBe(Object);
+            expect(passedOptions.prototype).toBeUndefined();
+            expect(typeof passedOptions.onProgress).toBe('function');
+            expect(typeof passedOptions.shouldCancel).toBe('function');
+        });
+
+        it('sanitizes options, removes prototype pollution, and forwards valid options to writeSaveData', async () => {
+            const mockSaveEditorService = {
+                loadSaveData: vi.fn(async () => ({})),
+                writeSaveData: vi.fn(async () => ({ ok: true })),
+            };
+            const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+            const handler = handlers.get('save-editor:write-data')!;
+            expect(handler).toBeDefined();
+
+            const maliciousOptions = {
+                outerKey: 'writeOuterKey',
+                innerKey: 'writeInnerKey',
+                injectedEvil: 'dropTable',
+                __proto__: { hacked: true },
+            };
+
+            await handler(
+                {},
+                {
+                    gameKey: 'valid-game',
+                    fileName: 'saveSlot1.json',
+                    data: { score: 100 },
+                    options: maliciousOptions,
+                }
+            );
+
+            expect(mockSaveEditorService.writeSaveData).toHaveBeenCalledTimes(1);
+            const [gameKey, fileName, data, sanitizedOpts] = mockSaveEditorService.writeSaveData.mock.calls[0];
+            expect(gameKey).toBe('valid-game');
+            expect(fileName).toBe('saveSlot1.json');
+            expect(data).toEqual({ score: 100 });
+            expect(sanitizedOpts.outerKey).toBe('writeOuterKey');
+            expect(sanitizedOpts.innerKey).toBe('writeInnerKey');
+            expect(sanitizedOpts.injectedEvil).toBeUndefined();
+            expect(sanitizedOpts.__proto__?.hacked).toBeUndefined();
+        });
+    });
 });

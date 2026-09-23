@@ -4,18 +4,21 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.7] - working
+## [2.2.7] - working: macOS Beta, Faster Auto-Updates & TINC Save Support
 
 ### What Changed
-- Faster, reliable auto-updates: update downloads no longer crawl to a halt or freeze near 97%. Downloads now stream continuously at full internet speed without hitting CDN throttling limits.
+- macOS Beta build: added an experimental Universal build (`.dmg` and `.zip`) that runs on both Apple Silicon and Intel Macs. It is not signed with an Apple Developer certificate, so Gatekeeper will block it on first launch. Run `xattr -cr /Applications/YumeShelf.app` in Terminal to clear quarantine. Report any crashes or quirks on GitHub Issues.
+- Support for encrypted TINC saves: you can now edit 2-tier AES-256-CBC encrypted saves (used by Chrono Ecstasy and other TINC games) directly in the Save Editor without external tools.
+- Faster, reliable auto-updates: update downloads no longer stall or choke near 97%. Swapped chunked Range requests for single sequential streams to avoid CDN rate limits (this takes effect for future updates downloaded by 2.2.7 onwards; updating to 2.2.7 itself still runs through your current version's downloader).
 
 ### For the Nerds
-- [nsis-updater] Replaced 8-connection parallel Range requests with sequential single stream downloading via `fetch` and `fs.open` streaming writes in `src/main/nsis-updater/download.ts`, eliminating GitHub Releases / CloudFront CDN rate-limiting.
-- [nsis-updater] Added streaming SHA-512 calculation in-flight during disk write, eliminating redundant second-pass disk reads.
-- [nsis-updater] Enforced HTTPS scheme validation and normalized hex SHA-512 hashes to canonical Base64 for state storage compatibility with `getValidatedDeferredInstallState()`.
-- [nsis-updater] Added deterministic stall watchdog timer with parameter seams (`downloadTimeoutMs`, `fetch`) and Windows NTFS `EBUSY`/`EPERM` file handle safety in `try ... finally`.
-- [nsis-updater] Threaded parameter seams across `NsisUpdaterStrategyAdapter`, `createNsisUpdaterService`, and `setupUpdateFlow`.
-- [tests] Added unit test suite `tests/nsis-updater.test.js` covering download integrity, hex hash normalization, watchdog stall timeouts, SEC-08 enforcement, and protocol checks.
+- [mac] Added macOS Universal build workflow in `.github/workflows/release.yml` with dual-target compilation (`aarch64-apple-darwin`, `x86_64-apple-darwin`) merged via `lipo -create` in `scripts/ensure-playtime-helper-universal.js`. Added `macos-14` runner to `.github/workflows/test.yml`.
+- [mac] Added `ForMacBeta.txt` instruction sheet directly to release assets, isolated from `.sha256` checksum calculation.
+- [engine] Implemented `TincDoubleAesJsonSaveCodec` in `@yumeshelf/engine` with outer container AES-256-CBC, inner string value AES-256-CBC, dynamic IV derivation, and raw plaintext exemptions (`data_ownedItems`, `data_userTierData`).
+- [save-editor] Added `tinc-double-aes-json` adapter in `src/main/save-editor/formats/` with sanitized options passing across IPC.
+- [renderer] Implemented `TincDoubleAesJsonEngine` in `src/renderer/save-editor/engines/` scoping editable variables and switches strictly to `data_*` properties.
+- [nsis-updater] Switched from 8-connection Range chunks to single-stream downloading with in-flight streaming SHA-512 calculation and a stall watchdog timer.
+- [tests] Added test coverage across `headless-save-codecs.test.ts`, `save-editor-contracts.test.js`, `macos-packaging.test.js`, `release-artifacts.test.js`, and `playtime-helper-paths.test.js`.
 
 ---
 

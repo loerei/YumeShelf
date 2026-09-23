@@ -275,8 +275,13 @@ export class YumeEngine {
     return resolveSaveDirectory(profile, exePath, provider, options);
   }
 
-  static detectSaveStrategy(fileName: string): string | null {
-    return detectSaveStrategy(fileName);
+  static detectSaveStrategy(
+    fileName?: string,
+    rawBuffer?: Buffer,
+    jsonData?: any,
+    options?: any
+  ): string | null {
+    return detectSaveStrategy(fileName, rawBuffer, jsonData, options);
   }
 
   static isSupportedSaveFile(fileName: string): boolean {

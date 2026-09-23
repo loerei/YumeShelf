@@ -15,7 +15,9 @@
 ├── reports/                 # [REVIEWER OUTPUTS & GATING] Purged at pass starts; in-place sanitized
 │   ├── <Role>.md            # Initial reviewer report & in-place sanitized report
 │   ├── <Role>_Gated_Issues.md # Host gated issues (demands refinement/removal without suggestions)
-│   └── <Role>_Explain.md    # Reviewer explanation with deeper/differing proof (if rejecting gate)
+│   ├── <Role>_Explain.md    # Reviewer explanation with deeper/differing proof (if rejecting gate)
+│   ├── <AuthorRole>-CR-<CrossReviewerRole>.md  # Cross-reviewer domain evaluation (CROSS-PASSED / CROSS-GATED)
+│   └── <AuthorRole>-Cross-Review-Requests.md   # Host-compiled cross-review requests for authoring role
 └── sandbox/                 # [DIAGNOSTIC SANDBOX] Inline probes & shadow modules (<review_dir>/sandbox/<action>_<role>_*, shadow_*)
 ```
 
@@ -75,10 +77,79 @@ Output Path: <review_dir>/reports/<Role>.md
 Audit the target document(s) objectively from a clean-slate perspective. Follow your Review Guide and any domain subdocuments referenced within it strictly.
 ```
 
-- **Dynamic Guide Resolution**: `<guide_path>` MUST be resolved dynamically relative to the active skill location (`.agents/skills/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in distributed projects or `productivity/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in central `myskills`).
+- **Dynamic Guide Resolution**: `<guide_path>` MUST be resolved dynamically relative to the active skill location (`.agents/skills/<skill-name>/<Role>-REVIEWER-GUIDE.md` in distributed projects or `productivity/<skill-name>/<Role>-REVIEWER-GUIDE.md` in central `myskills`).
 - **Subdocuments**: Host passes only the primary `<Role>-REVIEWER-GUIDE.md` path. Reviewers load domain subdocuments referenced in their guide's routing table as needed via `view_file`.
 - **Tool Metadata Rule**: Host MUST specify neutral tool metadata (`toolAction: "Summoning reviewer"`, `toolSummary: "Domain review"`) to prevent leaking phase/round names in subagent tool logs.
 - **Banned Calling Tokens**: `Round`, `Sweep`, `Targeted`, `Re-verify`, `Re-audit`, `Fix`, `Pass`, `Iteration`, `Previous round`.
+
+### 2B. Cross-Review Prompt Template
+
+Host MUST summon cross-reviewers using this exact invariant template:
+
+```text
+You are the <CrossReviewerRole> Cross-Reviewer for remediation validation.
+Review Workspace: <review_dir>
+Codebase Root: <repo-root>
+Target DA(s): <da_path(s)>
+Target Remediation: <review_dir>/reports/<AuthorRole>.md
+Domain Context: <review_dir>/Context.md
+Review Guide: <guide_path>
+Output Path: <review_dir>/reports/<AuthorRole>-CR-<CrossReviewerRole>.md
+
+Evaluate <AuthorRole>'s proposed remediation ONLY against your domain standards for the areas affected by the proposed changes. Follow your Review Guide for domain expertise.
+
+You are encouraged to inspect relevant codebase files and Target DA(s) to verify that the proposed remediation is technically grounded and does not break existing contracts or domain invariants.
+
+SCOPE CONSTRAINT: You are cross-reviewing a sibling role's remediation, NOT conducting a full audit. You MUST NOT report defects, findings, or requirements unrelated to the proposed remediation's changes. Codebase inspection is strictly for verifying the remediation's feasibility, not for discovering new defects that belong in your own regular audit report.
+
+If the remediation satisfies your domain standards for the affected areas, return CROSS-PASSED.
+If it does not, return CROSS-GATED with concrete requirements and specification text the authoring role must incorporate.
+
+Write your evaluation to the Output Path per the Cross-Review Output Format, then notify Host via send_message with the exact text: "CR-COMPLETE <VERDICT>: <AuthorRole>-CR-<CrossReviewerRole>"
+```
+
+- **Dynamic Guide Resolution**: Same as Section 2 (`<guide_path>` resolved relative to active skill location).
+- **Tool Metadata Rule**: Host MUST specify neutral tool metadata (`toolAction: "Cross-reviewing remediation"`, `toolSummary: "Domain cross-review"`) to prevent leaking phase/round names.
+- **Banned Calling Tokens**: Same as Section 2.
+
+### 2C. Cross-Review Output Format
+
+Cross-reviewers MUST write their evaluation to `<review_dir>/reports/<AuthorRole>-CR-<CrossReviewerRole>.md` using this format:
+
+```markdown
+# Cross-Review: <AuthorRole> Remediation
+
+- **Cross-Reviewer**: <CrossReviewerRole>
+- **Verdict**: CROSS-PASSED | CROSS-GATED
+
+## Cross-Gated Requirements
+<!-- Only present when verdict is CROSS-GATED -->
+
+1. **[Requirement Title]**:
+   - **Affected Remediation Section**: <Section in AuthorRole.md where the gap exists>
+   - **Domain Standard**: <Specific standard from cross-reviewer's domain not satisfied>
+   - **Required Specification**: <Concrete spec text or acceptance criteria the authoring role must incorporate>
+```
+
+### 2D. Cross-Review Requests Compilation Format
+
+Host compiles all `CROSS-GATED` feedback for each authoring role into `<review_dir>/reports/<AuthorRole>-Cross-Review-Requests.md`:
+
+```markdown
+# Cross-Review Requests: <AuthorRole>
+
+The following cross-domain requirements must be incorporated into your remediation in <review_dir>/reports/<AuthorRole>.md.
+
+## From <CrossReviewerRole1>
+
+<Requirements copied from CR file>
+
+## From <CrossReviewerRole2>
+
+<Requirements copied from CR file>
+
+Update your report and notify Host via message when done.
+```
 
 ---
 
@@ -161,31 +232,31 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
   4. If `idle` without report on disk:
      - `ProbeCount[role] == 0`: Host sends Probe 1 via `send_message` (`"Status probe: Detected idle state. If you have a running background script, check its status via manage_task. Once your audit is finished, write your report to <review_dir>/reports/<Role>.md and notify Host."`), and sets `ProbeCount[role] = 1`.
      - `ProbeCount[role] == 1`: Host sends Probe 2 via `send_message` (`"Status probe (confirm active status immediately via send_message): Detected idle state. Once your audit is finished, write your report to <review_dir>/reports/<Role>.md and notify Host."`), and sets `ProbeCount[role] = 2`.
-     - `ProbeCount[role] >= 2` and reviewer remained idle with no confirmation: Host concludes reviewer is unrecoverable, inspects transcript/task logs, terminates it via `manage_subagents(Action="kill")`, resets `ProbeCount[role] = 0`, and respawns that specific reviewer.
+     - `ProbeCount[role] >= 2` and reviewer remained idle with no confirmation: Host concludes reviewer is unrecoverable, inspects transcript/task logs, resets `ProbeCount[role] = 0`, and respawns that specific reviewer via `invoke_subagent`.
   5. If `PendingTierRoles` remains non-empty, re-arm 180s timer and end turn.
 - **Quota Interruption & Mid-Flight Resume**:
   When Host resumes execution following a quota interruption, server restart, or resume signal from Layer 1:
   1. Host inspects existing subagents via `manage_subagents(Action="list")`.
   2. For any role in `PendingTierRoles` without a report on disk:
-     - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your audit and write your report to <review_dir>/reports/<Role>.md, then notify Host via send_message."`). Host MUST NOT call `manage_subagents(Action="kill")` or re-invoke that role.
-     - **Kill/Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host summon a new subagent for that role. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host terminates it via `manage_subagents(Action="kill")` and respawns that specific reviewer.
+     - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your audit and write your report to <review_dir>/reports/<Role>.md, then notify Host via send_message."`). Host MUST NOT re-invoke that role.
+     - **Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host summon a new subagent for that role. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host respawns that specific reviewer via `invoke_subagent`.
   3. Re-arm 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
 - Only when `PendingTierRoles` is empty does Host proceed to Step 4.
 
 ### Step 4: Tier Batch Gate & Reviewer Negotiation
 - Host evaluates Layer 3 reports strictly per **tier batch** (after all active roles in the current tier produce initial outputs).
-- **Subagent Lifecycle**: Reviewer subagents remain alive in the `idle` state throughout active tier batch negotiation. Once a tier batch is fully resolved (all roles accepted as PASS, accepted as blocking REVISIONS NEEDED, or removed/sanitized), Host MUST terminate that tier's reviewer subagents via process control (`manage_subagents` with Action: `kill`) before advancing to the next tier (or triggering early suspension).
+- **Subagent Lifecycle**: Host MUST NOT call `manage_subagents(Action="kill")`. All Layer 3 subagent cleanup is handled by Layer 1 killing Layer 2, which cascades termination to all descendants. Reviewer subagents remain alive throughout the entire round.
 - **Triage Protocol per `HOW-TO-GATE.md`**:
   - **Fully Accepted**: All reported issues satisfy Ground-Truth and Macro Flow proofs with verified codebase citations. Host accepts report without messaging reviewer.
   - **Gated Issues**: Issues lacking proofs, citing non-existent APIs, breaking macro flow, asserting ungrounded platform constraints without empirical evidence, violating boundary symmetry, or introducing intra-DA contradictions are marked GATED.
-  - **Technical Impasse Evaluation**: When an active reviewer submits `STATUS: INFEASIBLE` with an `Infeasibility Proof`, Host evaluates the proof per `HOW-TO-GATE.md` Principle 9. If the proof is speculative or ungrounded, Host gates the report in `<Role>_Gated_Issues.md` under `Ungrounded Infeasibility Claim`. If the impasse is verified as an insurmountable platform or technical barrier, Host accepts the finding as a verified impasse, immediately terminates all active reviewer subagents for the current tier batch via process control (`manage_subagents` with `Action: "kill"`), cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7.
+  - **Technical Impasse Evaluation**: When an active reviewer submits `STATUS: INFEASIBLE` with an `Infeasibility Proof`, Host evaluates the proof per `HOW-TO-GATE.md` Principle 9. If the proof is speculative or ungrounded, Host gates the report in `<Role>_Gated_Issues.md` under `Ungrounded Infeasibility Claim`. If the impasse is verified as an insurmountable platform or technical barrier, Host accepts the finding as a verified impasse, cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7.
 - **Gated Negotiation Loop**:
   1. Host records `GatingIssuedTimestamp = current_time`, invalidates any stale `<review_dir>/reports/<Role>_Explain.md` on disk (via deletion or overwriting with empty content), and authors `<review_dir>/reports/<Role>_Gated_Issues.md` for each affected role simultaneously per `HOW-TO-GATE.md`. Single top-level `## Required Reviewer Action` block at top of file, followed by `## Gated Issues`. Host MUST NOT suggest fix solutions or code snippets, and MUST NOT repeat action choices per individual issue.
   2. Host initializes `PendingGatedRoles` containing all gated roles in the tier batch, and initializes `ProbeCount[role] = 0`.
   3. Host notifies gated reviewers in a single wave via `send_message`, and arms a 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on gated reviewers liveness", TimerCondition="any")`.
   4. **Asynchronous Reactive Wakeup Handling**:
      - To de-queue a role from `PendingGatedRoles` during reactive wakeups, Host MUST verify that: (1) A newly authored `<Role>_Explain.md` exists on disk with modification timestamp strictly greater than gating issue (`mtime > GatingIssuedTimestamp`), OR (2) The file modification timestamp (`mtime`) of `<Role>.md` is strictly greater than `GatingIssuedTimestamp` (`mtime > GatingIssuedTimestamp`), OR (3) An explicit completion message confirming the update has been received from that reviewer's conversation ID via `send_message` subsequent to `GatingIssuedTimestamp`. Host MUST NOT check mere file existence of `<Role>.md`.
-     - **Impasse Early-Exit Exception**: If a de-queued role updates `<Role>.md` with `STATUS: INFEASIBLE` or authors `<Role>_Explain.md` defending an impasse, Host MUST NOT wait for `PendingGatedRoles` to become empty; Host immediately inspects the impasse proof. If verified per Principle 9, Host terminates all active reviewer subagents for the current tier batch via process control (`manage_subagents` with `Action: "kill"`), cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7. If the impasse proof is NOT verified (remains speculative or ungrounded), Host MUST NOT re-gate prematurely or message the reviewer while `PendingGatedRoles` is non-empty; Host keeps the role de-queued, re-arms the timer, and continues waiting until `PendingGatedRoles` is empty to perform standard batch re-evaluation under Item 7.
+     - **Impasse Early-Exit Exception**: If a de-queued role updates `<Role>.md` with `STATUS: INFEASIBLE` or authors `<Role>_Explain.md` defending an impasse, Host MUST NOT wait for `PendingGatedRoles` to become empty; Host immediately inspects the impasse proof. If verified per Principle 9, Host cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7. If the impasse proof is NOT verified (remains speculative or ungrounded), Host MUST NOT re-gate prematurely or message the reviewer while `PendingGatedRoles` is non-empty; Host keeps the role de-queued, re-arms the timer, and continues waiting until `PendingGatedRoles` is empty to perform standard batch re-evaluation under Item 7.
      - If reports not updated but message is active confirmation: Host resets `ProbeCount[role] = 0`, re-arms timer, and continues waiting.
      - If `PendingGatedRoles` is non-empty: Re-arm timer, do NOT inspect reports or trigger re-gating, and end turn to continue waiting.
   5. **Liveness Timer Expiry Escalation**:
@@ -193,27 +264,68 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
      - If `idle`:
        - `ProbeCount[role] == 0`: Send Probe 1 (`"Status probe: Detected idle state. Once your gate response is finished, update <review_dir>/reports/<Role>.md and notify Host."`), set `ProbeCount[role] = 1`.
        - `ProbeCount[role] == 1`: Send Probe 2 (`"Status probe (confirm active status immediately via send_message): Detected idle state. Once your gate response is finished, update <review_dir>/reports/<Role>.md and notify Host."`), set `ProbeCount[role] = 2`.
-       - `ProbeCount[role] >= 2` and idle with no confirmation: Terminate via `manage_subagents(Action="kill")`, reset `ProbeCount[role] = 0`, and respawn that specific reviewer by invoking `invoke_subagent` with explicit gating prompt parameters:
+       - `ProbeCount[role] >= 2` and idle with no confirmation: Reset `ProbeCount[role] = 0` and respawn that specific reviewer by invoking `invoke_subagent` with explicit gating prompt parameters:
          `You are the <Role> Reviewer for Directive Artifact verification. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. Domain Context: <review_dir>/Context.md. Review Guide: <guide_path>. Output Path: <review_dir>/reports/<Role>.md. Your report was gated in <review_dir>/reports/<Role>_Gated_Issues.md. Apply the Gate Response Protocol per HOW-TO-GATE.md to update your report.`
      - If `PendingGatedRoles` non-empty: Re-arm timer and end turn.
   - **Quota Interruption & Mid-Flight Resume**:
     When Host resumes execution following a quota interruption, server restart, or resume signal from Layer 1 during tier batch negotiation:
     1. Host inspects existing subagents via `manage_subagents(Action="list")`.
     2. For any role in `PendingGatedRoles` without updated reports on disk:
-       - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your gate response per <review_dir>/reports/<Role>_Gated_Issues.md, update your report, and notify Host via send_message."`). Host MUST NOT call `manage_subagents(Action="kill")` or re-invoke that role.
-       - **Kill/Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host respawn that specific reviewer. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host terminates it via `manage_subagents(Action="kill")` and respawns.
+       - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your gate response per <review_dir>/reports/<Role>_Gated_Issues.md, update your report, and notify Host via send_message."`). Host MUST NOT re-invoke that role.
+       - **Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host respawn that specific reviewer. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host respawns via `invoke_subagent`.
     3. Re-arm 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on gated reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
   - Only when `PendingGatedRoles` is empty does Host proceed to re-evaluate updated `<Role>.md` and `<Role>_Explain.md` reports.
   6. **Reviewer Response Actions**: Reviewers apply one of three actions per `HOW-TO-GATE.md` (Refine/Complete as Requested, Remove, or Reject Gating/Removal and Explain).
   7. **Re-Evaluation & Stale Defense Loop**:
-     - If Host agrees with a reviewer's explanation in `<Role>_Explain.md` and updated `<Role>.md` substantiating a verified technical impasse (`STATUS: INFEASIBLE`), Host MUST NOT continue waiting for other sibling roles in that tier batch; Host immediately terminates all remaining active reviewer subagents for the tier batch via process control (`manage_subagents` with `Action: "kill"`), cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7.
+     - If Host agrees with a reviewer's explanation in `<Role>_Explain.md` and updated `<Role>.md` substantiating a verified technical impasse (`STATUS: INFEASIBLE`), Host MUST NOT continue waiting for other sibling roles in that tier batch; Host cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7.
      - If Host agrees with a fixable defect update or removal: do not send a confirmation message.
      - If issue remains ungrounded or explanation in `<Role>_Explain.md` is stale without differing/deeper proof: Reviewer must accept removal or refine into abstract spec; reviewer MUST NOT re-assert stale arguments. Host updates `<review_dir>/reports/<Role>_Gated_Issues.md` via `write_to_file` detailing why previous explanation was rejected as stale, refreshes `GatingIssuedTimestamp = current_time`, invalidates stale `<Role>_Explain.md`, re-populates `PendingGatedRoles` with re-gated roles, resets `ProbeCount[role] = 0` for each re-gated role, sends notifications via `send_message`, re-arms 180s timer, and awaits response.
   8. **Gating Artifact Cleanup**: When Host accepts an updated role report, Host deletes `<Role>_Gated_Issues.md` and any `<Role>_Explain.md` for that role (idempotently handling missing files).
-- Once all roles in the tier batch are resolved, Host terminates that tier's reviewer subagents via process control (`manage_subagents` with Action: `kill`) and advances to the next tier (or transitions to Step 7 under `PLAN_INFEASIBLE` if a verified impasse was established, or triggers early suspension under `ROUND_REVISION_NEEDED` if any role retains accepted blocking defects).
+- Once all roles in the tier batch are resolved:
+  - **Zero blocking defects**: Host advances to the next tier.
+  - **Accepted blocking defects**: Host proceeds to Step 4B (Cross-Domain Remediation Review).
+  - **`PLAN_INFEASIBLE`**: Host transitions to Step 7 (impasse already handled during Step 4 gate evaluation).
+
+### Step 4B: Cross-Domain Remediation Review
+
+When a tier batch is resolved with accepted blocking defects (at least one active role retains `REVISION NEEDED` status after Step 4 gate negotiation), Host executes cross-domain remediation review before Early Suspension (Step 5) or DA Mutation (Step 7). This phase validates that proposed remediations satisfy cross-domain standards before they are applied to the DA, preventing downstream round bloat.
+
+1. **Collect Remediations Requiring Cross-Review**: Host identifies all `<Role>.md` reports from the resolved tier with accepted blocking defects (status `REVISION NEEDED`).
+
+2. **Determine Touched Roles**: For each collected remediation, Host identifies active roles from the full roster whose domain standards are affected by the proposed changes. Host uses domain-impact analysis to determine touched roles, for example:
+   - Remediations touching public contracts, module boundaries, shared state, or cross-subsystem dependencies MUST touch `Architect`.
+   - Remediations introducing prerequisite tasks, altering ticket delivery order, or expanding ticket scope MUST touch `Progress`.
+   - Remediations affecting API boundaries, network protocols, or payload contracts may touch `Security`, `Testability`, `Observability`.
+   - Remediations affecting database schemas, configuration formats, or caching strategies may touch `DataMigration`, `Performance`.
+   - Remediations affecting state machines, concurrency control, or algorithmic logic may touch `Logic`, `Edgecase`.
+   - Remediations affecting component composition, event handling, or rendering lifecycle may touch `UXUI`.
+
+   Host MAY invoke touched roles from downstream tiers that have not yet run their full audit. A role MUST NOT cross-review its own report.
+
+3. **Invoke Cross-Reviewers**: Host invokes each touched role using the Cross-Review Prompt Template (Section 2B). Cross-reviewers evaluating the same `<AuthorRole>.md` MUST be launched simultaneously in a single `invoke_subagent` call. Host initializes `PendingCrossReviewRoles` per authoring role and arms 180s liveness timers per Step 3 protocol.
+
+4. **Asynchronous Reactive Wakeup Handling**: Host tracks `PendingCrossReviewRoles` per authoring role. A cross-reviewer is de-queued when Host receives a `CR-COMPLETE <VERDICT>: <AuthorRole>-CR-<CrossReviewerRole>` message (where `<VERDICT>` is `CROSS-PASSED` or `CROSS-GATED`) from that cross-reviewer's conversation ID via `send_message`. Host MUST NOT use file existence alone as completion signal. Liveness timer escalation follows the same Probe 1, Probe 2, and respawn protocol as Step 3.
+
+5. **Cross-Review Resolution**:
+   - Once `PendingCrossReviewRoles` is empty for an authoring role, Host inspects all `<AuthorRole>-CR-<CrossReviewerRole>.md` files.
+   - If all cross-reviewers returned `CROSS-PASSED`: Cross-review is complete for that authoring role. Host cleans up CR artifacts.
+   - If any cross-reviewer returned `CROSS-GATED`: Host compiles all cross-gating feedback into `<review_dir>/reports/<AuthorRole>-Cross-Review-Requests.md` per Section 2D format, and sends the following fixed message to the authoring role's subagent via `send_message`:
+     ```
+     Cross-domain review identified requirements for your remediation. Read <review_dir>/reports/<AuthorRole>-Cross-Review-Requests.md. Incorporate all listed requirements into your report at <review_dir>/reports/<AuthorRole>.md. Once updated, notify Host via send_message with the exact text: "CR-UPDATED: <AuthorRole>"
+     ```
+   - Host awaits the authoring role's `CR-UPDATED: <AuthorRole>` confirmation message. Host MUST NOT treat file existence or mtime changes as completion signal for cross-review updates; only the explicit `CR-UPDATED` message de-queues the authoring role.
+   - Upon receiving the `CR-UPDATED` confirmation, Host cleans up `<AuthorRole>-Cross-Review-Requests.md` and all `<AuthorRole>-CR-*.md` files, and re-invokes the previously cross-gating roles to re-evaluate the updated remediation.
+   - Loop continues until all cross-reviewers return `CROSS-PASSED`.
+
+6. **Scope Constraints**:
+   - Cross-reviewers MUST evaluate the remediation ONLY against their domain standards as they relate to the specific changes proposed in the `<AuthorRole>.md` being cross-reviewed.
+   - Cross-reviewers MUST provide concrete requirements and specification text when returning `CROSS-GATED`, so the authoring role can incorporate them directly without guessing.
+   - **Defect Smuggling Ban**: Cross-reviewers are strictly BANNED from injecting new defects, findings, or requirements unrelated to the remediation being cross-reviewed. Cross-review is not a channel for adding audit findings that belong in the cross-reviewer's own `<Role>.md` report during a regular audit round.
+
+7. **Completion & Teardown**: Once all remediations in the tier batch have received `CROSS-PASSED` from all touched roles, Host cleans up all `*-CR-*.md` and `*-Cross-Review-Requests.md` artifacts, and proceeds to Step 5 (Early Suspension).
 
 ### Step 5: Early Suspension
-- If a tier returns `REVISION NEEDED` after tier batch gate resolution (i.e. if any active role in the resolved tier retains accepted blocking defects): reset `PassCount = 0`, terminate all remaining active reviewer subagents via process control (`manage_subagents` with Action: `kill`), cancel downstream tiers for that round, and transition directly to Step 7. Note: A verified `STATUS: INFEASIBLE` terminates active tiers immediately during Step 4 without waiting for tier batch resolution of fixable siblings.
+- After Step 4B cross-review completes for a tier with accepted blocking defects: reset `PassCount = 0`, cancel downstream tiers for that round, and transition directly to Step 7. Note: A verified `STATUS: INFEASIBLE` terminates active tiers immediately during Step 4 without waiting for tier batch resolution or cross-review.
 
 ### Step 6: Snapshot Delta Backfill & Full Sweep Clearance Gate
 - When all active roles in the current pass clear with zero blocking defects (either via Full DAG execution or Targeted pass on snapshot $S_N$):
@@ -238,8 +350,7 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
      1. If `<review_dir>/Context.bak.md` is present: identify newly created DA files (in active `Context.md` but absent in `Context.bak.md`) and delete them; restore `Context.md` from `Context.bak.md` and delete `Context.bak.md`.
      2. For every target DA listed in restored `Context.md`: restore from its sibling `<da_stem>.bak.md` file (if present) and delete the backup file.
      3. Delete any remaining orphaned sibling `<da_stem>.bak.md` backup files.
-     4. Terminate active reviewer subagents via `manage_subagents(Action="kill")`.
-     5. Author `host/State.md` with `- **Gate Verdict**: ABORTED_MUTATION_FAILURE` and author `host/Analyzation.md` detailing the error and affected paths, notify Layer 1 via `send_message`, and halt execution without issuing `ROUND_REVISION_NEEDED`.
+     4. Author `host/State.md` with `- **Gate Verdict**: ABORTED_MUTATION_FAILURE` and author `host/Analyzation.md` detailing the error and affected paths, notify Layer 1 via `send_message`, and halt execution without issuing `ROUND_REVISION_NEEDED`.
    - **Verification Success**:
      - If `!PA` / `!WA` is active: Retain `<da_stem>.bak.md` and `Context.bak.md` for Layer 1 quota pause, diff review, and user rollback.
      - If `!PA` / `!WA` is NOT active: Host immediately purges the temporary `<da_stem>.bak.md` and `Context.bak.md` backup files before concluding the round.
@@ -260,8 +371,8 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
      - For `PLAN_INFEASIBLE`: Strictly preserve the canonical 4-key header, followed by `## Technical Impasse Analysis` documenting: (1) The insurmountable technical barrier(s) (synthesizing all verified impasses if multiple active roles reported impasses), (2) Grounded empirical proof, and (3) Documented trade-offs and `Alternative Architectural Paths` for user decision.
      - For other verdicts: **Accepted Issues and Applied Suggestions** listing accepted blocking defects and any applied non-blocking suggestions grouped by role under `## Accepted Issues and Suggestions`, labeling each entry as `### N. [<Role> Issue:] <Title>` or `### N. [<Role> Suggestion:] <Title>`. Every suggestion applied to the DA MUST be documented here. Zero rejected/gated tables. If all active roles cleared with zero defects and zero applied suggestions, record `*(None - All active roles cleared with zero blocking defects)*`.
 5. **Process Teardown & Workspace State Preservation**:
-   Host terminates active reviewer subagents via process control (`manage_subagents(Action="kill")`), sends a completion message to Layer 1 (parent agent) via `send_message` reporting the Gate Verdict and referencing `<review_dir>/host/State.md` and `Analyzation.md`, and concludes execution:
-   - **Technical Impasse Teardown (`PLAN_INFEASIBLE`)**: Terminate all active reviewer subagents via process control (`manage_subagents` with `Action: "kill"`), gracefully handling completed or idle subagents idempotently. Preserve `host/State.md`, `host/Analyzation.md`, `reports/`, and `sandbox/` for user and Layer 1 inspection, notify Layer 1 via `send_message`, and conclude execution.
+   Host sends a completion message to Layer 1 (parent agent) via `send_message` reporting the Gate Verdict and referencing `<review_dir>/host/State.md` and `Analyzation.md`, and concludes execution. Host MUST NOT call `manage_subagents(Action="kill")`; Layer 1 handles all process termination by killing Layer 2, which cascades to all descendant subagents automatically:
+   - **Technical Impasse Teardown (`PLAN_INFEASIBLE`)**: Preserve `host/State.md`, `host/Analyzation.md`, `reports/`, and `sandbox/` for user and Layer 1 inspection, notify Layer 1 via `send_message`, and conclude execution.
    - **Intermediate Revision Teardown (`ROUND_REVISION_NEEDED`)**: Preserve `host/State.md` (and `host/Analyzation.md` for Layer 1 inspection). Note that Layer 1 deletes `host/Analyzation.md` prior to launching Round N+1 to eliminate cognitive anchoring.
    - **Round Pass Teardown (`ROUND_PASS`)**: Purge `reports/` and transient gating artifacts. Preserve `host/State.md` (and `host/Analyzation.md` for Layer 1 inspection). Layer 1 deletes `host/Analyzation.md` prior to launching next round.
    - **Final Pass Teardown (`FINAL_PASS`)**: Purge `reports/` and transient gating artifacts, preserve `host/State.md` and `host/Analyzation.md` for Layer 1 final presentation. Layer 1 executes final purge of `<repo-root>/<review_dir>/*` after presenting verified DA.

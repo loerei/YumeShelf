@@ -1,28 +1,31 @@
 ---
-name: conduct-deep-reviewing-loop
-description: Use when asked to conduct a multi-role review loop on implementation plans.
+name: conduct-deep-reviewing-loop-with-cross-review
+description: Use when asked to conduct a multi-role review loop with cross-domain remediation review on implementation plans.
 ---
 
-# Conduct Deep Reviewing Loop
+# Conduct Deep Reviewing Loop With Cross-Review
 
-Multi-agent review loop using isolated domain reviewers, topological dependency routing, and independent gatekeeping to verify Directive Artifacts (DA).
+Multi-agent review loop using isolated domain reviewers, topological dependency routing, independent gatekeeping, and cross-domain remediation review to verify Directive Artifacts (DA).
 
 ## Execution Architecture
 
 | Layer | Agent | Primary Responsibility |
 | :--- | :--- | :--- |
 | **Layer 1** | Main Agent | Resolves `<short_title>` and binds `<review_dir>` (`.scratch/deep-review-<short_title>`), initializes isolated workspace, spawns Layer 2 Host passing `<review_dir>`, handles Host verdict (including user escalation on `PLAN_INFEASIBLE`), manages `!PA` pause gate, rollback handling, cleans `<da_stem>.bak.md` backups, deletes `<review_dir>/host/Analyzation.md` prior to Round N+1, terminates Host subagents, purges `<review_dir>/*` on completion, presents final output. |
-| **Layer 2** | Review Host & Critical Gate | Consumes assigned `<review_dir>` from prompt and `Context.md`, dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, spawns active reviewers passing `<review_dir>`, purges `<review_dir>/reports/` before passes, isolates host artifacts in `<review_dir>/host/`, runs reviewer DAG routing (consuming `State.md`), enforces Tier Batch Gate negotiation and in-place fix pre-verification, terminates subagent processes upon tier batch resolution, backfills skipped roles (upstream and untouched), applies verified DA mutations directly (creating `<da_stem>.bak.md` for modified DAs), writes `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md` (halting without DA mutation on `PLAN_INFEASIBLE`). |
-| **Layer 3** | Domain Reviewers | Independent specialist subagents (up to 11 roles across 4 Tiers) consuming `<review_dir>` from prompt and `Context.md`, executing domain audits per `<Role>-REVIEWER-GUIDE.md`. |
+| **Layer 2** | Review Host & Critical Gate | Consumes assigned `<review_dir>` from prompt and `Context.md`, dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, spawns active reviewers passing `<review_dir>`, purges `<review_dir>/reports/` before passes, isolates host artifacts in `<review_dir>/host/`, runs reviewer DAG routing (consuming `State.md`), enforces Tier Batch Gate negotiation and in-place fix pre-verification, executes cross-domain remediation review (invoking touched roles to validate remediations against cross-domain standards before DA mutation), backfills skipped roles (upstream and untouched), applies verified DA mutations directly (creating `<da_stem>.bak.md` for modified DAs), writes `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md` (halting without DA mutation on `PLAN_INFEASIBLE`). |
+| **Layer 3** | Domain Reviewers | Independent specialist subagents (up to 11 roles across 4 Tiers) consuming `<review_dir>` from prompt and `Context.md`, executing domain audits per `<Role>-REVIEWER-GUIDE.md`. Also invoked as cross-reviewers to validate sibling role remediations against their domain standards. |
 
 ## Workflow
 
 ```mermaid
 flowchart TD
     Start["Round 1: Full DAG Sweep"] --> Eval{"Host Gate Verdict?"}
-    Eval -->|"ROUND_REVISION_NEEDED"| Apply["Layer 2 Host: Mutate DA directly<br/>(Write State.md & Analyzation.md, create <da_stem>.bak.md)"]
+    Eval -->|"ROUND_REVISION_NEEDED"| CrossReview["Layer 2 Host: Cross-Domain Remediation Review<br/>(Invoke touched roles to validate remediations)"]
     Eval -->|"ROUND_PASS"| Accumulate["PassCount += 1<br/>(Write State.md & Analyzation.md)"]
     Eval -->|"PLAN_INFEASIBLE"| HaltInfeasible["Layer 1: Present Technical Impasse & Alternatives.<br/>Halt review loop immediately"]
+    CrossReview --> CrossCheck{"All Touched Roles CROSS-PASSED?"}
+    CrossCheck -->|"CROSS-GATED"| Refine["Authoring role incorporates<br/>cross-review requirements"] --> CrossReview
+    CrossCheck -->|"CROSS-PASSED"| Apply["Layer 2 Host: Mutate DA directly<br/>(Write State.md & Analyzation.md, create da_stem.bak.md)"]
     Apply --> CheckPA{"!PA Active?"}
     CheckPA -->|"Yes"| PAPause["Layer 1: Report diff, halt turn.<br/>Await 'C' or rollback"]
     PAPause -->|"Receives 'C'"| Handoff["Layer 1: Delete Analyzation.md,<br/>re-spawn Host"] --> TargetRun["Round N+1: Targeted Re-Review<br/>(Host reads State.md)"]
@@ -30,18 +33,18 @@ flowchart TD
     CheckPA -->|"No"| Handoff
     CheckTarget{"Targeted Roles PASS?"}
     TargetRun --> CheckTarget
-    CheckTarget -->|"No"| Apply
+    CheckTarget -->|"No"| CrossReview
     CheckTarget -->|"PLAN_INFEASIBLE"| HaltInfeasible
     CheckTarget -->|"Yes (Pending Skipped Roles)"| Backfill["Snapshot Delta Backfill<br/>(Topologically summon skipped roles on SN)"]
     Backfill --> BackfillCheck{"Skipped Roles PASS?"}
-    BackfillCheck -->|"No"| Apply
+    BackfillCheck -->|"No"| CrossReview
     BackfillCheck -->|"PLAN_INFEASIBLE"| HaltInfeasible
     BackfillCheck -->|"Yes"| Accumulate
     CheckTarget -->|"Yes (100% Roster Audited)"| Accumulate
     Accumulate --> SPCheck{"PassCount >= SP?"}
     SPCheck -->|"No"| HandoffSweep["Layer 1: Delete Analyzation.md,<br/>re-spawn Host"] --> FullSweep["Next Full Sweep Round<br/>(Host reads State.md, runs static DA)"]
     FullSweep --> SweepCheck{"All Active Roles PASS?"}
-    SweepCheck -->|"No"| Apply
+    SweepCheck -->|"No"| CrossReview
     SweepCheck -->|"PLAN_INFEASIBLE"| HaltInfeasible
     SweepCheck -->|"Yes"| Accumulate
     SPCheck -->|"Yes"| FinalPass["Issue FINAL_PASS & Conclude"]
@@ -51,7 +54,7 @@ flowchart TD
 
 1. **Resolve `<short_title>` and Workspace Directory (`<review_dir>`)**:
    - Determine `<short_title>` according to strict precedence:
-     1. **Explicit User Specification**: User-specified title, slug, or tag in prompt (e.g. `/conduct-deep-reviewing-loop <title>`), excluding active role identifiers, modifier tags, and target DA file paths. Extract the candidate string and pass it to the slugification rules as `<Topic>`.
+     1. **Explicit User Specification**: User-specified title, slug, or tag in prompt (e.g. `/conduct-deep-reviewing-loop-with-cross-review <title>` or `/conduct-deep-reviewing-loop <title>`), excluding active role identifiers, modifier tags, and target DA file paths. Extract the candidate string and pass it to the slugification rules as `<Topic>`.
      2. **Single Target DA Topic / Stem**: If auditing a single file whose stem is generic (`implementation_plan`, `plan`, `spec`, `draft`, `index`) or located in an agent brain session folder (`.gemini/antigravity/brain/<id>/`), extract `<short_title>` from the document's top-level H1 header:
         - Extract raw text from top-level H1 header (stripping `#` and whitespace).
         - Strip case-insensitive leading document archetype prefixes matching `^(?:Implementation\s+Plan|Plan|Spec(?:ification)?|Design\s+Doc(?:ument)?|Architecture\s+Spec(?:ification)?)\s*[:–—|-]\s*`.

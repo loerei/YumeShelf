@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.7] - working: macOS Beta, Faster Auto-Updates & TINC Save Support
+## [2.2.7] - 2026-09-23: macOS Beta, Faster Auto-Updates & TINC Save Support — released
 
 ### What Changed
 - macOS Beta build: added an experimental Universal build (`.dmg` and `.zip`) that runs on both Apple Silicon and Intel Macs. It is not signed with an Apple Developer certificate, so Gatekeeper will block it on first launch. Run `xattr -cr /Applications/YumeShelf.app` in Terminal to clear quarantine. Report any crashes or quirks on GitHub Issues.

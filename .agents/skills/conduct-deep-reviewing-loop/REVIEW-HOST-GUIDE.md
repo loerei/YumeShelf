@@ -1,16 +1,14 @@
-# Layer 2 Review Host Operational Guide & Execution Protocol
-
-Unified operational instructions for Layer 2 Review Host to manage workspace isolation, route Layer 3 reviewers, negotiate tier batch gates, enforce DAG dependencies, and directly apply verified DA remediations.
+# Review Host Guide
 
 ---
 
-## 1. Operating Architecture & Workspace Air-Gap
+## 1. Architecture and Workspace Isolation
 
 ### 1.1 Workspace Layout
 ```text
 <repo-root>/<review_dir>/    # Dynamic review workspace (.scratch/deep-review-<short_title>/)
 ├── host/                    # [HOST ONLY] Coordination artifacts (hidden from reviewers)
-│   ├── State.md             # Machine-readable routing state (Verdict, Highest Modified Tier, PassCount, Untouched Reviewers)
+│   ├── State.md             # Machine-readable routing state (Verdict, Highest Modified Tier, PassCount, Reviewer Accounting)
 │   ├── Analyzation.md       # Human/L1 analysis report (accepted issues & rationale, or technical impasse diagnostics & alternatives)
 │   └── Reviewer_Choice_Rationale.md
 ├── Context.md               # [PUBLIC] Initialized by Layer 1 (Review Workspace, DA path, rules, criteria, static SP)
@@ -21,7 +19,7 @@ Unified operational instructions for Layer 2 Review Host to manage workspace iso
 └── sandbox/                 # [DIAGNOSTIC SANDBOX] Inline probes & shadow modules (<review_dir>/sandbox/<action>_<role>_*, shadow_*)
 ```
 
-- **Information Air-Gap**: Reviewers MUST read only their assigned target DA, any cross-referenced Upstream DAs declared in `Context.md`, `<review_dir>/Context.md`, and their designated `<Role>-REVIEWER-GUIDE.md`. Reviewers MUST NOT inspect `<review_dir>/host/` or reports of other reviewers.
+- **Reviewer Isolation**: Reviewers MUST read only their assigned target DA, any cross-referenced Upstream DAs declared in `Context.md`, `<review_dir>/Context.md`, and their designated `<Role>-REVIEWER-GUIDE.md`. Reviewers MUST NOT inspect `<review_dir>/host/` or reports of other reviewers.
 - **Context Freezing**: Layer 1 initializes `<review_dir>/Context.md` at workflow start. Context files MUST remain strictly frozen during active reviewer execution.
 - **Context Content Rules**:
   - **MUST Include**:
@@ -34,6 +32,7 @@ Unified operational instructions for Layer 2 Review Host to manage workspace iso
       | :--- | :---: | :---: | :--- |
       | `<path-to-da>` | `Upstream` | `Downstream` | `Implemented` | `Unimplemented` | <Explicit responsibility boundary> |
       ```
+    - `## Data Storage & Migration Scope`: Declared by Layer 1 (`TOUCHES_PERSISTENCE` with storage archetype and engine, or `NO_PERSISTENCE` with technical justification).
     - `## Active Modifiers` (e.g. `!PA`, `!WA`, `!SP<N>`).
     - Codebase rules path (`AGENTS.md`).
     - Task domain skill paths.
@@ -42,9 +41,9 @@ Unified operational instructions for Layer 2 Review Host to manage workspace iso
   - **MUST NOT Include**: Leading prompt questions, past reviewer scores, historical changelogs, or dynamic execution state (active round numbers, iteration counts, or current `PassCount`).
 
 ### 1.2 File Authoring Protocol
-Reviewers and Host MUST use native `write_to_file` directly (without `ArtifactMetadata`) for all file creations (`<review_dir>/sandbox/` probe scripts, `<review_dir>/reports/<Role>.md`, `<review_dir>/host/*.md`). Creating intermediate helper scripts (e.g. `write_report.cjs`, `.js`, `.ps1`) or embedding multi-line code inside `run_command` inline strings (`node -e`, `python -c`, `echo`, `pwsh`) to author text files is strictly prohibited.
+Reviewers and Host MUST use native `write_to_file` directly (without `ArtifactMetadata`) for all file creations (`<review_dir>/sandbox/` probe scripts, `<review_dir>/reports/<Role>.md`, `<review_dir>/host/*.md`). MUST NOT create intermediate helper scripts (e.g. `write_report.cjs`, `.js`, `.ps1`) or embed multi-line code inside `run_command` inline strings (`node -e`, `python -c`, `echo`, `pwsh`) to author text files.
 
-### 1.3 Clean & Neutral Artifact Protocol (Anti-Anchoring)
+### 1.3 Specification Hygiene
 When updating draft artifacts between iterations, integrate fixes directly into the specification as native first-class requirements:
 - Strip review-iteration delta markers (e.g. `[UPDATED]`, `[FIXED]`, `[ADDED IN ROUND N]`, `[RESOLVED]`). Preserve standard `AGENTS.md` plan action tags (`[NEW]`, `[MODIFY]`, `[DELETE]`).
 - Remove internal changelogs, version history tables (`v1.x`), or review feedback references.
@@ -54,14 +53,14 @@ When updating draft artifacts between iterations, integrate fixes directly into 
 When evaluating a target DA with cross-referenced dependencies in `Context.md`, Host and reviewers MUST strictly follow these invariant semantics:
 1. **`Upstream` + `Implemented`**: The existing codebase on disk is authoritative ground-truth. The target DA must cleanly integrate with existing implementations.
 2. **`Upstream` + `Unimplemented` (Authoritative Future Baseline)**: Reviewers MUST read the upstream DA and treat its declared types, schemas, and seams as the authoritative future baseline:
-   - **Anti-Bloat**: The target DA MUST NOT re-specify, duplicate, or expand features belonging to the upstream DA.
-   - **Anti-Drift**: The target DA MUST strictly adhere to the data structures, types, and seams defined in the upstream DA without contradiction or incompatible divergence.
-   - **Anti-False-Positive**: Reviewers MUST NOT flag missing codebase files or unimplemented methods as readiness defects if they are explicitly scheduled to be created by the upstream DA.
+   - MUST NOT re-specify, duplicate, or expand features belonging to the upstream DA.
+   - MUST strictly adhere to the data structures, types, and seams defined in the upstream DA without contradiction or incompatible divergence.
+   - MUST NOT flag missing codebase files or unimplemented methods as readiness defects if they are explicitly scheduled to be created by the upstream DA.
 3. **`Downstream` + `Unimplemented`**: The target DA must expose clean extension points and domain seams, but MUST NOT tightly couple to or leak domain-specific logic of future downstream epics.
 
 ---
 
-## 2. Invariant Reviewer Invocation Protocol
+## 2. Reviewer Prompt Template
 
 Host MUST summon Layer 3 subagents using this exact invariant template across all rounds:
 
@@ -77,7 +76,7 @@ Audit the target document(s) objectively from a clean-slate perspective. Follow 
 ```
 
 - **Dynamic Guide Resolution**: `<guide_path>` MUST be resolved dynamically relative to the active skill location (`.agents/skills/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in distributed projects or `productivity/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in central `myskills`).
-- **Subdocument Progressive Disclosure**: Host passes only the primary `<Role>-REVIEWER-GUIDE.md` path. Reviewers autonomously load domain subdocuments referenced in their guide's routing table as needed via `view_file`.
+- **Subdocuments**: Host passes only the primary `<Role>-REVIEWER-GUIDE.md` path. Reviewers load domain subdocuments referenced in their guide's routing table as needed via `view_file`.
 - **Tool Metadata Rule**: Host MUST specify neutral tool metadata (`toolAction: "Summoning reviewer"`, `toolSummary: "Domain review"`) to prevent leaking phase/round names in subagent tool logs.
 - **Banned Calling Tokens**: `Round`, `Sweep`, `Targeted`, `Re-verify`, `Re-audit`, `Fix`, `Pass`, `Iteration`, `Previous round`.
 
@@ -95,9 +94,9 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
 | **Layer 3.3** | `Logic` *(Mandatory Core)*, `Edgecase`, `Performance`, `Observability` | Layer 3.2 PASS |
 | **Layer 3.4** | `UXUI` | Layer 3.3 PASS |
 
-- **Vacuous Tier Transition**: If all roles in a DAG tier are `EXCLUDED`, or if all active roles in the tier are skipped during an initial targeted pass (as upstream of `Highest Modified Tier` or listed under Untouched Reviewers in `host/State.md`), Host treats that tier as vacuously passed for the active targeted pass and immediately advances to the next tier.
+- **Skipped Tiers**: If all roles in a DAG tier are `EXCLUDED`, or if all active roles in the tier are skipped during an initial targeted pass (as upstream of `Highest Modified Tier` or marked UNTOUCHED under Reviewer Accounting in `host/State.md`), Host treats that tier as skipped for the active targeted pass and immediately advances to the next tier.
 
-### 3.2 Role Summoning Table
+### 3.2 Role Invocation Table
 
 | Role Identifier | Guide Reference Path | Output Artifact Path |
 | :--- | :--- | :--- |
@@ -125,7 +124,8 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
   ```
   - `Architect` and `Logic` MUST ALWAYS be `INCLUDED` for every DA and cannot be excluded.
   - `Progress` MUST be `INCLUDED` for multi-phase/multi-ticket epics, roadmaps, or work-breakdown structures; `EXCLUDED` for single-ticket/simple plans.
-  - Remaining 8 specialist roles are marked `INCLUDED` or `EXCLUDED` with concrete technical justification.
+  - `DataMigration` MUST be marked `EXCLUDED` if `## Data Storage & Migration Scope` in `Context.md` specifies `Persistence Status: NO_PERSISTENCE`. If `Persistence Status == TOUCHES_PERSISTENCE`, Host MUST mark `DataMigration` as `INCLUDED`, binding the identified archetype and engine.
+  - Remaining 7 specialist roles are marked `INCLUDED` or `EXCLUDED` with concrete technical justification.
 
 ### Step 1: Workspace Preparation
 - Purge all files in `<review_dir>/reports/` (preserving intra-tier reports within an active pass).
@@ -137,7 +137,7 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
 - **Targeted Round (Round N+1)**: If previous `host/State.md` recorded `Gate Verdict: ROUND_REVISION_NEEDED`:
   - Reset `PassCount = 0`.
   - Read `Highest Modified Tier` from previous `host/State.md`. If the line is missing, unparseable, or malformed, gracefully fallback to `Layer 3.1`.
-  - Load `Untouched Reviewers` from `<review_dir>/host/State.md`. If the section is missing, unparseable, or containing `*(None)*`, whitespace, or an empty table, gracefully fallback to an empty set ($\emptyset$), treating all active roles in affected tiers as targeted.
+  - Parse the `Reviewer Accounting` table in `<review_dir>/host/State.md` and extract all roles with `Status == UNTOUCHED` as the `Untouched Reviewers` set. If the section is missing, unparseable, contains `*(None)*`, or is malformed, gracefully fallback to an empty set, treating all active roles in the tier as targeted (`TOUCHED`).
   - Determine affected roles per Section 5 Invalidation Matrix.
   - Summon affected roles on the updated static snapshot $S_N$.
 - **Full Sweep Round (Round N+1)**: If previous `host/State.md` recorded `Gate Verdict: ROUND_PASS`:
@@ -145,7 +145,7 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
 - **Initial Round (Round 1, when `host/State.md` is absent)**:
   - Initialize `PassCount = 0` and run Full DAG across all active roles (Tier 3.1 -> 3.2 -> 3.3 -> 3.4).
 
-### Step 3: Subagent Execution & Single-Wave Summoning
+### Step 3: Subagent Execution & Batch Invocation
 - Host summons active Layer 3 subagents using the invariant template in Section 2.
 - Parallel roles within the same DAG tier (e.g. `Logic`, `Edgecase`, `Performance`, `Observability` in Layer 3.3) MUST be launched simultaneously in a single `invoke_subagent` call.
 - Host initializes tracking set `PendingTierRoles` containing all active roles in the tier batch, initializes per-role counter `ProbeCount[role] = 0`, and arms a 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on reviewers liveness", TimerCondition="any")`.
@@ -167,14 +167,14 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
   When Host resumes execution following a quota interruption, server restart, or resume signal from Layer 1:
   1. Host inspects existing subagents via `manage_subagents(Action="list")`.
   2. For any role in `PendingTierRoles` without a report on disk:
-     - **MANDATORY REVIVE**: If the reviewer's conversation ID exists, Host **MUST revive it** by sending a resume message via `send_message` (`"System resumed from interruption. Please continue your audit and write your report to <review_dir>/reports/<Role>.md, then notify Host via send_message."`). Host **MUST NOT** call `manage_subagents(Action="kill")` and re-summon that role.
+     - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your audit and write your report to <review_dir>/reports/<Role>.md, then notify Host via send_message."`). Host MUST NOT call `manage_subagents(Action="kill")` or re-invoke that role.
      - **Kill/Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host summon a new subagent for that role. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host terminates it via `manage_subagents(Action="kill")` and respawns that specific reviewer.
   3. Re-arm 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
 - Only when `PendingTierRoles` is empty does Host proceed to Step 4.
 
 ### Step 4: Tier Batch Gate & Reviewer Negotiation
 - Host evaluates Layer 3 reports strictly per **tier batch** (after all active roles in the current tier produce initial outputs).
-- **Subagent Lifecycle Preservation & Process Teardown**: Host MUST NOT terminate reviewer subagents upon receiving initial reports. Reviewer subagents remain alive in the `idle` state throughout active tier batch negotiation so that `send_message` reaches existing subagents. Once a tier batch is fully resolved (all roles accepted as PASS, accepted as blocking REVISIONS NEEDED, or removed/sanitized), Host MUST terminate that tier's reviewer subagents via process control (`manage_subagents` with Action: `kill`) before advancing to the next tier (or triggering early suspension).
+- **Subagent Lifecycle**: Reviewer subagents remain alive in the `idle` state throughout active tier batch negotiation. Once a tier batch is fully resolved (all roles accepted as PASS, accepted as blocking REVISIONS NEEDED, or removed/sanitized), Host MUST terminate that tier's reviewer subagents via process control (`manage_subagents` with Action: `kill`) before advancing to the next tier (or triggering early suspension).
 - **Triage Protocol per `HOW-TO-GATE.md`**:
   - **Fully Accepted**: All reported issues satisfy Ground-Truth and Macro Flow proofs with verified codebase citations. Host accepts report without messaging reviewer.
   - **Gated Issues**: Issues lacking proofs, citing non-existent APIs, breaking macro flow, asserting ungrounded platform constraints without empirical evidence, violating boundary symmetry, or introducing intra-DA contradictions are marked GATED.
@@ -200,14 +200,14 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
     When Host resumes execution following a quota interruption, server restart, or resume signal from Layer 1 during tier batch negotiation:
     1. Host inspects existing subagents via `manage_subagents(Action="list")`.
     2. For any role in `PendingGatedRoles` without updated reports on disk:
-       - **MANDATORY REVIVE**: If the reviewer's conversation ID exists, Host **MUST revive it** by sending a resume message via `send_message` (`"System resumed from interruption. Please continue your gate response per <review_dir>/reports/<Role>_Gated_Issues.md, update your report, and notify Host via send_message."`). Host **MUST NOT** call `manage_subagents(Action="kill")` and re-summon that role.
+       - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your gate response per <review_dir>/reports/<Role>_Gated_Issues.md, update your report, and notify Host via send_message."`). Host MUST NOT call `manage_subagents(Action="kill")` or re-invoke that role.
        - **Kill/Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host respawn that specific reviewer. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host terminates it via `manage_subagents(Action="kill")` and respawns.
     3. Re-arm 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on gated reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
   - Only when `PendingGatedRoles` is empty does Host proceed to re-evaluate updated `<Role>.md` and `<Role>_Explain.md` reports.
   6. **Reviewer Response Actions**: Reviewers apply one of three actions per `HOW-TO-GATE.md` (Refine/Complete as Requested, Remove, or Reject Gating/Removal and Explain).
   7. **Re-Evaluation & Stale Defense Loop**:
      - If Host agrees with a reviewer's explanation in `<Role>_Explain.md` and updated `<Role>.md` substantiating a verified technical impasse (`STATUS: INFEASIBLE`), Host MUST NOT continue waiting for other sibling roles in that tier batch; Host immediately terminates all remaining active reviewer subagents for the tier batch via process control (`manage_subagents` with `Action: "kill"`), cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7.
-     - If Host agrees with a fixable defect update or removal: Stop ping-pong (no confirmation message needed).
+     - If Host agrees with a fixable defect update or removal: do not send a confirmation message.
      - If issue remains ungrounded or explanation in `<Role>_Explain.md` is stale without differing/deeper proof: Reviewer must accept removal or refine into abstract spec; reviewer MUST NOT re-assert stale arguments. Host updates `<review_dir>/reports/<Role>_Gated_Issues.md` via `write_to_file` detailing why previous explanation was rejected as stale, refreshes `GatingIssuedTimestamp = current_time`, invalidates stale `<Role>_Explain.md`, re-populates `PendingGatedRoles` with re-gated roles, resets `ProbeCount[role] = 0` for each re-gated role, sends notifications via `send_message`, re-arms 180s timer, and awaits response.
   8. **Gating Artifact Cleanup**: When Host accepts an updated role report, Host deletes `<Role>_Gated_Issues.md` and any `<Role>_Explain.md` for that role (idempotently handling missing files).
 - Once all roles in the tier batch are resolved, Host terminates that tier's reviewer subagents via process control (`manage_subagents` with Action: `kill`) and advances to the next tier (or transitions to Step 7 under `PLAN_INFEASIBLE` if a verified impasse was established, or triggers early suspension under `ROUND_REVISION_NEEDED` if any role retains accepted blocking defects).
@@ -230,7 +230,7 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
 #### Direct DA Mutation Transaction (When verdict is ROUND_REVISION_NEEDED):
 1. **Pre-Mutation Backups**: Host creates temporary sibling `<da_stem>.bak.md` copies (replacing trailing `.md` with `.bak.md` in its parent directory, e.g. `<dirname>/<stem>.bak.md`, matching `Context.md` -> `Context.bak.md`) before mutating any target DA. If WBS restructuring deletes a DA file, Host copies it to `<da_stem>.bak.md` before physical deletion. If WBS restructuring alters `## Target Directive Artifacts` in `Context.md`, Host creates `<review_dir>/Context.bak.md`.
 2. **In-Place DA Mutation**:
-   - Host directly applies verified remediations from accepted `<Role>.md` reports into target Directive Artifact(s) using Clean & Neutral Artifact Protocol (§1.3).
+   - Host directly applies verified remediations from accepted `<Role>.md` reports into target Directive Artifact(s) using Clean & Neutral Artifact Protocol (§1.3). If applying non-blocking suggestions into the target DA, Host MUST document every applied suggestion in `Analyzation.md`.
    - **Boundary Contract Symmetry & Coherence Verification**: Host verifies that boundary modifications include symmetrical updates across internal endpoints, and that dependent sections (e.g. `Verification Plan` test assertions) are synchronized per `HOW-TO-GATE.md`.
    - **DA File Tree Synchronization**: If accepted feedback splits, merges, creates, or deletes DA files (e.g. Progress Reviewer WBS actions), Host directly creates/restructures the files on disk and updates `## Target Directive Artifacts` in `<review_dir>/Context.md`.
 3. **Write Verification & Abort Recovery**: Host verifies on disk that all DA mutations and restructured files were successfully written and are non-empty.
@@ -248,7 +248,7 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
 4. **Author Coordination Artifacts**:
    - **`State.md`**: Author `<review_dir>/host/State.md` per `HOW-TO-GATE.md`:
      - When verdict is `PLAN_INFEASIBLE`: write `- Gate Verdict: PLAN_INFEASIBLE`, `- Highest Modified Tier: None`, and `- Current PassCount: 0 / <SP>`.
-     - When verdict is `ROUND_REVISION_NEEDED`: write Executive Summary state and `## Untouched Reviewers` table (enforcing `Current PassCount: 0 / <SP>`).
+     - When verdict is `ROUND_REVISION_NEEDED`: write Executive Summary state and `## Reviewer Accounting` table for `Highest Modified Tier` per `HOW-TO-GATE.md` (enforcing `Current PassCount: 0 / <SP>`).
      - When verdict is `ROUND_PASS` or `FINAL_PASS`: write `- Gate Verdict: ROUND_PASS | FINAL_PASS`, `- Highest Modified Tier: None`, and `- Current PassCount: <N> / <SP>`.
      - When verdict is `ABORTED_MUTATION_FAILURE`: write `- Gate Verdict: ABORTED_MUTATION_FAILURE`, `- Highest Modified Tier: None`, and `- Current PassCount: 0 / <SP>`.
    - **`Analyzation.md`**: Author `<review_dir>/host/Analyzation.md` containing:
@@ -258,7 +258,7 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
        - `- **Active Roster**: <List of active roles>`
        - `- **Highest Modified Tier**: Layer 3.X` (Mandatory when verdict is `ROUND_REVISION_NEEDED`; record `None` for `ROUND_PASS`, `FINAL_PASS`, `ABORTED_MUTATION_FAILURE`, or `PLAN_INFEASIBLE`)
      - For `PLAN_INFEASIBLE`: Strictly preserve the canonical 4-key header, followed by `## Technical Impasse Analysis` documenting: (1) The insurmountable technical barrier(s) (synthesizing all verified impasses if multiple active roles reported impasses), (2) Grounded empirical proof, and (3) Documented trade-offs and `Alternative Architectural Paths` for user decision.
-     - For other verdicts: **Accepted Issues Only** listing accepted blocking defects across active roles with technical acceptance rationale. Zero rejected/gated tables. If all active roles cleared with zero defects, record `*(None - All active roles cleared with zero blocking defects)*`.
+     - For other verdicts: **Accepted Issues and Applied Suggestions** listing accepted blocking defects and any applied non-blocking suggestions grouped by role under `## Accepted Issues and Suggestions`, labeling each entry as `### N. [<Role> Issue:] <Title>` or `### N. [<Role> Suggestion:] <Title>`. Every suggestion applied to the DA MUST be documented here. Zero rejected/gated tables. If all active roles cleared with zero defects and zero applied suggestions, record `*(None - All active roles cleared with zero blocking defects)*`.
 5. **Process Teardown & Workspace State Preservation**:
    Host terminates active reviewer subagents via process control (`manage_subagents(Action="kill")`), sends a completion message to Layer 1 (parent agent) via `send_message` reporting the Gate Verdict and referencing `<review_dir>/host/State.md` and `Analyzation.md`, and concludes execution:
    - **Technical Impasse Teardown (`PLAN_INFEASIBLE`)**: Terminate all active reviewer subagents via process control (`manage_subagents` with `Action: "kill"`), gracefully handling completed or idle subagents idempotently. Preserve `host/State.md`, `host/Analyzation.md`, `reports/`, and `sandbox/` for user and Layer 1 inspection, notify Layer 1 via `send_message`, and conclude execution.
@@ -273,15 +273,15 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
 
 When Host applies verified mutations to the Directive Artifact, the DA transitions to a new static snapshot $S_N$. The smallest scheduling unit is the **individual Reviewer**:
 1. Host identifies the `Highest Modified Tier` recorded in `host/State.md` (falling back to `Layer 3.1` if missing or malformed) and its downstream tiers.
-2. Host loads `Untouched Reviewers` from `<review_dir>/host/State.md` and filters out all untouched reviewers from the immediate pass (treating `*(None)*` as empty set $\emptyset$).
+2. Host loads `Untouched Reviewers` (roles marked `UNTOUCHED` in the `Reviewer Accounting` table in `<review_dir>/host/State.md`) and filters out all untouched reviewers from the immediate pass (treating missing/malformed entries as empty).
 3. Host summons only the affected reviewers in topological DAG sequence, while registering untouched reviewers into the pending backfill queue for snapshot $S_N$:
 
 | Highest Modified Tier | Targeted Roles Run on Snapshot $S_N$ | Skipped Roles Pending Backfill (Upstream + Untouched) |
 | :--- | :--- | :--- |
-| **Layer 3.1 (Architectural & Phasing)** | Active 3.1 to 3.4 Roles $\setminus$ Untouched Roles | Untouched 3.1 to 3.4 Roles |
-| **Layer 3.2 (Readiness / Security / DataMigration / Testability)** | Active 3.2 to 3.4 Roles $\setminus$ Untouched Roles | Active Layer 3.1 Roles + Untouched 3.2-3.4 Roles |
-| **Layer 3.3 (Logic / Edgecase / Performance / Observability)** | Active 3.3 to 3.4 Roles $\setminus$ Untouched Roles | Active Layer 3.1 & 3.2 Roles + Untouched 3.3-3.4 Roles |
-| **Layer 3.4 (UX/UI)** | Active 3.4 Roles $\setminus$ Untouched Roles | Active Layer 3.1 to 3.3 Roles + Untouched 3.4 Roles |
+| **Layer 3.1 (Architectural & Phasing)** | Active 3.1 to 3.4 Roles minus Untouched Roles | Untouched 3.1 to 3.4 Roles |
+| **Layer 3.2 (Readiness / Security / DataMigration / Testability)** | Active 3.2 to 3.4 Roles minus Untouched Roles | Active Layer 3.1 Roles + Untouched 3.2-3.4 Roles |
+| **Layer 3.3 (Logic / Edgecase / Performance / Observability)** | Active 3.3 to 3.4 Roles minus Untouched Roles | Active Layer 3.1 & 3.2 Roles + Untouched 3.3-3.4 Roles |
+| **Layer 3.4 (UX/UI)** | Active 3.4 Roles minus Untouched Roles | Active Layer 3.1 to 3.3 Roles + Untouched 3.4 Roles |
 
 ---
 

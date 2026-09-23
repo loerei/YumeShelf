@@ -7,8 +7,9 @@ import { WolfSavSaveCodec } from './wolf-sav.js';
 import { RenpyPickleSaveCodec } from './renpy-pickle.js';
 import { BakinSgsSaveCodec } from './bakin-sgs.js';
 import { UnityBinaryFormatterSaveCodec } from './unity-binary-formatter.js';
+import { TincDoubleAesJsonSaveCodec } from './tinc-double-aes-json.js';
 import { isDangerousKey, sanitizeDeep, createSafeDict, safeJsonParse } from './sanitize.js';
-import type { SaveCodecContext } from '../types.js';
+import type { SaveCodecContext, SaveCodecOptions } from '../types.js';
 
 export * from './errors.js';
 export * from './sanitize.js';
@@ -21,24 +22,51 @@ export * from './wolf-sav.js';
 export * from './renpy-pickle.js';
 export * from './bakin-sgs.js';
 export * from './unity-binary-formatter.js';
+export * from './tinc-double-aes-json.js';
 
-export function detectSaveStrategy(fileName: string): string | null {
-  if (!fileName || typeof fileName !== 'string' || fileName.trim() === '') {
+export function detectSaveStrategy(
+  fileName?: string,
+  rawBuffer?: Buffer,
+  jsonData?: any,
+  options?: SaveCodecOptions
+): string | null {
+  // 1. Prioritize $type check first
+  if (jsonData?.$type === 'TincDoubleAesJsonSave') {
+    return 'tinc-double-aes-json';
+  }
+
+  // 2. Preserve dedicated non-JSON format invariants
+  let baseName = '';
+  const hasFileName = typeof fileName === 'string' && fileName.trim() !== '';
+  if (hasFileName) {
+    const clean = fileName.trim().replace(/\\/g, '/');
+    baseName = clean.substring(clean.lastIndexOf('/') + 1).toLowerCase();
+
+    if (baseName.endsWith('.rpgsave')) return 'rpg-maker-mv';
+    if (baseName.endsWith('.rmmzsave')) return 'rpg-maker-mz';
+    if (baseName.endsWith('.sav')) return 'wolf-sav';
+    if (baseName.endsWith('.save')) return 'renpy-pickle';
+    if (baseName.endsWith('.sgs')) return 'bakin-sgs';
+    if (baseName.endsWith('.bin')) return 'unity-binary-formatter';
+  }
+
+  // 3. Conditional TINC buffer sniffing check
+  if (rawBuffer) {
+    if (TincDoubleAesJsonSaveCodec.sniff(rawBuffer, options)) {
+      return 'tinc-double-aes-json';
+    }
+  }
+
+  // 4. If content checks do not match or buffer is absent: check fileName guard
+  if (!hasFileName) {
     return null;
   }
-  const clean = fileName.trim().replace(/\\/g, '/');
-  const baseName = clean.substring(clean.lastIndexOf('/') + 1).toLowerCase();
 
-  if (baseName.endsWith('.rpgsave')) return 'rpg-maker-mv';
-  if (baseName.endsWith('.rmmzsave')) return 'rpg-maker-mz';
-  if (baseName.endsWith('.sav')) return 'wolf-sav';
-  if (baseName.endsWith('.save')) return 'renpy-pickle';
-  if (baseName.endsWith('.sgs')) return 'bakin-sgs';
-  if (baseName.endsWith('.bin')) return 'unity-binary-formatter';
   if (baseName.endsWith('.json')) {
     if (baseName.includes('savedata')) return 'keyed-json';
     return 'pure-json';
   }
+
   return null;
 }
 
@@ -50,14 +78,22 @@ export function listSupportedSaveExtensions(): string[] {
   return ['.bin', '.json', '.rmmzsave', '.rpgsave', '.sav', '.save', '.sgs'];
 }
 
-function normalizeStrategy(strategy: string, context?: SaveCodecContext): string {
+function normalizeStrategy(
+  strategy: string,
+  context?: SaveCodecContext,
+  rawBuffer?: Buffer,
+  jsonData?: any
+): string {
   const norm = (strategy || '').toLowerCase().trim();
   if (norm) return norm;
 
-  if (context?.fileName) {
-    const detected = detectSaveStrategy(context.fileName);
-    if (detected) return detected;
-  }
+  const detected = detectSaveStrategy(
+    context?.fileName,
+    rawBuffer,
+    jsonData,
+    context?.options
+  );
+  if (detected) return detected;
 
   return 'unknown';
 }
@@ -67,7 +103,7 @@ export async function decodeSaveFile(
   rawBuffer: Buffer,
   context?: SaveCodecContext
 ): Promise<any> {
-  const norm = normalizeStrategy(strategy, context);
+  const norm = normalizeStrategy(strategy, context, rawBuffer, undefined);
 
   switch (norm) {
     case 'pure-json':
@@ -78,6 +114,11 @@ export async function decodeSaveFile(
     case 'simple-keyed':
     case 'simple-keyed-json':
       return KeyedJsonSaveCodec.decode(rawBuffer, context);
+
+    case 'tinc-double-aes-json':
+    case 'chrono-ecstasy':
+    case 'tinc':
+      return TincDoubleAesJsonSaveCodec.decode(rawBuffer, context);
 
     case 'rpg-maker-mv':
     case 'rpg-maker-mv-mz':
@@ -120,7 +161,7 @@ export async function encodeSaveFile(
   jsonData: any,
   context?: SaveCodecContext
 ): Promise<Buffer> {
-  const norm = normalizeStrategy(strategy, context);
+  const norm = normalizeStrategy(strategy, context, undefined, jsonData);
 
   switch (norm) {
     case 'pure-json':
@@ -131,6 +172,11 @@ export async function encodeSaveFile(
     case 'simple-keyed':
     case 'simple-keyed-json':
       return KeyedJsonSaveCodec.encode(jsonData, context);
+
+    case 'tinc-double-aes-json':
+    case 'chrono-ecstasy':
+    case 'tinc':
+      return TincDoubleAesJsonSaveCodec.encode(jsonData, context);
 
     case 'rpg-maker-mv':
     case 'rpg-maker-mv-mz':

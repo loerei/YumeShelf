@@ -187,6 +187,11 @@ export interface SaveCodecOptions {
   savePath?: string;
   originalBuffer?: Buffer;
   wrapInZip?: boolean;
+  rawPlaintextFields?: string[] | Set<string>;
+  outerKey?: string | Buffer;
+  outerIv?: string | Buffer;
+  innerKey?: string | Buffer;
+  innerIv?: string | Buffer;
   [key: string]: any;
 }
 

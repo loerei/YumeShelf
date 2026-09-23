@@ -4,6 +4,7 @@ import * as zlib from 'node:zlib';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as child_process from 'node:child_process';
+import * as crypto from 'node:crypto';
 import {
   YumeEngine,
   SaveCodecError,
@@ -23,6 +24,10 @@ import {
   LZString,
   safeJsonParse,
   sanitizeDeep,
+  TincDoubleAesJsonSaveCodec,
+  decodeSaveFile,
+  encodeSaveFile,
+  detectSaveStrategy,
 } from '../dist/index.js';
 
 describe('Headless Save Codecs & Sandboxing (@yumeshelf/engine)', () => {
@@ -176,6 +181,507 @@ describe('Headless Save Codecs & Sandboxing (@yumeshelf/engine)', () => {
           return true;
         }
       );
+    });
+  });
+
+  describe('Tinc Double AES JSON Codec (tinc-double-aes-json)', () => {
+    const DEFAULT_OUTER_KEY = Buffer.from('d5wAqPJLlmJCZowMt1phICUyBSA9wErz', 'utf8');
+    const DEFAULT_OUTER_IV = Buffer.from('d5wAqPJLlmJCZowM', 'utf8');
+    const DEFAULT_INNER_KEY = Buffer.from('PJC7HnliwcxXw4FM8Ep3sX9NIL3R5CZn', 'utf8');
+    const DEFAULT_INNER_IV = Buffer.from('PJC7HnliwcxXw4FM', 'utf8');
+
+    function makeSyntheticTincSave(options?: {
+      outerKey?: Buffer | string;
+      outerIv?: Buffer | string;
+      innerKey?: Buffer | string;
+      innerIv?: Buffer | string;
+      rawPayload?: any;
+    }): Buffer {
+      const oKey = options?.outerKey
+        ? Buffer.isBuffer(options.outerKey)
+          ? options.outerKey
+          : Buffer.from(options.outerKey, 'utf8')
+        : DEFAULT_OUTER_KEY;
+      const oIv = options?.outerIv
+        ? Buffer.isBuffer(options.outerIv)
+          ? options.outerIv
+          : Buffer.from(options.outerIv, 'utf8')
+        : (options?.outerKey ? Buffer.from(oKey).subarray(0, 16) : DEFAULT_OUTER_IV);
+      const iKey = options?.innerKey
+        ? Buffer.isBuffer(options.innerKey)
+          ? options.innerKey
+          : Buffer.from(options.innerKey, 'utf8')
+        : DEFAULT_INNER_KEY;
+      const iIv = options?.innerIv
+        ? Buffer.isBuffer(options.innerIv)
+          ? options.innerIv
+          : Buffer.from(options.innerIv, 'utf8')
+        : (options?.innerKey ? Buffer.from(iKey).subarray(0, 16) : DEFAULT_INNER_IV);
+
+      function enc(plain: string) {
+        const c = crypto.createCipheriv('aes-256-cbc', iKey, iIv);
+        return Buffer.concat([c.update(Buffer.from(plain, 'utf8')), c.final()]).toString('base64');
+      }
+
+      const rawJson = options?.rawPayload || {
+        creationDate: '2026-09-23T12:00:00Z',
+        creationUpdate: '1.0.0',
+        data_resource_money: enc('60'),
+        data_playerName: enc('Hero'),
+        data_emptyStr: enc(''),
+        data_nullVal: null,
+        data_ownedItems: ['item_1', 'item_2'],
+        data_userTierData: { tier: 'gold', count: 5 },
+        data_nested: {
+          data_childString: enc('child'),
+        },
+      };
+
+      const cOuter = crypto.createCipheriv('aes-256-cbc', oKey, oIv);
+      const outerEnc = Buffer.concat([
+        cOuter.update(
+          Buffer.from(typeof rawJson === 'string' ? rawJson : JSON.stringify(rawJson), 'utf8')
+        ),
+        cOuter.final(),
+      ]);
+      return Buffer.from(outerEnc.toString('base64'), 'utf8');
+    }
+
+    it('decodes correct structure and preserves plaintext metadata', async () => {
+      const fixture = makeSyntheticTincSave();
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture);
+
+      assert.equal(decoded.$type, 'TincDoubleAesJsonSave');
+      assert.equal(decoded.creationDate, '2026-09-23T12:00:00Z');
+      assert.equal(decoded.creationUpdate, '1.0.0');
+      assert.equal(decoded.data_resource_money, '60');
+      assert.equal(decoded.data_playerName, 'Hero');
+      assert.equal(decoded.data_emptyStr, '');
+      assert.equal(decoded.data_nullVal, null);
+      assert.deepEqual(decoded.data_ownedItems, ['item_1', 'item_2']);
+      assert.deepEqual(decoded.data_userTierData, { tier: 'gold', count: 5 });
+      assert.equal(decoded.data_nested.data_childString, 'child');
+    });
+
+    it('performs bit-for-bit roundtrip on in-memory fixture', async () => {
+      const fixture = makeSyntheticTincSave();
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture);
+      const reEncoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', decoded);
+      const reDecoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', reEncoded);
+
+      assert.deepEqual(reDecoded, decoded);
+    });
+
+    it('modifies values and verifies reverse decoding accuracy with numeric coercion', async () => {
+      const fixture = makeSyntheticTincSave();
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture);
+
+      // Modify money as a number
+      decoded.data_resource_money = 61;
+      decoded.data_playerName = 'UpdatedHero';
+
+      const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', decoded);
+      const reDecoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', encoded);
+
+      // Numeric value is coerced to string in inner ciphertext
+      assert.equal(reDecoded.data_resource_money, '61');
+      assert.equal(reDecoded.data_playerName, 'UpdatedHero');
+    });
+
+    it('supports custom key/IV seam via context.options with complete isolation', async () => {
+      const customOuterKey = 'customOuterKey123456789012345678';
+      const customOuterIv = 'customOuterIv123';
+      const customInnerKey = 'customInnerKey123456789012345678';
+      const customInnerIv = 'customInnerIv123';
+
+      const options = {
+        outerKey: customOuterKey,
+        outerIv: customOuterIv,
+        innerKey: customInnerKey,
+        innerIv: customInnerIv,
+      };
+
+      const fixture = makeSyntheticTincSave({
+        outerKey: customOuterKey,
+        outerIv: customOuterIv,
+        innerKey: customInnerKey,
+        innerIv: customInnerIv,
+      });
+
+      // Default keys fail to decode custom payload
+      await assert.rejects(
+        async () => {
+          await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture);
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+
+      // Custom options decode successfully
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture, { options });
+      assert.equal(decoded.data_resource_money, '60');
+
+      const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', decoded, { options });
+      const reDecoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', encoded, {
+        options,
+      });
+      assert.equal(reDecoded.data_resource_money, '60');
+    });
+
+    it('derives dynamic IV automatically when custom key is provided without IV', async () => {
+      const customOuterKey = 'dynamicOuterKey12345678901234567';
+      const customInnerKey = 'dynamicInnerKey12345678901234567';
+
+      const options = {
+        outerKey: customOuterKey,
+        innerKey: customInnerKey,
+      };
+
+      const fixture = makeSyntheticTincSave({
+        outerKey: customOuterKey,
+        innerKey: customInnerKey,
+      });
+
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture, { options });
+      assert.equal(decoded.data_resource_money, '60');
+
+      const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', decoded, { options });
+      const reDecoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', encoded, {
+        options,
+      });
+      assert.equal(reDecoded.data_resource_money, '60');
+    });
+
+    it('throws SaveCodecError with code PARSE_FAILED on corrupted Base64 or invalid AES padding', async () => {
+      const corruptedB64 = Buffer.from('not_valid_base64_payload_at_all!!', 'utf8');
+      await assert.rejects(
+        async () => {
+          await YumeEngine.decodeSaveFile('tinc-double-aes-json', corruptedB64);
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+
+      // Truncated valid ciphertext
+      const validFixture = makeSyntheticTincSave();
+      const truncated = validFixture.subarray(0, 30);
+      await assert.rejects(
+        async () => {
+          await YumeEngine.decodeSaveFile('tinc-double-aes-json', truncated);
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+    });
+
+    it('fails fast in decode() when outer JSON payload is primitive or array', async () => {
+      const payloads = ['null', '123', '"string"', 'true', '[]'];
+      for (const payload of payloads) {
+        const fixture = makeSyntheticTincSave({ rawPayload: payload });
+        await assert.rejects(
+          async () => {
+            await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture);
+          },
+          (err: any) => {
+            assert.ok(err instanceof SaveCodecError);
+            assert.equal(err.code, 'PARSE_FAILED');
+            return true;
+          }
+        );
+      }
+    });
+
+    it('automatically detects format when strategy is empty string', async () => {
+      const fixture = makeSyntheticTincSave();
+      const decoded = await decodeSaveFile('', fixture);
+      assert.equal(decoded.$type, 'TincDoubleAesJsonSave');
+      assert.equal(decoded.data_resource_money, '60');
+
+      const encoded = await encodeSaveFile('', decoded);
+      assert.ok(Buffer.isBuffer(encoded));
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(encoded), true);
+    });
+
+    it('returns null safely when fileName is empty and buffer is non-TINC', () => {
+      const nonTincBuffer = Buffer.from('hello world non tinc', 'utf8');
+      const strategy = detectSaveStrategy(undefined, nonTincBuffer);
+      assert.equal(strategy, null);
+    });
+
+    it('bypasses TINC sniffing for dedicated non-JSON formats', () => {
+      const fixture = makeSyntheticTincSave();
+      assert.equal(detectSaveStrategy('SaveData01.sav', fixture), 'wolf-sav');
+      assert.equal(detectSaveStrategy('data.rmmzsave', fixture), 'rpg-maker-mz');
+      assert.equal(detectSaveStrategy('file.rpgsave', fixture), 'rpg-maker-mv');
+      assert.equal(detectSaveStrategy('game.sgs', fixture), 'bakin-sgs');
+      assert.equal(detectSaveStrategy('save.bin', fixture), 'unity-binary-formatter');
+    });
+
+    it('handles edge cases and sniffing exceptions correctly', () => {
+      const valid = makeSyntheticTincSave();
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(valid), true);
+
+      // Leading ASCII whitespace / CRLF
+      const withWhitespace = Buffer.from('\r\n  \t ' + valid.toString('utf8'), 'utf8');
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(withWhitespace), true);
+
+      // Multiline Base64 data
+      const b64Str = valid.toString('utf8');
+      const multiline = Buffer.from(b64Str.slice(0, 30) + '\n' + b64Str.slice(30), 'utf8');
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(multiline), true);
+
+      // Encrypted empty JSON object {}
+      const emptyJsonFixture = makeSyntheticTincSave({ rawPayload: {} });
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(emptyJsonFixture), true);
+
+      // Plain JSON {
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(Buffer.from('{"hello":"world"}', 'utf8')), false);
+
+      // JSON array [
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(Buffer.from('[1, 2, 3]', 'utf8')), false);
+
+      // UTF-8 BOM
+      const withBom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), valid]);
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(withBom), false);
+
+      // Truncated buffer < 24 bytes
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(valid.subarray(0, 20)), false);
+
+      // Invalid Base64
+      assert.equal(
+        TincDoubleAesJsonSaveCodec.sniff(Buffer.from('???@@@!!!$$$%%%^^^&&&***(((', 'utf8')),
+        false
+      );
+
+      // Cipher block containing NULL byte 0x00 or control bytes after '{'
+      const nullBlock = Buffer.alloc(16);
+      nullBlock[0] = 0x7b; // '{'
+      nullBlock[1] = 0x00; // NULL
+      const c = crypto.createCipheriv('aes-256-cbc', DEFAULT_OUTER_KEY, DEFAULT_OUTER_IV);
+      c.setAutoPadding(false);
+      const encNullBlock = Buffer.concat([c.update(nullBlock), c.final()]);
+      const nullFixture = Buffer.from(encNullBlock.toString('base64'), 'utf8');
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(nullFixture), false);
+
+      const ctrlBlock = Buffer.alloc(16);
+      ctrlBlock[0] = 0x7b;
+      ctrlBlock[1] = 0x01; // SOH
+      const c2 = crypto.createCipheriv('aes-256-cbc', DEFAULT_OUTER_KEY, DEFAULT_OUTER_IV);
+      c2.setAutoPadding(false);
+      const encCtrlBlock = Buffer.concat([c2.update(ctrlBlock), c2.final()]);
+      const ctrlFixture = Buffer.from(encCtrlBlock.toString('base64'), 'utf8');
+      assert.equal(TincDoubleAesJsonSaveCodec.sniff(ctrlFixture), false);
+    });
+
+    it('fails fast on invalid encode payload', async () => {
+      await assert.rejects(
+        async () => {
+          await YumeEngine.encodeSaveFile('tinc-double-aes-json', null);
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+      await assert.rejects(
+        async () => {
+          await YumeEngine.encodeSaveFile('tinc-double-aes-json', undefined);
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+      await assert.rejects(
+        async () => {
+          await YumeEngine.encodeSaveFile('tinc-double-aes-json', 'scalar string' as any);
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+      await assert.rejects(
+        async () => {
+          await YumeEngine.encodeSaveFile('tinc-double-aes-json', [1, 2, 3] as any);
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+    });
+
+    it('fails fast on invalid numbers (NaN, Infinity, -Infinity) in encode()', async () => {
+      await assert.rejects(
+        async () => {
+          await YumeEngine.encodeSaveFile('tinc-double-aes-json', { data_num: NaN });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+      await assert.rejects(
+        async () => {
+          await YumeEngine.encodeSaveFile('tinc-double-aes-json', { data_num: Infinity });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+      await assert.rejects(
+        async () => {
+          await YumeEngine.encodeSaveFile('tinc-double-aes-json', { data_num: -Infinity });
+        },
+        (err: any) => {
+          assert.ok(err instanceof SaveCodecError);
+          assert.equal(err.code, 'PARSE_FAILED');
+          return true;
+        }
+      );
+    });
+
+    it('preserves null and undefined values during encode without coercing to strings', async () => {
+      const data = {
+        data_null: null,
+        data_undef: undefined,
+      };
+      const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', data);
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', encoded);
+      assert.equal(decoded.data_null, null);
+      assert.equal(decoded.data_undef, undefined);
+    });
+
+    it('roundtrips empty string to exact Base64 ciphertext "/Zq44ZgmrXlSSDeJjeApPA=="', async () => {
+      const data = {
+        data_empty: '',
+      };
+      const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', data);
+
+      // Decrypt outer cipher to inspect inner string directly
+      const b64Str = encoded.toString('utf8');
+      const cOuter = crypto.createDecipheriv('aes-256-cbc', DEFAULT_OUTER_KEY, DEFAULT_OUTER_IV);
+      const outerDec = Buffer.concat([cOuter.update(Buffer.from(b64Str, 'base64')), cOuter.final()]);
+      const parsedOuter = JSON.parse(outerDec.toString('utf8'));
+
+      assert.equal(parsedOuter.data_empty, '/Zq44ZgmrXlSSDeJjeApPA==');
+
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', encoded);
+      assert.equal(decoded.data_empty, '');
+    });
+
+    it('preserves raw plaintext fields and downward context inheritance additively', async () => {
+      const data = {
+        data_ownedItems: ['item_1', 'item_2'],
+        data_userTierData: { tier: 'gold' },
+        data_custom: { nested: 'plaintext_val', list: ['a', 'b'] },
+        data_secret: 'encrypted_val',
+      };
+
+      const options = {
+        rawPlaintextFields: ['data_custom'],
+      };
+
+      const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', data, { options });
+
+      // Inspect inner JSON
+      const b64Str = encoded.toString('utf8');
+      const cOuter = crypto.createDecipheriv('aes-256-cbc', DEFAULT_OUTER_KEY, DEFAULT_OUTER_IV);
+      const outerDec = Buffer.concat([cOuter.update(Buffer.from(b64Str, 'base64')), cOuter.final()]);
+      const parsedOuter = JSON.parse(outerDec.toString('utf8'));
+
+      // Both default fields and custom field are preserved in plaintext
+      assert.deepEqual(parsedOuter.data_ownedItems, ['item_1', 'item_2']);
+      assert.deepEqual(parsedOuter.data_userTierData, { tier: 'gold' });
+      assert.equal(parsedOuter.data_custom.nested, 'plaintext_val');
+      assert.deepEqual(parsedOuter.data_custom.list, ['a', 'b']);
+      // data_secret is encrypted
+      assert.notEqual(parsedOuter.data_secret, 'encrypted_val');
+
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', encoded, { options });
+      assert.equal(decoded.data_custom.nested, 'plaintext_val');
+      assert.equal(decoded.data_secret, 'encrypted_val');
+    });
+
+    it('handles non-iterable or invalid types for rawPlaintextFields defensively', async () => {
+      const invalidTypes = [123, {}, 'single_string', undefined];
+      for (const val of invalidTypes) {
+        const data = {
+          data_ownedItems: ['item_a'],
+          data_field: 'secret',
+        };
+        const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', data, {
+          options: { rawPlaintextFields: val as any },
+        });
+        const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', encoded, {
+          options: { rawPlaintextFields: val as any },
+        });
+        assert.deepEqual(decoded.data_ownedItems, ['item_a']);
+        assert.equal(decoded.data_field, 'secret');
+      }
+    });
+
+    it('returns buffer containing UTF-8 Base64 string from encode()', async () => {
+      const fixture = makeSyntheticTincSave();
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture);
+      const encoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', decoded);
+
+      assert.ok(Buffer.isBuffer(encoded));
+      const str = encoded.toString('utf8');
+      assert.ok(/^[A-Za-z0-9+/=]+$/.test(str.replace(/\s+/g, '')));
+    });
+
+    it('protects against Prototype Pollution during decode()', async () => {
+      const cInner = crypto.createCipheriv('aes-256-cbc', DEFAULT_INNER_KEY, DEFAULT_INNER_IV);
+      const encVal = Buffer.concat([cInner.update(Buffer.from('safe', 'utf8')), cInner.final()]).toString('base64');
+      const maliciousJson = JSON.stringify({
+        creationDate: '2026-09-23T12:00:00Z',
+        __proto__: { polluted: 'yes' },
+        constructor: { prototype: { hacked: true } },
+        data_safe: encVal,
+      });
+      const cOuter = crypto.createCipheriv('aes-256-cbc', DEFAULT_OUTER_KEY, DEFAULT_OUTER_IV);
+      const outerEnc = Buffer.concat([
+        cOuter.update(Buffer.from(maliciousJson, 'utf8')),
+        cOuter.final(),
+      ]);
+      const fixture = Buffer.from(outerEnc.toString('base64'), 'utf8');
+
+      const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', fixture);
+      assert.equal((decoded as any).__proto__?.polluted, undefined);
+      assert.equal((decoded as any).constructor?.prototype?.hacked, undefined);
+      assert.equal(({} as any).polluted, undefined);
+      assert.equal(({} as any).hacked, undefined);
+    });
+
+    it('guards host physical save file inspection if file exists', async () => {
+      const hostSavePath =
+        'C:\\Users\\sayus\\AppData\\LocalLow\\314g-on\\Chrono Ecstasy\\saves\\saveSlot1.json';
+      if (fs.existsSync(hostSavePath)) {
+        const rawBuf = fs.readFileSync(hostSavePath);
+        const decoded = await YumeEngine.decodeSaveFile('tinc-double-aes-json', rawBuf);
+        assert.ok(decoded);
+        assert.equal(decoded.$type, 'TincDoubleAesJsonSave');
+        const reEncoded = await YumeEngine.encodeSaveFile('tinc-double-aes-json', decoded);
+        assert.ok(reEncoded.length > 0);
+      }
     });
   });
 

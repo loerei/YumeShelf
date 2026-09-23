@@ -1,6 +1,6 @@
 ---
 name: conduct-deep-reviewing-loop
-description: Use when asked to conduct an exhaustive multi-role review loop on implementation plans.
+description: Use when asked to conduct a multi-role review loop on implementation plans.
 ---
 
 # Conduct Deep Reviewing Loop
@@ -11,8 +11,8 @@ Multi-agent review loop using isolated domain reviewers, topological dependency 
 
 | Layer | Agent | Primary Responsibility |
 | :--- | :--- | :--- |
-| **Layer 1** | Main Agent | Resolves `<short_title>` and binds `<review_dir>` (`.scratch/deep-review-<short_title>`), initializes isolated workspace, spawns Layer 2 Host passing `<review_dir>`, handles Host verdict (including user escalation on `PLAN_INFEASIBLE`), manages `!PA` pause gate, rollback handling, path-anchored `<da_stem>.bak.md` cleanup, deletes `<review_dir>/host/Analyzation.md` prior to Round N+1, terminates Host subagents, executes final isolated teardown of `<review_dir>/*`, presents final output. |
-| **Layer 2** | Review Host & Critical Gate | Consumes assigned `<review_dir>` from prompt and `Context.md`, dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, summons active reviewers passing `<review_dir>`, purges `<review_dir>/reports/` before passes, isolates host artifacts in `<review_dir>/host/`, executes Reviewer-level DAG routing (consuming `State.md`), enforces Tier Batch Gate negotiation and in-place fix pre-verification, terminates subagent processes upon tier batch resolution, executes Snapshot Delta Backfill for skipped roles (upstream and untouched), applies verified DA mutations directly (creating `<da_stem>.bak.md` for modified DAs), writes `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md` (halting without DA mutation on `PLAN_INFEASIBLE`). |
+| **Layer 1** | Main Agent | Resolves `<short_title>` and binds `<review_dir>` (`.scratch/deep-review-<short_title>`), initializes isolated workspace, spawns Layer 2 Host passing `<review_dir>`, handles Host verdict (including user escalation on `PLAN_INFEASIBLE`), manages `!PA` pause gate, rollback handling, cleans `<da_stem>.bak.md` backups, deletes `<review_dir>/host/Analyzation.md` prior to Round N+1, terminates Host subagents, purges `<review_dir>/*` on completion, presents final output. |
+| **Layer 2** | Review Host & Critical Gate | Consumes assigned `<review_dir>` from prompt and `Context.md`, dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, spawns active reviewers passing `<review_dir>`, purges `<review_dir>/reports/` before passes, isolates host artifacts in `<review_dir>/host/`, runs reviewer DAG routing (consuming `State.md`), enforces Tier Batch Gate negotiation and in-place fix pre-verification, terminates subagent processes upon tier batch resolution, backfills skipped roles (upstream and untouched), applies verified DA mutations directly (creating `<da_stem>.bak.md` for modified DAs), writes `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md` (halting without DA mutation on `PLAN_INFEASIBLE`). |
 | **Layer 3** | Domain Reviewers | Independent specialist subagents (up to 11 roles across 4 Tiers) consuming `<review_dir>` from prompt and `Context.md`, executing domain audits per `<Role>-REVIEWER-GUIDE.md`. |
 
 ## Workflow
@@ -51,23 +51,22 @@ flowchart TD
 
 1. **Resolve `<short_title>` and Workspace Directory (`<review_dir>`)**:
    - Determine `<short_title>` according to strict precedence:
-     1. **Explicit User Specification**: User-specified title, slug, or tag in prompt (e.g. `/conduct-deep-reviewing-loop <title>`), excluding active role identifiers, modifier tags, and target DA file paths. Extract the candidate string and pass it directly to the 5-stage slugification pipeline as `<Topic>`.
+     1. **Explicit User Specification**: User-specified title, slug, or tag in prompt (e.g. `/conduct-deep-reviewing-loop <title>`), excluding active role identifiers, modifier tags, and target DA file paths. Extract the candidate string and pass it to the slugification rules as `<Topic>`.
      2. **Single Target DA Topic / Stem**: If auditing a single file whose stem is generic (`implementation_plan`, `plan`, `spec`, `draft`, `index`) or located in an agent brain session folder (`.gemini/antigravity/brain/<id>/`), extract `<short_title>` from the document's top-level H1 header:
         - Extract raw text from top-level H1 header (stripping `#` and whitespace).
         - Strip case-insensitive leading document archetype prefixes matching `^(?:Implementation\s+Plan|Plan|Spec(?:ification)?|Design\s+Doc(?:ument)?|Architecture\s+Spec(?:ification)?)\s*[:–—|-]\s*`.
-        - Trim remaining leading/trailing whitespace and punctuation, and pass the resulting string as `<Topic>` to the 5-stage slugification pipeline (e.g. `# Implementation Plan: Dynamic Workspace Isolation` -> `dynamic-workspace-isolati` (truncated to 25 chars)).
-        - If no prefix matches, pass the entire trimmed H1 header text to the slugification pipeline.
-        - Fall back to the filename stem only if no H1 header exists or extraction yields empty. For non-generic filenames (and filename stem fallbacks), pass the extracted stem to the 5-stage slugification pipeline as `<Topic>` (e.g. `auth_service.md` -> stem `auth_service` passed to pipeline -> `auth-service`).
+        - Trim remaining leading/trailing whitespace and punctuation, and pass the resulting string as `<Topic>` to the slugification rules (e.g. `# Implementation Plan: Dynamic Workspace Isolation` -> `dynamic-workspace-isolati` (truncated to 25 chars)).
+        - If no prefix matches, pass the entire trimmed H1 header text to the slugification rules.
+        - Fall back to the filename stem only if no H1 header exists or extraction yields empty. For non-generic filenames (and filename stem fallbacks), pass the extracted stem to the slugification rules as `<Topic>` (e.g. `auth_service.md` -> stem `auth_service` passed to pipeline -> `auth-service`).
      3. **Cluster / Epic Topic**: Common parent folder name or 2-3 word topic slug if auditing multiple DAs (e.g. `notifier-tickets`). Pass the candidate string to the 5-stage slugification pipeline as `<Topic>`.
-   - **Strict Slugification Pipeline & Bounds**:
+   - **Strict Slugification Rules & Bounds**:
      - Multi-stage sanitization:
        1. Convert whitespace, underscores (`_`), and non-alphanumeric characters to hyphens (`-`).
        2. Convert all characters to lowercase.
        3. Collapse consecutive hyphens (`-+` -> `-`).
        4. Truncate to maximum 25 characters (prevents Windows `MAX_PATH` overflow in nested `sandbox/` probe scripts).
        5. Trim leading and trailing hyphens.
-     - Deterministic Degenerate Fallback: If sanitized slug evaluates to empty (`""`), fallback to `default` (`.scratch/deep-review-default`).
-     - Absolute ban on `#` character (prevents URL fragment parsing errors in Markdown `file:///` URIs).
+     - Empty slug fallback: If sanitized slug is empty (`""`), use `default` (`.scratch/deep-review-default`). MUST NOT contain `#`.
    - Bind `<review_dir>` = `.scratch/deep-review-<short_title>`. Never fallback to plain `.scratch/deep-review/`.
 
 2. **Directory Initialization**:
@@ -77,6 +76,9 @@ flowchart TD
      - `## Review Workspace: <review_dir>`
      - Target DA path(s).
      - Cross-referenced DAs with dependency lineage (`Upstream` / `Downstream` and `Implemented` / `Unimplemented`).
+     - `## Data Storage & Migration Scope`: Layer 1 inspects target DAs and codebase ground-truth for persistence markers (migration dirs `migrations/`, DDL `*.sql`, ORM models, storage drivers `sqlite3`, `IndexedDB`, `localStorage`, or sync libraries `powersync`, `yjs`).
+       - If persistence is touched: declare `Persistence Status: TOUCHES_PERSISTENCE`, `Storage Archetype` (`Local-Side Storage` | `Server-Side Storage` | `Hybrid / Sync-Driven`), `Underlying Technology / Engine`, and `Target Seams & Files`.
+       - If no persistence is touched: declare `Persistence Status: NO_PERSISTENCE` with concise technical justification.
      - Active modifier tags (e.g. `## Active Modifiers: !PA, !SP<N>`).
      - Codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
 
@@ -91,7 +93,7 @@ If `review_host` is not already defined in the active session, call `define_suba
 - `enable_mcp_tools: true`
 - `system_prompt`: Provide Host operational instructions referencing `REVIEW-HOST-GUIDE.md` and `HOW-TO-GATE.md`.
 
-#### 2B. Summon Review Host
+#### 2B. Invoke Review Host
 Invoke the registered `review_host` subagent via `invoke_subagent`:
 - `TypeName`: `"review_host"`
 - `Role`: `"Review Host & Critical Gate"`
@@ -121,18 +123,22 @@ When `ROUND_REVISION_NEEDED` occurs under `!PA` / `!WA`:
   1. If `<review_dir>/Context.bak.md` is present: identify deleted target DAs (present in `Context.bak.md` but absent in active `Context.md`), delete their sibling `<da_stem>.bak.md` files, and delete `<review_dir>/Context.bak.md`.
   2. For every active target DA in `<review_dir>/Context.md`: delete its sibling `<da_stem>.bak.md` file (if present).
   3. Delete any remaining orphaned sibling `<da_stem>.bak.md` files in target DA directories.
-  4. Delete `<review_dir>/host/Analyzation.md` to prevent anti-anchoring in Round N+1 (strictly preserving `<review_dir>/host/State.md`).
+  4. Delete `<review_dir>/host/Analyzation.md` (preserve `<review_dir>/host/State.md`).
   5. Terminate prior `review_host` via `manage_subagents(Action="kill")` and re-spawn Host for Round N+1.
 - **Upon user rollback command**: Layer 1 executes rollback:
   1. If `<review_dir>/Context.bak.md` is present: identify newly created DAs (present in active `Context.md` but absent in `Context.bak.md`) and delete them; restore `<review_dir>/Context.md` from `<review_dir>/Context.bak.md` and delete `<review_dir>/Context.bak.md`.
   2. For every target DA listed in `<review_dir>/Context.md` (restored from `Context.bak.md` if present): restore from its sibling `<da_stem>.bak.md` file (if present) and delete the backup file.
   3. Delete any remaining orphaned sibling `<da_stem>.bak.md` backup files.
   4. Delete `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md`, terminate `review_host` via `manage_subagents(Action="kill")`, and halt the review loop, reporting that mutations were reverted.
+- **Upon removing `!PA` / request for continuous execution** (e.g. "remove !PA", "run continuously", "proceed unpaused"): Layer 1 executes ordered cleanup:
+  1. Removes `!PA` from `## Active Modifiers` in `<review_dir>/Context.md`.
+  2. Cleans up any existing `<da_stem>.bak.md` and `Context.bak.md` backup files (same as receiving "C").
+  3. Autonomously drives the round loop without prompting the user between rounds (deleting `<review_dir>/host/Analyzation.md`, terminating prior `review_host` via `manage_subagents(Action="kill")`, and re-spawning a fresh Host per Step 2B). Host prompt MUST remain the exact static template defined in Step 2B.
 
 ## Modifiers
 
 | Command | Action |
 | :--- | :--- |
 | `!SP<N>` | Set required continuous Full Sweep PASS rounds threshold to N (Default: 1). |
-| `!PA` / `!WA` | Pre-review pause gate: On `ROUND_REVISION_NEEDED`, Host retains sibling `<da_stem>.bak.md` copies and applies verified mutations directly to DA. Main Agent halts turn, prompts user to check quota / review diff, and awaits keyword `"C"` to remove backup files, delete `<review_dir>/host/Analyzation.md`, and proceed to Round N+1 (or executes rollback if user requests revert). Remains active across the entire review loop until `FINAL_PASS` or permanent halt (`PLAN_INFEASIBLE` / `ABORTED_MUTATION_FAILURE`). |
+| `!PA` / `!WA` | Pre-review pause gate: Retains `<da_stem>.bak.md` copies on `ROUND_REVISION_NEEDED` and halts turn. Awaits "C" to proceed or rollback to revert. |
 | `!FPA` | Instantly kill running subagents and pause execution. |

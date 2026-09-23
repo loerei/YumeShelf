@@ -10,6 +10,7 @@
   "packageManager": "pnpm@10.6.2",
   "scripts": {
     "ensure:playtime-helper": "node scripts/ensure-playtime-helper.js",
+    "ensure:playtime-helper:universal": "node scripts/ensure-playtime-helper-universal.js",
     "ensure:installer-shell": "node scripts/ensure-installer-shell.js",
     "ensure:installer-shell:fast": "node scripts/ensure-installer-shell.js --fast",
     "ensure:installer-shell:no-sign": "node scripts/ensure-installer-shell.js --no-sign",
@@ -26,8 +27,8 @@
     "build:fast": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell:fast && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signtoolOptions.sign=./scripts/noop-windows-sign.js && npm run organize:build-output",
     "build:fast:clean": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/clean-win-unpacked.ps1 && npm run build:fast",
     "build:linux": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --linux && npm run organize:build-output",
-    "build:mac": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
-    "package:mac": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
+    "build:mac": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --universal",
+    "package:mac": "npm run ensure:playtime-helper:universal && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && npm run verify:deps && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --universal && npm run organize:build-output",
     "build:all": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run ensure:installer-shell && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --linux && npm run organize:build-output",
     "build:test-version": "node scripts/build-test-version.js",
     "build:dir": "npm run ensure:playtime-helper && npm run build:preload && npm run build:main && npm run copy:assets && npm run build:vite && npm run verify:deps && set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir && npm run organize:build-output",

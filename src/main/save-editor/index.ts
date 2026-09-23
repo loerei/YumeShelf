@@ -3,14 +3,10 @@ import * as path from 'node:path';
 import { app } from 'electron';
 import SaveMappingManager from './mapping-manager';
 
-import { SaveDataEngine } from './engine';
+import { SaveDataEngine, type SaveFormatStrategy } from './engine';
 
-export interface SaveFormat {
-    match(fileName: string): boolean;
-    decode(rawData: Buffer, paths?: any, fileName?: string): Promise<any>;
-    encode(jsonData: any, paths?: any, fileName?: string): Promise<Buffer>;
-    metadata?(jsonData: any, paths?: any, fileName?: string): Promise<any>;
-}
+export type SaveFormat = SaveFormatStrategy;
+export type { SaveFormatStrategy };
 
 export interface SaveEditorServiceConfig {
     libraryState: any;
@@ -243,9 +239,9 @@ export function createSaveEditorService({ libraryState, saveFolderResolver }: Sa
         }
     }
 
-    async function writeSaveData(gameKey: string, fileName: string, jsonData: any) {
+    async function writeSaveData(gameKey: string, fileName: string, jsonData: any, options?: any) {
         try {
-            return await engine.writeSave(gameKey, fileName, jsonData);
+            return await engine.writeSave(gameKey, fileName, jsonData, options);
         } catch (err) {
             console.error(`[SAVE-EDITOR] Error writing save data:`, err);
             throw err;

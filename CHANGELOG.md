@@ -8,13 +8,22 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ### What Changed
 - Faster, reliable auto-updates: update downloads no longer crawl to a halt or freeze near 97%. Downloads now stream continuously at full internet speed without hitting CDN throttling limits.
+- Support for encrypted TINC save files: Added support for 2-tier AES-256-CBC encrypted JSON save files (used by Chrono Ecstasy and developer 314g-on) directly in Save Editor.
+- Experimental Universal macOS build: you can now run YumeShelf on macOS with a single Universal `.dmg` or `.zip` supporting both Apple Silicon and Intel Macs. Because this beta is not signed with an Apple Developer certificate, Gatekeeper will block it on first launch. Run `xattr -cr /Applications/YumeShelf.app` in Terminal to clear quarantine. Drop feedback on GitHub Issues if you hit any version-specific quirks.
 
 ### For the Nerds
+- [mac] Added macOS Universal release pipeline in `.github/workflows/release.yml` with dual-target native playtime-helper compilation (`aarch64-apple-darwin`, `x86_64-apple-darwin`) and lipo merging via `scripts/ensure-playtime-helper-universal.js`.
+- [mac] Added `ForMacBeta.txt` helper release asset excluded from SHA-256 checksum calculation.
+- [engine] Implemented `TincDoubleAesJsonSaveCodec` in `@yumeshelf/engine` supporting outer AES-256-CBC container encryption, inner AES-256-CBC string value encryption, customizable key/IV parameter seams, dynamic 16-byte IV derivation, and additive raw plaintext field exemptions (`data_ownedItems`, `data_userTierData`).
+- [engine] Added fail-fast validations, strict JSON whitespace parsing per RFC 8259, non-JSON engine format sniffing bypass, and prototype pollution defenses.
+- [save-editor] Added `tinc-double-aes-json` format adapter in `src/main/save-editor/formats/` and integrated options forwarding with allowlist sanitization across IPC boundary (`save-editor:load-data`, `save-editor:write-data`).
+- [renderer] Implemented `TincDoubleAesJsonEngine` in `src/renderer/save-editor/engines/` isolating editable variables/switches to `data_*` properties and registered in `DataEngine`.
 - [nsis-updater] Replaced 8-connection parallel Range requests with sequential single stream downloading via `fetch` and `fs.open` streaming writes in `src/main/nsis-updater/download.ts`, eliminating GitHub Releases / CloudFront CDN rate-limiting.
 - [nsis-updater] Added streaming SHA-512 calculation in-flight during disk write, eliminating redundant second-pass disk reads.
 - [nsis-updater] Enforced HTTPS scheme validation and normalized hex SHA-512 hashes to canonical Base64 for state storage compatibility with `getValidatedDeferredInstallState()`.
 - [nsis-updater] Added deterministic stall watchdog timer with parameter seams (`downloadTimeoutMs`, `fetch`) and Windows NTFS `EBUSY`/`EPERM` file handle safety in `try ... finally`.
 - [nsis-updater] Threaded parameter seams across `NsisUpdaterStrategyAdapter`, `createNsisUpdaterService`, and `setupUpdateFlow`.
+- [tests] Added test suites in `packages/yume-engine/tests/headless-save-codecs.test.ts`, `tests/save-editor-contracts.test.js`, `src/main/ipc/controllers/save-editor.controller.test.ts`, and `src/renderer/save-editor/engines/tinc-double-aes-json.test.ts`.
 - [tests] Added unit test suite `tests/nsis-updater.test.js` covering download integrity, hex hash normalization, watchdog stall timeouts, SEC-08 enforcement, and protocol checks.
 
 ---

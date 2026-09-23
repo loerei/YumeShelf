@@ -5,6 +5,7 @@ import { UnityMonoEngine } from './engines/unity-mono';
 import { RpgWolfSavEngine } from './engines/rpg-wolf-sav';
 import { RenpyEngine } from './engines/renpy';
 import { SimpleKeyedEngine } from './engines/simple-keyed';
+import { TincDoubleAesJsonEngine } from './engines/tinc-double-aes-json';
 import { PureJsonEngine } from './engines/pure-json';
 
 /**
@@ -31,6 +32,7 @@ export class DataEngine {
             new RpgMakerEngine(),
             new UnityMonoEngine(),
             new SimpleKeyedEngine(),
+            new TincDoubleAesJsonEngine(),
             new PureJsonEngine()
         ];
 

@@ -235,19 +235,28 @@ jobs:
           YumeShelf macOS Beta Instructions
           =================================
 
-          Because this build is not signed with an Apple Developer certificate, macOS Gatekeeper
-          will block the application on first launch with a warning saying the app is damaged or
-          cannot be opened.
+          I don't have an Apple Developer certificate ($99/year and I'm broke), so macOS Gatekeeper
+          will block YumeShelf on first launch with a warning saying the app is damaged or cannot be opened.
 
-          To bypass this Gatekeeper restriction:
-          1. Drag YumeShelf to your /Applications folder.
-          2. Open Terminal (Applications > Utilities > Terminal).
-          3. Run the following command:
+          How to open:
+
+          Option 1 (Fastest - 1 Terminal command):
+          1. Open Terminal (Applications > Utilities > Terminal).
+          2. Run:
              xattr -cr /Applications/YumeShelf.app
-          4. Launch YumeShelf normally.
+             (If it says "Permission denied", add sudo: sudo xattr -cr /Applications/YumeShelf.app)
+             (If you placed YumeShelf elsewhere, type "xattr -cr " and drag YumeShelf.app into Terminal).
+          3. Open YumeShelf normally.
 
-          If you encounter any issues, please report them on GitHub:
+          Option 2 (GUI - No Terminal):
+          1. Try opening YumeShelf once (it will get blocked).
+          2. Go to System Settings > Privacy & Security.
+          3. Scroll down to Security, find "YumeShelf was blocked..." and click "Open Anyway".
+
+          Because I have no Mac to test this on, the beta is likely broken somewhere. If you find any bug, drop it here:
           https://github.com/loerei/YumeShelf/issues
+
+          Thanks for testing this out.
           EOF
 
       - name: Upload macOS Artifacts

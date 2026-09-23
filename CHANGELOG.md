@@ -4,12 +4,12 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.2.7] - working: macOS Universal Beta & TINC Save Support
+## [2.2.7] - working: macOS Beta, Faster Auto-Updates & TINC Save Support
 
 ### What Changed
 - macOS Beta build: added an experimental Universal build (`.dmg` and `.zip`) that runs on both Apple Silicon and Intel Macs. It is not signed with an Apple Developer certificate, so Gatekeeper will block it on first launch. Run `xattr -cr /Applications/YumeShelf.app` in Terminal to clear quarantine. Report any crashes or quirks on GitHub Issues.
 - Support for encrypted TINC saves: you can now edit 2-tier AES-256-CBC encrypted saves (used by Chrono Ecstasy and other TINC games) directly in the Save Editor without external tools.
-- Faster, reliable auto-updates: update downloads no longer stall or choke near 97%. Swapped chunked Range requests for single sequential streams to avoid CDN rate limits.
+- Faster, reliable auto-updates: update downloads no longer stall or choke near 97%. Swapped chunked Range requests for single sequential streams to avoid CDN rate limits (this takes effect for future updates downloaded by 2.2.7 onwards; updating to 2.2.7 itself still runs through your current version's downloader).
 
 ### For the Nerds
 - [mac] Added macOS Universal build workflow in `.github/workflows/release.yml` with dual-target compilation (`aarch64-apple-darwin`, `x86_64-apple-darwin`) merged via `lipo -create` in `scripts/ensure-playtime-helper-universal.js`. Added `macos-14` runner to `.github/workflows/test.yml`.

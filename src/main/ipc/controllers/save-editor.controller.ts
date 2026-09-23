@@ -162,12 +162,19 @@ function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
             loadSet.add(cancelFn);
 
             const sanitizedOptions = sanitizeSaveOptions(options);
-            const resolvedEarlyExit = earlyExit !== undefined
-                ? Boolean(earlyExit)
-                : (sanitizedOptions.earlyExit !== undefined ? Boolean(sanitizedOptions.earlyExit) : true);
-            const resolvedStalenessTimeoutMs = stalenessTimeoutMs !== undefined
-                ? Number(stalenessTimeoutMs)
-                : (sanitizedOptions.stalenessTimeoutMs !== undefined ? Number(sanitizedOptions.stalenessTimeoutMs) : 10000);
+            let resolvedEarlyExit = true;
+            if (earlyExit !== undefined) {
+                resolvedEarlyExit = Boolean(earlyExit);
+            } else if (sanitizedOptions.earlyExit !== undefined) {
+                resolvedEarlyExit = Boolean(sanitizedOptions.earlyExit);
+            }
+
+            let resolvedStalenessTimeoutMs = 10000;
+            if (stalenessTimeoutMs !== undefined) {
+                resolvedStalenessTimeoutMs = Number(stalenessTimeoutMs);
+            } else if (sanitizedOptions.stalenessTimeoutMs !== undefined) {
+                resolvedStalenessTimeoutMs = Number(sanitizedOptions.stalenessTimeoutMs);
+            }
 
             const mergedOptions = {
                 ...sanitizedOptions,

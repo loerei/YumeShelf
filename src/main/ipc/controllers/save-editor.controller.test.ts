@@ -348,8 +348,8 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
     describe('save-editor:load-data and save-editor:write-data options sanitization', () => {
         it('sanitizes options, removes prototype pollution, and forwards valid options to loadSaveData', async () => {
             const mockSaveEditorService = {
-                loadSaveData: vi.fn(async (_gameKey, _fileName, _options) => ({ data: {}, metadata: {} })),
-                writeSaveData: vi.fn(async (_gameKey, _fileName, _data, _options) => ({ ok: true })),
+                loadSaveData: vi.fn(async (_gameKey: string, _fileName: string, _options?: Record<string, unknown>) => ({ data: {}, metadata: {} })),
+                writeSaveData: vi.fn(async (_gameKey: string, _fileName: string, _data: unknown, _options?: Record<string, unknown>) => ({ ok: true })),
             };
             const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
             const handler = handlers.get('save-editor:load-data')!;

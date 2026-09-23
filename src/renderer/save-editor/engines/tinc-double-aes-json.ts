@@ -24,31 +24,22 @@ export class TincDoubleAesJsonEngine extends PureJsonEngine {
      * @returns {string[]}
      */
     _getDeepPaths(obj, prefix = '') {
+        if (prefix) {
+            return super._getDeepPaths(obj, prefix);
+        }
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            return [];
+        }
+
         /** @type {string[]} */
         let paths = [];
-        if (obj === null || obj === undefined) return paths;
+        for (const [key, val] of Object.entries(obj)) {
+            if (key === '$type' || key === '_userMappings' || !key.startsWith('data_')) continue;
 
-        if (Array.isArray(obj)) {
-            obj.forEach((val, idx) => {
-                const path = prefix ? `${prefix}.${idx}` : `${idx}`;
-                if (typeof val === 'object' && val !== null) {
-                    paths = paths.concat(this._getDeepPaths(val, path));
-                } else {
-                    paths.push(path);
-                }
-            });
-        } else if (typeof obj === 'object') {
-            for (const [key, val] of Object.entries(obj)) {
-                if (key === '$type' || key === '_userMappings') continue;
-                // At root level, only traverse properties starting with data_
-                if (!prefix && !key.startsWith('data_')) continue;
-
-                const path = prefix ? `${prefix}.${key}` : key;
-                if (typeof val === 'object' && val !== null) {
-                    paths = paths.concat(this._getDeepPaths(val, path));
-                } else {
-                    paths.push(path);
-                }
+            if (typeof val === 'object' && val !== null) {
+                paths = paths.concat(super._getDeepPaths(val, key));
+            } else {
+                paths.push(key);
             }
         }
         return paths;

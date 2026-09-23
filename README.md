@@ -32,7 +32,7 @@ Point YumeShelf to your games directory and it puts everything into a clean grid
 1. Download the latest release from [GitHub Releases](https://github.com/loerei/YumeShelf/releases/latest).
    - **Windows**: Run `YumeShelf-Setup-<version>.exe`.
    - **Linux**: Download `YumeShelf-<version>.AppImage`, make it executable (`chmod +x`), and run it.
-   - **macOS (Beta)**: Download `YumeShelf-<version>.dmg` (Universal build for Apple Silicon and Intel), open it, and drag YumeShelf to `/Applications`. Because this build is unsigned, Gatekeeper will block the first launch. Open Terminal and run `xattr -cr /Applications/YumeShelf.app` (add `sudo` if you get "Permission denied") to clear quarantine. If you hit any version-specific quirks, drop an issue on GitHub.
+   - **macOS (Beta)**: Download `YumeShelf-<version>.dmg` (Universal build for Apple Silicon and Intel), open it, and drag YumeShelf to `/Applications`. I do not have an Apple Developer certificate ($99/year and I am broke), so Gatekeeper will block the first launch. Open Terminal and run `xattr -cr /Applications/YumeShelf.app` (add `sudo` if you get "Permission denied") to clear quarantine. I have no Mac to test this on, so the beta is likely broken somewhere. If you run into bugs, drop an issue on GitHub.
 2. Choose your existing game directory on first launch, or click "I'm lazy" to let YumeShelf create a default folder for you.
 3. Double-click any game card to launch.
 

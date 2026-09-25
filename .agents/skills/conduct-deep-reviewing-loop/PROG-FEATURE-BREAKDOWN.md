@@ -4,7 +4,6 @@
 
 ### 1. Work Breakdown Structure (WBS) Slicing
 - [ ] Vertical Slicing: Verify that tasks are broken down vertically across layers (UI, API, Data, Tests) rather than horizontally by technical stack.
-- [ ] PR Line Count Thresholds: Ensure no individual PR proposal exceeds 400 lines of modified code (excluding auto-generated code and lockfiles).
 
 ### 2. Tracer-Bullet Granularity & Hierarchical Dot-Splitting
 - [ ] End-to-End Skeleton First: Confirm initial task phases deliver a fully connected end-to-end tracer bullet with minimal mock functionality before building complex edge cases.
@@ -29,7 +28,7 @@
 | Code area is stable, deprecated, or will never be touched again. | **Never** | Leave code intact $\rightarrow$ Perform minimal direct change or leave untouched. |
 
 ### 5. Checkbox (`- [ ]`) & Nano Step Granularity
-- [ ] **Atomic Checkbox Scope**: Ensure each `- [ ]` execution step represents a single-turn, atomic modification (< 50-100 LOC). Overloaded checkboxes containing multiple disparate tasks MUST be split (`SPLIT_STEP`).
+- [ ] **Atomic Checkbox Scope**: Ensure each `- [ ]` execution step represents a single-turn, atomic modification (a single semantic change or contract addition). Overloaded checkboxes containing multiple disparate tasks MUST be split (`SPLIT_STEP`).
 - [ ] **Step Execution Ordering**: Verify checkboxes follow an incremental progression: Interface / Seams / Stubs $\rightarrow$ Core Logic $\rightarrow$ Edge Cases $\rightarrow$ Verification. Forward-referencing checkboxes MUST be re-ordered (`REORDER_STEPS`).
 - [ ] **Dedicated Verification Steps**: Ensure critical state modifications, migrations, or algorithms are immediately followed by explicit verification steps running automated test commands or repro harnesses (`INJECT_VERIFICATION_STEP`).
 - [ ] **Scope Creep Step Isolation**: Steps requiring complex architectural changes outside ticket scope MUST be promoted to independent tickets (`EXTRACT_STEP_TO_TICKET`).

@@ -33,7 +33,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 ## Mandatory Audit Questions
 
-1. **Ticket Granularity**: Is each ticket an independently testable slice that can be implemented and verified without waiting for the entire phase? Are monolithic tickets (> 300-500 LOC or multi-concern scopes) identified for splitting?
+1. **Ticket Granularity**: Is each ticket an independently testable slice that can be implemented and verified without waiting for the entire phase? Are monolithic tickets (entangling multiple disparate concerns or spanning disjoint subsystem boundaries) identified for splitting?
 2. **Dependency & Sequencing Soundness**: Is the execution order topologically sound? Are there forward-dependencies (e.g. Ticket N depending on unbuilt APIs from Ticket N+2) or circular dependencies across tickets and phases?
 3. **Phase & Milestone Boundaries**: Does Phase 0 / baseline milestones deliver an MVP / verifiable foundation without scope creep from subsequent phases? Are phase prerequisites explicitly specified?
 4. **Prerequisite & Seam Unlocking**: Does early ticket sequencing prioritize unblocking test seams, fixtures, and interfaces needed by subsequent tickets?
@@ -77,7 +77,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 | Target Subsystem Archetype | Triggers & Indicators | Subdocument |
 | :--- | :--- | :--- |
-| **Feature WBS & Slicing** | Feature breakdown structure, PR line-count thresholds, vertical tracer-bullet slicing, S -> B structural isolation, Refactoring Priority Gates | [`PROG-FEATURE-BREAKDOWN.md`](PROG-FEATURE-BREAKDOWN.md) |
+| **Feature WBS & Slicing** | Feature breakdown structure, vertical tracer-bullet slicing, S -> B structural isolation, Refactoring Priority Gates | [`PROG-FEATURE-BREAKDOWN.md`](PROG-FEATURE-BREAKDOWN.md) |
 | **Migration Phasing & Rollout** | Multi-phase system migrations, legacy deprecations, blue/green rollout schedules | [`PROG-MIGRATION-PHASING.md`](PROG-MIGRATION-PHASING.md) |
 
 ## Verdict Rules

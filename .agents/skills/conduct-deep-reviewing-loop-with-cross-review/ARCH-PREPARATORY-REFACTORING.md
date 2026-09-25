@@ -32,13 +32,15 @@ Audit target files and landing zones across 4 distinct quality axes:
 - **Good State (Direct Implementation Clearance)**:
   - If existing interfaces are deep, structural seams exist, and test surface is clean $\rightarrow$ Clear DA for direct feature implementation.
 - **Bad State (Preparatory Refactoring Required)**:
-  - If the target codebase is tangled, shallow, or missing seams $\rightarrow$ Reject DA (`STATUS: REVISIONS NEEDED`) and require:
+  - If the target codebase is tangled, shallow, or missing seams, the DA MUST require:
     1. **4-Axis Readiness Scorecard**: Highlighting friction diagnoses across *Maintainability*, *Extensibility*, *Debuggability*, *Updatability*.
     2. **Tidying Selection**: Choosing pre-approved structural patterns ($S$) from the 15 Tidying Patterns Taxonomy.
     3. **Architectural Transition Mapping**: Current Tangled Structure $\rightarrow$ Proposed Paved Structure.
     4. **Tidy First Execution Order ($S \to B$)**: Structuring implementation into explicit prerequisite structural steps ($S_1 \to S_2$) followed by behavioral change ($B$).
     5. **Storage Readiness Invariant**: If a proposed feature modifies persistent data schemas, but the target codebase lacks a centralized schema version runner, classify the state as Bad State. Mandate establishing a minimal isolated schema version runner as Step $S$ directly in the DA before implementing feature behavior $B$.
     6. **Configuration & Environment Readiness Invariant**: If a proposed feature modifies application configuration schemas, environment variable bindings, or runtime dependency interfaces, but the target codebase lacks a centralized, strictly validated configuration boot boundary (or relies on ad-hoc runtime branching between legacy and new formats), classify the state as Bad State. Mandate establishing a canonical configuration schema parser and migrating legacy configuration files, environment definitions, and test fixtures as a prerequisite structural step ($S$) directly in the DA before implementing feature behavior ($B$).
+  - If not satisfied (DA skips prerequisite structural steps or lacks required specifications) $\rightarrow$ Reject DA (`STATUS: REVISIONS NEEDED`) and mandate missing items.
+  - If satisfied $\rightarrow$ Clear preparatory architecture for implementation.
 
 ### 4. Preparatory Structural Patterns (15 Tidying Patterns)
 Preparatory structural changes ($S$) must use standard refactoring patterns before introducing new behavior ($B$):

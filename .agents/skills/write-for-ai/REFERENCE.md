@@ -275,3 +275,20 @@ Permanently delete a user account by user_id.
 Fails if the account has active subscriptions (must cancel first) or is unverified.
 ```
 *(Strips all marketing adjectives and internal concurrency trivia, but preserves the identifier, prerequisites, and failure conditions).*
+
+---
+
+## 5. Noise Checklist (What to Cut)
+
+- [ ] Fluff adjectives: `robust`, `seamless`, `powerful`, `atomic`, `crash-resilient`, `intelligent`
+- [ ] Pompous verbs: `utilize`, `leverage`, `orchestrate`, `facilitate`, `operationalize`
+- [ ] Schema duplicates: restating type, required status, or default values present in schema
+- [ ] Circular naming: rephrasing the tool or parameter identifier without adding new decision criteria
+- [ ] Conversational chaff and hedging: `Please note`, `You should try to`, `Keep in mind that`, `Make sure to`
+- [ ] Motivation and history: explaining why a feature exists or what tokens/speed it saves
+- [ ] Synonym stacking: chaining multiple near-identical descriptors (`strict, mandatory, non-negotiable`)
+- [ ] Reference over-specification: listing sub-topics, case study titles, or cataloging contents inside link references
+- [ ] Phantom bans: forbidding custom artifacts introduced by previous iterations instead of deleting the original trigger prompt
+- [ ] Implementation trivia: internal algorithms, memory caches, languages, or threading models
+- [ ] Decorative bullet titles: pseudo-titles forced onto bullet items without taxonomy or routing value
+- [ ] Theatrical and hollow headers: section headers or sub-headers wrapping 1–2 trivial sentences

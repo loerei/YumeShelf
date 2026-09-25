@@ -74,7 +74,7 @@ Domain Context: <review_dir>/Context.md
 Review Guide: <guide_path>
 Output Path: <review_dir>/reports/<Role>.md
 
-Audit the target document(s) objectively from a clean-slate perspective. Follow your Review Guide and any domain subdocuments referenced within it strictly.
+Audit the target document(s) objectively from a clean-slate perspective. Follow your Review Guide and any domain subdocuments referenced within it strictly. All findings and non-blocking suggestions MUST strictly adhere to your domain standards and codebase invariants.
 ```
 
 - **Dynamic Guide Resolution**: `<guide_path>` MUST be resolved dynamically relative to the active skill location (`.agents/skills/<skill-name>/<Role>-REVIEWER-GUIDE.md` in distributed projects or `productivity/<skill-name>/<Role>-REVIEWER-GUIDE.md` in central `myskills`).
@@ -314,7 +314,7 @@ When a tier batch is resolved with accepted blocking defects (at least one activ
      Cross-domain review identified requirements for your remediation. Read <review_dir>/reports/<AuthorRole>-Cross-Review-Requests.md. Incorporate all listed requirements into your report at <review_dir>/reports/<AuthorRole>.md. Once updated, notify Host via send_message with the exact text: "CR-UPDATED: <AuthorRole>"
      ```
    - Host awaits the authoring role's `CR-UPDATED: <AuthorRole>` confirmation message. Host MUST NOT treat file existence or mtime changes as completion signal for cross-review updates; only the explicit `CR-UPDATED` message de-queues the authoring role.
-   - Upon receiving the `CR-UPDATED` confirmation, Host cleans up `<AuthorRole>-Cross-Review-Requests.md` and all `<AuthorRole>-CR-*.md` files, and re-invokes the previously cross-gating roles to re-evaluate the updated remediation.
+   - Upon receiving the `CR-UPDATED` confirmation, Host cleans up `<AuthorRole>-Cross-Review-Requests.md` and all `<AuthorRole>-CR-*.md` files, and spawns fresh cross-reviewer subagents for the previously cross-gating roles via `invoke_subagent` using the Cross-Review Prompt Template (§2B) to re-evaluate the updated remediation. Host MUST NOT send messages to or reuse previous cross-reviewer subagent conversations.
    - Loop continues until all cross-reviewers return `CROSS-PASSED`.
 
 6. **Scope Constraints**:
@@ -369,7 +369,9 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
        - `- **Active Roster**: <List of active roles>`
        - `- **Highest Modified Tier**: Layer 3.X` (Mandatory when verdict is `ROUND_REVISION_NEEDED`; record `None` for `ROUND_PASS`, `FINAL_PASS`, `ABORTED_MUTATION_FAILURE`, or `PLAN_INFEASIBLE`)
      - For `PLAN_INFEASIBLE`: Strictly preserve the canonical 4-key header, followed by `## Technical Impasse Analysis` documenting: (1) The insurmountable technical barrier(s) (synthesizing all verified impasses if multiple active roles reported impasses), (2) Grounded empirical proof, and (3) Documented trade-offs and `Alternative Architectural Paths` for user decision.
-     - For other verdicts: **Accepted Issues and Applied Suggestions** listing accepted blocking defects and any applied non-blocking suggestions grouped by role under `## Accepted Issues and Suggestions`, labeling each entry as `### N. [<Role> Issue:] <Title>` or `### N. [<Role> Suggestion:] <Title>`. Every suggestion applied to the DA MUST be documented here. Zero rejected/gated tables. If all active roles cleared with zero defects and zero applied suggestions, record `*(None - All active roles cleared with zero blocking defects)*`.
+     - For other verdicts:
+       - **Accepted Issues and Applied Suggestions**: List accepted blocking defects and any applied non-blocking suggestions grouped by role under `## Accepted Issues and Suggestions`, labeling each entry as `### N. [<Role> Issue:] <Title>` or `### N. [<Role> Suggestion:] <Title>`. Every suggestion applied to the DA MUST be documented here. Zero rejected/gated issues. If all active roles cleared with zero defects and zero applied suggestions, record `*(None - All active roles cleared with zero blocking defects)*`.
+       - **Rejected Suggestions**: Under `## Rejected Suggestions`, list any non-blocking suggestions rejected by Host grouped by role, labeling each entry as `### N. [<Role> Suggestion:] <Title>` with technical rejection rationale. If zero suggestions were rejected, record `*(None)*`.
 5. **Process Teardown & Workspace State Preservation**:
    Host sends a completion message to Layer 1 (parent agent) via `send_message` reporting the Gate Verdict and referencing `<review_dir>/host/State.md` and `Analyzation.md`, and concludes execution. Host MUST NOT call `manage_subagents(Action="kill")`; Layer 1 handles all process termination by killing Layer 2, which cascades to all descendant subagents automatically:
    - **Technical Impasse Teardown (`PLAN_INFEASIBLE`)**: Preserve `host/State.md`, `host/Analyzation.md`, `reports/`, and `sandbox/` for user and Layer 1 inspection, notify Layer 1 via `send_message`, and conclude execution.

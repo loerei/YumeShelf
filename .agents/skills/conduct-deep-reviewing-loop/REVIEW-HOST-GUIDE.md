@@ -72,7 +72,7 @@ Domain Context: <review_dir>/Context.md
 Review Guide: <guide_path>
 Output Path: <review_dir>/reports/<Role>.md
 
-Audit the target document(s) objectively from a clean-slate perspective. Follow your Review Guide and any domain subdocuments referenced within it strictly.
+Audit the target document(s) objectively from a clean-slate perspective. Follow your Review Guide and any domain subdocuments referenced within it strictly. All findings and non-blocking suggestions MUST strictly adhere to your domain standards and codebase invariants.
 ```
 
 - **Dynamic Guide Resolution**: `<guide_path>` MUST be resolved dynamically relative to the active skill location (`.agents/skills/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in distributed projects or `productivity/conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md` in central `myskills`).
@@ -258,7 +258,9 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
        - `- **Active Roster**: <List of active roles>`
        - `- **Highest Modified Tier**: Layer 3.X` (Mandatory when verdict is `ROUND_REVISION_NEEDED`; record `None` for `ROUND_PASS`, `FINAL_PASS`, `ABORTED_MUTATION_FAILURE`, or `PLAN_INFEASIBLE`)
      - For `PLAN_INFEASIBLE`: Strictly preserve the canonical 4-key header, followed by `## Technical Impasse Analysis` documenting: (1) The insurmountable technical barrier(s) (synthesizing all verified impasses if multiple active roles reported impasses), (2) Grounded empirical proof, and (3) Documented trade-offs and `Alternative Architectural Paths` for user decision.
-     - For other verdicts: **Accepted Issues and Applied Suggestions** listing accepted blocking defects and any applied non-blocking suggestions grouped by role under `## Accepted Issues and Suggestions`, labeling each entry as `### N. [<Role> Issue:] <Title>` or `### N. [<Role> Suggestion:] <Title>`. Every suggestion applied to the DA MUST be documented here. Zero rejected/gated tables. If all active roles cleared with zero defects and zero applied suggestions, record `*(None - All active roles cleared with zero blocking defects)*`.
+     - For other verdicts:
+       - **Accepted Issues and Applied Suggestions**: List accepted blocking defects and any applied non-blocking suggestions grouped by role under `## Accepted Issues and Suggestions`, labeling each entry as `### N. [<Role> Issue:] <Title>` or `### N. [<Role> Suggestion:] <Title>`. Every suggestion applied to the DA MUST be documented here. Zero rejected/gated issues. If all active roles cleared with zero defects and zero applied suggestions, record `*(None - All active roles cleared with zero blocking defects)*`.
+       - **Rejected Suggestions**: Under `## Rejected Suggestions`, list any non-blocking suggestions rejected by Host grouped by role, labeling each entry as `### N. [<Role> Suggestion:] <Title>` with technical rejection rationale. If zero suggestions were rejected, record `*(None)*`.
 5. **Process Teardown & Workspace State Preservation**:
    Host terminates active reviewer subagents via process control (`manage_subagents(Action="kill")`), sends a completion message to Layer 1 (parent agent) via `send_message` reporting the Gate Verdict and referencing `<review_dir>/host/State.md` and `Analyzation.md`, and concludes execution:
    - **Technical Impasse Teardown (`PLAN_INFEASIBLE`)**: Terminate all active reviewer subagents via process control (`manage_subagents` with `Action: "kill"`), gracefully handling completed or idle subagents idempotently. Preserve `host/State.md`, `host/Analyzation.md`, `reports/`, and `sandbox/` for user and Layer 1 inspection, notify Layer 1 via `send_message`, and conclude execution.

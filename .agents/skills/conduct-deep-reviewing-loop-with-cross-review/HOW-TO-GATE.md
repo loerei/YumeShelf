@@ -214,7 +214,12 @@ When authoring `<review_dir>/host/Analyzation.md`:
    ## Accepted Issues and Suggestions
    *(None - All active roles cleared with zero blocking defects)*
    ```
-3. **Zero Rejected / Gated Tables**: Do NOT include tables of rejected or gated issues in `Analyzation.md`. All rejection, removal, and refinement actions are resolved directly with reviewers in `<review_dir>/reports/<Role>_Gated_Issues.md` and reflected in-place in clean `<Role>.md` files.
+3. **Rejected Suggestions**: Record all non-blocking suggestions rejected by Host grouped by role under `## Rejected Suggestions`, labeling each entry as `### N. [<Role> Suggestion:] <Title>` with its technical rejection rationale. If zero suggestions were rejected, record:
+   ```markdown
+   ## Rejected Suggestions
+   *(None)*
+   ```
+4. **Zero Rejected / Gated Issues**: Do NOT include rejected or gated blocking issues in `Analyzation.md`. All rejection, removal, and refinement actions for blocking defects are resolved directly with reviewers in `<review_dir>/reports/<Role>_Gated_Issues.md` and reflected in-place in clean `<Role>.md` files.
 
 ## Host DA Mutation & Verification Standards
 

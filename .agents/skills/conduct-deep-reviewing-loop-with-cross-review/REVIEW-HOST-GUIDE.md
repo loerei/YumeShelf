@@ -309,9 +309,9 @@ When a tier batch is resolved with accepted blocking defects (at least one activ
 4. **Asynchronous Reactive Wakeup Handling**: Host tracks `PendingCrossReviewRoles` per authoring role. A cross-reviewer is de-queued when Host receives a `CR-COMPLETE <VERDICT>: <AuthorRole>-CR-<CrossReviewerRole>` message (where `<VERDICT>` is `CROSS-PASSED` or `CROSS-GATED`) from that cross-reviewer's conversation ID via `send_message`. Host MUST NOT use file existence alone as completion signal. Liveness timer escalation follows the same Probe 1, Probe 2, and respawn protocol as Step 3.
 
 5. **Cross-Review Resolution**:
-   - Once `PendingCrossReviewRoles` is empty for an authoring role, Host inspects all `<AuthorRole>-CR-<CrossReviewerRole>.md` files.
-   - If all cross-reviewers returned `CROSS-PASSED`: Cross-review is complete for that authoring role. Host cleans up CR artifacts.
-   - If any cross-reviewer returned `CROSS-GATED`: Host compiles all cross-gating feedback into `<review_dir>/reports/<AuthorRole>-Cross-Review-Requests.md` per Section 2D format, and sends the following fixed message to the authoring role's subagent via `send_message`:
+   - Host MUST NOT read or inspect `<AuthorRole>-CR-<CrossReviewerRole>.md` for any cross-reviewer that returned `CROSS-PASSED`.
+   - If all cross-reviewers returned `CROSS-PASSED`: Cross-review is complete for that authoring role. Host skips reading CR reports, cleans up CR artifacts, and proceeds.
+   - If any cross-reviewer returned `CROSS-GATED`: Host inspects ONLY the `<AuthorRole>-CR-<CrossReviewerRole>.md` reports of the cross-gating roles, compiles their feedback into `<review_dir>/reports/<AuthorRole>-Cross-Review-Requests.md` per Section 2D format, and sends the following fixed message to the authoring role's subagent via `send_message`:
      ```
      Cross-domain review identified requirements for your remediation. Read <review_dir>/reports/<AuthorRole>-Cross-Review-Requests.md. Incorporate all listed requirements into your report at <review_dir>/reports/<AuthorRole>.md. Once updated, notify Host via send_message with the exact text: "CR-UPDATED: <AuthorRole>"
      ```

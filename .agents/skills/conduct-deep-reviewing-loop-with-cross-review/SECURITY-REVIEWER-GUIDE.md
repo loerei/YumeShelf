@@ -1,12 +1,12 @@
 # Security Reviewer Guide
 
-Audits authorization boundaries, data validation, and vulnerability vectors in the DA.
+Audits authorization boundaries, data validation, and vulnerability vectors in the Directive Artifact (DA).
 
 ## Review Constraints
 
 Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Treat the document as a first-draft proposal regardless of git history, commit frequency, or edit timestamps. Verify authorization middleware, input boundaries, and secrets in actual codebase files. Do NOT inspect workspace review coordination files or other reviewer reports.
 
-- **Zero Tolerance for Technical Debt**: Regardless of how detailed or complete a Directive Artifact appears, any violation of your domain standards is a defect. You MUST hold the proposal to the highest standard defined in your guide. A design that "works flawlessly" is insufficient if it introduces unnecessary technical debt.
+- **Zero Tolerance for Technical Debt**: Any violation of your domain standards is a defect. You MUST hold the proposal to the highest standard defined in this guide. A design that "works flawlessly" is insufficient if it introduces architectural or security technical debt.
 - **Review Workspace Binding**: The review workspace directory `<review_dir>` is assigned dynamically per session and passed via your invocation prompt (`Review Workspace: <review_dir>`, `Domain Context: <review_dir>/Context.md`, `Output Path: <review_dir>/reports/<Role>.md`) and defined in `<review_dir>/Context.md`. In all file paths throughout this guide containing `<review_dir>`, substitute this assigned directory path.
 
 **Single-Pass Exhaustiveness**: You MUST perform an exhaustive full-document sweep from beginning to end. Report an unabridged inventory of ALL security vulnerabilities, auth gaps, and data validation flaws across the entire document in a single pass. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
@@ -14,7 +14,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 - **Contract Completeness**: Bundle all derivative requirements and acceptance criteria directly into your current report. Only submit when confident that the mutated document will fully satisfy your domain standards without needing subsequent rounds of incremental peeling.
 
 **Ground-Truth Alignment**:
-- Ground security demands in the actual threat model and architecture of the project. Do NOT demand remote enterprise authentication controls on internal, private process communications if it contradicts project requirements or breaks internal test suites.
+- Ground security demands in the actual threat model and architecture declared in `<review_dir>/Context.md`. Do NOT demand remote enterprise authentication controls on purely local/desktop utilities if it contradicts project architecture or breaks local test suites.
 - **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
   - Cross-reference security boundaries, credential storage mechanisms, and redaction standards against `Upstream` DAs to ensure the target DA upholds established security invariants without regression or conflicting credential models.
 - Follow Postel's Law: Allow lenient validation on internal mock fixtures; enforce strict validation on untrusted external boundaries.
@@ -31,21 +31,27 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
   2. **Suggestion only**: The defect would produce a clear, immediate error signal during implementation (compiler error, runtime exception with stack trace, or a failing assertion against a value the ticket's Acceptance Criteria already require checking) AND the correct fix, generalized to all instances of the same class, is obvious from the symptom without requiring reviewer domain knowledge. Classify as a Suggestion, NEVER as a blocking defect.
 - **Technical Impasse & Infeasibility Reporting**: If an audited requirement, ticket premise, or dependency is technically impossible or blocked by hard platform constraints (e.g. OS sandbox, CORS/same-origin, missing third-party capability, physical resource ceiling) with no viable in-scope fix: NEVER invent hallucinated workarounds and NEVER conceal the issue. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths` if known.
 
+## Progressive Disclosure Routing Matrix
+
+First inspect `## Security Scope & Threat Model Tier` in `<review_dir>/Context.md`. Cross-reference codebase ground-truth. You MUST call `view_file` on all applicable subdocuments before conducting your audit:
+
+| Threat Model Tier / Archetype | Scope & Ingress Indicators | Mandatory Subdocument |
+| :--- | :--- | :--- |
+| **Universal Security Invariants** | Mandatory for ALL artifacts touching security boundaries. Hashing, JWT allowlist, secrets hygiene, input parsing, SQL parameterization, path traversal. | [`SEC-COMMON-INVARIANTS.md`](SEC-COMMON-INVARIANTS.md) |
+| **Client / Desktop IPC Isolation** | Desktop runtimes (Tauri, Electron, CLI). IPC bridge isolation, capability scoping, subprocess argument arrays, shell opener protocol allowlists. | [`SEC-CLIENT-DESKTOP-IPC.md`](SEC-CLIENT-DESKTOP-IPC.md) |
+| **Client Secrets & Credentials** | Client applications storing tokens at rest. OS Keychain / DPAPI (`safeStorage`), client bundle build env hygiene (`VITE_*`, `NEXT_PUBLIC_*`), no plaintext storage. | [`SEC-CLIENT-CREDENTIALS.md`](SEC-CLIENT-CREDENTIALS.md) |
+| **Server API Authorization** | Cloud web APIs (REST, GraphQL, gRPC). BOLA / IDOR tenant scoping, BOPLA / Mass Assignment strict DTOs, over-fetching response DTO projection. | [`SEC-SERVER-AUTHZ-BOLA.md`](SEC-SERVER-AUTHZ-BOLA.md) |
+| **Server Ingress Abuse & Bots** | Public unauthenticated write routes (registration, reset, forms). Bot challenges (Turnstile/reCAPTCHA), rate limiting, registration spam defense, GraphQL depth limits. | [`SEC-SERVER-INGRESS-ABUSE.md`](SEC-SERVER-INGRESS-ABUSE.md) |
+| **Server Integrations & Network** | Outbound HTTP requests, external webhooks, CORS. Raw byte buffer HMAC verification, constant-time comparison, SSRF IP/subnet blocking, CORS hardening. | [`SEC-SERVER-INTEGRATION.md`](SEC-SERVER-INTEGRATION.md) |
+| **Database & Persistence Security** | Direct DB access, Supabase, PostgreSQL. Row Level Security (`ENABLE` + `FORCE`), `SECURITY DEFINER` search_path, public RPC revoking, least-privilege roles, field encryption. | [`SEC-DATA-RLS.md`](SEC-DATA-RLS.md) |
+
 ## Mandatory Audit Checklist
 
-1. **Authn / Authz Boundaries**: Are tenant isolation, user permissions, and API tokens explicitly enforced?
-2. **Input Sanitization**: Are path traversals, SQL/command injections, and unescaped HTML prevented?
-3. **Secret & Key Protection**: Are credentials, tokens, or private keys kept out of source code and logs?
-4. **Data Corruption Risks**: Are mutations wrapped in transactional boundaries with rollback guarantees?
-
-## Domain Subdocuments Routing Table
-
-When the target Directive Artifact touches specific subsystem archetypes below, MUST call `view_file` on the corresponding subdocument for specialized audit criteria (OWASP ASVS Alignment):
-
-| Target Subsystem Archetype | Triggers & Indicators | Subdocument |
-| :--- | :--- | :--- |
-| **Identity & Session Integrity** | Authentication flows, session tokens, JWT verification, OAuth2/OIDC, password/MFA controls | [`SEC-AUTH-IDENTITY.md`](SEC-AUTH-IDENTITY.md) |
-| **API Security & Injection** | Parameterized input handling, SQL/Command injection vectors, XSS context sanitization, SSRF | [`SEC-API-INJECTION.md`](SEC-API-INJECTION.md) |
+1. **Archetype Alignment**: Does the planned architecture respect the trust boundaries declared in `Context.md` without imposing mismatched controls?
+2. **Boundary Validation**: Are all untrusted inputs parsed against strict schemas before consumption by native binaries, queries, or host bridges?
+3. **Authorization Enforcement**: Are object-level and property-level permissions verified server-side or in the database on every operation?
+4. **Credential Isolation**: Are private keys, secrets, and session credentials kept out of client bundles, plaintext files, and public schemas?
+5. **Mutation Integrity**: Are state modifications wrapped in atomic transactional boundaries with replay and race protection?
 
 ## Verdict Rules
 

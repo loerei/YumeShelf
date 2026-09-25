@@ -35,6 +35,8 @@
       | `<path-to-da>` | `Upstream` | `Downstream` | `Implemented` | `Unimplemented` | <Explicit responsibility boundary> |
       ```
     - `## Data Storage & Migration Scope`: Declared by Layer 1 (`TOUCHES_PERSISTENCE` with storage archetype and engine, or `NO_PERSISTENCE` with technical justification).
+    - `## Observability Scope & Monitoring Archetype`: Declared by Layer 1 (`TOUCHES_OBSERVABILITY` with primary archetype, diagnostic sinks, and crash capture mechanisms, or `NO_OBSERVABILITY` with technical justification).
+    - `## Security Scope & Threat Model Tier`: Declared by Layer 1 (`TOUCHES_SECURITY_BOUNDARY` with primary archetype, trust boundaries, and exposure surfaces, or `NO_SECURITY_BOUNDARY` with technical justification).
     - `## Active Modifiers` (e.g. `!PA`, `!WA`, `!SP<N>`).
     - Codebase rules path (`AGENTS.md`).
     - Task domain skill paths.

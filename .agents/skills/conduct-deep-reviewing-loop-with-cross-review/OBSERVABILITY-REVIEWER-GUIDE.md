@@ -1,123 +1,121 @@
 # Observability Reviewer Guide
 
-Audits telemetry, error diagnostic context, feature flags, health checks, and operability in the DA.
+Audits telemetry, diagnostics, error contexts, crash boundaries, stream hygiene, health probes, and operational degradation in the Directive Artifact (DA).
 
 ## Review Constraints
 
 Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Treat the document as a first-draft proposal regardless of git history, commit frequency, or edit timestamps. Past edits are NOT evidence of observability. Do NOT inspect workspace review coordination files or other reviewer reports.
 
-- **Zero Tolerance for Technical Debt**: Regardless of how detailed or complete a Directive Artifact appears, any violation of your domain standards is a defect. You MUST hold the proposal to the highest standard defined in your guide. A design that "works flawlessly" is insufficient if it introduces unnecessary technical debt.
-- **Review Workspace Binding**: The review workspace directory `<review_dir>` is assigned dynamically per session and passed via your invocation prompt (`Review Workspace: <review_dir>`, `Domain Context: <review_dir>/Context.md`, `Output Path: <review_dir>/reports/<Role>.md`) and defined in `<review_dir>/Context.md`. In all file paths throughout this guide containing `<review_dir>`, substitute this assigned directory path.
+* **Zero Tolerance for Technical Debt**: Any violation of your domain standards is a defect. A design that functions is insufficient if it introduces unmonitored failures, silent error swallowing, metric cardinality hazards, or stream pollution.
+* **Review Workspace Binding**: Substitute `<review_dir>` with the path passed via invocation prompt (`Review Workspace: <review_dir>`, `Domain Context: <review_dir>/Context.md`, `Output Path: <review_dir>/reports/<Role>.md`).
 
-**Single-Pass Exhaustiveness**: You MUST perform an exhaustive full-document sweep from beginning to end. Report an unabridged inventory of ALL observability gaps, silent error swallowing, missing traces, and telemetry flaws across the entire document in a single pass. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
-- **Forward-Simulated Re-Audit**: Before saving `<review_dir>/reports/<Role>.md`, mentally project the Directive Artifact as if ALL your proposed remediations were already applied. Re-audit this projected state against your complete guide, checklist, and domain subdocuments. Ask: *"Once applied, what 2nd-order defects does this mutated structure introduce or expose?"*
-- **Contract Completeness**: Bundle all derivative requirements and acceptance criteria directly into your current report. Only submit when confident that the mutated document will fully satisfy your domain standards without needing subsequent rounds of incremental peeling.
+**Single-Pass Exhaustiveness**: Perform an exhaustive sweep across the entire document in a single pass. Report an unabridged inventory of ALL observability gaps, error swallowing, missing crash hooks, and telemetry flaws. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
+
+* **Forward-Simulated Re-Audit**: Mentally project the DA as if all proposed remediations were already applied. Re-audit this projected state against your complete guide and domain subdocuments to catch second-order defects before saving your report.
+* **Contract Completeness**: Bundle all derivative requirements and acceptance criteria directly into your report.
 
 **Ground-Truth Alignment**:
-- Ground telemetry requirements in the operational environment of the codebase. Do NOT demand distributed tracing spans on local utility scripts or private helper functions.
-- **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
-  - Cross-reference telemetry events, progress streaming formats, and error logging contracts against `Upstream` DAs to ensure consistent event naming, log formatting, and secret redaction without schema fragmentation across subsystems.
-- Follow Postel's Law: Capture diagnostics without failing business logic or crashing on missing telemetry endpoints.
+
+* Ground telemetry requirements in the operational environment defined in `<review_dir>/Context.md`.
+* Inspect `## Observability Scope & Monitoring Archetype` in `<review_dir>/Context.md`. If the section declares `Observability Status: NO_OBSERVABILITY`, verify this claim against the DA. If verified, return `STATUS: PASS` immediately.
+* Do NOT demand distributed tracing, OpenTelemetry spans, W3C headers, or Kubernetes health probes on local CLI utilities, desktop client apps, or isolated libraries.
+* Demand POSIX stream hygiene and deterministic exit codes on CLI tools.
+* Demand crash minidumps, rolling log quotas, and GDPR telemetry consent on desktop client applications.
+* Demand Core Web Vitals, frontend error boundaries, and beaconing transport on web client applications.
+* Demand distributed tracing, structured JSON logs, health probes, and metric cardinality controls on server-side microservices.
+* **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, read all listed DAs. Symmetrically synchronize error schemas, metric naming conventions, and correlation propagation across upstream and downstream seams.
 
 **Fix Pre-Verification**:
-- **Ground-Truth**: Verify on disk that any pre-existing method, type, or module referenced or consumed by a proposed fix actually exists in the target codebase, upstream specs, or planned declarations within the target DA itself. If introducing new methods, types, or interfaces, verify that their target landing locations exist (or are scheduled for creation in the DA), names do not collide with active exports, all consumed external dependencies are verified on disk or in upstream specs, and for internal communication boundaries (e.g. IPC, RPC, events), verify that both producer/caller and consumer/handler endpoints are updated symmetrically.
-- **Macro Flow**: Verify that trace context propagation, structured error logging, and telemetry lifecycle remain uninterrupted across asynchronous execution and service boundaries.
-- **System Invariants vs. Implementation Mechanics**: Audit ONLY for **System Invariants** (e.g. structural seams, threat models, lifecycle bounds, cross-boundary contracts) that standard TDD misses without explicit specification. Ticket code snippets are illustrative examples, not production code; NEVER report internal implementation mechanics (e.g. syntax, types, exports, regex flags) as blocking defects. If a required behavior or edge case is missing, demand an **Acceptance Criterion**; NEVER rewrite or patch code snippets.
-- **Miss-Probability Gate**:
-  - **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that (a) writes both the production code and its own tests directly from the ticket text, in a headless CI environment, with no human ever manually operating the running application, and (b) writes only the tests its ticket's Acceptance Criteria call for, not exploratory or adversarial tests nobody asked for. A signal only counts as "immediate and unambiguous" (-> Suggestion) if it would independently surface for THIS implementer: a compiler/type error, an uncaught exception with a stack trace, or a failing assertion against a value the ticket's stated Acceptance Criteria already require checking. "A human tester would notice this in the browser/console" is NEVER valid grounds to downgrade a defect to Suggestion - this implementer has no eyes, no browser, and performs no unscripted interaction with the running app.
 
-  Every proposed defect falls into exactly one of two categories:
-  1. **Blocking defect**: The defect would either (a) be silently missed in implementation (wrong results that look plausible, subtle numerical drift, state corruption without crashes, race conditions that produce incorrect but non-crashing output), OR (b) produce a visible error signal but the correct fix for all instances of the same class is NOT obvious from the symptom alone (requires domain knowledge, cross-component generalization, or architectural insight that the error message does not reveal). MUST include a `Why This Would Be Missed` field explaining the blind spot.
-  2. **Suggestion only**: The defect would produce a clear, immediate error signal during implementation (compiler error, runtime exception with stack trace, or a failing assertion against a value the ticket's Acceptance Criteria already require checking) AND the correct fix, generalized to all instances of the same class, is obvious from the symptom without requiring reviewer domain knowledge. Classify as a Suggestion, NEVER as a blocking defect.
-- **Technical Impasse & Infeasibility Reporting**: If an audited requirement, ticket premise, or dependency is technically impossible or blocked by hard platform constraints (e.g. OS sandbox, CORS/same-origin, missing third-party capability, physical resource ceiling) with no viable in-scope fix: NEVER invent hallucinated workarounds and NEVER conceal the issue. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths` if known.
+* Verify on disk that any pre-existing method, logger, collector, or configuration referenced by a proposed fix exists in the codebase or upstream specs.
+* If proposing new telemetry sinks, interfaces, or libraries, verify that target installation paths exist, imports do not collide, and configuration schemas align with codebase standards.
+* Audit ONLY for System Invariants (structural seams, crash boundaries, stream contracts, metric cardinality, lifecycle limits). Ticket code snippets are illustrative examples; NEVER report internal syntax or implementation mechanics as blocking defects. Demand an Acceptance Criterion instead.
 
-> [!IMPORTANT]
-> Restrict feature flag sprawl and telemetry overhead:
-> - **Release / Experiment Toggles**: Ephemeral. MUST declare an explicit owner, an ISO-8601 expiration date (TTL <= 30 days), and a mandatory Deletion Acceptance Criterion.
-> - **Ops / Kill-Switches**: Permanent toggles reserved for high-risk external integrations, batch processors, or circuit breakers. Must be isolated via strategy interfaces outside core domain logic.
-> Telemetry in hot paths (>1,000 ops/sec) MUST NOT allocate memory or format strings unless the target log level is enabled (`logger.isDebugEnabled()`).
+**Miss-Probability Gate**:
 
-## Mandatory Audit Checklist
+* **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that:
 
-1. **Structured Telemetry & Context**: Does error handling log sufficient structured context (operation ID, timestamp, resource identifiers, error stack)? Are secrets, tokens, and PII strictly redacted? Are telemetry logs guaranteed to flush synchronously on unhandled process exit?
-2. **Silent Error Swallowing Prevention**: Are empty catch blocks (`catch {}`), discarded promise rejections, or dropped error stacks eliminated?
-3. **Trace Context Propagation**: Are distributed trace identifiers (such as W3C traceparent headers) and request correlation IDs explicitly propagated across asynchronous boundaries and worker processes?
-4. **Degradation & Feature Flag Governance**:
-   - Toggle Archetype Classification: Are flags strictly categorized as ephemeral (Release/Experiment) or permanent (Ops/Permission)?
-   - Lifecycle Bounds: Do ephemeral toggles declare an owner and an ISO-8601 expiration date (TTL <= 30 days)?
-   - Deletion Testability: Does the DA include an explicit Acceptance Criterion and test plan for flag removal and toggle router deletion?
-   - Kill-Switch Confinement: Are permanent kill-switches restricted to external 3rd-party dependencies, asynchronous batch jobs, or circuit breakers, rather than scattered across core domain logic?
-5. **Health Checks & Metric Cardinality**: Are liveness/readiness probes updated to reflect critical dependencies? Are metric tag labels constrained to prevent high-cardinality crashes in metric stores?
+1. Writes production code and unit tests directly from ticket text in a headless CI environment with no human operating the application.
+2. Writes only tests required by ticket Acceptance Criteria, never exploratory or manual edge-case tests.
+A signal is "immediate and unambiguous" (downgrading a defect to Suggestion) ONLY if it independently surfaces for THIS implementer via compiler errors, uncaught runtime exceptions with stack traces, or failing assertions against values already mandated by ticket criteria. "A human tester would notice this on screen" NEVER qualifies as an immediate signal.
 
-## Domain Subdocuments Routing Table
+Every proposed defect falls into exactly one category:
 
-When the target Directive Artifact touches specific subsystem archetypes below, MUST call `view_file` on the corresponding subdocument for specialized audit criteria:
+1. **Blocking Defect**: The defect would either (a) be silently missed in implementation (wrong metrics, silent error drops, stream corruption in pipes, runaway disk consumption, high-cardinality crashes), OR (b) produce a visible error signal but the correct fix is NOT obvious from the symptom alone. MUST include a `Why This Would Be Missed` field explaining the blind spot.
+2. **Suggestion Only**: The defect produces an immediate error signal during implementation (compiler failure, crash stack trace, or existing test failure) AND the fix is obvious from the symptom. Classify as Suggestion; NEVER mark as a blocking defect.
 
-| Target Subsystem Archetype | Triggers & Indicators | Subdocument |
-| :--- | :--- | :--- |
-| **Telemetry, Tracing & Logs** | OpenTelemetry span context propagation across network hops, structured log key-value schemas, dynamic log levels | [`OBS-TELEMETRY-TRACING.md`](OBS-TELEMETRY-TRACING.md) |
-| **Alerting, SLOs & Probes** | Alerting configurations, SLO/SLA definitions, health check endpoints, DLQ backlog monitoring thresholds | [`OBS-ALERTING-SLO.md`](OBS-ALERTING-SLO.md) |
+**Technical Impasse & Infeasibility Reporting**:
+If a telemetry requirement, crash handling mechanism, or monitoring constraint violates platform sandbox limits, operating system security boundaries, or browser security models with no viable fix: NEVER invent ungrounded workarounds. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths`.
+
+## Domain Routing Matrix
+
+First inspect `## Observability Scope & Monitoring Archetype` in `<review_dir>/Context.md` and codebase ground-truth. Call `view_file` on the specialized subdocuments matching the identified architecture:
+
+| Monitoring Archetype | Architectural Indicators | Mandatory Subdocuments |
+| --- | --- | --- |
+| **Universal Telemetry** | All applications touching errors, logs, or diagnostics | [`OBS-COMMON-INVARIANTS.md`](OBS-COMMON-INVARIANTS.md) |
+| **Desktop / Client App** | Tauri, Electron, native GUI, local disk storage | [`OBS-CLIENT-DESKTOP.md`](OBS-CLIENT-DESKTOP.md) |
+| **CLI / Developer Utility** | Terminal commands, batch utilities, shell scripts | [`OBS-CLI-DEVUTIL.md`](OBS-CLI-DEVUTIL.md) |
+| **Frontend Web / Mobile RUM** | Browser SPA, PWA, mobile hybrid clients | [`OBS-FRONTEND-RUM.md`](OBS-FRONTEND-RUM.md) |
+| **Server-Side Microservice** | REST APIs, gRPC services, queue consumers | [`OBS-SERVER-TELEMETRY.md`](OBS-SERVER-TELEMETRY.md)<br>[`OBS-SERVER-METRICS-HEALTH.md`](OBS-SERVER-METRICS-HEALTH.md) |
+| **Feature Flags / Circuit Breakers** | Feature toggles, dynamic releases, kill-switches | [`OBS-FEATURE-FLAGS.md`](OBS-FEATURE-FLAGS.md) |
+| **Multi-Tier / Hybrid Application** | Full-stack repos combining client and backend | Load all relevant archetype subdocuments above |
 
 ## Verdict Rules
 
-- Return `STATUS: REVISIONS NEEDED` if error paths swallow context, leak sensitive data, introduce ad-hoc feature flags lacking expiration dates or deletion plans, place un-guarded telemetry in hot paths (>1,000 ops/sec), or lack operational kill-switches for high-risk external integrations.
-- Return `STATUS: PASS` if telemetry, diagnostics, and operational controls are comprehensive.
-- Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
-- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
+* Return `STATUS: PASS` if telemetry, error context preservation, crash capture, stream hygiene, health verification, and operational degradation controls satisfy all applicable domain criteria.
+* Return `STATUS: REVISIONS NEEDED` if any blocking defect exists under the applicable subdocuments (e.g. empty catch blocks, stream pollution on CLI `stdout`, unbounded log files on client disk, missing W3C propagation on distributed RPC hops, or unconstrained metric label cardinality).
+* Return `STATUS: INFEASIBLE` if a core requirement violates hard platform constraints (e.g. browser sandbox preventing synchronous log flush on tab crash, OS sandbox blocking out-of-process crash server). Infeasible defects take strict precedence over fixable defects.
 
 ## Standard Output Protocol
 
-Save evaluation to `<review_dir>/reports/Observability.md` via `write_to_file` using this format:
+Save evaluation to `<review_dir>/reports/Observability.md` via `write_to_file` using this exact format:
 
 ### Review Evaluation: Observability
 
-- **Status**: `STATUS: PASS`, `STATUS: REVISIONS NEEDED`, or `STATUS: INFEASIBLE`
+* **Status**: `STATUS: PASS`, `STATUS: REVISIONS NEEDED`, or `STATUS: INFEASIBLE`
 
-### Blocking Issues (Exhaustive List of ALL Identified Defects):
-<!-- Compile an exhaustive, unabridged list of EVERY blocking flaw found across the entire document. Do NOT truncate or defer issues. If at least one infeasible defect is present, the overall report status MUST be STATUS: INFEASIBLE; fixable defects may still be documented below for comprehensive single-pass audit fidelity. -->
+### Blocking Issues:
 
-<!-- For Fixable Defects -->
 1. **[Issue Title 1]**:
-   - **Target Section**: `<Section_Name>`
-   - **Required Fix**: <Exact observability enhancement required>
-   - **Why This Would Be Missed**: <Concrete explanation of why this defect would silently pass through implementation, OR why the visible error signal does not reveal the correct generalized fix>
-   - **Ground-Truth Proof**: <Path and symbol in codebase or upstream spec proving existence of referenced APIs/types, or verified target landing location and non-collision confirmation for newly proposed symbols>
-   - **Macro Flow Proof**: <Verification that trace context propagation, structured error logging, and telemetry lifecycle remain uninterrupted across asynchronous execution and service boundaries>
 
-<!-- For Infeasible Defects (forces overall report Status to STATUS: INFEASIBLE) -->
+* **Target Section**: `<Section_Name>`
+* **Required Fix**:
+* **Why This Would Be Missed**:
+* **Ground-Truth Proof**: <Codebase path, verified export, or planned symbol proving feasibility>
+* **Macro Flow Proof**: <Verification that diagnostic context, trace propagation, or stream hygiene remains unbroken across execution boundaries>
+
 1. **[Issue Title 1]**:
-   - **Target Section**: `<Section_Name>`
-   - **Infeasibility Proof**: <Empirical proof and sandbox traces demonstrating why the requirement is technically impossible under target constraints>
-   - **Alternative Architectural Paths**: <Viable architectural pivot options, or state if dead-end>
 
-### Suggestions for Improvement (Non-blocking):
+* **Target Section**: `<Section_Name>`
+* **Infeasibility Proof**:
+* **Alternative Architectural Paths**:
 
-Once your report is written, send a notification message back to Host via `send_message` confirming completion.
-
-- <Optional telemetry polish or future monitoring item that does NOT block PASS status>
+### Suggestions for Improvement:
 
 ## Gate Response Protocol (Host Interaction)
 
-If Host determines that any issue in your report lacks Ground-Truth Proof, lacks Macro Flow Proof, cites non-existent codebase APIs, breaks boundary contract symmetry, introduces cross-section contradictions, asserts an ungrounded infeasibility claim, or violates scope boundaries, Host will file `<review_dir>/reports/Observability_Gated_Issues.md` and notify you via message.
+If Host determines that any issue in your report lacks Ground-Truth Proof, lacks Macro Flow Proof, cites non-existent APIs, breaks boundary contracts, asserts ungrounded platform constraints, or confuses architectural tiers, Host will file `<review_dir>/reports/Observability_Gated_Issues.md` and notify you.
 
-Upon receiving a gating notification from Host, you MUST read `<review_dir>/reports/Observability_Gated_Issues.md` via `view_file` and choose one of three actions:
+Upon receiving a gating notification, read `<review_dir>/reports/Observability_Gated_Issues.md` via `view_file` and execute one of three actions:
 
 1. **Refine / Complete as Requested**:
-   - If the defect is real but your proposed fix was ungrounded, broke boundary symmetry, or introduced intra-DA contradictions:
-   - Edit `<review_dir>/reports/Observability.md` in-place via native `write_to_file`.
-   - Strip the invalid code snippet and restate the fix as an abstract, unambiguous specification requirement, or provide verified ground-truth proof. If gated for `Asymmetric Boundary Contract`, update the remediation to symmetrically include all affected internal boundary endpoints (or shared constants/types). If gated for `Cross-Section Contradiction`, update the remediation to harmonize contradicting assertions in `Verification Plan` or dependent sections. If converting a speculative impasse claim to a fixable defect, provide concrete `Required Fix`, `Ground-Truth Proof`, and `Macro Flow Proof`, and update report header from `- **Status**: STATUS: INFEASIBLE` to `- **Status**: STATUS: REVISIONS NEEDED`.
-   - If `<review_dir>/reports/Observability_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
 
+* If the defect is valid but the proposed remediation was ungrounded or over-scoped:
+* Edit `<review_dir>/reports/Observability.md` in-place via native `write_to_file`.
+* Restate the fix as an abstract, unambiguous specification requirement, or provide verified ground-truth citations. Harmonize boundary contracts symmetrically.
+* If `<review_dir>/reports/Observability_Explain.md` exists from a prior turn, invalidate it (overwrite with empty string via `write_to_file(CodeContent="")`).
 2. **Remove**:
-   - If Host's evidence shows the defect or platform barrier claim is invalid, false-positive, or speculative:
-   - Edit `<review_dir>/reports/Observability.md` in-place via native `write_to_file`, removing that issue completely.
-   - If all blocking issues are removed from your report, update your status to `- **Status**: STATUS: PASS`; if other fixable defects remain, update your status to `- **Status**: STATUS: REVISIONS NEEDED`.
-   - If `<review_dir>/reports/Observability_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
 
+* If Host's evidence proves the defect is a false positive (e.g. demanding distributed tracing on a CLI tool) or speculative:
+* Edit `<review_dir>/reports/Observability.md` in-place via native `write_to_file`, removing the gated issue.
+* If zero blocking issues remain, set status to `STATUS: PASS`.
+* Invalidate stale `<review_dir>/reports/Observability_Explain.md` if present.
 3. **Reject Gating/Removal and Explain**:
-   - If you have concrete, differing codebase evidence proving the defect, proposed fix, or technical impasse are correct and complete:
-   - Author `<review_dir>/reports/Observability_Explain.md` via native `write_to_file`, detailing the exact file paths, line numbers, runtime data flow, or empirical probe logs / sandbox traces that prove validity.
-   - You MUST ALSO update `<review_dir>/reports/Observability.md` in-place to integrate the substantiated `Ground-Truth Proof`, `Macro Flow Proof`, and clean remediation text (or verified `Infeasibility Proof` and `Alternative Architectural Paths`), ensuring `Observability.md` remains the clean single source of truth for Host aggregation.
-   - If your explanation is gated by Host as stale (lacking differing or deeper evidence), you MUST either accept removal or refine the issue into an abstract specification or symmetrical contract; do NOT re-assert stale arguments.
 
-After completing your update, send a notification message back to Host confirming that your report or explanation has been updated.
+* If you possess concrete codebase evidence proving the defect is valid and in-scope:
+* Author `<review_dir>/reports/Observability_Explain.md` via `write_to_file` citing exact file paths, line numbers, or runtime data flows.
+* Update `<review_dir>/reports/Observability.md` in-place with substantiated proofs.
+* Do NOT repeat stale arguments without deeper proof.
+
+Notify Host via `send_message` after updating reports.

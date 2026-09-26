@@ -8,6 +8,15 @@ import {
     type IFileHandle,
     type PlatformType
 } from '@yumeshelf/engine';
+import {
+    type PlatformInput,
+    normalizePathForPlatform,
+    buildGameKey,
+    getFolderBaseName,
+    getFolderBaseName as getLeafFolderName
+} from '../../shared/path-subsumption';
+
+export { buildGameKey, getFolderBaseName, getLeafFolderName };
 
 export const DEFAULT_LIBRARY_MAX_DEPTH = 5;
 export const MIN_LIBRARY_MAX_DEPTH = 0;
@@ -41,7 +50,7 @@ export function isBlacklistedExecutableName(name: string): boolean {
         stem.startsWith('vcredist') || stem.startsWith('prereq')
     );
 }
-const WRAPPER_DIRECTORY_NAMES = new Set([
+export const WRAPPER_DIRECTORY_NAMES = new Set([
     'app', 'bin', 'binaries', 'data', 'game', 'release', 'runtime', 
     'win64', 'windows', 'x64', 'x86', 'linux', 'linux64', 'x86_64'
 ]);
@@ -57,6 +66,7 @@ export interface LibraryConfig {
     titleDisplayMode?: 'metadata' | 'legacy_folder';
     displayProductCodes?: boolean;
     preferredLocale?: string;
+    folderAliases?: Record<string, string>;
 }
 
 export function isPlainObject(value: any): boolean {
@@ -69,16 +79,69 @@ export function clampLibraryMaxDepth(value: any): number {
     return Math.min(MAX_LIBRARY_MAX_DEPTH, Math.max(MIN_LIBRARY_MAX_DEPTH, parsed));
 }
 
-export function normalizeLibraryConfigShape(config: any): LibraryConfig {
+export function normalizeLibraryConfigShape(config: any, targetPlatform?: PlatformInput): LibraryConfig {
     const base = isPlainObject(config) ? config : {};
     const rawPaths = base.libraryPaths || (base.libraryPath ? [base.libraryPath] : []);
-    const libraryPaths = Array.isArray(rawPaths)
-        ? rawPaths.filter((p: any) => typeof p === 'string' && p.trim() !== '')
-        : [];
+    const incomingPaths = Array.isArray(rawPaths) ? rawPaths : [];
+
+    const libraryPaths: string[] = [];
+    const seen = new Set<string>();
+
+    for (const p of incomingPaths) {
+        if (typeof p !== 'string' || p.trim() === '') {
+            continue;
+        }
+        if (/\0|\r|\n/.test(p)) {
+            console.warn('[SECURITY][CONFIG_PATH_INJECTION] Omitted invalid library path containing illegal characters:', { path: p });
+            continue;
+        }
+        const canonicalPath = normalizePathForPlatform(p, targetPlatform);
+        if (!canonicalPath) {
+            continue;
+        }
+        if (canonicalPath === '/' || /^[A-Za-z]:\/?$/.test(canonicalPath)) {
+            console.warn('[SECURITY][CONFIG] Blocked configuration of filesystem root as library path:', { targetPath: p });
+            continue;
+        }
+        if (!seen.has(canonicalPath)) {
+            seen.add(canonicalPath);
+            libraryPaths.push(p.trim().replace(/[\\/]+$/, ''));
+        }
+    }
+
+    const folderAliases: Record<string, string> = {};
+    if (isPlainObject(base.folderAliases)) {
+        for (const key of Object.keys(base.folderAliases)) {
+            if (typeof key !== 'string' || !key.trim()) {
+                continue;
+            }
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                continue;
+            }
+            if (/\0|\r|\n/.test(key)) {
+                continue;
+            }
+            const canonicalKey = normalizePathForPlatform(key, targetPlatform);
+            if (!canonicalKey || canonicalKey === '__proto__' || canonicalKey === 'constructor' || canonicalKey === 'prototype') {
+                continue;
+            }
+            const val = (base.folderAliases as any)[key];
+            if (typeof val !== 'string') {
+                continue;
+            }
+            const sanitizedVal = val.replace(/[\r\n\t\x00-\x1f]/g, '').trim().slice(0, 255);
+            if (!sanitizedVal) {
+                continue;
+            }
+            folderAliases[canonicalKey] = sanitizedVal;
+        }
+    }
+
     const rawLocale = typeof base.preferredLocale === 'string' ? base.preferredLocale.trim() : undefined;
     return {
         libraryPaths,
         libraryPath: libraryPaths[0] || '',
+        folderAliases,
         maxDepth: clampLibraryMaxDepth(base.maxDepth),
         autoLaunch: (base.autoLaunch === 'minimized')
             ? 'minimized'
@@ -110,19 +173,6 @@ export function normalizeRelativeGameKey(relativePath: string): string {
         str = str.slice(0, -1);
     }
     return str;
-}
-
-export function buildGameKey(libraryPath: string, folderPath: string): string {
-    const relativePath = normalizeRelativeGameKey(path.relative(libraryPath, folderPath));
-    return relativePath || path.basename(folderPath);
-}
-
-export function getLeafFolderName(folderPath: string): string {
-    let normalized = String(folderPath || '');
-    while (normalized.endsWith('\\') || normalized.endsWith('/')) {
-        normalized = normalized.slice(0, -1);
-    }
-    return path.basename(normalized);
 }
 
 export function adaptFileSystem(fs: any): IFileSystem {

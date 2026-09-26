@@ -1,102 +1,83 @@
-# Building Great Skills: Theory & Glossary
+# Skill Design Reference
 
-A skill exists to wrangle determinism out of a stochastic system. **Predictability** (the agent executing the exact same *process* across runs, not generating static text output) is the root virtue; every concept below serves it.
+Execution patterns, information hierarchy, and failure mode remediation for skill authors.
 
 ---
 
-## 1. Invocation Axis (How Skills Are Reached)
+## 1. Invocation Routing
 
-| Concept | Definition & Mechanism | Trade-off / Decision Rule |
+| Mode | Frontmatter Configuration | When to Use |
 | :--- | :--- | :--- |
-| **Model-Invoked** | Keeps `description` in frontmatter. Visible in system prompt; agent and peer skills can invoke autonomously. | Costs **Context Load** (permanent token presence). Use only when autonomous trigger is required. |
-| **User-Invoked** | Sets `disable-model-invocation: true`. Hidden from agent; invoked ONLY by human typing the slash command. | Zero **Context Load**, but spends **Cognitive Load** (human must remember it exists). |
-| **Context Load** | Token budget and attention spent by keeping descriptions in the system prompt. | Brake on creating too many model-invoked skills. |
-| **Cognitive Load** | Mental burden on the human to remember available user-invoked skills. | Spend where human judgment is needed; eliminate elsewhere. |
-| **Router Skill** | A single user-invoked skill that indexes and describes other user-invoked skills. | The cure for cognitive load when user-invoked skills multiply. |
-| **Granularity** | How finely skills are split. | **By Invocation**: Split when a distinct leading word triggers it.<br/>**By Sequence**: Split when post-completion steps pull agent into rushing. |
+| **Model-Invoked** | Provide `description` (10–14 words, trigger-only) | Autonomous triggering based on user intent |
+| **User-Invoked** | Set `disable-model-invocation: true` | Human-only slash commands or sensitive manual workflows |
+| **Router Skill** | Set `disable-model-invocation: true` | Single command indexing peer user-invoked skills |
+
+### Splitting Criteria
+- **By Invocation**: Split when distinct trigger keywords indicate independent tasks.
+- **By Sequence**: Split when later steps pull the model into rushing past prerequisite work.
 
 ---
 
-## 2. Information Hierarchy Axis (How Content is Arranged)
+## 2. Information Hierarchy
 
-Rank skill content along the 4-rung hierarchy based on retrieval immediacy:
+Place content based on retrieval immediacy:
 
 ```
 1. Decision Diagrams (Mermaid)  ──> 3+ branch workflows, cyclic recovery, state machines
-2. In-Skill Steps               ──> Primary actions executed in order (with Completion Criteria)
-3. In-Skill Reference           ──> Flat peer-set definitions and rules needed every run
-4. Disclosed Reference Subdocs  ──> Branch-specific material, heavy tables, schemas, templates
+2. In-Skill Steps               ──> Primary actions executed sequentially with checkable completion criteria
+3. In-Skill Reference           ──> Universal definitions and constraints required on every run
+4. Disclosed Subdocs            ──> Branch-specific guides, lookup tables, and schemas
 ```
 
-### Key Principles of Content Placement:
-- **Progressive Disclosure**: Moving reference material down the hierarchy into subdocs behind **Context Pointers** (`[SUBDOC.md](SUBDOC.md)`).
-- **Co-Location**: Keeping a concept's definition, rules, and caveats grouped under one heading so reading one section brings all related context.
-- **Context Pointer Wording**: The phrasing of the link (trigger condition), not its target path, determines whether the agent loads the subdoc reliably.
-- **External Reference**: Plain documentation files outside the skill system that multiple skills can point to.
+### Content Placement Rules
+- **Progressive Disclosure**: Move reference material into subdocs (`[SUBDOC.md](SUBDOC.md)`).
+- **Co-Location**: Group a concept's definition, rules, and constraints under one heading.
+- **Trigger Pointers**: Phrasing of the link label must state the exact condition for loading the subdoc.
 
 ---
 
-## 3. Steering Axis (Shaping Runtime Behavior)
+## 3. Execution Levers
 
-| Lever | Definition & Operational Rule | Failure Mode Prevented |
+| Lever | Definition | Operational Rule |
 | :--- | :--- | :--- |
-| **Branch** | A distinct execution path through a skill. | Unnecessary context loading (isolate via progressive disclosure). |
-| **Leading Word (Leitwort)** | A pretrained compact concept (e.g. *tight loop*, *red*, *tracer bullets*, *sediment*). Anchors execution in body and invocation in description. | Wordy multi-sentence explanations; recruits model priors free of charge. |
-| **Completion Criterion** | Condition defining when a step is done.<br/>• **Clarity**: Can agent tell done from not-done?<br/>• **Demand**: Exhaustiveness bar (e.g. *"every model accounted for"*). | **Premature Completion** (agent declaring done and rushing forward). Sets depth of **Legwork**. |
-| **Legwork** | Latent behind-the-scenes work (file reading, exploring, verifying) within a single step. | Thin/superficial execution; offloading work to the user. |
-| **Post-Completion Steps** | Steps visible ahead of the active step. | Acts as a forward gravitational pull toward premature completion. |
+| **Anchor Keywords** | Pretrained compact concepts (e.g. *tight loop*, *tracer bullets*) | Use established domain terms instead of multi-sentence explanations |
+| **Completion Criteria** | Exact conditions defining when a step is complete | Must be checkable and exhaustive before advancing to the next step |
+| **Isolated Steps** | Breaking complex tasks into discrete stages | Hide downstream steps behind subagents or separate skills to prevent rushing |
 
 ---
 
-## 4. Pruning Axis & Failure Modes Catalog
+## 4. Failure Modes & Remediation
 
-| Term / Failure Mode | Definition & Symptom | Remediation / Cure |
+| Failure Mode | Symptom | Remediation |
 | :--- | :--- | :--- |
-| **Single Source of Truth** | Desired state where every meaning lives in exactly one authoritative location. | Any change to behavior is an edit in one place. |
-| **Duplication** | Same meaning defined in more than one place. | Maintain Single Source of Truth; delete redundant definitions. |
-| **Relevance** | Whether a line still bears on the skill's purpose. | Prune stale lines that drifted out of date. |
-| **Sediment** | Stale layers accumulating because adding feels safe and removing feels risky. | Active pruning discipline; core down through historical cruft. |
-| **Sprawl** | Skill file simply too long, even when all lines are live and unique. | Apply the hierarchy: push reference to subdocs; split by sequence/branch. |
-| **No-Op** | Instructions the model already obeys by default. | Run the **No-Op Sentence Test**: Does deleting the sentence change behavior? If no, delete entire sentence. |
-| **Premature Completion** | Attention slips from doing the work to *being done*. | 1. Sharpen completion criterion (make checkable & exhaustive).<br/>2. If fuzzy, hide later steps behind context boundaries (subagents/split). |
-| **Negation (The Elephant)** | Steering by prohibition (*"NEVER do X"*) drags the forbidden behavior into context. | Prompt the **positive target behavior**; reserve `NEVER` strictly for hard guardrails. |
-| **Micro-Format Lock-In** | Directives prescribe specific output structures ("Two-Pass: bullets then paragraph") instead of thinking principles. Agent replays the format template literally for every response regardless of context. | Write directives as mindset shifts ("talk like a peer"), not format specs. Name the root bias to fight, not individual symptoms. Fewer rules = higher compliance. |
+| **Stale Content & Sprawl** | Redundant definitions, outdated rules, or files exceeding 150 lines | Prune dead rules; extract branch-bound tables to subdocs per HEURISTICS.md |
+| **No-Op Instructions** | Instructions the model already follows by default | Run No-Op Sentence Test: if removing the sentence does not alter execution, delete it |
+| **Premature Completion** | Agent declares work done without verifying intermediate output | Define explicit, checkable completion criteria for each step |
+| **Negative Prompting Trap** | Forbidding unwanted custom artifacts with `NEVER` | Remove the original trigger prompt; reserve `NEVER` for core platform guardrails |
+| **Micro-Format Lock-In** | Directives prescribe rigid response templates that get replayed verbatim | Write directives as mindset principles rather than rigid output templates |
 
 ---
 
-## 5. Case Study: Macro vs. Micro Directives
+## 5. Case Study: Mindset vs. Micro-Format Directives
 
-A conversational skill was refactored from micro-format directives to macro-mindset directives. The before version had 5 specific structural rules + 4 workflow steps. The after version had 3 thinking principles.
+### Before (Micro-Format Specifications):
+```markdown
+1. Present candidates in flat bullets, then caveats in a separate paragraph.
+2. Only mention constraints when there is a real tradeoff.
+3. NEVER package conclusions as Option A / Option B / Option C.
+Workflow: 1. Answer -> 2. List candidates -> 3. Surface caveats -> 4. Pass turn.
+```
+*Result*: Agent replayed the exact bullet-paragraph template on every turn regardless of user context.
 
-### Before (Micro-Format — 5 directives + 4-step workflow):
+### After (Thinking Principles):
+```markdown
+1. Answer the question directly; do not jump to premature implementation plans.
+2. Conversational dialogue: discuss tradeoffs plainly without forced A/B/C menus.
+3. Keep turns concise for back-and-forth exchange.
+```
+*Result*: Natural response adapted to context; zero template replay.
 
-1. **Zero Scaffolding Leakage**: NEVER leak skill meta-terms ("decision branch", "1-sentence constraint").
-2. **Two-Pass Grouping**: Present candidates in flat bullets, then caveats in a separate paragraph.
-3. **No Forced Constraints**: Only mention constraints when there's a real tradeoff.
-4. **Ban A/B/C Menus**: NEVER package conclusions as "Option A / Option B / Option C".
-5. **No Premature Leaf Solutioning**: Answer only the immediate question.
-
-Workflow: 1. Answer → 2. List candidates (flat) → 3. Surface "Buts" (separate paragraph) → 4. Pass the ball.
-
-### After (Macro-Mindset — 3 directives, no workflow):
-
-1. **Answer the Question, Don't Solve the Project**: Focus on what the user asked. Don't jump to implementation plans, wireframes, or file diffs.
-2. **Peer-to-Peer Dialogue**: Talk naturally. Don't leak rules. Don't force A/B/C quizzes. Mention real tradeoffs plainly.
-3. **Keep the Ball Moving**: Keep turns concise for back-and-forth exchange.
-
-### What Changed:
-
-| Dimension | Before | After |
-| :--- | :--- | :--- |
-| Rule count | 9 (5 directives + 4 workflow steps) | 3 directives |
-| Rule type | Format specs ("flat bullets then separate paragraph") | Thinking principles ("talk like a peer") |
-| Symptoms listed | 3 named traps (Scaffolding Leakage, Nested Bullets, A/B/C Menus) | 1 root bias named (Work Order Mindset) |
-| Flowchart purpose | 4-level decision tree (Q0→Q1→Q2→Q3) agent replayed step-by-step to users | 3-node mindset diagram illustrating why premature planning wastes effort |
-| Test result | Agent replayed skill structure in its response, forced A/B/C menu, wrote 6-section essay | Natural peer conversation, concise, passed the turn back |
-
-### Extracted Principles:
-
-1. **Transmit mindset, not format**: "Talk like a peer" works better than "Step 1: flat bullets. Step 2: separate paragraph."
-2. **Name the root bias, not individual symptoms**: "Work Order Mindset" covers more ground than 3 separately named "Traps".
-3. **Fewer rules = higher compliance**: Agent working memory is finite. 3 principles stick; 9 rules get cherry-picked or distorted.
-4. **Diagrams illustrate WHY, not prescribe HOW**: Show why premature planning wastes effort. Don't draw a literal process the agent replays step-by-step.
+### Key Takeaways:
+1. **Transmit mindset, not format**: Define how the agent should think rather than output layouts.
+2. **Address root bias, not symptoms**: One directive against over-engineering replaces multiple negative rules.
+3. **Fewer rules yield higher compliance**: 3–5 core principles stick; bloated checklists get selectively ignored.

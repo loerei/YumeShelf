@@ -323,6 +323,7 @@
     "game_not_found": "Game not found in library",
     "btn_remove": "Remove",
     "btn_add_path": "+ Add Path",
+    "btn_add_game": "+ Add Game",
     "category_filter_all": "All categories",
     "category_clear_filter": "Clear filter",
     "category_empty_title": "No games in this category",

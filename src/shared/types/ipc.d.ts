@@ -5,6 +5,7 @@ export interface ElectronAPI {
     checkConfig: () => Promise<any>;
     setupLibrary: (type: string) => Promise<any>;
     updateLibraryConfig: (updates: any) => Promise<any>;
+    setFolderAlias: (folderPath: string, alias: string) => Promise<{ ok: boolean; config?: any; error?: string }>;
     addLibraryPath: () => Promise<any>;
     removeLibraryPath: (path: string) => Promise<any>;
     changeLibraryPath: (oldPath: string) => Promise<any>;
@@ -24,6 +25,7 @@ export interface ElectronAPI {
     revealGame: (path: string) => void;
     openPath: (path: string) => void;
     deleteGame: (path: string) => Promise<any>;
+    addManualGame(data?: { folderPath?: string } | string): Promise<{ ok: boolean; game?: any; canceled?: boolean; error?: string }>;
     
     // Settings & Utils
     getSaveFolder: (gameKey: string) => Promise<any>;
@@ -31,7 +33,7 @@ export interface ElectronAPI {
     selectSaveFolder: () => Promise<{ canceled: boolean; folderPath: string | null }>;
     setSaveFolderOverride: (data: { gameKey: string; folderPath: string }) =>
         Promise<{ ok: boolean; saveFolderOverride?: string | null; error?: string }>;
-    toggleFavorite: (gameKey: string) => Promise<any>;
+    toggleFavorite: (gameKey: string, targetFavorite?: boolean) => Promise<boolean>;
     toggleRunInBackground: (gameKey: string) => Promise<any>;
     toggleAutoTranslate: (gameKey: string) => Promise<any>;
     checkTranslationSupport: (gameKey: string) => Promise<any>;

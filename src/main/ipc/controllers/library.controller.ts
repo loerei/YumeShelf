@@ -4,6 +4,7 @@ import { TelemetryShipper } from '../../telemetry/shipper';
 import { isPathWithinLibrary } from '../path-validator';
 import { RegisterIpcOptions } from '../types';
 import { GameRunnerService } from '../../game-runner';
+import type { LibraryConfig } from '../../library-state/scanner';
 
 async function resolveValidatedLibraryPath(libraryState: any, targetPath: unknown): Promise<string | null> {
     if (typeof targetPath !== 'string' || !targetPath.trim()) return null;
@@ -41,10 +42,20 @@ export class LibraryIpcController {
         ipcMain.handle('get-default-path', () => defaultGamesDir);
         ipcMain.handle('setup-library', async (_event, type) => libraryState?.setupLibrary(type));
 
-        ipcMain.handle('update-library-config', async (_event, updates = {}) => {
-            const result = await libraryState?.updateLibraryConfig(updates);
-            if (updates && 'telemetryEnabled' in updates) {
-                await TelemetryShipper.getInstance().setTelemetryEnabled(updates.telemetryEnabled);
+        ipcMain.handle('update-library-config', async (_event, updates: unknown) => {
+            if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+                throw new Error('Invalid config updates payload: expected object');
+            }
+            const result = await libraryState?.updateLibraryConfig(updates as Partial<LibraryConfig>);
+            if (typeof (updates as any).telemetryEnabled === 'boolean') {
+                try {
+                    await TelemetryShipper.getInstance().setTelemetryEnabled((updates as any).telemetryEnabled);
+                } catch (err) {
+                    console.error('[LIBRARY_CONTROLLER] Failed to sync telemetry shipper state:', {
+                        telemetryEnabled: (updates as any).telemetryEnabled,
+                        error: err
+                    });
+                }
             }
             return result;
         });
@@ -106,7 +117,7 @@ export class LibraryIpcController {
         });
 
         ipcMain.handle('rename-game', async (_event, { gameKey, newName }) => libraryState?.renameGame(gameKey, newName));
-        ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState?.toggleFavorite(gameKey));
+        ipcMain.handle('toggle-favorite', async (_event, gameKey, targetFavorite) => libraryState?.toggleFavorite(gameKey, targetFavorite));
         ipcMain.handle('toggle-run-in-background', async (_event, gameKey) => libraryState?.toggleRunInBackground(gameKey));
         ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState?.toggleAutoTranslate(gameKey));
 
@@ -134,6 +145,33 @@ export class LibraryIpcController {
                 return shell?.trashItem(safePath);
             }
             return { ok: false, error: 'unauthorized-path' };
+        });
+
+        ipcMain.handle('library:set-folder-alias', async (_event, payload: unknown) => {
+            if (
+                !payload ||
+                typeof payload !== 'object' ||
+                Array.isArray(payload) ||
+                typeof (payload as any).folderPath !== 'string' ||
+                typeof (payload as any).alias !== 'string'
+            ) {
+                return { ok: false, error: 'invalid-payload' };
+            }
+            const { folderPath, alias } = payload as { folderPath: string; alias: string };
+            return libraryState?.setFolderAlias(folderPath, alias);
+        });
+
+        ipcMain.handle('library:add-manual-game', async (_event, payload: unknown) => {
+            const rawPath = typeof payload === 'string'
+                ? payload.trim()
+                : (payload && typeof payload === 'object' && !Array.isArray(payload) && typeof (payload as any).folderPath === 'string'
+                    ? (payload as any).folderPath.trim()
+                    : undefined);
+            const folderPath = rawPath && !/\0|\r|\n/.test(rawPath) && !['__proto__', 'constructor', 'prototype'].includes(rawPath)
+                ? rawPath
+                : undefined;
+            const options: { folderPath?: string } = folderPath ? { folderPath } : {};
+            return libraryState?.addManualGame(options);
         });
 
         ipcMain.handle('library:add-path', async () => libraryState?.addLibraryPath());

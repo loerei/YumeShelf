@@ -30,7 +30,6 @@ export function normalizeCustomOrder(games) {
         const aliases = [
             String(game.gameKey || '').trim(),
             String(game.folderName || '').trim(),
-            String(game.migratedFromGameKey || '').trim(),
             String(game.primaryInstance?.gameKey || '').trim()
         ].filter(Boolean);
         aliases.forEach((alias) => {

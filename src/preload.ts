@@ -6,6 +6,8 @@ const api: ElectronAPI = {
     checkConfig: () => ipcRenderer.invoke('check-config'),
     setupLibrary: (type: string) => ipcRenderer.invoke('setup-library', type),
     updateLibraryConfig: (updates: any) => ipcRenderer.invoke('update-library-config', updates),
+    setFolderAlias: (folderPath: string, alias: string) =>
+        ipcRenderer.invoke('library:set-folder-alias', { folderPath, alias }),
     addLibraryPath: () => ipcRenderer.invoke('library:add-path'),
     removeLibraryPath: (path: string) => ipcRenderer.invoke('library:remove-path', path),
     changeLibraryPath: (oldPath: string) => ipcRenderer.invoke('library:change-path', oldPath),
@@ -21,12 +23,14 @@ const api: ElectronAPI = {
     revealGame: (path: string) => ipcRenderer.send('reveal-game', path),
     openPath: (path: string) => ipcRenderer.send('open-path', path),
     deleteGame: (path: string) => ipcRenderer.invoke('delete-game', path),
+    addManualGame: (data) => ipcRenderer.invoke('library:add-manual-game', data),
     getSaveFolder: (gameKey: string) => ipcRenderer.invoke('get-save-folder', gameKey),
     openSaveFolder: (gameKey: string) => ipcRenderer.invoke('save-folder:open', gameKey),
     selectSaveFolder: () => ipcRenderer.invoke('save-editor:select-directory'),
     setSaveFolderOverride: (data: { gameKey: string; folderPath: string }) =>
         ipcRenderer.invoke('save-editor:set-save-folder-override', data),
-    toggleFavorite: (gameKey: string) => ipcRenderer.invoke('toggle-favorite', gameKey),
+    toggleFavorite: (gameKey: string, targetFavorite?: boolean) =>
+        ipcRenderer.invoke('toggle-favorite', gameKey, targetFavorite),
     toggleRunInBackground: (gameKey: string) => ipcRenderer.invoke('toggle-run-in-background', gameKey),
     toggleAutoTranslate: (gameKey: string) => ipcRenderer.invoke('toggle-auto-translate', gameKey),
     checkTranslationSupport: (gameKey: string) => ipcRenderer.invoke('translation:check-support', gameKey),

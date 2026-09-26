@@ -3,6 +3,22 @@
 All notable changes to YumeShelf are documented here. Entries follow a two-tier structure: a quick summary for regular users, and technical details for developers.
 
 ---
+## [2.2.8] - working
+
+### What Changed
+- Add games manually: if you have a standalone game or non-standard folder that auto-scan skips, you can now add it directly through the file picker without moving files around.
+- Rename folder aliases without losing categories: you can assign custom display names to library folders, and reorganizing or removing parent folders won't wipe your custom category tags.
+- Sibling favorite sync: toggling favorite on a game now syncs across all instances or alternative launchers of that same title instead of desyncing.
+
+### For the Nerds
+- [storage] Added schema versioning (`schemaVersion: 1`) and a linear migration runner (`runStorageMigrations`) with single-flight mutex locking and automatic category state rollback on failure.
+- [storage] Migrated database keys to relative canonical paths (`migrationM0to1`), resolving multi-nested wrapper directories and remapping category assignments without losing orphaned records.
+- [library-state] Implemented pure-string path subsumption with root containment checks and cross-platform path normalization across Windows, Linux, and macOS.
+- [library-state] Added folder alias configuration with persistent tombstone bookmarks, keeping category associations intact when library paths are detached.
+- [library-state] Added multi-instance favorite toggling synchronized across sibling records sharing the same logical game identity.
+- [library-state] Added manual game registration pipeline with executable validation, macOS `.app` bundle binary extraction, and metadata merging.
+
+---
 
 ## [2.2.7] - 2026-09-23: macOS Beta, Faster Auto-Updates & TINC Save Support — released
 

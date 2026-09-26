@@ -323,6 +323,7 @@
     "game_not_found": "ライブラリにゲームが見つかりません",
     "btn_remove": "削除",
     "btn_add_path": "+ パスを追加",
+    "btn_add_game": "+ ゲームを追加",
     "category_filter_all": "すべてのカテゴリー",
     "category_clear_filter": "フィルターを解除",
     "category_empty_title": "このカテゴリーにゲームはありません",

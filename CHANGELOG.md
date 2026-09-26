@@ -3,7 +3,7 @@
 All notable changes to YumeShelf are documented here. Entries follow a two-tier structure: a quick summary for regular users, and technical details for developers.
 
 ---
-## [2.2.8] - working
+## [2.2.8] - 2026-09-26 — released
 
 ### What Changed
 - Add games manually: if you have a standalone game or non-standard folder that auto-scan skips, you can now add it directly through the file picker without moving files around.

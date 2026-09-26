@@ -25,6 +25,7 @@ export interface ElectronAPI {
     revealGame: (path: string) => void;
     openPath: (path: string) => void;
     deleteGame: (path: string) => Promise<any>;
+    addManualGame(data?: { folderPath?: string } | string): Promise<{ ok: boolean; game?: any; canceled?: boolean; error?: string }>;
     
     // Settings & Utils
     getSaveFolder: (gameKey: string) => Promise<any>;

@@ -1,7 +1,7 @@
 /// <reference types="node" />
 // @ts-ignore
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { addManualGameCore, type AddManualGameOptions } from './actions';
+import { addManualGameCore, addManualGame, type AddManualGameOptions } from './actions';
 import { createLibraryState } from './index';
 import { buildLogicalGameId } from './continuity';
 import { YumeEngine, AppBundleInspector } from '@yumeshelf/engine';
@@ -614,6 +614,244 @@ describe('LibraryState Actions - addManualGameCore', () => {
             const res = await (libraryState as any).addManualGameCore('/games/RPGGame/Game.exe');
             expect(res.ok).toBe(true);
             expect(res.game?.gameKey).toBe('RPGGame');
+        });
+
+        it('binds addManualGame on createLibraryState and normalizes arguments', async () => {
+            const mockDialog = {
+                showOpenDialog: vi.fn(async (opts: any) => ({
+                    canceled: false,
+                    filePaths: ['/games/RPGGame/Game.exe']
+                }))
+            };
+
+            const libraryState = createLibraryState({
+                categoryState: mockContext.categoryState,
+                defaultGamesDir: '/games',
+                dialog: mockDialog,
+                fs: vfs.fs,
+                fsSync: null,
+                dbFilePath: '',
+                targetPlatform: 'linux',
+                loadDB: vi.fn(async () => mockDb),
+                saveDB: vi.fn(async (db: any) => { mockDb = db; })
+            });
+
+            expect(typeof (libraryState as any).addManualGame).toBe('function');
+
+            // 1. Parameterless invocation
+            const res1 = await (libraryState as any).addManualGame();
+            expect(res1.ok).toBe(true);
+            expect(mockDialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                filters: [{ name: 'All Files', extensions: ['*'] }]
+            }));
+
+            // 2. String invocation
+            const res2 = await (libraryState as any).addManualGame('/games/RPGGame');
+            expect(res2.ok).toBe(true);
+            expect(mockDialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                defaultPath: '/games/RPGGame'
+            }));
+
+            // 3. Object invocation
+            const res3 = await (libraryState as any).addManualGame({ folderPath: '/games/RPGGame', targetPlatform: 'win32' });
+            expect(res3.ok).toBe(true);
+            expect(mockDialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                defaultPath: '/games/RPGGame',
+                filters: [{ name: 'Executables', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }]
+            }));
+        });
+    });
+
+    describe('LibraryState Actions - addManualGame (Dialog Orchestration & Fallbacks)', () => {
+        beforeEach(() => {
+            mockContext.dialog = {
+                showOpenDialog: vi.fn(async (opts: any) => ({
+                    canceled: false,
+                    filePaths: ['/games/RPGGame/Game.exe']
+                }))
+            };
+        });
+
+        it('aborts at entry if database is in degraded state', async () => {
+            mockContext.isDegraded = vi.fn(() => true);
+
+            const res = await addManualGame(mockContext);
+            expect(res).toEqual({ ok: false, error: 'degraded-database' });
+            expect(warnSpy).toHaveBeenCalledWith('[LIBRARY_STATE][ADD_MANUAL_GAME] Operation aborted: database is in DEGRADED state');
+            expect(mockContext.dialog.showOpenDialog).not.toHaveBeenCalled();
+        });
+
+        it('aborts post-loadDB if database enters degraded state', async () => {
+            mockContext.loadDB = vi.fn(async () => {
+                mockContext.isDegraded = vi.fn(() => true);
+                return mockDb;
+            });
+
+            const res = await addManualGame(mockContext);
+            expect(res).toEqual({ ok: false, error: 'degraded-database' });
+            expect(warnSpy).toHaveBeenCalledWith('[LIBRARY_STATE][ADD_MANUAL_GAME] Operation aborted: database is in DEGRADED state');
+            expect(mockContext.dialog.showOpenDialog).not.toHaveBeenCalled();
+        });
+
+        it('fails fast if no library paths are configured', async () => {
+            mockDb.config.libraryPaths = [];
+
+            const res = await addManualGame(mockContext);
+            expect(res).toEqual({ ok: false, error: 'outside-library' });
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[LIBRARY_STATE][ADD_MANUAL_GAME] Aborted: no library paths configured in library.',
+                expect.any(Object)
+            );
+            expect(mockContext.dialog.showOpenDialog).not.toHaveBeenCalled();
+        });
+
+        it('defensively returns dialog-unavailable when dialog is missing or has no showOpenDialog', async () => {
+            mockContext.dialog = null;
+            const res1 = await addManualGame(mockContext);
+            expect(res1).toEqual({ ok: false, error: 'dialog-unavailable' });
+            expect(warnSpy).toHaveBeenCalledWith(
+                '[LIBRARY_STATE][ADD_MANUAL_GAME] Native directory open dialog is unavailable in current runtime context.',
+                expect.any(Object)
+            );
+
+            mockContext.dialog = {};
+            const res2 = await addManualGame(mockContext);
+            expect(res2).toEqual({ ok: false, error: 'dialog-unavailable' });
+        });
+
+        it('configures platform-specific executable filters branched on targetPlatform', async () => {
+            // win32
+            await addManualGame(mockContext, { targetPlatform: 'win32' });
+            expect(mockContext.dialog.showOpenDialog).toHaveBeenLastCalledWith(expect.objectContaining({
+                properties: ['openFile'],
+                filters: [
+                    { name: 'Executables', extensions: ['exe'] },
+                    { name: 'All Files', extensions: ['*'] }
+                ]
+            }));
+
+            // darwin
+            await addManualGame(mockContext, { targetPlatform: 'darwin' });
+            expect(mockContext.dialog.showOpenDialog).toHaveBeenLastCalledWith(expect.objectContaining({
+                properties: ['openFile'],
+                filters: [
+                    { name: 'Applications', extensions: ['app'] },
+                    { name: 'All Files', extensions: ['*'] }
+                ]
+            }));
+
+            // linux
+            await addManualGame(mockContext, { targetPlatform: 'linux' });
+            expect(mockContext.dialog.showOpenDialog).toHaveBeenLastCalledWith(expect.objectContaining({
+                properties: ['openFile'],
+                filters: [
+                    { name: 'All Files', extensions: ['*'] }
+                ]
+            }));
+        });
+
+        it('uses explicit folderPath as defaultPath and enforces folder containment when inside library roots', async () => {
+            const res = await addManualGame(mockContext, { folderPath: '/games/RPGGame' });
+            expect(mockContext.dialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                defaultPath: '/games/RPGGame'
+            }));
+            expect(res.ok).toBe(true);
+            expect(res.game?.gameKey).toBe('RPGGame');
+        });
+
+        it('enforces enclosingFolderPath when user selects file outside explicit folderPath', async () => {
+            // User provided /games/RPGGame, but dialog returned C:/Games/Nested/Game.exe
+            mockContext.dialog.showOpenDialog.mockResolvedValueOnce({
+                canceled: false,
+                filePaths: ['C:/Games/Nested/Game.exe']
+            });
+
+            const res = await addManualGame(mockContext, { folderPath: '/games/RPGGame' });
+            expect(res.ok).toBe(false);
+            expect(res.error).toBe('outside-enclosing-folder');
+        });
+
+        it('falls back defaultPath when explicit folderPath is outside library roots and leaves enclosingFolderPath undefined', async () => {
+            // Out-of-bounds folderPath
+            mockContext.dialog.showOpenDialog.mockResolvedValueOnce({
+                canceled: false,
+                filePaths: ['/games/RPGGame/Game.exe']
+            });
+
+            const res = await addManualGame(mockContext, { folderPath: '/outside/folder' });
+            expect(mockContext.dialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                defaultPath: '/games'
+            }));
+            // Because enclosingFolderPath is undefined, selecting /games/RPGGame/Game.exe passes root validation
+            expect(res.ok).toBe(true);
+        });
+
+        it('falls back defaultPath when explicit folderPath contains illegal characters or prototype pollution', async () => {
+            const badPaths = ['/games\0bad', '/games\nbad', '/games\rbad', '__proto__', 'constructor', 'prototype'];
+
+            for (const bad of badPaths) {
+                mockContext.dialog.showOpenDialog.mockClear();
+                mockContext.dialog.showOpenDialog.mockResolvedValueOnce({
+                    canceled: false,
+                    filePaths: ['/games/RPGGame/Game.exe']
+                });
+
+                const res = await addManualGame(mockContext, { folderPath: bad });
+                expect(mockContext.dialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                    defaultPath: '/games'
+                }));
+                expect(res.ok).toBe(true);
+            }
+        });
+
+        it('handles parameterless invocation and tolerates absent context.fsSync without errors', async () => {
+            mockContext.fsSync = undefined;
+            const res = await addManualGame(mockContext);
+            expect(res.ok).toBe(true);
+            expect(mockContext.dialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                defaultPath: '/games'
+            }));
+        });
+
+        it('handles string options overload normalizing to folderPath', async () => {
+            const res = await addManualGame(mockContext, '  /games/RPGGame  ');
+            expect(mockContext.dialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({
+                defaultPath: '/games/RPGGame'
+            }));
+            expect(res.ok).toBe(true);
+        });
+
+        it('handles dialog cancellation or empty selection returning canceled: true without touching DB', async () => {
+            // Canceled
+            mockContext.dialog.showOpenDialog.mockResolvedValueOnce({
+                canceled: true,
+                filePaths: []
+            });
+
+            const res1 = await addManualGame(mockContext);
+            expect(res1).toEqual({ ok: false, canceled: true });
+            expect(mockDb.games).toEqual({});
+
+            // Empty filePaths
+            mockContext.dialog.showOpenDialog.mockResolvedValueOnce({
+                canceled: false,
+                filePaths: []
+            });
+
+            const res2 = await addManualGame(mockContext);
+            expect(res2).toEqual({ ok: false, canceled: true });
+            expect(mockDb.games).toEqual({});
+        });
+
+        it('handles dialog rejection / throw with structured error logging', async () => {
+            mockContext.dialog.showOpenDialog.mockRejectedValueOnce(new Error('Native dialog died'));
+
+            const res = await addManualGame(mockContext);
+            expect(res).toEqual({ ok: false, error: 'Native dialog died' });
+            expect(errorSpy).toHaveBeenCalledWith(
+                '[ADD_MANUAL_GAME] Open dialog failed:',
+                expect.objectContaining({ error: expect.any(Error), defaultPath: '/games' })
+            );
         });
     });
 });

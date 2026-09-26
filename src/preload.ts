@@ -23,6 +23,7 @@ const api: ElectronAPI = {
     revealGame: (path: string) => ipcRenderer.send('reveal-game', path),
     openPath: (path: string) => ipcRenderer.send('open-path', path),
     deleteGame: (path: string) => ipcRenderer.invoke('delete-game', path),
+    addManualGame: (data) => ipcRenderer.invoke('library:add-manual-game', data),
     getSaveFolder: (gameKey: string) => ipcRenderer.invoke('get-save-folder', gameKey),
     openSaveFolder: (gameKey: string) => ipcRenderer.invoke('save-folder:open', gameKey),
     selectSaveFolder: () => ipcRenderer.invoke('save-editor:select-directory'),

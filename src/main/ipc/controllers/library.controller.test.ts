@@ -250,3 +250,128 @@ describe('LibraryIpcController - library:set-folder-alias', () => {
     });
 });
 
+describe('LibraryIpcController - library:add-manual-game', () => {
+    let handlers: Map<string, (...args: any[]) => any>;
+    let mockIpcMain: any;
+    let mockLibraryState: any;
+    let controller: LibraryIpcController;
+
+    beforeEach(() => {
+        handlers = new Map();
+        mockIpcMain = {
+            handle: vi.fn((channel: string, handler: (...args: any[]) => any) => {
+                handlers.set(channel, handler);
+            }),
+            on: vi.fn(),
+        };
+
+        mockLibraryState = {
+            addManualGame: vi.fn(async (options: any) => ({
+                ok: true,
+                game: { gameKey: 'RPGGame', folderPath: options?.folderPath || '/games/RPGGame' }
+            }))
+        };
+
+        controller = new LibraryIpcController({
+            ipcMain: mockIpcMain,
+            libraryState: mockLibraryState,
+        } as any);
+
+        controller.registerHandlers();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('registers library:add-manual-game handler on ipcMain', () => {
+        expect(handlers.get('library:add-manual-game')).toBeDefined();
+    });
+
+    it('delegates valid object payload with folderPath to libraryState.addManualGame', async () => {
+        const handler = handlers.get('library:add-manual-game')!;
+        const result = await handler({}, { folderPath: '  /games/rpg  ' });
+
+        expect(mockLibraryState.addManualGame).toHaveBeenCalledWith({ folderPath: '/games/rpg' });
+        expect(result).toEqual({
+            ok: true,
+            game: { gameKey: 'RPGGame', folderPath: '/games/rpg' }
+        });
+    });
+
+    it('drops untrusted keys from object payload (including targetPlatform)', async () => {
+        const handler = handlers.get('library:add-manual-game')!;
+        await handler({}, { folderPath: '/games/rpg', targetPlatform: 'win32', maliciousKey: 'xyz' });
+
+        expect(mockLibraryState.addManualGame).toHaveBeenCalledWith({ folderPath: '/games/rpg' });
+    });
+
+    it('delegates valid string payload to libraryState.addManualGame', async () => {
+        const handler = handlers.get('library:add-manual-game')!;
+        const result = await handler({}, '  /games/rpg  ');
+
+        expect(mockLibraryState.addManualGame).toHaveBeenCalledWith({ folderPath: '/games/rpg' });
+        expect(result.ok).toBe(true);
+    });
+
+    it('sanitizes control characters and null bytes to undefined options', async () => {
+        const handler = handlers.get('library:add-manual-game')!;
+        const invalidPayloads = [
+            '/games\0null',
+            '/games\nnewline',
+            '/games\rcarriage',
+            { folderPath: '/games\0null' },
+            { folderPath: '/games\nnewline' },
+            { folderPath: '/games\rcarriage' }
+        ];
+
+        for (const payload of invalidPayloads) {
+            mockLibraryState.addManualGame.mockClear();
+            await handler({}, payload);
+            expect(mockLibraryState.addManualGame).toHaveBeenCalledWith({});
+        }
+    });
+
+    it('sanitizes prototype pollution keys to undefined options', async () => {
+        const handler = handlers.get('library:add-manual-game')!;
+        const protoPayloads = [
+            '__proto__',
+            'constructor',
+            'prototype',
+            { folderPath: '__proto__' },
+            { folderPath: 'constructor' },
+            { folderPath: 'prototype' }
+        ];
+
+        for (const payload of protoPayloads) {
+            mockLibraryState.addManualGame.mockClear();
+            await handler({}, payload);
+            expect(mockLibraryState.addManualGame).toHaveBeenCalledWith({});
+        }
+    });
+
+    it('sanitizes empty, non-string, or missing payloads to empty options', async () => {
+        const handler = handlers.get('library:add-manual-game')!;
+        const emptyPayloads = [
+            null,
+            undefined,
+            '',
+            '   ',
+            {},
+            [],
+            123,
+            { folderPath: '' },
+            { folderPath: '   ' },
+            { folderPath: 123 },
+            { folderPath: null },
+            { folderPath: undefined }
+        ];
+
+        for (const payload of emptyPayloads) {
+            mockLibraryState.addManualGame.mockClear();
+            await handler({}, payload);
+            expect(mockLibraryState.addManualGame).toHaveBeenCalledWith({});
+        }
+    });
+});
+

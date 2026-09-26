@@ -26,6 +26,7 @@ import {
     buildLogicalGameId,
     type LogicalGame
 } from './continuity';
+import { resolveLibraryFolderToOpen } from './config';
 
 function readStoredGames(db: any): Record<string, any> {
     return isPlainObject(db.games) ? db.games : {};
@@ -737,5 +738,86 @@ export async function addManualGameCore(
         return await context.queue(persistTask);
     }
     return await persistTask();
+}
+
+export async function addManualGame(
+    context: any,
+    options?: { folderPath?: string; targetPlatform?: PlatformInput } | string
+): Promise<{ ok: boolean; game?: LogicalGame; canceled?: boolean; error?: string }> {
+    const normalizedOpts = typeof options === 'string' ? { folderPath: options.trim() } : (options ?? {});
+
+    if (context.isDegraded?.() === true) {
+        console.warn('[LIBRARY_STATE][ADD_MANUAL_GAME] Operation aborted: database is in DEGRADED state');
+        return { ok: false, error: 'degraded-database' };
+    }
+
+    const db = await context.loadDB();
+
+    if (context.isDegraded?.() === true) {
+        console.warn('[LIBRARY_STATE][ADD_MANUAL_GAME] Operation aborted: database is in DEGRADED state');
+        return { ok: false, error: 'degraded-database' };
+    }
+
+    const targetPlatform = normalizedOpts.targetPlatform || context.targetPlatform;
+    const config = normalizeLibraryConfigShape(db?.config, targetPlatform);
+
+    if (!config.libraryPaths || config.libraryPaths.length === 0) {
+        console.warn('[LIBRARY_STATE][ADD_MANUAL_GAME] Aborted: no library paths configured in library.', { configuredRoots: config.libraryPaths });
+        return { ok: false, error: 'outside-library' };
+    }
+
+    const { dialog } = context;
+    if (!dialog?.showOpenDialog) {
+        console.warn('[LIBRARY_STATE][ADD_MANUAL_GAME] Native directory open dialog is unavailable in current runtime context.', { targetPlatform });
+        return { ok: false, error: 'dialog-unavailable' };
+    }
+
+    const rawFolderPath = normalizedOpts.folderPath;
+    const explicitFolderPath = typeof rawFolderPath === 'string' &&
+        rawFolderPath.trim().length > 0 &&
+        !/\0|\r|\n/.test(rawFolderPath) &&
+        !['__proto__', 'constructor', 'prototype'].includes(rawFolderPath.trim())
+            ? rawFolderPath.trim()
+            : undefined;
+
+    const validatedEnclosing = (explicitFolderPath && config.libraryPaths.some((r: string) => isSubsumedBy(explicitFolderPath, r, targetPlatform)))
+        ? explicitFolderPath
+        : undefined;
+
+    const fallbackDefault = (await resolveLibraryFolderToOpen(context)) || config.libraryPaths[0];
+    const defaultPath = validatedEnclosing || fallbackDefault;
+
+    const normPlatform = normalizePlatformInput(targetPlatform);
+    let filters: { name: string; extensions: string[] }[];
+    if (normPlatform === 'win32') {
+        filters = [
+            { name: 'Executables', extensions: ['exe'] },
+            { name: 'All Files', extensions: ['*'] }
+        ];
+    } else if (normPlatform === 'darwin') {
+        filters = [
+            { name: 'Applications', extensions: ['app'] },
+            { name: 'All Files', extensions: ['*'] }
+        ];
+    } else {
+        filters = [
+            { name: 'All Files', extensions: ['*'] }
+        ];
+    }
+
+    let result: any;
+    try {
+        result = await dialog.showOpenDialog({ defaultPath, filters, properties: ['openFile'] });
+    } catch (err) {
+        console.error('[ADD_MANUAL_GAME] Open dialog failed:', { error: err, defaultPath });
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+
+    if (result.canceled === true || !result.filePaths || result.filePaths.length === 0 || !result.filePaths[0]) {
+        return { ok: false, canceled: true };
+    }
+
+    const selectedPath = result.filePaths[0];
+    return await addManualGameCore(context, selectedPath, { enclosingFolderPath: validatedEnclosing, targetPlatform });
 }
 

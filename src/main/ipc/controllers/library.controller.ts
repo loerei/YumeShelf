@@ -161,6 +161,19 @@ export class LibraryIpcController {
             return libraryState?.setFolderAlias(folderPath, alias);
         });
 
+        ipcMain.handle('library:add-manual-game', async (_event, payload: unknown) => {
+            const rawPath = typeof payload === 'string'
+                ? payload.trim()
+                : (payload && typeof payload === 'object' && !Array.isArray(payload) && typeof (payload as any).folderPath === 'string'
+                    ? (payload as any).folderPath.trim()
+                    : undefined);
+            const folderPath = rawPath && !/\0|\r|\n/.test(rawPath) && !['__proto__', 'constructor', 'prototype'].includes(rawPath)
+                ? rawPath
+                : undefined;
+            const options: { folderPath?: string } = folderPath ? { folderPath } : {};
+            return libraryState?.addManualGame(options);
+        });
+
         ipcMain.handle('library:add-path', async () => libraryState?.addLibraryPath());
         ipcMain.handle('library:remove-path', async (_event, targetPath) => libraryState?.removeLibraryPath(targetPath));
         ipcMain.handle('library:change-path', async (_event, oldPath) => libraryState?.changeLibraryPath(oldPath));

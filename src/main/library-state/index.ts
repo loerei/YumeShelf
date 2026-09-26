@@ -67,7 +67,8 @@ export const {
     getGameRecord,
     setSaveFolderOverride,
     setFolderAlias,
-    addManualGameCore
+    addManualGameCore,
+    addManualGame
 } = actions;
 
 export type { AddManualGameOptions } from './actions';
@@ -328,6 +329,10 @@ export function createLibraryState(options: LibraryContext) {
         updateLibraryConfig: (updates: any, targetPlatform?: PlatformInput) => serializedQueue(() => updateLibraryConfig(context, updates, targetPlatform)),
         addManualGameCore: (targetPath: string, options?: actions.AddManualGameOptions) =>
             addManualGameCore(context, targetPath, options),
+        addManualGame: (options?: { folderPath?: string; targetPlatform?: PlatformInput } | string) => {
+            const normalizedOpts = typeof options === 'string' ? { folderPath: options.trim() } : (options ?? {});
+            return addManualGame(context, { ...normalizedOpts, targetPlatform: normalizedOpts.targetPlatform || context.targetPlatform });
+        },
         saveDB,
         loadDB,
         isDegraded,

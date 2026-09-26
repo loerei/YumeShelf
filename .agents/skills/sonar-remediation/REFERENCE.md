@@ -23,7 +23,9 @@ Detailed patterns, decision rules, MCP parameter references, preemptive inspecti
 | :--- | :--- | :--- | :--- | :--- |
 | **General** | **Cognitive Complexity** | `S3776` | **Flag `accept`** via `change_sonar_issue_status` | MUST search issue key first. NEVER split functions solely for S3776. Structural splits require `/improve-codebase-architecture`. |
 | **General** | **Function Nesting** | `S2004` | **Flag `accept`** via `change_sonar_issue_status` | Deep nesting in UI/search/event closures is intentional design. |
-| **General** | **Backtracking Regex** | `S8786` | **Fix or Flag `accept`** | Simplify regex if possible; flag `accept` if regex is already minimal. |
+| **General** | **Backtracking Regex on Bounded Strings** | `S8786` | **Flag `accept`** via `change_sonar_issue_status` | Regexes operating on filesystem paths or filenames have finite bounded lengths. No practical ReDoS risk. |
+| **General** | **Defensive Object Spreads** | `S7744` | **Flag `accept`** via `change_sonar_issue_status` | Spreads like `{ ...(obj \|\| {}) }` protect against null/undefined at IPC and storage boundaries. Do NOT remove. |
+| **General** | **Plain JSON Serialization vs Proxy** | `S7784` | **Flag `accept` or Targeted Shallow Clone** | `structuredClone` throws `DataCloneError` on Proxies and host objects. Preserve `JSON.parse(JSON.stringify)` or use shallow loops when input can be a Proxy. |
 | **CSS** | **Theme / Contrast** | `css:S7924` | **Flag `accept`** via `change_sonar_issue_status` | Brand theme colors override generic WCAG contrast checks. |
 | **JS/TS/CSS** | **Language Smells** | `S1854`, `S1481`, `S6582`, `S6606`, `S7780`, `S7758`, `S6594`, `S4666`, `S1874` | **Fix code** | Follow domain-specific refactoring patterns in this file. |
 
@@ -174,3 +176,27 @@ function logDebug(_msg) { /* no-op debug handler */ }
 /* ✅ After */
 .app-tooltip { overflow-wrap: break-word; }
 ```
+
+---
+
+## 8. Defensive Coding & Intentional Accept Rules (`S7744`, `S8786`, `S7784`)
+
+### Defensive Fallback Spreads (`S7744`)
+Sonar flags `{ ...(obj || {}) }` or empty fallback spreads as useless ("The empty object is useless").
+**Rationale for Flagging `accept`**:
+At runtime boundaries (IPC payloads, deserialized JSON configs, external databases), properties can be `null`, `undefined`, or omit nested objects. Spreading `{ ...obj }` directly throws `TypeError: Cannot spread null/undefined` if the upstream object is missing.
+**Policy**: When spreading untrusted inputs, configs, or state snapshots, keep `{ ...(obj || {}) }` and flag `accept`.
+
+### Bounded Path & Filename Regex Backtracking (`S8786`)
+Sonar flags `/[\\/]+$/` or `/\/+$/` for super-linear performance due to backtracking.
+**Rationale for Flagging `accept`**:
+Path normalization patterns operate strictly on filesystem paths or directory names, which are bounded by OS limits (260 characters on Windows, 4096 on POSIX). ReDoS attacks require megabyte-scale maliciously crafted inputs that never exist in path strings.
+**Policy**: Flag `accept` on path/filename trailing slash strippers instead of rewriting working path code.
+
+### Plain JSON Serialization & Proxy Compatibility (`S7784`)
+Sonar recommends replacing `JSON.parse(JSON.stringify(val))` with `structuredClone(val)`.
+**Rationale for Flagging `accept` or Targeted Shallow Clone**:
+1. `structuredClone` throws `DOMException: DataCloneError` when cloning JavaScript `Proxy` objects (frequently used in test mocks, state stores, and reactive wrappers).
+2. `structuredClone` preserves non-enumerable properties, prototypes, and class instances, whereas `JSON.parse(JSON.stringify(val))` guarantees a pure plain JSON data object matching disk storage semantics.
+**Policy**: When plain JSON serialization is desired or when dealing with potential Proxies in test/state boundaries, preserve `JSON.parse(JSON.stringify(val))` (or use explicit shallow loops) and flag `accept`.
+

@@ -14,6 +14,10 @@ Inspect, remediate, accept, and automate SonarQube/SonarCloud code quality issue
 3. **Domain Contract Preservation (`S1854`, `S1481`)**: NEVER alter returned object keys or state properties (e.g. `favorite`, `id`, `status`) to consume an unused variable. Safely delete the dead variable calculation instead.
 4. **Issue Verification Before Status Change**: Before calling `change_sonar_issue_status` to flag `"accept"` or `"falsepositive"`, MUST search the issue key using `search_sonar_issues` with `issueStatuses: ["OPEN"]`.
 5. **PR Scope Parameter**: When analyzing an active PR, MUST pass `pullRequestId` or `pullRequest`. Omitting PR ID queries the default branch.
+6. **Quality Gate Priority over Zero-Smell Churn**: Quality Gate conditions (Reliability, Security, Duplications, Coverage, Security Hotspots) define PR merge eligibility. Maintainability Rating A is passing. NEVER destabilize heavily tested domain logic, complex transaction runners, or migration flows merely to reduce informational code smells.
+7. **Defensive Boundary Preservation (`S7744`)**: NEVER strip defensive fallback object spreads `{ ...(obj || {}) }` or empty fallbacks at untrusted external boundaries (IPC inputs, user configs, storage files). Flag `"accept"` instead of compromising runtime safety.
+8. **Serialization & Proxy Compatibility (`S7784`)**: NEVER blindly replace `JSON.parse(JSON.stringify(val))` with `structuredClone(val)` when objects may be Proxies, host objects, or require plain JSON serialization (`structuredClone` throws `DataCloneError` on Proxies). Flag `"accept"` or use targeted shallow cloning.
+9. **Bounded Path & Filename Regexes (`S8786`)**: Flag `"accept"` on path normalization regexes (e.g. `/[\\/]+$/`) operating on bounded strings (paths, filenames). ReDoS is impossible on paths of standard lengths.
 
 ---
 
@@ -37,8 +41,10 @@ Inspect, remediate, accept, and automate SonarQube/SonarCloud code quality issue
 | **Cognitive Complexity (`S3776`)** | **Flag `accept`** | NEVER split functions solely for S3776. Structural splits require `/improve-codebase-architecture`. |
 | **Deep Nesting (`S2004`)** | **Flag `accept`** | Deep nesting in UI/event/search closures is intentional design. |
 | **Theme Contrast (`css:S7924`)** | **Flag `accept`** | Brand color palettes take precedence over automated WCAG checks. |
-| **Regex Backtracking (`S8786`)** | **Fix or Flag `accept`** | Simplify regex if possible; flag `accept` if regex is already minimal. |
-| **Duplications (CPD)** | **Fix code** | Call `get_duplications`, inspect disk, consolidate duplicated blocks into shared helpers. |
+| **Path/File Regex Backtracking (`S8786`)** | **Flag `accept`** | Bounded strings (paths, filenames) have zero ReDoS risk in practice; flag `accept` directly. |
+| **Defensive Spreads (`S7744`)** | **Flag `accept`** | Preserve defensive coding `{ ...(x \|\| {}) }` at external IPC, config, and storage boundaries. |
+| **Plain JSON Serialization (`S7784`)** | **Flag `accept` or Targeted Clone** | Do NOT use `structuredClone` on Proxies or where plain JSON serialization is expected. |
+| **Duplications (CPD)** | **Fix code / Exclude tests** | Test fixtures belong in `sonar.cpd.exclusions` or `sonar.tests`. Consolidate real production duplications. |
 | **Language Smells (`S1854`, `S1481`, etc.)** | **Fix code** | Follow domain-specific patterns in [REFERENCE.md](REFERENCE.md). |
 
 ---

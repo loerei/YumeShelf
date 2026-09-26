@@ -199,4 +199,3 @@ Sonar recommends replacing `JSON.parse(JSON.stringify(val))` with `structuredClo
 1. `structuredClone` throws `DOMException: DataCloneError` when cloning JavaScript `Proxy` objects (frequently used in test mocks, state stores, and reactive wrappers).
 2. `structuredClone` preserves non-enumerable properties, prototypes, and class instances, whereas `JSON.parse(JSON.stringify(val))` guarantees a pure plain JSON data object matching disk storage semantics.
 **Policy**: When plain JSON serialization is desired or when dealing with potential Proxies in test/state boundaries, preserve `JSON.parse(JSON.stringify(val))` (or use explicit shallow loops) and flag `accept`.
-

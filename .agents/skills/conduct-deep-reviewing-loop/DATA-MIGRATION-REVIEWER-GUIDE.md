@@ -24,7 +24,6 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 **Fix Pre-Verification**:
 
 * Verify on disk that any pre-existing method, type, or module referenced by a proposed fix actually exists. If introducing new methods or tables, verify landing locations, name collisions, and symmetric boundary updates. Create simulation scripts in `<review_dir>/sandbox/` where applicable to verify migration scripts and rollback idempotency.
-* Audit ONLY for System Invariants (structural seams, locking modes, transaction boundaries, lifecycle contracts). NEVER report internal code snippet mechanics as blocking defects; demand an Acceptance Criterion instead.
 * **Miss-Probability Gate**:
 
 * **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that (a) writes both production code and tests directly from the ticket text in headless CI with no human manual operation, and (b) writes only tests explicitly called for by Acceptance Criteria.

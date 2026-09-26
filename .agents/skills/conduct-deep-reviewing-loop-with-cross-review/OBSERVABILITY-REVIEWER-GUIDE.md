@@ -29,7 +29,6 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 * Verify on disk that any pre-existing method, logger, collector, or configuration referenced by a proposed fix exists in the codebase or upstream specs.
 * If proposing new telemetry sinks, interfaces, or libraries, verify that target installation paths exist, imports do not collide, and configuration schemas align with codebase standards.
-* Audit ONLY for System Invariants (structural seams, crash boundaries, stream contracts, metric cardinality, lifecycle limits). Ticket code snippets are illustrative examples; NEVER report internal syntax or implementation mechanics as blocking defects. Demand an Acceptance Criterion instead.
 
 **Miss-Probability Gate**:
 

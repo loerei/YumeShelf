@@ -43,6 +43,8 @@ Every proposed defect falls into exactly one category:
 1. **Blocking Defect**: The defect would either (a) be silently missed in implementation (wrong metrics, silent error drops, stream corruption in pipes, runaway disk consumption, high-cardinality crashes), OR (b) produce a visible error signal but the correct fix is NOT obvious from the symptom alone. MUST include a `Why This Would Be Missed` field explaining the blind spot.
 2. **Suggestion Only**: The defect produces an immediate error signal during implementation (compiler failure, crash stack trace, or existing test failure) AND the fix is obvious from the symptom. Classify as Suggestion; NEVER mark as a blocking defect.
 
+* **Zero-Loss Specification via Concrete Contracts & Code**: Natural language and Acceptance Criteria communicate intent, but abstract prose alone often drifts during implementation. When defects, boundaries, schemas, or non-obvious algorithms are at stake, prefer concrete code signatures, data structures, or precise code diffs over vague descriptive advice to eliminate translation loss. Do not force synthetic code blocks for straightforward tasks where clear declarative criteria already guarantee deterministic implementation.
+
 **Technical Impasse & Infeasibility Reporting**:
 If a telemetry requirement, crash handling mechanism, or monitoring constraint violates platform sandbox limits, operating system security boundaries, or browser security models with no viable fix: NEVER invent ungrounded workarounds. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths`.
 
@@ -65,6 +67,7 @@ First inspect `## Observability Scope & Monitoring Archetype` in `<review_dir>/C
 * Return `STATUS: PASS` if telemetry, error context preservation, crash capture, stream hygiene, health verification, and operational degradation controls satisfy all applicable domain criteria.
 * Return `STATUS: REVISIONS NEEDED` if any blocking defect exists under the applicable subdocuments (e.g. empty catch blocks, stream pollution on CLI `stdout`, unbounded log files on client disk, missing W3C propagation on distributed RPC hops, or unconstrained metric label cardinality).
 * Return `STATUS: INFEASIBLE` if a core requirement violates hard platform constraints (e.g. browser sandbox preventing synchronous log flush on tab crash, OS sandbox blocking out-of-process crash server). Infeasible defects take strict precedence over fixable defects.
+* NEVER return STATUS: REVISIONS NEEDED for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 
 ## Standard Output Protocol
 

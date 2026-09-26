@@ -28,6 +28,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
   Every proposed defect falls into exactly one of two categories:
   1. **Blocking defect**: The defect would either (a) be silently missed in implementation (wrong results that look plausible, subtle numerical drift, state corruption without crashes, race conditions that produce incorrect but non-crashing output), OR (b) produce a visible error signal but the correct fix for all instances of the same class is NOT obvious from the symptom alone (requires domain knowledge, cross-component generalization, or architectural insight that the error message does not reveal). MUST include a `Why This Would Be Missed` field explaining the blind spot.
   2. **Suggestion only**: The defect would produce a clear, immediate error signal during implementation (compiler error, runtime exception with stack trace, or a failing assertion against a value the ticket's Acceptance Criteria already require checking) AND the correct fix, generalized to all instances of the same class, is obvious from the symptom without requiring reviewer domain knowledge. Classify as a Suggestion, NEVER as a blocking defect.
+- **Zero-Loss Specification via Concrete Contracts & Code**: Natural language and Acceptance Criteria communicate intent, but abstract prose alone often drifts during implementation. When defects, boundaries, schemas, or non-obvious algorithms are at stake, prefer concrete code signatures, data structures, or precise code diffs over vague descriptive advice to eliminate translation loss. Do not force synthetic code blocks for straightforward tasks where clear declarative criteria already guarantee deterministic implementation.
 - **Technical Impasse & Infeasibility Reporting**: If an audited requirement, ticket premise, or dependency is technically impossible or blocked by hard platform constraints (e.g. OS sandbox, CORS/same-origin, missing third-party capability, physical resource ceiling) with no viable in-scope fix: NEVER invent hallucinated workarounds and NEVER conceal the issue. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths` if known.
 
 ## Progressive Disclosure Routing Matrix
@@ -57,7 +58,7 @@ First inspect `## Security Scope & Threat Model Tier` in `<review_dir>/Context.m
 - Return `STATUS: REVISIONS NEEDED` if any security vulnerability, unauthorized access vector, or data loss risk is present.
 - Return `STATUS: PASS` if security controls and data validation are complete.
 - Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
-- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
+- NEVER return STATUS: REVISIONS NEEDED for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 
 ## Standard Output Protocol
 

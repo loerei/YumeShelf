@@ -29,6 +29,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 * **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that (a) writes both production code and tests directly from the ticket text in headless CI with no human manual operation, and (b) writes only tests explicitly called for by Acceptance Criteria.
 * **Blocking Defect**: Silently missed in implementation (wrong results that look plausible, state corruption without crashes, race conditions producing incorrect output), OR produces an error signal where the generalized fix is NOT obvious from symptom alone. MUST include `Why This Would Be Missed`.
 * **Suggestion Only**: Produces a clear, immediate error signal during implementation (compiler error, uncaught exception, or failing assertion against values already checked in criteria) AND the generalized fix is obvious from symptom alone.
+* **Zero-Loss Specification via Concrete Contracts & Code**: Natural language and Acceptance Criteria communicate intent, but abstract prose alone often drifts during implementation. When defects, boundaries, schemas, or non-obvious algorithms are at stake, prefer concrete code signatures, data structures, or precise code diffs over vague descriptive advice to eliminate translation loss. Do not force synthetic code blocks for straightforward tasks where clear declarative criteria already guarantee deterministic implementation.
 * **Technical Impasse & Infeasibility Reporting**: If an audited requirement violates hard platform or physical constraints (e.g. SQLite foreign key pragma order inside transactions, browser multi-tab lock starvation, distributed CAP boundaries) with zero viable in-scope fixes, return `STATUS: INFEASIBLE` with an `Infeasibility Proof` and outline `Alternative Architectural Paths`.
 
 ## Empirical Verification: Shadow Sandbox (<review_dir>/sandbox/)
@@ -63,7 +64,7 @@ Reviewers MUST inspect `## Data Storage & Migration Scope` in `<review_dir>/Cont
 * Return `STATUS: REVISIONS NEEDED` if any schema change breaks compatibility, risks data loss/corruption, lacks transactional isolation, causes blocking table locks, or introduces ad-hoc runtime migration bloat instead of an isolated migration runner.
 * Return `STATUS: PASS` if data contracts, migration strategy, and rollback safeguards are fully specified.
 * Return `STATUS: INFEASIBLE` if a requirement violates hard platform or technical constraints with no viable in-scope fix. `STATUS: INFEASIBLE` takes strict precedence as overall report status.
-* NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics in illustrative code snippets; demand an Acceptance Criterion instead.
+* NEVER return STATUS: REVISIONS NEEDED for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 
 ## Standard Output Protocol
 

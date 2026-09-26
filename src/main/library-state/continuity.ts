@@ -207,3 +207,5 @@ export function buildLogicalGames(records: any[], assignments: Record<string, st
         };
     });
 }
+
+export type LogicalGame = ReturnType<typeof buildLogicalGames>[number];

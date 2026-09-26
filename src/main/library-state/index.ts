@@ -66,8 +66,11 @@ export const {
     finalizeTrackedSession,
     getGameRecord,
     setSaveFolderOverride,
-    setFolderAlias
+    setFolderAlias,
+    addManualGameCore
 } = actions;
+
+export type { AddManualGameOptions } from './actions';
 
 /**
  * Shared context interface for library state operations
@@ -323,6 +326,8 @@ export function createLibraryState(options: LibraryContext) {
         toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),
         setFolderAlias: (folderPath: string, alias: string, targetPlatform?: PlatformInput) => serializedQueue(() => setFolderAlias(context, folderPath, alias, targetPlatform || context.targetPlatform)),
         updateLibraryConfig: (updates: any, targetPlatform?: PlatformInput) => serializedQueue(() => updateLibraryConfig(context, updates, targetPlatform)),
+        addManualGameCore: (targetPath: string, options?: actions.AddManualGameOptions) =>
+            addManualGameCore(context, targetPath, options),
         saveDB,
         loadDB,
         isDegraded,

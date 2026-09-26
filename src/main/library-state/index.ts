@@ -79,6 +79,7 @@ export interface LibraryContext {
     fsSync: any;
     dbFilePath: string;
     targetPlatform?: PlatformInput;
+    folderPickerSeam?: (options?: any) => Promise<string[] | undefined>;
     loadDB?: () => Promise<Record<string, any>>;
     saveDB?: (db: any) => Promise<void>;
     retryCount?: number;
@@ -291,6 +292,7 @@ export function createLibraryState(options: LibraryContext) {
         categoryState: options.categoryState,
         defaultGamesDir: options.defaultGamesDir,
         dialog: options.dialog,
+        folderPickerSeam: options.folderPickerSeam,
         fs: options.fs,
         fsSync: options.fsSync,
         dbFilePath: options.dbFilePath,
@@ -308,13 +310,13 @@ export function createLibraryState(options: LibraryContext) {
         getGameRecord: (gameKey: string) => getGameRecord(context, gameKey),
         loadGamesForConfig: (config: any) => loadGamesForConfig(context, config),
         renameGame: (gameKey: string, newName: string) => serializedQueue(() => renameGame(context, gameKey, newName)),
-        resolveLibraryConfig: () => serializedQueue(() => resolveLibraryConfig(context)),
+        resolveLibraryConfig: (targetPlatform?: PlatformInput) => serializedQueue(() => resolveLibraryConfig(context, targetPlatform)),
         resolveLibraryFolderToOpen: () => resolveLibraryFolderToOpen(context),
         setSaveFolderOverride: (gameKey: string, folderPath: string) => serializedQueue(() => setSaveFolderOverride(context, gameKey, folderPath)),
-        setupLibrary: (type: 'default' | 'custom') => setupLibrary(context, type),
-        addLibraryPath: () => addLibraryPath(context),
-        removeLibraryPath: (path: string) => serializedQueue(() => removeLibraryPath(context, path)),
-        changeLibraryPath: (oldPath: string) => changeLibraryPath(context, oldPath),
+        setupLibrary: (type: 'default' | 'custom', targetPlatform?: PlatformInput) => setupLibrary(context, type, targetPlatform),
+        addLibraryPath: (targetPlatform?: PlatformInput) => addLibraryPath(context, targetPlatform),
+        removeLibraryPath: (path: string, targetPlatform?: PlatformInput) => removeLibraryPath(context, path, targetPlatform),
+        changeLibraryPath: (oldPath: string, targetPlatform?: PlatformInput) => changeLibraryPath(context, oldPath, targetPlatform),
         toggleFavorite: (gameKey: string) => serializedQueue(() => toggleFavorite(context, gameKey)),
         toggleRunInBackground: (gameKey: string) => serializedQueue(() => toggleRunInBackground(context, gameKey)),
         toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),

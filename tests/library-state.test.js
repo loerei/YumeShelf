@@ -17,7 +17,7 @@ async function writeExe(filePath) {
 }
 
 function createDbHarness(initialDb = {}) {
-    let db = JSON.parse(JSON.stringify(initialDb));
+    let db = { schemaVersion: 1, ...JSON.parse(JSON.stringify(initialDb)) };
     return {
         async loadDB() {
             return JSON.parse(JSON.stringify(db));
@@ -38,6 +38,9 @@ function createLibraryHarness(rootPath, initialDb = {}, categorySnapshot = { tre
         categoryState: {
             async loadCategoryState() {
                 return JSON.parse(JSON.stringify(currentCategorySnapshot));
+            },
+            async saveCategoryState(newState) {
+                currentCategorySnapshot = JSON.parse(JSON.stringify(newState));
             }
         },
         defaultGamesDir: path.join(rootPath, 'DefaultLibrary'),
@@ -495,7 +498,8 @@ test('library-state: degraded state protects 0-byte or corrupted files from dest
     // Cold start (missing file) is NOT degraded
     assert.equal(state.isDegraded(), false);
     const initial = await state.loadDB();
-    assert.deepEqual(initial, {});
+    assert.equal(initial.schemaVersion, 1);
+    assert.deepEqual(initial.games, {});
     assert.equal(state.isDegraded(), false);
 
     // Simulate 0-byte truncated file
@@ -507,12 +511,12 @@ test('library-state: degraded state protects 0-byte or corrupted files from dest
     assert.equal(state.isDegraded(), true);
 
     // Compound mutator and saveDB should abort write while degraded
-    await state.saveDB({ corruptedOverwrite: true });
+    await assert.rejects(() => state.saveDB({ corruptedOverwrite: true }), /Database is in degraded state/);
     // Verify file on disk is still 0 bytes and was NOT overwritten
     assert.equal((await fs.stat(dbFilePath)).size, 0);
 
     // Simulate restoring valid database
-    const validDb = { config: { libraryPaths: [] }, games: { myGame: { name: 'Valid' } } };
+    const validDb = { schemaVersion: 1, config: { libraryPaths: [], folderAliases: {} }, games: { myGame: { name: 'Valid' } } };
     await fs.writeFile(dbFilePath, JSON.stringify(validDb));
 
     const recovered = await state.loadDB();

@@ -121,3 +121,56 @@ describe('LibraryIpcController - update-library-config', () => {
         expect(result).toBeDefined();
     });
 });
+
+describe('LibraryIpcController - toggle-favorite', () => {
+    let handlers: Map<string, (...args: any[]) => any>;
+    let mockIpcMain: any;
+    let mockLibraryState: any;
+    let controller: LibraryIpcController;
+
+    beforeEach(() => {
+        handlers = new Map();
+        mockIpcMain = {
+            handle: vi.fn((channel: string, handler: (...args: any[]) => any) => {
+                handlers.set(channel, handler);
+            }),
+            on: vi.fn(),
+        };
+
+        mockLibraryState = {
+            toggleFavorite: vi.fn(async (_gameKey: string, _targetFavorite?: boolean) => true)
+        };
+
+        controller = new LibraryIpcController({
+            ipcMain: mockIpcMain,
+            libraryState: mockLibraryState,
+        } as any);
+
+        controller.registerHandlers();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('forwards gameKey and targetFavorite to libraryState.toggleFavorite', async () => {
+        const handler = handlers.get('toggle-favorite');
+        expect(handler).toBeDefined();
+
+        mockLibraryState.toggleFavorite.mockResolvedValueOnce(true);
+        const res1 = await handler!({}, 'game-123', true);
+        expect(mockLibraryState.toggleFavorite).toHaveBeenCalledWith('game-123', true);
+        expect(res1).toBe(true);
+
+        mockLibraryState.toggleFavorite.mockResolvedValueOnce(false);
+        const res2 = await handler!({}, 'game-123', false);
+        expect(mockLibraryState.toggleFavorite).toHaveBeenCalledWith('game-123', false);
+        expect(res2).toBe(false);
+
+        mockLibraryState.toggleFavorite.mockResolvedValueOnce(true);
+        const res3 = await handler!({}, 'game-123', undefined);
+        expect(mockLibraryState.toggleFavorite).toHaveBeenCalledWith('game-123', undefined);
+        expect(res3).toBe(true);
+    });
+});
+

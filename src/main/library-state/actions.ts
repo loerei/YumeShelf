@@ -36,29 +36,95 @@ export async function renameGame(context: any, gameKey: string, newName: string)
     return true;
 }
 
-export async function toggleFavorite(context: any, gameKey: string): Promise<boolean> {
-    const { loadDB, saveDB } = context;
-    const db = await loadDB();
-    const games = readStoredGames(db);
-    if (games[gameKey]) {
-        games[gameKey].favorite = !games[gameKey].favorite;
-        db.games = games;
-        await saveDB(db);
-        return games[gameKey].favorite;
+export async function toggleFavorite(
+    context: any,
+    gameKey: string,
+    targetFavorite?: boolean
+): Promise<boolean> {
+    if (
+        typeof gameKey !== 'string' ||
+        !gameKey.trim() ||
+        gameKey === '__proto__' ||
+        gameKey === 'constructor' ||
+        gameKey === 'prototype'
+    ) {
+        throw new Error(`Game not found: ${gameKey}`);
     }
 
-    const normalizedGames = Object.entries(games).map(([storedGameKey, record]) => normalizeGameRecord(storedGameKey, record));
-    const targetGroup = buildLogicalGames(normalizedGames).find((record) => record.gameId === gameKey);
-    if (!targetGroup) return false;
-    const nextFavorite = !targetGroup.favorite;
-    targetGroup.instances.forEach((instance: any) => {
-        if (games[instance.gameKey]) {
-            games[instance.gameKey].favorite = nextFavorite;
+    if (context.isDegraded?.() === true) {
+        console.warn('[LIBRARY_STATE][TOGGLE_FAVORITE] Operation aborted: database is in DEGRADED state', { gameKey });
+        throw new Error('Database is in degraded state');
+    }
+
+    const { loadDB, saveDB, persistDbDirectly } = context;
+    const db = await loadDB();
+
+    if (context.isDegraded?.() === true) {
+        console.warn('[LIBRARY_STATE][TOGGLE_FAVORITE] Operation aborted: database is in DEGRADED state', { gameKey });
+        throw new Error('Database is in degraded state');
+    }
+
+    const games = readStoredGames(db);
+
+    const targetRecord = Object.prototype.hasOwnProperty.call(games, gameKey) ? games[gameKey] : undefined;
+    const targetGameId = targetRecord
+        ? buildLogicalGameId({ ...targetRecord, gameKey })
+        : ((gameKey.startsWith('game:') || gameKey.startsWith('path:')) ? gameKey : undefined);
+
+    if (!targetGameId) {
+        throw new Error(`Game not found: ${gameKey}`);
+    }
+
+    const matchedKeys = Object.entries(games)
+        .filter(([k, record]) => buildLogicalGameId({ ...(record as any), gameKey: k }) === targetGameId)
+        .map(([k]) => k);
+
+    if (matchedKeys.length === 0) {
+        throw new Error(`Game not found: ${gameKey}`);
+    }
+
+    const currentFavorite = matchedKeys.some((k) => Boolean(games[k]?.favorite));
+    const nextFavorite = typeof targetFavorite === 'boolean' ? targetFavorite : !currentFavorite;
+
+    const previousFavorites = matchedKeys.map((k: string) => ({
+        key: k,
+        favorite: games[k]?.favorite
+    }));
+
+    matchedKeys.forEach((k: string) => {
+        const isUnsafe = typeof k !== 'string' ||
+            k === '__proto__' ||
+            k === 'constructor' ||
+            k === 'prototype';
+        if (!isUnsafe && Object.prototype.hasOwnProperty.call(games, k) && games[k]) {
+            games[k].favorite = nextFavorite;
         }
     });
+
     db.games = games;
-    await saveDB(db);
-    return nextFavorite;
+
+    try {
+        const persistFn = persistDbDirectly || saveDB;
+        await persistFn(db);
+        return nextFavorite;
+    } catch (err) {
+        previousFavorites.forEach(({ key, favorite }) => {
+            if (
+                typeof key === 'string' &&
+                !['__proto__', 'constructor', 'prototype'].includes(key) &&
+                Object.prototype.hasOwnProperty.call(games, key) &&
+                games[key]
+            ) {
+                games[key].favorite = favorite;
+            }
+        });
+        console.error('[LIBRARY_STATE][TOGGLE_FAVORITE] Failed to persist favorite toggle:', {
+            gameKey,
+            targetFavorite,
+            error: err
+        });
+        throw err;
+    }
 }
 
 export async function toggleRunInBackground(context: any, gameKey: string): Promise<boolean> {

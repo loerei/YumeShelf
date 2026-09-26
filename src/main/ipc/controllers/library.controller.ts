@@ -117,7 +117,7 @@ export class LibraryIpcController {
         });
 
         ipcMain.handle('rename-game', async (_event, { gameKey, newName }) => libraryState?.renameGame(gameKey, newName));
-        ipcMain.handle('toggle-favorite', async (_event, gameKey) => libraryState?.toggleFavorite(gameKey));
+        ipcMain.handle('toggle-favorite', async (_event, gameKey, targetFavorite) => libraryState?.toggleFavorite(gameKey, targetFavorite));
         ipcMain.handle('toggle-run-in-background', async (_event, gameKey) => libraryState?.toggleRunInBackground(gameKey));
         ipcMain.handle('toggle-auto-translate', async (_event, gameKey) => libraryState?.toggleAutoTranslate(gameKey));
 

@@ -26,7 +26,8 @@ const api: ElectronAPI = {
     selectSaveFolder: () => ipcRenderer.invoke('save-editor:select-directory'),
     setSaveFolderOverride: (data: { gameKey: string; folderPath: string }) =>
         ipcRenderer.invoke('save-editor:set-save-folder-override', data),
-    toggleFavorite: (gameKey: string) => ipcRenderer.invoke('toggle-favorite', gameKey),
+    toggleFavorite: (gameKey: string, targetFavorite?: boolean) =>
+        ipcRenderer.invoke('toggle-favorite', gameKey, targetFavorite),
     toggleRunInBackground: (gameKey: string) => ipcRenderer.invoke('toggle-run-in-background', gameKey),
     toggleAutoTranslate: (gameKey: string) => ipcRenderer.invoke('toggle-auto-translate', gameKey),
     checkTranslationSupport: (gameKey: string) => ipcRenderer.invoke('translation:check-support', gameKey),

@@ -317,7 +317,7 @@ export function createLibraryState(options: LibraryContext) {
         addLibraryPath: (targetPlatform?: PlatformInput) => addLibraryPath(context, targetPlatform),
         removeLibraryPath: (path: string, targetPlatform?: PlatformInput) => removeLibraryPath(context, path, targetPlatform),
         changeLibraryPath: (oldPath: string, targetPlatform?: PlatformInput) => changeLibraryPath(context, oldPath, targetPlatform),
-        toggleFavorite: (gameKey: string) => serializedQueue(() => toggleFavorite(context, gameKey)),
+        toggleFavorite: (gameKey: string, targetFavorite?: boolean) => serializedQueue(() => toggleFavorite(context, gameKey, targetFavorite)),
         toggleRunInBackground: (gameKey: string) => serializedQueue(() => toggleRunInBackground(context, gameKey)),
         toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),
         updateLibraryConfig: (updates: any, targetPlatform?: PlatformInput) => serializedQueue(() => updateLibraryConfig(context, updates, targetPlatform)),

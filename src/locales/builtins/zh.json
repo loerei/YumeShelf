@@ -324,6 +324,7 @@
     "game_not_found": "未在游戏库中找到游戏",
     "btn_remove": "移除",
     "btn_add_path": "+ 添加路径",
+    "btn_add_game": "+ 添加游戏",
     "category_filter_all": "全部分类",
     "category_clear_filter": "清除筛选",
     "category_empty_title": "此分类下没有游戏",

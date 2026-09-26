@@ -3,6 +3,7 @@ const MIN_MAX_DEPTH = 0;
 const MAX_MAX_DEPTH = 12;
 const DEFAULT_LOCATION_DISPLAY_MODE = 'parent';
 const DEFAULT_TITLE_DISPLAY_MODE = 'metadata';
+import { showToastPill } from './ui/toast-pill';
 
 function clampMaxDepth(value: number | string | null | undefined): number {
     const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -77,6 +78,7 @@ export function createSettingsController({
     const mascotVolumeValue     = container.querySelector('#mascot-volume-value') as HTMLElement | null;
     const libraryPathsContainer  = container.querySelector('#library-paths-container') as HTMLElement | null;
     const btnAddLibraryPath      = container.querySelector('#btn-add-library-path') as HTMLButtonElement | null;
+    const btnAddManualGame       = container.querySelector('#btn-add-manual-game') as HTMLButtonElement | null;
 
     let currentTheme = localStorage.getItem('yumeshelf_theme') || 'system';
     let currentAppUpdates = localStorage.getItem('yumeshelf_app_updates_pref') || 'notify';
@@ -390,6 +392,17 @@ export function createSettingsController({
         btnAddLibraryPath.onclick = async () => {
             const result = await (window as any).electronAPI.addLibraryPath();
             if (result) location.reload();
+        };
+    }
+
+    if (btnAddManualGame) {
+        btnAddManualGame.onclick = async () => {
+            const result = await (window as any).electronAPI.addManualGame();
+            if (result?.ok) {
+                location.reload();
+            } else if (result?.error && !result?.canceled) {
+                showToastPill(result.error);
+            }
         };
     }
 

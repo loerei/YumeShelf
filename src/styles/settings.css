@@ -285,7 +285,14 @@
 .setting-paths-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+}
+
+.setting-paths-header-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
 }
 
 .text-btn {

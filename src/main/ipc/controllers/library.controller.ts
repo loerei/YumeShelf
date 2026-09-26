@@ -4,6 +4,7 @@ import { TelemetryShipper } from '../../telemetry/shipper';
 import { isPathWithinLibrary } from '../path-validator';
 import { RegisterIpcOptions } from '../types';
 import { GameRunnerService } from '../../game-runner';
+import type { LibraryConfig } from '../../library-state/scanner';
 
 async function resolveValidatedLibraryPath(libraryState: any, targetPath: unknown): Promise<string | null> {
     if (typeof targetPath !== 'string' || !targetPath.trim()) return null;
@@ -41,10 +42,20 @@ export class LibraryIpcController {
         ipcMain.handle('get-default-path', () => defaultGamesDir);
         ipcMain.handle('setup-library', async (_event, type) => libraryState?.setupLibrary(type));
 
-        ipcMain.handle('update-library-config', async (_event, updates = {}) => {
-            const result = await libraryState?.updateLibraryConfig(updates);
-            if (updates && 'telemetryEnabled' in updates) {
-                await TelemetryShipper.getInstance().setTelemetryEnabled(updates.telemetryEnabled);
+        ipcMain.handle('update-library-config', async (_event, updates: unknown) => {
+            if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+                throw new Error('Invalid config updates payload: expected object');
+            }
+            const result = await libraryState?.updateLibraryConfig(updates as Partial<LibraryConfig>);
+            if (typeof (updates as any).telemetryEnabled === 'boolean') {
+                try {
+                    await TelemetryShipper.getInstance().setTelemetryEnabled((updates as any).telemetryEnabled);
+                } catch (err) {
+                    console.error('[LIBRARY_CONTROLLER] Failed to sync telemetry shipper state:', {
+                        telemetryEnabled: (updates as any).telemetryEnabled,
+                        error: err
+                    });
+                }
             }
             return result;
         });

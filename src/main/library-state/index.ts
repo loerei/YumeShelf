@@ -318,7 +318,7 @@ export function createLibraryState(options: LibraryContext) {
         toggleFavorite: (gameKey: string) => serializedQueue(() => toggleFavorite(context, gameKey)),
         toggleRunInBackground: (gameKey: string) => serializedQueue(() => toggleRunInBackground(context, gameKey)),
         toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),
-        updateLibraryConfig: (updates: any) => serializedQueue(() => updateLibraryConfig(context, updates)),
+        updateLibraryConfig: (updates: any, targetPlatform?: PlatformInput) => serializedQueue(() => updateLibraryConfig(context, updates, targetPlatform)),
         saveDB,
         loadDB,
         isDegraded,

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://yumeshelf.org/schemas/addon-manifest.v1.json",
+  "id": "xunity-autotranslator",
+  "name": "XUnity.AutoTranslator",
+  "version": "5.4.5",
+  "author": "bbepis",
+  "description": "Real-time runtime text hooking and machine translation for Unity games.",
+  "homepage": "https://github.com/bbepis/XUnity.AutoTranslator",
+  "category": "translation",
+  "strategy": "shim",
+  "engineCompatibility": [
+    {
+      "tag": "Unity",
+      "variants": ["mono", "il2cpp"]
+    }
+  ],
+  "entryPoint": "AutoTranslator/XUnity.AutoTranslator.Plugin.Core.dll",
+  "shimFiles": [
+    "winhttp.dll",
+    "doorstop_config.ini",
+    "AutoTranslator/"
+  ],
+  "configSchema": [
+    {
+      "key": "endpoint",
+      "label": "Translation Service",
+      "type": "select",
+      "defaultValue": "GoogleTranslateV2",
+      "options": [
+        { "label": "Google Translate (Free)", "value": "GoogleTranslateV2" },
+        { "label": "DeepL Translate", "value": "DeepL" },
+        { "label": "Custom Proxy (Local)", "value": "Custom" }
+      ]
+    },
+    {
+      "key": "fromLanguage",
+      "label": "Source Language",
+      "type": "text",
+      "defaultValue": "ja"
+    },
+    {
+      "key": "toLanguage",
+      "label": "Target Language",
+      "type": "text",
+      "defaultValue": "en"
+    }
+  ],
+  "downloadUrl": "https://github.com/bbepis/XUnity.AutoTranslator/releases/download/v5.4.5/XUnity.AutoTranslator-ReiPatcher-5.4.5.zip",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

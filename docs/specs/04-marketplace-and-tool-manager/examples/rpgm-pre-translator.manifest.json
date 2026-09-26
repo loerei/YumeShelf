@@ -1,0 +1,94 @@
+{
+  "$schema": "https://yumeshelf.org/schemas/addon-manifest.v1.json",
+  "id": "rpgm-pre-translator",
+  "name": "RPG Maker Pre-Translator",
+  "version": "1.0.0",
+  "author": "loerei",
+  "description": "Deep text extraction, AI/MT translation, and patching for RPG Maker MV, MZ, and VX Ace.",
+  "category": "translation",
+  "strategy": "task",
+  "engineCompatibility": [
+    {
+      "tag": "RPGM",
+      "variants": ["mv", "mz", "vx-ace"]
+    }
+  ],
+  "entryPoint": "bin/rpgm-translator-cli.exe",
+  "actions": [
+    {
+      "id": "translate-patch",
+      "label": "Dịch & Patch Game",
+      "description": "Tự động trích xuất chuỗi, dịch qua API/AI và tạo patch cho game",
+      "icon": "translate",
+      "argsTemplate": [
+        "--dir", "{gameDir}",
+        "--target", "{targetLang}",
+        "--provider", "{provider}"
+      ],
+      "progressFormat": "json-stream",
+      "cancellable": true,
+      "inputSchema": [
+        {
+          "key": "targetLang",
+          "label": "Ngôn ngữ đích",
+          "type": "select",
+          "defaultValue": "vi",
+          "options": [
+            { "label": "Tiếng Việt (vi)", "value": "vi" },
+            { "label": "English (en)", "value": "en" },
+            { "label": "Simplified Chinese (zh-CN)", "value": "zh-CN" }
+          ]
+        },
+        {
+          "key": "provider",
+          "label": "Bộ máy dịch",
+          "type": "select",
+          "defaultValue": "google",
+          "options": [
+            { "label": "Google Translate (Miễn phí)", "value": "google" },
+            { "label": "DeepL API", "value": "deepl" },
+            { "label": "OpenAI / Gemini (BYOK)", "value": "ai" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extract-only",
+      "label": "Chỉ trích xuất text",
+      "description": "Trích xuất toàn bộ hội thoại và UI terms ra thư mục translations/",
+      "icon": "extract",
+      "argsTemplate": [
+        "--dir", "{gameDir}",
+        "--extract-only"
+      ],
+      "progressFormat": "json-stream",
+      "cancellable": true
+    },
+    {
+      "id": "revert-vanilla",
+      "label": "Khôi phục bản gốc",
+      "description": "Gỡ bỏ các file dịch đã patch và phục hồi game về trạng thái ban đầu",
+      "icon": "revert",
+      "argsTemplate": [
+        "--dir", "{gameDir}",
+        "--revert"
+      ],
+      "progressFormat": "percent",
+      "cancellable": false
+    }
+  ],
+  "credentialsSchema": [
+    {
+      "key": "openai_api_key",
+      "label": "OpenAI / OpenRouter API Key",
+      "type": "password",
+      "description": "Dùng cho dịch thuật AI ngữ cảnh cao"
+    },
+    {
+      "key": "deepl_api_key",
+      "label": "DeepL Auth Key",
+      "type": "password",
+      "description": "Dùng cho dịch thuật DeepL Pro / Free API"
+    }
+  ]
+}

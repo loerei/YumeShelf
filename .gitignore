@@ -29,13 +29,12 @@ scratch/
 .scratch/
 __pycache__/
 *.pyc
+*.bak.md
 scripts/test-*.js
 scripts/wolf-*.js
 scripts/save-converter/
-docs/*
-!docs/*.md
+docs/changelogs/
 docs/Report.md
-\
 .env
 .env.local
 .purritize/\

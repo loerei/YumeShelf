@@ -7,7 +7,11 @@ Instructions for Layer 2 Critical Gate Agent to evaluate, filter, and reject Lay
 1. **Evidence over Assertion**: Reject reviewer feedback that lacks concrete line/section citations or codebase evidence.
 2. **Zero Sycophancy**: Reject speculative or over-engineered suggestions lacking concrete necessity.
 3. **Scope Boundary Protection**: Reject unrequested features, premature refactorings, or unnecessary abstractions outside user criteria.
-4. **Clean Integration**: Convert accepted feedback into direct, native specification requirements without meta-tags or reviewer references.
+4. **Clean Integration & Target Files Topology**: Convert accepted feedback into direct, native specification requirements without meta-tags or reviewer references. Integrate verified code remediations directly under `## Target Files` organized by file action tag:
+   - `### [MODIFY] <filepath>`: Use `diff` code blocks (`+` and `-` lines) showing the exact modification.
+   - `### [NEW] <filepath>`: Use full, clean code blocks for newly created files.
+   - `### [DELETE] <filepath>`: No code block required; state deletion rationale only.
+   Do not scatter raw code blocks across `## What to build` (retains context/invariants) or `## Acceptance Criteria` (retains testable criteria).
 5. **Ground-Truth Verification**: Reject feedback that introduces theoretical error classes, fail-fast deserialization barriers, or breaking contract changes on active modules unless existing code and tests support that invariant without regression.
 6. **Dependency Lineage & Boundary Protection**:
    - **ACCEPT** findings where the target DA contradicts or drifts from an `Upstream` DA schema/seam (*Spec Drift*), or where the target DA duplicates responsibilities belonging to an `Upstream` DA (*Spec Bloat*).

@@ -29,6 +29,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 * Verify on disk that any pre-existing method, logger, collector, or configuration referenced by a proposed fix exists in the codebase or upstream specs.
 * If proposing new telemetry sinks, interfaces, or libraries, verify that target installation paths exist, imports do not collide, and configuration schemas align with codebase standards.
+* **Code as Ground Truth (Zero-Loss Blueprint)**: Natural language and Acceptance Criteria define intent and verification boundaries; concrete code, schemas, and contracts are the sole implementation ground truth. Translating abstract descriptions or text-only criteria into code introduces severe semantic drift and implementation errors. Reviewers MUST ensure DAs contain verified code snippets, telemetry configurations, and explicit contract signatures alongside AC. When proposing remediations in reviewer reports, solve the problem directly in concrete, verified code rather than deflecting to abstract descriptive text.
 
 **Miss-Probability Gate**:
 
@@ -65,6 +66,7 @@ First inspect `## Observability Scope & Monitoring Archetype` in `<review_dir>/C
 * Return `STATUS: PASS` if telemetry, error context preservation, crash capture, stream hygiene, health verification, and operational degradation controls satisfy all applicable domain criteria.
 * Return `STATUS: REVISIONS NEEDED` if any blocking defect exists under the applicable subdocuments (e.g. empty catch blocks, stream pollution on CLI `stdout`, unbounded log files on client disk, missing W3C propagation on distributed RPC hops, or unconstrained metric label cardinality).
 * Return `STATUS: INFEASIBLE` if a core requirement violates hard platform constraints (e.g. browser sandbox preventing synchronous log flush on tab crash, OS sandbox blocking out-of-process crash server). Infeasible defects take strict precedence over fixable defects.
+* NEVER return `STATUS: REVISIONS NEEDED` for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 
 ## Standard Output Protocol
 
@@ -83,6 +85,10 @@ Save evaluation to `<review_dir>/reports/Observability.md` via `write_to_file` u
 * **Why This Would Be Missed**:
 * **Ground-Truth Proof**: <Codebase path, verified export, or planned symbol proving feasibility>
 * **Macro Flow Proof**: <Verification that diagnostic context, trace propagation, or stream hygiene remains unbroken across execution boundaries>
+* **Code Snippet**:
+  ```<lang>
+  // Concrete, verified code snippet, telemetry sink, or contract signature directly resolving the defect
+  ```
 
 1. **[Issue Title 1]**:
 
@@ -91,6 +97,14 @@ Save evaluation to `<review_dir>/reports/Observability.md` via `write_to_file` u
 * **Alternative Architectural Paths**:
 
 ### Suggestions for Improvement:
+
+1. **[Suggestion Title 1]**:
+   - **Target Section**: `<Section_Name>`
+   - **Observation**: <Concrete improvement rationale>
+   - **Code Snippet**:
+     ```<lang>
+     // Concrete snippet demonstrating the proposed optimization or clean pattern
+     ```
 
 ## Gate Response Protocol (Host Interaction)
 

@@ -68,7 +68,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 - Return `STATUS: REVISIONS NEEDED` if UI/UX specifications contain redundant elements, confusing interaction flows, raw emojis instead of vector SVG icons, unlabeled icon-only controls for domain actions, icon-only buttons missing `aria-label` or tooltip, missing state indicators, arbitrary magic number z-indices, monolithic compound criteria (>300 characters), `stopPropagation()` event swallowing, or post-render DOM re-querying focus hacks. Do NOT return `STATUS: REVISIONS NEEDED` solely for stylistic micro-copy or phrasing preferences unless phrasing induces destructive data loss or factually contradicts system operations.
 - Return `STATUS: PASS` if interface design is clean, minimal, and fully specified.
 - Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
-- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
+- NEVER return `STATUS: REVISIONS NEEDED` for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 
 ## Standard Output Protocol
 

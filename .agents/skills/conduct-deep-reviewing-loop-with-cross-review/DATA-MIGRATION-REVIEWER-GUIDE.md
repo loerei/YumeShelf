@@ -24,6 +24,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 **Fix Pre-Verification**:
 
 * Verify on disk that any pre-existing method, type, or module referenced by a proposed fix actually exists. If introducing new methods or tables, verify landing locations, name collisions, and symmetric boundary updates. Create simulation scripts in `<review_dir>/sandbox/` where applicable to verify migration scripts and rollback idempotency.
+* **Code as Ground Truth (Zero-Loss Blueprint)**: Natural language and Acceptance Criteria define intent and verification boundaries; concrete code, schemas, and contracts are the sole implementation ground truth. Translating abstract descriptions or text-only criteria into code introduces severe semantic drift and implementation errors. Reviewers MUST ensure DAs contain verified code snippets, migration DDL/DML, and explicit contract signatures alongside AC. When proposing remediations in reviewer reports, solve the problem directly in concrete, verified code rather than deflecting to abstract descriptive text.
 * **Miss-Probability Gate**:
 
 * **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that (a) writes both production code and tests directly from the ticket text in headless CI with no human manual operation, and (b) writes only tests explicitly called for by Acceptance Criteria.
@@ -63,7 +64,7 @@ Reviewers MUST inspect `## Data Storage & Migration Scope` in `<review_dir>/Cont
 * Return `STATUS: REVISIONS NEEDED` if any schema change breaks compatibility, risks data loss/corruption, lacks transactional isolation, causes blocking table locks, or introduces ad-hoc runtime migration bloat instead of an isolated migration runner.
 * Return `STATUS: PASS` if data contracts, migration strategy, and rollback safeguards are fully specified.
 * Return `STATUS: INFEASIBLE` if a requirement violates hard platform or technical constraints with no viable in-scope fix. `STATUS: INFEASIBLE` takes strict precedence as overall report status.
-* NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics in illustrative code snippets; demand an Acceptance Criterion instead.
+* NEVER return `STATUS: REVISIONS NEEDED` for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 
 ## Standard Output Protocol
 
@@ -82,6 +83,10 @@ Save evaluation to `<review_dir>/reports/DataMigration.md` via `write_to_file` u
 * **Why This Would Be Missed**:
 * **Ground-Truth Proof**: <Path and symbol in codebase/spec, or sandbox simulation script proving correctness>
 * **Macro Flow Proof**: <Verification that declaration order, initialization sequence, and lifecycle remain valid>
+* **Code Snippet**:
+  ```<lang>
+  // Concrete, verified code snippet, schema diff, or migration statement directly resolving the defect
+  ```
 
 1. **[Issue Title 1]**:
 
@@ -90,6 +95,14 @@ Save evaluation to `<review_dir>/reports/DataMigration.md` via `write_to_file` u
 * **Alternative Architectural Paths**: <Viable architectural pivot options, or state if dead-end>
 
 ### Suggestions for Improvement (Non-blocking):
+
+1. **[Suggestion Title 1]**:
+   - **Target Section**: `<Section_Name>`
+   - **Observation**: <Concrete improvement rationale>
+   - **Code Snippet**:
+     ```<lang>
+     // Concrete snippet demonstrating the proposed optimization or clean pattern
+     ```
 
 Once your report is written, send a notification message back to Host via `send_message` confirming completion.
 

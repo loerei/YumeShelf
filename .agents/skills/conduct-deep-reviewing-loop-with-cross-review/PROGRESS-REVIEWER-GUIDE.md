@@ -22,6 +22,7 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 **Fix Pre-Verification**:
 - **Ground-Truth**: Verify on disk that referenced modules, files, or tickets exist before prescribing relocation, splitting, or phase sequencing, and verify boundary contracts are updated symmetrically.
 - **Macro Flow**: Verify that the proposed breakdown maintains dependency order and does not create deadlocks across phases.
+- **Code as Ground Truth (Zero-Loss Blueprint)**: Natural language and Acceptance Criteria define intent and verification boundaries; concrete code, schemas, and contracts are the sole implementation ground truth. Translating abstract descriptions or text-only criteria into code introduces severe semantic drift and implementation errors. Reviewers MUST ensure DAs contain verified code snippets and explicit contract signatures alongside AC. When proposing remediations in reviewer reports, solve the problem directly in concrete, verified code rather than deflecting to abstract descriptive text.
 - **Miss-Probability Gate**:
   - **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that (a) writes both the production code and its own tests directly from the ticket text, in a headless CI environment, with no human ever manually operating the running application, and (b) writes only the tests its ticket's Acceptance Criteria call for, not exploratory or adversarial tests nobody asked for. A signal only counts as "immediate and unambiguous" (-> Suggestion) if it would independently surface for THIS implementer: a compiler/type error, an uncaught exception with a stack trace, or a failing assertion against a value the ticket's stated Acceptance Criteria already require checking. "A human tester would notice this in the browser/console" is NEVER valid grounds to downgrade a defect to Suggestion - this implementer has no eyes, no browser, and performs no unscripted interaction with the running app.
 
@@ -84,7 +85,7 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 - Return `STATUS: REVISIONS NEEDED` if tickets are monolithic/unsplit, have broken/forward dependencies, leak scope across phase boundaries, or lack incremental verifiability.
 - Return `STATUS: PASS` if the work breakdown structure is strictly incremental, dependency-sound, and granularly decomposed into tracer bullets.
 - Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
-- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
+- NEVER return `STATUS: REVISIONS NEEDED` for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 
 ## Standard Output Protocol
 
@@ -106,6 +107,10 @@ Save evaluation to `<review_dir>/reports/Progress.md` via `write_to_file` using 
    - **Required Transformation**: <Step-by-step instructions on splitting, merging, extracting, or reordering>
    - **Ground-Truth Proof**: <Path to existing files, modules, or tickets on disk/spec verifying dependency exists, or verified target destination location for newly planned tickets/files>
    - **Macro Flow Proof**: <Verification that delivery sequence, phase prerequisites, and milestone boundaries remain acyclic and deliverable>
+   - **Code Snippet / Structured Spec**:
+     ```markdown
+     // Concrete ticket frontmatter, dependency DAG, or tracer-bullet task specification snippet directly resolving the defect
+     ```
 
 <!-- For Infeasible WBS Defects (forces overall report Status to STATUS: INFEASIBLE) -->
 1. **[IMPASSE] <Issue Title 1>**:
@@ -117,9 +122,15 @@ Save evaluation to `<review_dir>/reports/Progress.md` via `write_to_file` using 
 
 ### Suggestions for Improvement (Non-blocking):
 
-Once your report is written, send a notification message back to Host via `send_message` confirming completion.
+1. **[Suggestion Title 1]**:
+   - **Target Scope**: `<Target_Scope>`
+   - **Observation**: <Concrete improvement rationale>
+   - **Code Snippet / Structured Spec**:
+     ```markdown
+     // Concrete snippet demonstrating the proposed WBS optimization or clean pattern
+     ```
 
-- <Optional roadmap polish or backlog consideration that does NOT block PASS status>
+Once your report is written, send a notification message back to Host via `send_message` confirming completion.
 
 ## Gate Response Protocol (Host Interaction)
 

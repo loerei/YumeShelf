@@ -5,6 +5,7 @@ export interface ElectronAPI {
     checkConfig: () => Promise<any>;
     setupLibrary: (type: string) => Promise<any>;
     updateLibraryConfig: (updates: any) => Promise<any>;
+    setFolderAlias: (folderPath: string, alias: string) => Promise<{ ok: boolean; config?: any; error?: string }>;
     addLibraryPath: () => Promise<any>;
     removeLibraryPath: (path: string) => Promise<any>;
     changeLibraryPath: (oldPath: string) => Promise<any>;

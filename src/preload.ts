@@ -6,6 +6,8 @@ const api: ElectronAPI = {
     checkConfig: () => ipcRenderer.invoke('check-config'),
     setupLibrary: (type: string) => ipcRenderer.invoke('setup-library', type),
     updateLibraryConfig: (updates: any) => ipcRenderer.invoke('update-library-config', updates),
+    setFolderAlias: (folderPath: string, alias: string) =>
+        ipcRenderer.invoke('library:set-folder-alias', { folderPath, alias }),
     addLibraryPath: () => ipcRenderer.invoke('library:add-path'),
     removeLibraryPath: (path: string) => ipcRenderer.invoke('library:remove-path', path),
     changeLibraryPath: (oldPath: string) => ipcRenderer.invoke('library:change-path', oldPath),

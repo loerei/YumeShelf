@@ -174,3 +174,79 @@ describe('LibraryIpcController - toggle-favorite', () => {
     });
 });
 
+describe('LibraryIpcController - library:set-folder-alias', () => {
+    let handlers: Map<string, (...args: any[]) => any>;
+    let mockIpcMain: any;
+    let mockLibraryState: any;
+    let controller: LibraryIpcController;
+
+    beforeEach(() => {
+        handlers = new Map();
+        mockIpcMain = {
+            handle: vi.fn((channel: string, handler: (...args: any[]) => any) => {
+                handlers.set(channel, handler);
+            }),
+            on: vi.fn(),
+        };
+
+        mockLibraryState = {
+            setFolderAlias: vi.fn(async (folderPath: string, alias: string) => ({
+                ok: true,
+                config: {
+                    libraryPaths: ['/games'],
+                    folderAliases: { [folderPath]: alias }
+                }
+            }))
+        };
+
+        controller = new LibraryIpcController({
+            ipcMain: mockIpcMain,
+            libraryState: mockLibraryState,
+        } as any);
+
+        controller.registerHandlers();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('rejects malformed or non-object payloads returning invalid-payload', async () => {
+        const handler = handlers.get('library:set-folder-alias');
+        expect(handler).toBeDefined();
+
+        const malformedPayloads = [
+            null,
+            undefined,
+            'not an object',
+            123,
+            [],
+            {},
+            { folderPath: '/games/rpg' },
+            { alias: 'My Alias' },
+            { folderPath: 123, alias: 'My Alias' },
+            { folderPath: '/games/rpg', alias: 123 },
+            { folderPath: null, alias: 'My Alias' }
+        ];
+
+        for (const payload of malformedPayloads) {
+            const res = await handler!({}, payload);
+            expect(res).toEqual({ ok: false, error: 'invalid-payload' });
+        }
+
+        expect(mockLibraryState.setFolderAlias).not.toHaveBeenCalled();
+    });
+
+    it('delegates valid payload to libraryState.setFolderAlias and returns result', async () => {
+        const handler = handlers.get('library:set-folder-alias');
+        expect(handler).toBeDefined();
+
+        const validPayload = { folderPath: '/games/my-game', alias: 'My Game Title' };
+        const result = await handler!({}, validPayload);
+
+        expect(mockLibraryState.setFolderAlias).toHaveBeenCalledWith('/games/my-game', 'My Game Title');
+        expect(result.ok).toBe(true);
+        expect(result.config?.folderAliases?.['/games/my-game']).toBe('My Game Title');
+    });
+});
+

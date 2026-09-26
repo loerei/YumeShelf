@@ -147,6 +147,20 @@ export class LibraryIpcController {
             return { ok: false, error: 'unauthorized-path' };
         });
 
+        ipcMain.handle('library:set-folder-alias', async (_event, payload: unknown) => {
+            if (
+                !payload ||
+                typeof payload !== 'object' ||
+                Array.isArray(payload) ||
+                typeof (payload as any).folderPath !== 'string' ||
+                typeof (payload as any).alias !== 'string'
+            ) {
+                return { ok: false, error: 'invalid-payload' };
+            }
+            const { folderPath, alias } = payload as { folderPath: string; alias: string };
+            return libraryState?.setFolderAlias(folderPath, alias);
+        });
+
         ipcMain.handle('library:add-path', async () => libraryState?.addLibraryPath());
         ipcMain.handle('library:remove-path', async (_event, targetPath) => libraryState?.removeLibraryPath(targetPath));
         ipcMain.handle('library:change-path', async (_event, oldPath) => libraryState?.changeLibraryPath(oldPath));

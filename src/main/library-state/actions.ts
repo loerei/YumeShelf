@@ -1,5 +1,14 @@
 import * as path from 'node:path';
-import { isPlainObject } from './scanner';
+import {
+    isPlainObject,
+    normalizeLibraryConfigShape,
+    type LibraryConfig
+} from './scanner';
+import {
+    normalizePathForPlatform,
+    isSubsumedBy,
+    type PlatformInput
+} from '../../shared/path-subsumption';
 import {
     normalizeGameRecord,
     buildLogicalGames,
@@ -270,4 +279,107 @@ export async function setSaveFolderOverride(context: any, gameKey: string, folde
     db.games = games;
     await saveDB(db);
     return { ok: true, saveFolderOverride: games[targetKey].saveFolderOverride || null };
+}
+
+export async function setFolderAlias(
+    context: any,
+    folderPath: string,
+    alias: string,
+    targetPlatform?: PlatformInput
+): Promise<{ ok: boolean; config?: LibraryConfig; error?: string }> {
+    const canonicalFolderPath = typeof folderPath === 'string'
+        ? normalizePathForPlatform(folderPath, targetPlatform)
+        : '';
+
+    const isUnsafeKey = (k: string) => {
+        const trimmed = k.trim().toLowerCase();
+        return trimmed === '__proto__' || trimmed === 'constructor' || trimmed === 'prototype';
+    };
+
+    if (
+        typeof folderPath !== 'string' ||
+        !folderPath.trim() ||
+        /\0|\r|\n/.test(folderPath) ||
+        isUnsafeKey(folderPath) ||
+        !canonicalFolderPath ||
+        isUnsafeKey(canonicalFolderPath)
+    ) {
+        console.warn('[SECURITY][SET_FOLDER_ALIAS] Blocked invalid folder path containing illegal characters or unsafe key:', { folderPath });
+        return { ok: false, error: 'invalid-folder-path' };
+    }
+
+    if (context.isDegraded?.() === true) {
+        console.warn('[LIBRARY_STATE][SET_FOLDER_ALIAS] Operation aborted: database is in DEGRADED state', { folderPath, alias });
+        return { ok: false, error: 'degraded-database' };
+    }
+
+    const { loadDB, saveDB, persistDbDirectly } = context;
+    const db = await loadDB();
+
+    if (context.isDegraded?.() === true) {
+        console.warn('[LIBRARY_STATE][SET_FOLDER_ALIAS] Operation aborted: database is in DEGRADED state', { folderPath, alias });
+        return { ok: false, error: 'degraded-database' };
+    }
+
+    const config = normalizeLibraryConfigShape(db.config, targetPlatform);
+    config.folderAliases = config.folderAliases || {};
+
+    const preExistingCanonicalKeys = new Set(
+        Object.keys(config.folderAliases).map((k) => normalizePathForPlatform(k, targetPlatform))
+    );
+    const isPreExisting = preExistingCanonicalKeys.has(canonicalFolderPath);
+
+    if (!isPreExisting) {
+        const isContained = (config.libraryPaths || []).some((root: string) =>
+            isSubsumedBy(canonicalFolderPath, root, targetPlatform)
+        );
+        if (!isContained) {
+            console.warn('[SECURITY][SET_FOLDER_ALIAS] Blocked unauthorized folder path outside library roots:', { folderPath });
+            return { ok: false, error: 'outside-library' };
+        }
+    }
+
+    const rawAlias = typeof alias === 'string' ? alias : '';
+    const cleanAlias = rawAlias
+        .replace(/[\r\n\t\x00-\x1f]/g, '')
+        .trim()
+        .slice(0, 255)
+        .trim();
+
+    const previousAliases = { ...(config.folderAliases || {}) };
+
+    if (!cleanAlias) {
+        if (Object.prototype.hasOwnProperty.call(config.folderAliases, canonicalFolderPath)) {
+            delete config.folderAliases[canonicalFolderPath];
+        }
+        for (const k of Object.keys(config.folderAliases)) {
+            if (normalizePathForPlatform(k, targetPlatform) === canonicalFolderPath) {
+                delete config.folderAliases[k];
+            }
+        }
+    } else {
+        for (const k of Object.keys(config.folderAliases)) {
+            if (k !== canonicalFolderPath && normalizePathForPlatform(k, targetPlatform) === canonicalFolderPath) {
+                delete config.folderAliases[k];
+            }
+        }
+        config.folderAliases[canonicalFolderPath] = cleanAlias;
+    }
+
+    db.config = config;
+
+    try {
+        const persistFn = persistDbDirectly || saveDB;
+        await persistFn(db);
+        return { ok: true, config };
+    } catch (err: any) {
+        config.folderAliases = previousAliases;
+        db.config = config;
+        console.error('[LIBRARY_STATE][SET_FOLDER_ALIAS] Failed to persist folder alias:', {
+            folderPath,
+            alias,
+            error: err
+        });
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
 }

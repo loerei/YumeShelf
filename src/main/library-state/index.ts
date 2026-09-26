@@ -65,7 +65,8 @@ export const {
     addPlaytime,
     finalizeTrackedSession,
     getGameRecord,
-    setSaveFolderOverride
+    setSaveFolderOverride,
+    setFolderAlias
 } = actions;
 
 /**
@@ -320,6 +321,7 @@ export function createLibraryState(options: LibraryContext) {
         toggleFavorite: (gameKey: string, targetFavorite?: boolean) => serializedQueue(() => toggleFavorite(context, gameKey, targetFavorite)),
         toggleRunInBackground: (gameKey: string) => serializedQueue(() => toggleRunInBackground(context, gameKey)),
         toggleAutoTranslate: (gameKey: string) => toggleAutoTranslate(context, gameKey),
+        setFolderAlias: (folderPath: string, alias: string, targetPlatform?: PlatformInput) => serializedQueue(() => setFolderAlias(context, folderPath, alias, targetPlatform || context.targetPlatform)),
         updateLibraryConfig: (updates: any, targetPlatform?: PlatformInput) => serializedQueue(() => updateLibraryConfig(context, updates, targetPlatform)),
         saveDB,
         loadDB,

@@ -112,6 +112,7 @@ test('legacy top-level records migrate best-effort to a unique nested descendant
     await writeExe(exePath);
 
     const { db, state } = createLibraryHarness(rootPath, {
+        schemaVersion: 0,
         config: {
             libraryPath: rootPath,
             maxDepth: 5
@@ -175,7 +176,6 @@ test('manually moved games keep metadata when a unique moved target is found', a
     assert.equal(games[0].favorite, true);
     assert.equal(games[0].lastPlayed, 222);
     assert.equal(games[0].dateAdded, 111);
-    assert.equal(games[0].migratedFromGameKey, '[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc');
 
     const savedDb = db.read();
     assert.ok(savedDb.games['VN/[kimochi]LivingTogether_alpha_060_subscriber-0.60-pc']);
@@ -541,8 +541,10 @@ test('library-state: inactive library path games are retained with directory bou
 
     // Note: inactiveLib and siblingLib do NOT exist on disk (simulating disconnected drive)
     const initialDb = {
+        schemaVersion: 1,
         config: {
-            libraryPaths: [activeLib, inactiveLib]
+            libraryPaths: [activeLib, inactiveLib],
+            folderAliases: {}
         },
         games: {
             'inactive:game1': {

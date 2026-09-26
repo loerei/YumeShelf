@@ -58,11 +58,11 @@ export function buildLegacyMigrationMap(candidates: any[], legacyGames: any[]): 
     return migrationMap;
 }
 
-export function mapStoredGamesByFolderPath(storedGames: Record<string, any>): Map<string, any> {
+export function mapStoredGamesByFolderPath(storedGames: Record<string, any>, targetPlatform: NodeJS.Platform = process.platform): Map<string, any> {
     const result = new Map<string, any>();
     for (const [gameKey, record] of Object.entries(storedGames)) {
         if (!record || typeof record.folderPath !== 'string') continue;
-        result.set(normalizePathForComparison(record.folderPath), { gameKey, ...record });
+        result.set(normalizePathForComparison(record.folderPath, targetPlatform), { gameKey, ...record });
     }
     return result;
 }
@@ -71,18 +71,19 @@ export interface MoveMigrationOptions {
     candidates: any[];
     libraryPath: string;
     storedGames: Record<string, any>;
+    targetPlatform?: NodeJS.Platform;
 }
 
-export function buildMoveMigrationMap({ candidates, libraryPath, storedGames }: MoveMigrationOptions): Map<string, any> {
-    const candidateGameKeys = new Set(candidates.map((candidate) => buildGameKey(libraryPath, candidate.folderPath)));
-    const candidateFolderPaths = new Set(candidates.map((candidate) => normalizePathForComparison(candidate.folderPath)));
+export function buildMoveMigrationMap({ candidates, libraryPath, storedGames, targetPlatform = process.platform }: MoveMigrationOptions): Map<string, any> {
+    const candidateGameKeys = new Set(candidates.map((candidate) => buildGameKey(libraryPath, candidate.folderPath, targetPlatform as any)));
+    const candidateFolderPaths = new Set(candidates.map((candidate) => normalizePathForComparison(candidate.folderPath, targetPlatform)));
     const orphanedRecordsBySignature = new Map<string, any[]>();
     const unmatchedCandidatesBySignature = new Map<string, any[]>();
 
     for (const [gameKey, record] of Object.entries(storedGames)) {
         if (!record || typeof record.folderPath !== 'string' || typeof record.exePath !== 'string') continue;
         if (candidateGameKeys.has(gameKey)) continue;
-        if (candidateFolderPaths.has(normalizePathForComparison(record.folderPath))) continue;
+        if (candidateFolderPaths.has(normalizePathForComparison(record.folderPath, targetPlatform))) continue;
 
         const signature = buildContinuitySignature({ gameKey, ...record });
         if (!signature) continue;
@@ -108,7 +109,7 @@ export function buildMoveMigrationMap({ candidates, libraryPath, storedGames }: 
     for (const [signature, records] of orphanedRecordsBySignature.entries()) {
         const candidatesForSignature = unmatchedCandidatesBySignature.get(signature) || [];
         if (records.length !== 1 || candidatesForSignature.length !== 1) continue;
-        migrationMap.set(normalizePathForComparison(candidatesForSignature[0].folderPath), records[0]);
+        migrationMap.set(normalizePathForComparison(candidatesForSignature[0].folderPath, targetPlatform), records[0]);
     }
 
     return migrationMap;

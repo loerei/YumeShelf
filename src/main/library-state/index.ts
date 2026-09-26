@@ -308,7 +308,7 @@ export function createLibraryState(options: LibraryContext) {
         addPlaytime: (gameKey: string, durationMs: number) => serializedQueue(() => addPlaytime(context, gameKey, durationMs)),
         finalizeTrackedSession: (gameKey: string, durationMs: number, endedAt: number, exePath?: string) => serializedQueue(() => finalizeTrackedSession(context, gameKey, durationMs, endedAt, exePath)),
         getGameRecord: (gameKey: string) => getGameRecord(context, gameKey),
-        loadGamesForConfig: (config: any) => loadGamesForConfig(context, config),
+        loadGamesForConfig: (config: any, targetPlatform?: PlatformInput) => loadGamesForConfig(context, config, targetPlatform || context.targetPlatform),
         renameGame: (gameKey: string, newName: string) => serializedQueue(() => renameGame(context, gameKey, newName)),
         resolveLibraryConfig: (targetPlatform?: PlatformInput) => serializedQueue(() => resolveLibraryConfig(context, targetPlatform)),
         resolveLibraryFolderToOpen: () => resolveLibraryFolderToOpen(context),

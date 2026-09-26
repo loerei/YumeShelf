@@ -52,11 +52,6 @@ When updating draft artifacts between iterations, integrate fixes directly into 
 - Strip review-iteration delta markers (e.g. `[UPDATED]`, `[FIXED]`, `[ADDED IN ROUND N]`, `[RESOLVED]`). Preserve standard `AGENTS.md` plan action tags (`[NEW]`, `[MODIFY]`, `[DELETE]`).
 - Remove internal changelogs, version history tables (`v1.x`), or review feedback references.
 - Normalize tone and detail level across all sections to eliminate defensive patching markers.
-- **Target Files Code Integration Topology**: Place verified code remediations and suggestions under `## Target Files` grouped by target file path and file action tag:
-  - `### [MODIFY] <filepath>`: Explicit `diff` code blocks (`+` and `-` lines) showing exact replacements.
-  - `### [NEW] <filepath>`: Pure code blocks containing the clean file source.
-  - `### [DELETE] <filepath>`: No code block required; specify removal rationale only.
-  Do NOT scatter raw code blocks across `## What to build` or `## Acceptance Criteria`.
 
 ### 1.4 Cross-Referenced DA & Dependency Lineage Semantics
 When evaluating a target DA with cross-referenced dependencies in `Context.md`, Host and reviewers MUST strictly follow these invariant semantics:
@@ -350,11 +345,6 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
 1. **Pre-Mutation Backups**: Host creates temporary sibling `<da_stem>.bak.md` copies (replacing trailing `.md` with `.bak.md` in its parent directory, e.g. `<dirname>/<stem>.bak.md`, matching `Context.md` -> `Context.bak.md`) before mutating any target DA. If WBS restructuring deletes a DA file, Host copies it to `<da_stem>.bak.md` before physical deletion. If WBS restructuring alters `## Target Directive Artifacts` in `Context.md`, Host creates `<review_dir>/Context.bak.md`.
 2. **In-Place DA Mutation**:
    - Host directly applies verified remediations from accepted `<Role>.md` reports into target Directive Artifact(s) using Clean & Neutral Artifact Protocol (§1.3). If applying non-blocking suggestions into the target DA, Host MUST document every applied suggestion in `Analyzation.md`.
-   - **Target Files Code Integration Topology**: When integrating verified code remediations and suggestions into target Directive Artifact(s) (tickets/PRDs), Host MUST NOT scatter raw code blocks across `## What to build` or `## Acceptance Criteria`. All concrete code modifications MUST be aggregated under `## Target Files` grouped by target file path and file action tag:
-     - `### [MODIFY] <filepath>`: Concrete `diff` code blocks (`+` and `-` lines) showing exact replacements.
-     - `### [NEW] <filepath>`: Pure code blocks containing the full source of newly created files.
-     - `### [DELETE] <filepath>`: No code block (state deletion rationale only).
-     `## What to build` retains problem formulation, business context, and domain invariants; `## Acceptance Criteria` retains testable verification criteria; `## Target Files` acts as the sole, authoritative implementation ground truth for the AI implementer.
    - **Boundary Contract Symmetry & Coherence Verification**: Host verifies that boundary modifications include symmetrical updates across internal endpoints, and that dependent sections (e.g. `Verification Plan` test assertions) are synchronized per `HOW-TO-GATE.md`.
    - **DA File Tree Synchronization**: If accepted feedback splits, merges, creates, or deletes DA files (e.g. Progress Reviewer WBS actions), Host directly creates/restructures the files on disk and updates `## Target Directive Artifacts` in `<review_dir>/Context.md`.
 3. **Write Verification & Abort Recovery**: Host verifies on disk that all DA mutations and restructured files were successfully written and are non-empty.

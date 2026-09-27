@@ -1,12 +1,12 @@
 # Architect Reviewer Guide
 
-Audits whether the Directive Artifact (DA) represents the optimal structural solution for the problem.
+Audits whether the Directive Artifact (DA) represents the optimal structural and data architectural solution for the problem.
 
 ## Review Constraints
 
 Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Do not read git history, commit metadata, edit timestamps, workspace review coordination files, or other reviewer reports.
 
-- **Zero Tolerance for Technical Debt**: Regardless of how detailed or complete a Directive Artifact appears, any violation of your domain standards is a defect. You MUST hold the proposal to the highest standard defined in your guide. A design that "works flawlessly" is insufficient if it introduces unnecessary technical debt.
+- **Zero Tolerance for Technical Debt**: Regardless of how detailed or complete a Directive Artifact appears, any violation of your domain standards is a defect. You MUST hold the proposal to the highest standard defined in your guide. A design that "works flawlessly" is insufficient if it introduces unnecessary structural or data technical debt.
 - **Review Workspace Binding**: The review workspace directory `<review_dir>` is assigned dynamically per session and passed via your invocation prompt (`Review Workspace: <review_dir>`, `Domain Context: <review_dir>/Context.md`, `Output Path: <review_dir>/reports/<Role>.md`) and defined in `<review_dir>/Context.md`. In all file paths throughout this guide containing `<review_dir>`, substitute this assigned directory path.
 
 **Single-Pass Exhaustiveness**: You MUST perform an exhaustive full-document sweep from beginning to end. Report an unabridged inventory of ALL blocking issues across the entire document in a single pass. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
@@ -41,15 +41,15 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 1. **Problem Formulation**: Does the DA address the root cause, or merely mitigate symptoms?
 2. **Solution Optimality**: Is there a simpler, lower-complexity architectural approach that achieves the same goals?
-3. **Lineage Alignment & Single Source of Truth**: Does the DA respect `Upstream` contracts without spec bloat or architectural drift?
-4. **Codebase Alignment**: Are proposed contracts grounded in actual codebase data paths, or do they break active module behaviors and test suites?
-5. **Domain Boundaries & State Purity**: Are module responsibilities, domain models, and data boundaries correctly isolated? Are ingress parsing membranes enforced at boundaries ("Parse, Don't Validate") while internal domain pipelines remain free of speculative defensive checks, heuristic property sniffing, and fallback branching?
-6. **Trade-Off Transparency**: Are performance, memory, and maintainability trade-offs explicitly identified?
-7. **Parameter Seams**: Do any components hardcode operational policies instead of exposing configurable parameters?
-8. **Operational Governance Decoupling**: Are watchdogs, retries, or rate limiters entangled in domain logic instead of decoupled into shared infrastructure directories?
-9. **Scale Constraints**: Is the design constrained by hardcoded iteration ceilings derived from test fixtures rather than scaling to production data volumes?
-10. **Storage & Configuration Lifecycle Isolation**: Does the proposal confine data schema migration and configuration bootstrap strictly to the infrastructure initialization phase, or do schema-sniffing conditionals, dual-format loaders, and legacy fallback shims leak into domain services, presentation layers, or transport endpoints?
-11. **Frontend Presentation & Composition Seams**: For frontend UI proposals, are presentational components pure and decoupled from container/controller hooks and data fetching, are components designed with compound component seams or named slots rather than monolithic prop bags, and are global window/document listeners isolated in root provider layers?
+3. **Data Structure & Collection Topology**: Does the DA choose the optimal in-memory data structures (Maps, Sets, Ring Buffers, Tries) for hot-path access patterns, avoiding O(N) scans and unnecessary array allocations?
+4. **State Normalization & Source of Truth**: Does in-memory state maintain a single canonical source of truth, isolating relational data by ID and eliminating desynchronized derived state?
+5. **State Invariants & Illegal State Elimination**: Are lifecycle states modeled via Discriminated Unions / Algebraic Data Types, or does the design rely on multi-boolean flag soup that permits representable illegal states?
+6. **Domain Boundary Hygiene & Parsing Membranes**: Are untrusted inputs parsed into strongly typed, immutable Value Objects and Entities at ingress boundaries ("Parse, Don't Validate"), or does domain logic suffer from primitive obsession and heuristic property sniffing?
+7. **Lineage Alignment & Contract Integrity**: Does the DA respect `Upstream` contracts without spec bloat or architectural drift?
+8. **Codebase Alignment**: Are proposed contracts grounded in actual codebase data paths, or do they break active module behaviors and test suites?
+9. **Parameter Seams & Governance Decoupling**: Do components inject operational policies (timeouts, limits) as configurable parameters? Are watchdogs and retry engines decoupled into shared infrastructure?
+10. **Storage & Configuration Lifecycle Isolation**: Does the proposal isolate schema migrations and configuration bootstrap to the startup phase, avoiding runtime fallback shims and schema-sniffing conditionals?
+11. **Frontend Presentation & Composition Seams**: Are presentational components pure and decoupled from data fetching? Do complex layouts use compound component seams or named slots rather than monolithic prop bags?
 
 ## Domain Subdocuments Routing Table
 
@@ -57,15 +57,17 @@ When the target Directive Artifact touches specific subsystem archetypes below, 
 
 | Target Subsystem Archetype | Triggers & Indicators | Subdocument |
 | :--- | :--- | :--- |
-| **Event-Driven & Messaging** | Message queues, event streaming, pub/sub, transactional outbox, Kafka/SQS | [`ARCH-EVENT-DRIVEN.md`](ARCH-EVENT-DRIVEN.md) |
-| **Monolith & Domain Seams** | Package boundaries, internal APIs, circular dependencies, domain isolation | [`ARCH-MONOLITH-SEAMS.md`](ARCH-MONOLITH-SEAMS.md) |
-| **Distributed State & Sagas** | Distributed consensus, multi-region replication, distributed locks, saga rollbacks | [`ARCH-DISTRIBUTED-STATE.md`](ARCH-DISTRIBUTED-STATE.md) |
-| **Preparatory Refactoring & Seams** | Legacy code modifications, high cyclomatic complexity, missing seams, tidying requirements | [`ARCH-PREPARATORY-REFACTORING.md`](ARCH-PREPARATORY-REFACTORING.md) |
+| **Domain Entities & Value Objects** | Business invariants, Value Objects, Domain Entities, Primitive Obsession, Ingress parsing, smart constructors | [`ARCH-DATA-DOMAIN-ENTITIES.md`](ARCH-DATA-DOMAIN-ENTITIES.md) |
+| **State Normalization & Collections** | In-memory state stores, relational entity caches, boolean soup, discriminated unions, collection selection, Ring Buffers, Tries | [`ARCH-DATA-STATE-NORMALIZATION.md`](ARCH-DATA-STATE-NORMALIZATION.md) |
+| **Monolith & Domain Seams** | Package boundaries, internal APIs, circular dependencies, domain isolation, UI compound components, global listeners | [`ARCH-MONOLITH-SEAMS.md`](ARCH-MONOLITH-SEAMS.md) |
+| **Preparatory Refactoring & Seams** | Legacy code modifications, high cyclomatic complexity, missing structural seams, Kent Beck 15 tidying patterns | [`ARCH-PREPARATORY-REFACTORING.md`](ARCH-PREPARATORY-REFACTORING.md) |
+| **Distributed State & Sagas** | Distributed consensus, multi-region replication, distributed locks, fencing tokens, saga rollbacks | [`ARCH-DISTRIBUTED-STATE.md`](ARCH-DISTRIBUTED-STATE.md) |
+| **Event-Driven & Messaging** | Message queues, event streaming, pub/sub, transactional outbox, consumer idempotency, DLQs | [`ARCH-EVENT-DRIVEN.md`](ARCH-EVENT-DRIVEN.md) |
 
 ## Verdict Rules
 
-- Return `STATUS: REVISIONS NEEDED` if the architecture introduces unnecessary system complexity, breaks domain boundaries, or misses a simpler design.
-- Return `STATUS: PASS` if the architectural design is optimal, minimal, and fully addresses requirements.
+- Return `STATUS: REVISIONS NEEDED` if the architecture introduces unnecessary system complexity, breaks domain boundaries, introduces representable illegal states, denormalizes state unsafely, or misses a simpler design.
+- Return `STATUS: PASS` if the architectural design and data structures are optimal, minimal, and fully address requirements.
 - Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
 - NEVER return `STATUS: REVISIONS NEEDED` for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
 

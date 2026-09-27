@@ -28,7 +28,7 @@
 - [ ] Storage & Configuration Lifecycle Isolation: Verify that data schema migrations and configuration parsing execute exclusively within an isolated bootstrap phase at application startup. Reject directive artifacts where UI views, renderers, application loaders, or domain handlers contain transient migration flags, schema-sniffing conditionals, ad-hoc backfill logic, or dual-format configuration loaders.
 
 ### 7. Ingress Boundaries & Contract Integrity
-- [ ] Ingress Parsing: Untrusted external data (network payloads, user inputs, file imports) must be parsed into strongly typed, immutable domain models at the boundary. Internal domain logic must assume valid state and must NOT execute defensive property sniffing or cascading fallbacks.
+- [ ] Macro Boundary Enforcement: Untrusted external data entering module seams must pass through typed facade boundaries. For deep domain entity modeling and ingress schema parsing rules, see [`ARCH-DATA-DOMAIN-ENTITIES.md`](ARCH-DATA-DOMAIN-ENTITIES.md).
 - [ ] Error Classification: Explicitly separate recoverable operational errors (network timeouts, transient I/O faults) from unrecoverable programming bugs / contract breaches (assertion failures, invariant breaches, null reference bugs). Operational errors use explicit domain error returns or typed exceptions; programming bugs fail fast.
 
 ### 8. Frontend Presentation & Orchestration Seams
@@ -201,24 +201,30 @@ class OrderProcessor {
 }
 ```
 
-### Anti-Pattern 7: Heuristic Fallback Sniffing Inside Domain Logic vs. Boundary Parsing
+### Anti-Pattern 7: Macro Boundary Bypassing via Direct Module Leaks
 
 ```typescript
-// BAD: Defensive property sniffing and cascading fallbacks inside domain logic
-function processUserProfile(raw: Record<string, any>) {
-  const email = raw.email ?? raw.user_email ?? raw.contact?.email ?? "unknown@domain.com";
-  return { email };
+// BAD: Calling internal private subsystem services bypassing the public module facade.
+import { OrderRepository } from "../orders/internal/order-repository";
+import { TaxCalculator } from "../orders/internal/tax-calculator";
+
+class CheckoutController {
+  async checkout(orderId: string) {
+    const repo = new OrderRepository();
+    const tax = new TaxCalculator();
+    // Bypasses OrderModule public API and couples to internal implementation details
+  }
 }
 
-// GOOD: Untrusted ingress parsed into immutable schema at boundary; domain consumes valid type
-const UserProfileSchema = z.object({
-  email: z.string().email(),
-}).strict();
+// GOOD: Communication routes exclusively through public facades exposing stable contracts.
+import { OrderServiceFacade, CheckoutRequestDTO } from "../orders/public";
 
-type UserProfile = z.infer<typeof UserProfileSchema>;
+class CheckoutController {
+  constructor(private readonly orderService: OrderServiceFacade) {}
 
-function processUserProfile(profile: UserProfile) {
-  return { email: profile.email };
+  async checkout(request: CheckoutRequestDTO) {
+    return this.orderService.processCheckout(request);
+  }
 }
 ```
 

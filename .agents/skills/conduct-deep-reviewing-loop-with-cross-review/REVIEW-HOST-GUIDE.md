@@ -52,6 +52,7 @@ When updating draft artifacts between iterations, integrate fixes directly into 
 - Strip review-iteration delta markers (e.g. `[UPDATED]`, `[FIXED]`, `[ADDED IN ROUND N]`, `[RESOLVED]`). Preserve standard `AGENTS.md` plan action tags (`[NEW]`, `[MODIFY]`, `[DELETE]`).
 - Remove internal changelogs, version history tables (`v1.x`), or review feedback references.
 - Normalize tone and detail level across all sections to eliminate defensive patching markers.
+- **Zero-Loss Integration**: Integrate all accepted issues or suggestions from `<Role>.md` into the DA without omission or semantic drift. Do not paraphrase concrete contracts or code blocks into abstract prose, and do not invent code or specification requirements beyond what was accepted in `<Role>.md`.
 
 ### 1.4 Cross-Referenced DA & Dependency Lineage Semantics
 When evaluating a target DA with cross-referenced dependencies in `Context.md`, Host and reviewers MUST strictly follow these invariant semantics:

@@ -17,6 +17,7 @@ Audit target files and landing zones across 4 distinct quality axes:
 1. **Maintainability (Locality & Cohesion)**:
    - *Deep Module Test*: Target module conceals internal state and business rules behind a simple interface; callers are not forced to orchestrate steps.
    - *Cohesion Order*: Logic related to the incoming change is concentrated in one place; shotgun-surgery caller edits are eliminated.
+   - *Cohesive Task Locality*: Keep logic for a single task unified. Do not split functions solely for line count or branch nesting unless separating mixed concerns (e.g. business logic from transport/storage) or creating an interface seam.
 2. **Extensibility (Structural Seams & Adapters)**:
    - *Seam Identification*: A clean structural seam exists (dependency injection, strategy pattern) to inject new behavior without modifying stable callers.
    - *Adapter Isolation*: Domain logic is isolated from transport (HTTP/IPC/gRPC) and storage (SQL/NoSQL) layers via adapters.

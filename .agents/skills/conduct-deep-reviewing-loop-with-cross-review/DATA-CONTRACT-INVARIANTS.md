@@ -9,6 +9,7 @@ Audits cross-tier serialization, schema version registers, and payload boundarie
 * [ ] Precision-Preserving Types: Verify financial, cryptographic, and high-precision numeric values are stored as integers (cents/basis points) or strings, not IEEE 754 floats.
 * [ ] Non-Destructive Enum Evolution: Confirm enum alterations add new variants without re-ordering existing integer mappings or narrowing string unions.
 * [ ] Bidirectional Lineage Contract: Ensure schema additions do not mutate or overwrite fields owned by upstream Directive Artifacts without merge semantics.
+* [ ] Multi-Tier Storage Namespace Isolation: In multi-process systems (e.g., Electron, Local-First PWA), verify each independent storage medium (disk DB, browser `localStorage`, file cache) maintains a separate, distinctly namespaced version register and migration runner. Reject designs assuming a backend database version covers or substitutes for client-side persistence.
 
 ## Concrete Anti-Patterns
 

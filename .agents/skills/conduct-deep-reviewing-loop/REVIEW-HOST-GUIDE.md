@@ -137,6 +137,7 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
 - Validate `<review_dir>/Context.md` (verifying target DA, dependency lineage table, active modifiers, and criteria) without overwriting criteria or `SP`.
 
 ### Step 2: DAG Routing & Targeted Execution
+- **Single-Round Host Invariant**: A Host instance is strictly ephemeral and executes ONE review round. Under no circumstances may a Host instance initiate, launch, or execute a new or subsequent round (Round N+1). Round transitions are strictly orchestrated by Layer 1.
 - **Targeted Round (Round N+1)**: If previous `host/State.md` recorded `Gate Verdict: ROUND_REVISION_NEEDED`:
   - Reset `PassCount = 0`.
   - Read `Highest Modified Tier` from previous `host/State.md`. If the line is missing, unparseable, or malformed, gracefully fallback to `Layer 3.1`.
@@ -151,13 +152,13 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
 ### Step 3: Subagent Execution & Batch Invocation
 - Host summons active Layer 3 subagents using the invariant template in Section 2.
 - Parallel roles within the same DAG tier (e.g. `Logic`, `Edgecase`, `Performance`, `Observability` in Layer 3.3) MUST be launched simultaneously in a single `invoke_subagent` call.
-- Host initializes tracking set `PendingTierRoles` containing all active roles in the tier batch, initializes per-role counter `ProbeCount[role] = 0`, and arms a 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on reviewers liveness", TimerCondition="any")`.
+- Host initializes tracking set `PendingTierRoles` containing all active roles in the tier batch, initializes per-role counter `ProbeCount[role] = 0`, and arms a 600s liveness check timer via `schedule(DurationSeconds=600, Prompt="Check on reviewers liveness", TimerCondition="any")`.
 - **Asynchronous Reactive Wakeup Handling**:
   - If `<review_dir>/reports/<Role>.md` exists on disk: Host removes that reviewer from `PendingTierRoles`.
   - If report does not exist on disk but message is an active confirmation: Host resets `ProbeCount[role] = 0`, does NOT remove reviewer from `PendingTierRoles`, re-arms timer, and continues waiting.
-  - If `PendingTierRoles` is non-empty: Host re-arms the 180s timer, does NOT inspect reports or advance to Step 4, and ends turn to continue waiting.
+  - If `PendingTierRoles` is non-empty: Host re-arms the 600s timer, does NOT inspect reports or advance to Step 4, and ends turn to continue waiting.
 - **Liveness Timer Expiry Escalation**:
-  If 180s timer expires while `PendingTierRoles` is non-empty:
+  If 600s timer expires while `PendingTierRoles` is non-empty:
   1. Inspect subagents via `manage_subagents(Action="list")`.
   2. If a reviewer's state is `running`, Host MUST NOT send any message. Re-arm timer and let it continue working.
   3. If `idle` and report exists on disk: Treat as complete and remove from `PendingTierRoles`.
@@ -165,14 +166,15 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
      - `ProbeCount[role] == 0`: Host sends Probe 1 via `send_message` (`"Status probe: Detected idle state. If you have a running background script, check its status via manage_task. Once your audit is finished, write your report to <review_dir>/reports/<Role>.md and notify Host."`), and sets `ProbeCount[role] = 1`.
      - `ProbeCount[role] == 1`: Host sends Probe 2 via `send_message` (`"Status probe (confirm active status immediately via send_message): Detected idle state. Once your audit is finished, write your report to <review_dir>/reports/<Role>.md and notify Host."`), and sets `ProbeCount[role] = 2`.
      - `ProbeCount[role] >= 2` and reviewer remained idle with no confirmation: Host concludes reviewer is unrecoverable, inspects transcript/task logs, terminates it via `manage_subagents(Action="kill")`, resets `ProbeCount[role] = 0`, and respawns that specific reviewer.
-  5. If `PendingTierRoles` remains non-empty, re-arm 180s timer and end turn.
+  5. If `PendingTierRoles` remains non-empty, re-arm 600s timer and end turn.
 - **Quota Interruption & Mid-Flight Resume**:
-  When Host resumes execution following a quota interruption, server restart, or resume signal from Layer 1:
+  When Host resumes execution following a quota interruption, server restart, context compaction, or resume signal:
+  > **Invariant Instruction**: Upon receiving resuming command: Check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round.
   1. Host inspects existing subagents via `manage_subagents(Action="list")`.
   2. For any role in `PendingTierRoles` without a report on disk:
      - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your audit and write your report to <review_dir>/reports/<Role>.md, then notify Host via send_message."`). Host MUST NOT call `manage_subagents(Action="kill")` or re-invoke that role.
      - **Kill/Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host summon a new subagent for that role. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host terminates it via `manage_subagents(Action="kill")` and respawns that specific reviewer.
-  3. Re-arm 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
+  3. Re-arm 600s liveness check timer via `schedule(DurationSeconds=600, Prompt="Check on reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
 - Only when `PendingTierRoles` is empty does Host proceed to Step 4.
 
 ### Step 4: Tier Batch Gate & Reviewer Negotiation
@@ -185,7 +187,7 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
 - **Gated Negotiation Loop**:
   1. Host records `GatingIssuedTimestamp = current_time`, invalidates any stale `<review_dir>/reports/<Role>_Explain.md` on disk (via deletion or overwriting with empty content), and authors `<review_dir>/reports/<Role>_Gated_Issues.md` for each affected role simultaneously per `HOW-TO-GATE.md`. Single top-level `## Required Reviewer Action` block at top of file, followed by `## Gated Issues`. Host MUST NOT suggest fix solutions or code snippets, and MUST NOT repeat action choices per individual issue.
   2. Host initializes `PendingGatedRoles` containing all gated roles in the tier batch, and initializes `ProbeCount[role] = 0`.
-  3. Host notifies gated reviewers in a single wave via `send_message`, and arms a 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on gated reviewers liveness", TimerCondition="any")`.
+  3. Host notifies gated reviewers in a single wave via `send_message`, and arms a 600s liveness check timer via `schedule(DurationSeconds=600, Prompt="Check on gated reviewers liveness", TimerCondition="any")`.
   4. **Asynchronous Reactive Wakeup Handling**:
      - To de-queue a role from `PendingGatedRoles` during reactive wakeups, Host MUST verify that: (1) A newly authored `<Role>_Explain.md` exists on disk with modification timestamp strictly greater than gating issue (`mtime > GatingIssuedTimestamp`), OR (2) The file modification timestamp (`mtime`) of `<Role>.md` is strictly greater than `GatingIssuedTimestamp` (`mtime > GatingIssuedTimestamp`), OR (3) An explicit completion message confirming the update has been received from that reviewer's conversation ID via `send_message` subsequent to `GatingIssuedTimestamp`. Host MUST NOT check mere file existence of `<Role>.md`.
      - **Impasse Early-Exit Exception**: If a de-queued role updates `<Role>.md` with `STATUS: INFEASIBLE` or authors `<Role>_Explain.md` defending an impasse, Host MUST NOT wait for `PendingGatedRoles` to become empty; Host immediately inspects the impasse proof. If verified per Principle 9, Host terminates all active reviewer subagents for the current tier batch via process control (`manage_subagents` with `Action: "kill"`), cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7. If the impasse proof is NOT verified (remains speculative or ungrounded), Host MUST NOT re-gate prematurely or message the reviewer while `PendingGatedRoles` is non-empty; Host keeps the role de-queued, re-arms the timer, and continues waiting until `PendingGatedRoles` is empty to perform standard batch re-evaluation under Item 7.
@@ -200,18 +202,19 @@ Host executes Layer 3 reviewers in dependency order across the active selected r
          `You are the <Role> Reviewer for Directive Artifact verification. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. Domain Context: <review_dir>/Context.md. Review Guide: <guide_path>. Output Path: <review_dir>/reports/<Role>.md. Your report was gated in <review_dir>/reports/<Role>_Gated_Issues.md. Apply the Gate Response Protocol per HOW-TO-GATE.md to update your report.`
      - If `PendingGatedRoles` non-empty: Re-arm timer and end turn.
   - **Quota Interruption & Mid-Flight Resume**:
-    When Host resumes execution following a quota interruption, server restart, or resume signal from Layer 1 during tier batch negotiation:
+    When Host resumes execution following a quota interruption, server restart, context compaction, or resume signal:
+    > **Invariant Instruction**: Upon receiving resuming command: Check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round.
     1. Host inspects existing subagents via `manage_subagents(Action="list")`.
     2. For any role in `PendingGatedRoles` without updated reports on disk:
        - **Resume Interrupted Subagent**: If the reviewer's conversation ID exists, send a resume message via `send_message` (`"System resumed from interruption. Please continue your gate response per <review_dir>/reports/<Role>_Gated_Issues.md, update your report, and notify Host via send_message."`). Host MUST NOT call `manage_subagents(Action="kill")` or re-invoke that role.
        - **Kill/Respawn Exception**: Only if the subagent conversation is completely missing from `manage_subagents(Action="list")` may Host respawn that specific reviewer. If after revival the subagent remains unrecoverable (exceeding Probe 2 liveness escalation), Host terminates it via `manage_subagents(Action="kill")` and respawns.
-    3. Re-arm 180s liveness check timer via `schedule(DurationSeconds=180, Prompt="Check on gated reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
+    3. Re-arm 600s liveness check timer via `schedule(DurationSeconds=600, Prompt="Check on gated reviewers liveness", TimerCondition="any")` and end turn to await reactive wakeups.
   - Only when `PendingGatedRoles` is empty does Host proceed to re-evaluate updated `<Role>.md` and `<Role>_Explain.md` reports.
   6. **Reviewer Response Actions**: Reviewers apply one of three actions per `HOW-TO-GATE.md` (Refine/Complete as Requested, Remove, or Reject Gating/Removal and Explain).
   7. **Re-Evaluation & Stale Defense Loop**:
      - If Host agrees with a reviewer's explanation in `<Role>_Explain.md` and updated `<Role>.md` substantiating a verified technical impasse (`STATUS: INFEASIBLE`), Host MUST NOT continue waiting for other sibling roles in that tier batch; Host immediately terminates all remaining active reviewer subagents for the tier batch via process control (`manage_subagents` with `Action: "kill"`), cancels downstream tiers for that round, sets `Gate Verdict: PLAN_INFEASIBLE`, resets `PassCount = 0`, and transitions directly to Step 7.
      - If Host agrees with a fixable defect update or removal: do not send a confirmation message.
-     - If issue remains ungrounded or explanation in `<Role>_Explain.md` is stale without differing/deeper proof: Reviewer must accept removal or refine into abstract spec; reviewer MUST NOT re-assert stale arguments. Host updates `<review_dir>/reports/<Role>_Gated_Issues.md` via `write_to_file` detailing why previous explanation was rejected as stale, refreshes `GatingIssuedTimestamp = current_time`, invalidates stale `<Role>_Explain.md`, re-populates `PendingGatedRoles` with re-gated roles, resets `ProbeCount[role] = 0` for each re-gated role, sends notifications via `send_message`, re-arms 180s timer, and awaits response.
+     - If issue remains ungrounded or explanation in `<Role>_Explain.md` is stale without differing/deeper proof: Reviewer must accept removal or refine into abstract spec; reviewer MUST NOT re-assert stale arguments. Host updates `<review_dir>/reports/<Role>_Gated_Issues.md` via `write_to_file` detailing why previous explanation was rejected as stale, refreshes `GatingIssuedTimestamp = current_time`, invalidates stale `<Role>_Explain.md`, re-populates `PendingGatedRoles` with re-gated roles, resets `ProbeCount[role] = 0` for each re-gated role, sends notifications via `send_message`, re-arms 600s timer, and awaits response.
   8. **Gating Artifact Cleanup**: When Host accepts an updated role report, Host deletes `<Role>_Gated_Issues.md` and any `<Role>_Explain.md` for that role (idempotently handling missing files).
 - Once all roles in the tier batch are resolved, Host terminates that tier's reviewer subagents via process control (`manage_subagents` with Action: `kill`) and advances to the next tier (or transitions to Step 7 under `PLAN_INFEASIBLE` if a verified impasse was established, or triggers early suspension under `ROUND_REVISION_NEEDED` if any role retains accepted blocking defects).
 

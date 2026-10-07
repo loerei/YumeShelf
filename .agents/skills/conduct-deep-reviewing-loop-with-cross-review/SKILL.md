@@ -108,11 +108,11 @@ Invoke the registered `review_host` subagent via `invoke_subagent`:
 - `Role`: `"Review Host & Critical Gate"`
 - `Prompt`:
   - **Round 1 (Initial)**:
-    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution, you MUST re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
+    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution: Upon receiving resuming command, check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round. Re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
   - **Round N+1 (Targeted or Full Sweep)**:
-    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. State: <review_dir>/host/State.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution, you MUST re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
+    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. State: <review_dir>/host/State.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution: Upon receiving resuming command, check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round. Re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
 
-### Step 3: Handle Host Verdict
+### Step 3: Handle Host Verdict [FOR LAYER 1 ONLY]
 
 Read `<review_dir>/host/Analyzation.md` and `<review_dir>/host/State.md`.
 
@@ -124,7 +124,7 @@ Read `<review_dir>/host/Analyzation.md` and `<review_dir>/host/State.md`.
 | `ROUND_PASS` | Layer 1 deletes `<review_dir>/host/Analyzation.md` (preserving `<review_dir>/host/State.md`), terminates prior `review_host` via `manage_subagents(Action="kill")`, and re-spawns Layer 2 Host for next Full Sweep round on unchanged DA. |
 | `FINAL_PASS` | Conclude review loop (`PassCount >= SP`). Layer 1 terminates `review_host` via `manage_subagents(Action="kill")`. Read `<review_dir>/host/Analyzation.md` to confirm verified clearance, present verified DA to user, and execute final isolated directory purge of `<repo-root>/<review_dir>/*` (preserving other active review workspaces). |
 
-#### Pause Gate Protocol (!PA / !WA)
+#### Pause Gate Protocol (!PA / !WA) [FOR LAYER 1 ONLY]
 When `ROUND_REVISION_NEEDED` occurs under `!PA` / `!WA`:
 - Output standardized quota pause message:
   `> "Paused per !PA request. Verified mutations were applied directly to target DA(s). Please check your API quota status or inspect diff against <da_stem>.bak.md. Send 'C' to remove backup files and proceed to Round {N+1}, or request rollback to revert mutations and halt."`

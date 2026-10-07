@@ -26,6 +26,7 @@
 
 ### 6. Storage & Configuration Lifecycle Isolation
 - [ ] Storage & Configuration Lifecycle Isolation: Verify that data schema migrations and configuration parsing execute exclusively within an isolated bootstrap phase at application startup. Reject directive artifacts where UI views, renderers, application loaders, or domain handlers contain transient migration flags, schema-sniffing conditionals, ad-hoc backfill logic, or dual-format configuration loaders.
+- [ ] Multi-Tier Storage Segregation: In multi-process or client-server systems, enforce strict separation between domain persistence (disk DB) and client view state (browser storage, transient caches). Reject designs pushing transient UI preferences into backend database files (causing I/O thrashing) or treating distinct persistence tiers as a single store.
 
 ### 7. Ingress Boundaries & Contract Integrity
 - [ ] Macro Boundary Enforcement: Untrusted external data entering module seams must pass through typed facade boundaries. For deep domain entity modeling and ingress schema parsing rules, see [`ARCH-DATA-DOMAIN-ENTITIES.md`](ARCH-DATA-DOMAIN-ENTITIES.md).

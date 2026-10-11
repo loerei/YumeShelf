@@ -17,7 +17,9 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 - Ground ticket breakdowns in actual codebase dependencies and test suites. Do NOT demand speculative ticket splits for stable, working modules.
 - **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
   - Verify that the target DA's milestones and ticket prerequisites correctly sequence with `Upstream` DAs (ensuring target tickets do not attempt to implement upstream capabilities or assume upstream milestones are complete without explicit staging).
-- Follow Postel's Law: Preserve backward-compatible decoding during transitional milestone phases.
+- **Operational Continuity Alignment**: Read `<review_dir>/Context.md` for `## Operational Continuity`. Default to `CONTINUOUS_OPERATION` if omitted:
+  - `CONTINUOUS_OPERATION`: System must remain operable during implementation. Enforce vertical slicing, zero-downtime N & N+1 compatibility, and transitional shims.
+  - `NON_CONTINUOUS_OPERATION`: System does not operate during implementation (greenfield, isolated rewrite branch, offline overhaul). Permit horizontal foundation phasing, ban throwaway zero-downtime shims, and enforce headless atomic testability per ticket.
 
 **Fix Pre-Verification**:
 - **Ground-Truth**: Verify on disk that referenced modules, files, or tickets exist before prescribing relocation, splitting, or phase sequencing, and verify boundary contracts are updated symmetrically.
@@ -72,17 +74,18 @@ When restructuring multi-phase PRDs or tickets, reviewers MUST formulate finding
 
 ## Domain Subdocuments Routing Table
 
-When the target Directive Artifact touches specific subsystem archetypes below, MUST call `view_file` on the corresponding subdocument for specialized audit criteria:
+Reviewers MUST call `view_file` on [`PROG-COMMON-WBS.md`](PROG-COMMON-WBS.md) for universal WBS invariants, and call `view_file` on the specialized operational subdocument matching `## Operational Continuity` from `<review_dir>/Context.md`:
 
-| Target Subsystem Archetype | Triggers & Indicators | Subdocument |
+| Target Operational Archetype | Triggers & Context Scope | Subdocument |
 | :--- | :--- | :--- |
-| **Feature WBS & Slicing** | Feature breakdown structure, vertical tracer-bullet slicing, S -> B structural isolation, Refactoring Priority Gates | [`PROG-FEATURE-BREAKDOWN.md`](PROG-FEATURE-BREAKDOWN.md) |
-| **Migration Phasing & Rollout** | Multi-phase system migrations, legacy deprecations, blue/green rollout schedules | [`PROG-MIGRATION-PHASING.md`](PROG-MIGRATION-PHASING.md) |
+| **Universal WBS & Slicing Invariants** | Always audited for all Directive Artifacts (DAG topology, dot-splitting, atomic checkboxes, S -> B isolation). | [`PROG-COMMON-WBS.md`](PROG-COMMON-WBS.md) |
+| **Continuous Operation** | `CONTINUOUS_OPERATION` in `Context.md` (or default): live production services, zero-downtime deployments, vertical tracer-bullet slicing, expand-contract phasing. | [`PROG-CONTINUOUS-OPERATION.md`](PROG-CONTINUOUS-OPERATION.md) |
+| **Non-Continuous Operation** | `NON_CONTINUOUS_OPERATION` in `Context.md`: offline refactors, greenfield builds, isolated rewrite branches, horizontal foundation phasing. | [`PROG-NON-CONTINUOUS-OPERATION.md`](PROG-NON-CONTINUOUS-OPERATION.md) |
 
 ## Verdict Rules
 
 - Return `STATUS: REVISIONS NEEDED` if tickets are monolithic/unsplit, have broken/forward dependencies, leak scope across phase boundaries, or lack incremental verifiability.
-- Return `STATUS: PASS` if the work breakdown structure is strictly incremental, dependency-sound, and granularly decomposed into tracer bullets.
+- Return `STATUS: PASS` if the work breakdown structure is strictly incremental, dependency-sound, and granularly decomposed into tracer bullets (for continuous systems) or verified horizontal foundation slices (for non-continuous systems).
 - Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
 - NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
 

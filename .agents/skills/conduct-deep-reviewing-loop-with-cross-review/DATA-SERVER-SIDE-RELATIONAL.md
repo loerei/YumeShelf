@@ -7,9 +7,9 @@ Audits relational database migrations, locking dynamics, and zero-downtime lifec
 * [ ] Lock and Statement Timeouts: Verify all DDL scripts explicitly set `lock_timeout` (e.g. 2s) and `statement_timeout` (e.g. 5s) before issuing alterations.
 * [ ] Non-Blocking Index Builds: Ensure indexes are created using non-blocking commands (`CREATE INDEX CONCURRENTLY` in Postgres; `ALGORITHM=INPLACE, LOCK=NONE` in MySQL).
 * [ ] Phased Constraint Validation: Confirm foreign key and check constraints are added using `NOT VALID` and validated in a separate transaction via `VALIDATE CONSTRAINT`.
-* [ ] Expand-Contract Execution: Verify structural renames or column splits use multi-deploy expand, backfill, and contract phases rather than atomic renames.
+* [ ] Expand-Contract Execution (CONTINUOUS_OPERATION only): Verify structural renames or column splits use multi-deploy expand, backfill, and contract phases rather than atomic renames. Under NON_CONTINUOUS_*, permit direct atomic cutovers and ban temporary shims.
 * [ ] Keyset-Paginated Backfills: Ensure data migrations execute in throttled batches using keyset pagination (`WHERE id > :last_id ORDER BY id ASC LIMIT :batch_size`).
-* [ ] Reversibility / Rollback Safety: Confirm every schema change includes an operational rollback script that does not destroy un-migrated production data.
+* [ ] Reversibility / Rollback Safety: Confirm every schema change includes an operational rollback script that does not destroy un-migrated production data (exempt under NON_CONTINUOUS_INTERMEDIATE where no live data or runner exists).
 
 ## Concrete Anti-Patterns
 

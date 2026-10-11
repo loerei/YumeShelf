@@ -18,6 +18,9 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 - **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
   - Verify that the target DA's test commands, test fixtures, and testing boundaries align with the test runner architecture established in `Upstream` DAs.
 - Follow Postel's Law: Ensure proposed test verification tolerates existing synthetic test buffers and mock fixtures.
+- **Operational Continuity Alignment**: Read `## Operational Continuity` in `<review_dir>/Context.md`:
+  - `CONTINUOUS_OPERATION` & `NON_CONTINUOUS_OPERATION`: Enforce comprehensive test coverage spanning unit, integration, and end-to-end harnesses where applicable.
+  - `NON_CONTINUOUS_INTERMEDIATE` (`!NC0` / `!NCI`): Enforce headless unit tests, mock seams, and contract validation only; BANS demanding E2E browser harnesses, UI rendering tests, or live application execution.
 
 **Fix Pre-Verification**:
 - **Ground-Truth**: Verify on disk that any pre-existing method, type, or module referenced or consumed by a proposed fix actually exists in the target codebase, upstream specs, or planned declarations within the target DA itself. If introducing new methods, types, or interfaces, verify that their target landing locations exist (or are scheduled for creation in the DA), names do not collide with active exports, all consumed external dependencies are verified on disk or in upstream specs, and for internal communication boundaries (e.g. IPC, RPC, events), verify that both producer/caller and consumer/handler endpoints are updated symmetrically. Create simulation scripts in `<review_dir>/sandbox/` where applicable to verify test harness execution.
@@ -48,7 +51,7 @@ When auditing verification strategies and test seams, author a self-contained ha
 2. **Public Interface Seam Crossing**: Do tests verify behavior across the exact same seams and public interfaces as production callers, without hacking private module state or private fields?
 3. **Determinism & Anti-Flakiness**: Does the testing plan guarantee deterministic execution? Are hardcoded sleeps, random values without seeds, or execution-order dependencies eliminated?
 4. **Asynchronous Teardown & Handle Cleanup**: Does the test harness cleanly release all event listeners, open sockets, and timers in teardown hooks (e.g. `afterEach`) to prevent hanging test suites?
-5. **Verification Completeness**: Does the Verification Plan in the DA cover 100% of acceptance criteria and edge cases with explicit automated test commands and 1-to-1 stdout assertions?
+5. **Verification Completeness**: Does the Verification Plan in the DA cover 100% of acceptance criteria and edge cases with explicit automated test commands and 1-to-1 stdout assertions? (Under `NON_CONTINUOUS_INTERMEDIATE`, scope is restricted to headless contract and unit tests; E2E browser automation is out of scope).
 
 ## Domain Subdocuments Routing Table
 

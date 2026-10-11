@@ -20,6 +20,10 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 * Cross-reference codebase ground-truth to confirm the exact storage archetype: Local-Side Storage, Server-Side Storage, or Hybrid / Sync-Driven.
 * If `Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, verify that target schema mutations do not clobber or mutate fields owned by upstream DAs.
 * Follow Postel's Law for external API ingress only. For persistent storage, enforce strict schema conformance via isolated migration runners. Ban runtime field omissions, defensive fallback sniffing, or shape guessing on canonical domain read paths.
+* **Operational Continuity Alignment**: Read `## Operational Continuity` in `<review_dir>/Context.md`:
+  - `CONTINUOUS_OPERATION` (default): Enforce expand-contract execution, zero-downtime dual writes, and backward-compatible reads during rollout.
+  - `NON_CONTINUOUS_OPERATION` (`!NC`): Permit direct atomic schema cutovers and destructive migrations at the terminal milestone; reject temporary dual-write pipelines or expand-contract shims.
+  - `NON_CONTINUOUS_INTERMEDIATE` (`!NC0` / `!NCI`): Audit schema definitions, field types, and storage invariants only; BANS demanding migration runners, rollback scripts, or dual-write shims.
 
 **Fix Pre-Verification**:
 

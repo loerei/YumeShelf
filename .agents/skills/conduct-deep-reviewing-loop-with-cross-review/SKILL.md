@@ -90,7 +90,7 @@ flowchart TD
          - If no security boundaries are touched (e.g. pure mathematical algorithms, localized UI formatting utilities, static mockup layouts): declare `Security Status: NO_SECURITY_BOUNDARY` with concise technical justification.
        - `## Operational Continuity`: Layer 1 inspects invocation prompt for tag `!NC0` / `!NCI`, `!NC`, or user directive:
          - If `!NC0` or `!NCI` is present in prompt or prompt explicitly specifies intermediate stepping stone / non-operational after epic: declare `Operational Continuity: NON_CONTINUOUS_INTERMEDIATE` with concise technical justification.
-         - If `!NC` is present in prompt or prompt explicitly specifies non-continuous/offline: declare `Operational Continuity: NON_CONTINUOUS_FINAL` with concise technical justification.
+         - If `!NC` is present in prompt or prompt explicitly specifies non-continuous/offline: declare `Operational Continuity: NON_CONTINUOUS_OPERATION` with concise technical justification.
          - Otherwise: declare `Operational Continuity: CONTINUOUS_OPERATION` (default).
      - Active modifier tags (e.g. `## Active Modifiers: !PA, !SP<N>`).
      - Codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
@@ -154,6 +154,6 @@ When `ROUND_REVISION_NEEDED` occurs under `!PA` / `!WA`:
 | :--- | :--- |
 | `!SP<N>` | Set required continuous Full Sweep PASS rounds threshold to N (Default: 1). |
 | `!PA` / `!WA` | Pre-review pause gate: Retains `<da_stem>.bak.md` copies on `ROUND_REVISION_NEEDED` and halts turn. Awaits "C" to proceed or rollback to revert. |
-| `!NC` | Set operational continuity to `NON_CONTINUOUS_FINAL` (offline refactors, greenfield builds, isolated rewrite branches; must be operational after the epic). Default is `CONTINUOUS_OPERATION`. |
+| `!NC` | Set operational continuity to `NON_CONTINUOUS_OPERATION` (offline refactors, greenfield builds, isolated rewrite branches; must be operational after the epic). Default is `CONTINUOUS_OPERATION`. |
 | `!NC0` / `!NCI` | Set operational continuity to `NON_CONTINUOUS_INTERMEDIATE` (intermediate stepping stone / scaffolding / partial migration; does not need to operate during OR after this epic). |
 | `!FPA` | Instantly kill running subagents and pause execution. |

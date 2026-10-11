@@ -238,7 +238,14 @@ When the verdict is `PLAN_INFEASIBLE`, Host MUST NOT mutate target Directive Art
 2. **In-Place DA Mutation**:
    - Host directly applies verified remediations from accepted `<Role>.md` reports into target Directive Artifact(s) using Clean & Neutral Artifact Protocol (§1.3). If applying non-blocking suggestions into the target DA, Host MUST document every applied suggestion in `Analyzation.md`.
    - **Boundary Contract Symmetry & Coherence Verification**: Host verifies that boundary modifications include symmetrical updates across internal endpoints, and that dependent sections (e.g. `Verification Plan` test assertions) are synchronized per `HOW-TO-GATE.md`.
-   - **DA File Tree Synchronization**: If accepted feedback splits, merges, creates, or deletes DA files (e.g. Progress Reviewer WBS actions), Host directly creates/restructures the files on disk and updates `## Target Directive Artifacts` in `<review_dir>/Context.md`.
+   - **DA File Tree Synchronization**: If accepted feedback splits, merges, creates, or deletes DA files (e.g. Progress Reviewer WBS actions):
+     - For `DECOMPOSE_PLAN_TO_PRD_AND_TICKETS`:
+       1. Host creates target epic directory `<epic_dir>/` and subdirectories (`<epic_dir>/tickets/`).
+       2. Host writes `<epic_dir>/PRD.md` containing architectural context, milestones, and continuity invariants.
+       3. Host writes modular `<epic_dir>/tickets/01-...md`, `02-...md` capturing vertical tracer bullets, acceptance criteria, and verification steps.
+       4. Host preserves `<source_plan_stem>.bak.md` in source plan's directory, then deletes original monolithic plan file from disk.
+       5. Host updates `## Target Directive Artifacts` in `<review_dir>/Context.md` to reference the newly generated `PRD.md` and tickets.
+     - For other actions (`SPLIT_PRD`, `MERGE_PRDS`, `EXTRACT_PRD_FROM_TICKETS`, `SPLIT_TICKET_TRACER_BULLETS`): Host creates, renames, or removes target DA files on disk and synchronizes `Context.md`.
 3. **Write Verification & Abort Recovery**: Host verifies on disk that all DA mutations and restructured files were successfully written and are non-empty.
    - **Verification Failure Recovery**: If write verification fails (file missing, write error, or 0 bytes):
      1. If `<review_dir>/Context.bak.md` is present: identify newly created DA files (in active `Context.md` but absent in `Context.bak.md`) and delete them; restore `Context.md` from `Context.bak.md` and delete `Context.bak.md`.

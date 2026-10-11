@@ -43,6 +43,12 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
 
 When restructuring multi-phase PRDs or tickets, reviewers MUST formulate findings using these structured action primitives:
 
+### 0. Document-Level Morphing (Plan ↔ PRD + Modular Tickets)
+- **`DECOMPOSE_PLAN_TO_PRD_AND_TICKETS`**: Decompose an overloaded, monolithic single-file plan (e.g. `implementation_plan.md`, `plan.md` exceeding 300 lines or containing multiple architectural subsystems/milestones) into a standard epic directory structure:
+  - Epic PRD: `<epic_dir>/PRD.md` capturing architectural context, system constraints, milestone timeline, cross-ticket dependency lineage, and operational continuity invariants.
+  - Modular Tickets: `<epic_dir>/tickets/01-...md`, `02-...md` capturing vertical tracer bullets, preconditions, exact acceptance criteria, and verification steps.
+  - Host Transaction: Host creates `<epic_dir>/` on disk, populates `PRD.md` and `tickets/`, backs up and deletes the monolithic source plan file, and updates `## Target Directive Artifacts` in `Context.md` to target the newly generated PRD and tickets.
+
 ### 1. Macro & Phase-Level Actions (PRD ↔ PRD)
 - **`MERGE_PRDS`**: Consolidate tightly coupled or circular PRDs into a single unified phase to eliminate artificial boundaries.
 - **`SPLIT_PRD`**: Decompose an overloaded PRD into sequential phases (e.g., Phase A: Backend Service MVP -> Phase B: Client UI).

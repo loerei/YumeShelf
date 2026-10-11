@@ -31,8 +31,9 @@ Universal work breakdown, DAG ordering, and slicing invariants applicable across
 - [ ] Scope Creep Step Isolation: Steps requiring complex architectural changes outside ticket scope MUST be promoted to independent tickets (`EXTRACT_STEP_TO_TICKET`).
 - [ ] Intra-Step Refactoring Isolation: Structural tidying steps ($S$) MUST NOT be merged with behavior change steps ($B$) in the same checkbox (`ISOLATE_STEP_TIDYING`).
 
-### 5. Monolithic Plan Decomposition Threshold
-- [ ] Plan-to-Modular-Epic Decomposition Threshold: Audit single-file implementation plans (e.g. `implementation_plan.md`, `plan.md`). If a plan document exceeds 300 lines or spans more than 3 discrete architectural tasks / subsystems, reject keeping it as a monolithic single-file checkbox list. Enforce `DECOMPOSE_PLAN_TO_PRD_AND_TICKETS` to break the plan into `<epic_dir>/PRD.md` and dedicated modular ticket files under `<epic_dir>/tickets/*.md`.
+### 5. Plan Decomposition Threshold (Single-File Plan vs Modular Epic)
+- [ ] Staged Verification Gate Threshold: Enforce `DECOMPOSE_PLAN_TO_PRD_AND_TICKETS` when a single-file plan bundles 2 or more discrete deliverables requiring staged, sequential verification gates (e.g. data contracts verified headlessly before consumer UI or routes can be mounted).
+- [ ] Single-Run Verification Cohesion: Retain as a single-file plan when all changes serve a single cohesive deliverable verified by a single test run, regardless of document length.
 
 ## Concrete Anti-Patterns
 
@@ -54,13 +55,13 @@ GOOD (Atomic Steps with Discrete Verification):
 - `[ ] 3. Run unit tests verifying image validator against test fixtures` (`INJECT_VERIFICATION_STEP`)
 - `[ ] 4. Mount avatar upload component in user profile UI` (`SPLIT_STEP`)
 
-### Anti-Pattern 3: Monolithic Checkbox Expansion in Single Plan File
-BAD (Giant Monolithic Plan File):
-- Single 900-line `implementation_plan.md` attempting to detail an entire multi-system migration or redesign with 60 nested checkboxes in one file. Reviewers attempt to split checkboxes internally, bloating the file to 1500 lines of unmaintainable markdown.
+### Anti-Pattern 3: Monolithic Checkbox Expansion for Multi-Stage System
+BAD (Bundling Staged Systems in Single Plan):
+- Single `implementation_plan.md` attempting to detail an entire multi-system migration or redesign with dozens of nested checkboxes spanning multiple subsystems. Reviewers attempt to split checkboxes internally, bloating the file into an unmaintainable monolithic checklist where earlier failure stops downstream verification.
 
 GOOD (Decomposed PRD + Modular Tickets):
-- Epic Directory: `docs/specs/08-migration/PRD.md` (capturing macro architecture, milestone DAG, continuity invariants).
-- Modular Tickets: `docs/specs/08-migration/tickets/01-build-setup.md`, `02-core-store.md`, `03-view-adapters.md` (each ticket isolated to a single vertical tracer bullet with dedicated verification plan).
+- Epic Directory: `docs/specs/08-migration/PRD.md` (macro architecture, milestone DAG, continuity invariants).
+- Modular Tickets: `docs/specs/08-migration/tickets/01-build-setup.md`, `02-core-store.md`, `03-view-adapters.md` (each ticket isolated to a single vertical tracer bullet with dedicated verification command).
 
 ## Failure Modes & Mitigations
 - PR Stalls via Review Fatigue: Enforce strict PR size limits; require automated splitting of PRs that exceed complexity thresholds.

@@ -19,7 +19,8 @@ Audit the Directive Artifact solely against codebase ground-truth and requiremen
   - Verify that the target DA's milestones and ticket prerequisites correctly sequence with `Upstream` DAs (ensuring target tickets do not attempt to implement upstream capabilities or assume upstream milestones are complete without explicit staging).
 - **Operational Continuity Alignment**: Read `<review_dir>/Context.md` for `## Operational Continuity`. Default to `CONTINUOUS_OPERATION` if omitted:
   - `CONTINUOUS_OPERATION`: System must remain operable during implementation. Enforce vertical slicing, zero-downtime N & N+1 compatibility, and transitional shims.
-  - `NON_CONTINUOUS_OPERATION`: System does not operate during implementation (greenfield, isolated rewrite branch, offline overhaul). Permit horizontal foundation phasing, ban throwaway zero-downtime shims, and enforce headless atomic testability per ticket.
+  - `NON_CONTINUOUS_FINAL`: System does not operate during implementation, but must be fully operational after the epic. Permit horizontal foundation phasing, ban throwaway zero-downtime shims, and enforce headless atomic testability on early tickets and full system cutover with bootable verification on the terminal ticket.
+  - `NON_CONTINUOUS_INTERMEDIATE`: System does not operate during OR after the epic (intermediate stepping stone / scaffolding / partial migration). BANS requiring application bootability, GUI rendering, or runtime cutovers; enforce headless contract verification and downstream handoff interface integrity.
 
 **Fix Pre-Verification**:
 - **Ground-Truth**: Verify on disk that referenced modules, files, or tickets exist before prescribing relocation, splitting, or phase sequencing, and verify boundary contracts are updated symmetrically.
@@ -86,7 +87,7 @@ Reviewers MUST call `view_file` on [`PROG-COMMON-WBS.md`](PROG-COMMON-WBS.md) fo
 | :--- | :--- | :--- |
 | **Universal WBS & Slicing Invariants** | Always audited for all Directive Artifacts (DAG topology, dot-splitting, atomic checkboxes, S -> B isolation). | [`PROG-COMMON-WBS.md`](PROG-COMMON-WBS.md) |
 | **Continuous Operation** | `CONTINUOUS_OPERATION` in `Context.md` (or default): live production services, zero-downtime deployments, vertical tracer-bullet slicing, expand-contract phasing. | [`PROG-CONTINUOUS-OPERATION.md`](PROG-CONTINUOUS-OPERATION.md) |
-| **Non-Continuous Operation** | `NON_CONTINUOUS_OPERATION` in `Context.md`: offline refactors, greenfield builds, isolated rewrite branches, horizontal foundation phasing. | [`PROG-NON-CONTINUOUS-OPERATION.md`](PROG-NON-CONTINUOUS-OPERATION.md) |
+| **Non-Continuous Operation** | `NON_CONTINUOUS_FINAL` or `NON_CONTINUOUS_INTERMEDIATE` in `Context.md`: offline refactors, greenfield builds, isolated rewrite branches, horizontal foundation phasing. | [`PROG-NON-CONTINUOUS-OPERATION.md`](PROG-NON-CONTINUOUS-OPERATION.md) |
 
 ## Verdict Rules
 

@@ -84,7 +84,10 @@ flowchart TD
        - If no observability is touched (e.g. pure internal mathematical algorithm, isolated formatting function, static mockup): declare `Observability Status: NO_OBSERVABILITY` with concise technical justification.
      - `## Security Scope & Threat Model Tier`: Layer 1 inspects target DAs and codebase ground-truth for security-relevant touchpoints (authentication, authorization, session tokens, password hashing, OAuth/OIDC, tenant isolation, IDOR/BOLA paths, ingress input parsing, file uploads, outbound HTTP/SSRF, webhooks, IPC channels, native shell commands, RLS policies, or sensitive secret storage).
        - If security boundaries are touched: declare `Security Status: TOUCHES_SECURITY_BOUNDARY`, `Primary Archetype` (`Client-Side / Local Application` | `Server-Side / Multi-Tenant SaaS API` | `Database & Persistence Security` | `Multi-Tier / Hybrid Application`), `Trust Boundaries`, `Ingress & Egress Vectors`, and `Credential Exposure Surfaces`.
-       - If no security boundaries are touched (e.g. pure mathematical algorithms, localized UI formatting utilities, static mockup layouts): declare `Security Status: NO_SECURITY_BOUNDARY` with concise technical justification.
+         - If no security boundaries are touched (e.g. pure mathematical algorithms, localized UI formatting utilities, static mockup layouts): declare `Security Status: NO_SECURITY_BOUNDARY` with concise technical justification.
+       - `## Operational Continuity`: Layer 1 inspects invocation prompt for tag `!NC` or user directive:
+         - If `!NC` is present in prompt or prompt explicitly specifies non-continuous/offline: declare `Operational Continuity: NON_CONTINUOUS_OPERATION` with concise technical justification.
+         - Otherwise: declare `Operational Continuity: CONTINUOUS_OPERATION` (default).
      - Active modifier tags (e.g. `## Active Modifiers: !PA, !SP<N>`).
      - Codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
 
@@ -147,4 +150,5 @@ When `ROUND_REVISION_NEEDED` occurs under `!PA` / `!WA`:
 | :--- | :--- |
 | `!SP<N>` | Set required continuous Full Sweep PASS rounds threshold to N (Default: 1). |
 | `!PA` / `!WA` | Pre-review pause gate: Retains `<da_stem>.bak.md` copies on `ROUND_REVISION_NEEDED` and halts turn. Awaits "C" to proceed or rollback to revert. |
+| `!NC` | Set operational continuity to `NON_CONTINUOUS_OPERATION` (offline refactors, greenfield builds, isolated rewrite branches). Default is `CONTINUOUS_OPERATION`. |
 | `!FPA` | Instantly kill running subagents and pause execution. |

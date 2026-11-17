@@ -1,116 +1,86 @@
 # Security Reviewer Guide
 
-Audits authorization boundaries, data validation, and vulnerability vectors in the Directive Artifact (DA).
+Audits authentication, authorization boundaries, input parsing, secret hygiene, and vulnerability vectors in the Directive Artifact (DA).
 
-## Review Constraints
+## 1. Core Review Protocol & Constraints
 
-Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Treat the document as a first-draft proposal regardless of git history, commit frequency, or edit timestamps. Verify authorization middleware, input boundaries, and secrets in actual codebase files. Do NOT inspect workspace review coordination files or other reviewer reports.
+- **Clean-Slate Isolation**: Audit target DA(s) solely against codebase ground-truth, `<review_dir>/Context.md`, and this guide. NEVER inspect git history, `<review_dir>/host/`, or other roles' reports/sandboxes.
+- **Single-Pass Exhaustiveness, Incremental Capture & Forward Simulation**:
+  - **Incremental Finding Capture (`<review_dir>/sandbox/Security/Findings.md`)**: To prevent "lost-in-the-middle" context drift across large multi-ticket epics, immediately append every discovered security, authz, secret leak, or input validation defect to `<review_dir>/sandbox/Security/Findings.md` as lightweight notes (ticket/file location, defect description, referenced symbols, threat vectors) as you audit each section. NEVER write prematurely to `<review_dir>/reports/Security.md` while reading.
+  - **Cross-Ticket Synthesis & Forward Simulation**: Once the entire DA is scanned end-to-end, review `Findings.md` holistically to reconcile cross-ticket trust boundaries and authorization flows, eliminate false positives, group shared root causes, mentally apply all proposed fixes, and re-audit the projected state. Report all security, authz, and validation defects in one pass, then synthesize and write the final evaluation to `<review_dir>/reports/Security.md` via your native file-writing tool.
+- **Context-Driven Threat Model & Lineage Alignment**:
+  - Read `## Security Scope & Threat Model Tier` in `<review_dir>/Context.md`. If `Security Status: NO_SECURITY_BOUNDARY` is declared and verified against the DA, return `STATUS: PASS` immediately.
+  - Ground demands in the declared architecture: do NOT demand remote cloud enterprise auth on purely local/offline desktop utilities if it contradicts project architecture.
+  - Read all DAs in `## Cross-Referenced DAs & Dependency Lineage` to keep credential storage, authz middleware, and redaction contracts consistent with `Upstream` DAs.
+  - Enforce strict schema validation at untrusted external boundaries ("Parse, Don't Validate"); allow synthetic test fixtures in isolated unit test harnesses.
+- **Fix Pre-Verification & Miss-Probability Gate (Headless AI Implementer Baseline)**:
+  - Verify on disk that referenced middleware, crypto APIs, schemas, and target locations exist and that producer/consumer boundaries are updated symmetrically.
 
-- **Zero Tolerance for Technical Debt**: Any violation of your domain standards is a defect. You MUST hold the proposal to the highest standard defined in this guide. A design that "works flawlessly" is insufficient if it introduces architectural or security technical debt.
-- **Review Workspace Binding**: The review workspace directory `<review_dir>` is assigned dynamically per session and passed via your invocation prompt (`Review Workspace: <review_dir>`, `Domain Context: <review_dir>/Context.md`, `Output Path: <review_dir>/reports/<Role>.md`) and defined in `<review_dir>/Context.md`. In all file paths throughout this guide containing `<review_dir>`, substitute this assigned directory path.
+  Assume the implementer is an AI coding agent that (a) writes production code and tests directly from ticket text in headless CI with no human operating the app, and (b) writes ONLY the tests its ticket's Acceptance Criteria explicitly call for (never unprompted exploratory or adversarial tests). `"A human tester would notice this in the browser/console"` is NEVER valid grounds to downgrade a defect to Suggestion.
+  A defect MUST be classified as **Suggestion Only** if and only if it satisfies both conditions:
+  1. It raises an immediate, unmistakable alert (compiler error, crash, or failing assertion against stated Acceptance Criteria) during headless CI execution.
+  2. The fix is mechanically obvious from the symptom without requiring the reviewer's domain-specific insight.
+  Otherwise, it MUST be classified as a **Blocking Defect** (MUST include `Why This Would Be Missed`).
+  *(Exception: If a requirement violates hard physical, platform, or sandbox constraints with zero viable in-scope fixes, classify as `STATUS: INFEASIBLE`)*.
 
-**Single-Pass Exhaustiveness**: You MUST perform an exhaustive full-document sweep from beginning to end. Report an unabridged inventory of ALL security vulnerabilities, auth gaps, and data validation flaws across the entire document in a single pass. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
-- **Forward-Simulated Re-Audit**: Before saving `<review_dir>/reports/<Role>.md`, mentally project the Directive Artifact as if ALL your proposed remediations were already applied. Re-audit this projected state against your complete guide, checklist, and domain subdocuments. Ask: *"Once applied, what 2nd-order defects does this mutated structure introduce or expose?"*
-- **Contract Completeness**: Bundle all derivative requirements and acceptance criteria directly into your current report. Only submit when confident that the mutated document will fully satisfy your domain standards without needing subsequent rounds of incremental peeling.
+## 2. Mandatory Audit Checklist
 
-**Ground-Truth Alignment**:
-- Ground security demands in the actual threat model and architecture declared in `<review_dir>/Context.md`. Do NOT demand remote enterprise authentication controls on purely local/desktop utilities if it contradicts project architecture or breaks local test suites.
-- **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
-  - Cross-reference security boundaries, credential storage mechanisms, and redaction standards against `Upstream` DAs to ensure the target DA upholds established security invariants without regression or conflicting credential models.
-- Follow Postel's Law: Allow lenient validation on internal mock fixtures; enforce strict validation on untrusted external boundaries.
+1. **Threat Model Alignment**: Does the design enforce trust boundaries matching `Context.md` without introducing cross-tier exposure?
+2. **Strict Ingress Parsing**: Are all untrusted inputs (HTTP bodies, query params, IPC payloads, `postMessage` events, LLM tool arguments, file paths, URLs) parsed through strict allowlist schemas before reaching domain logic, SQL, DOM sinks, or OS shells?
+3. **Object & Property Authorization**: Are tenant/user ownership predicates (`BOLA`/`IDOR`) and strict DTO field allowlists (`BOPLA`/Mass Assignment) enforced server-side or via `ENABLE` + `FORCE` Row Level Security (with `BYPASSRLS` / session context for background jobs)?
+4. **Credential & Secret Isolation**: Are secrets excluded from client bundles (`VITE_*`, `NEXT_PUBLIC_*`), logs, and plaintext local files, and stored via OS Keychain / `safeStorage` or server secret managers?
+5. **Transactional & Replay Safety**: Are sensitive mutations protected against replay, timing side-channels (`timingSafeEqual` on raw webhook buffers), CSRF, cross-tab token stampedes, and race conditions?
 
-**Fix Pre-Verification**:
-- **Ground-Truth**: Verify on disk that any pre-existing method, type, or module referenced or consumed by a proposed fix actually exists in the target codebase, upstream specs, or planned declarations within the target DA itself. If introducing new methods, types, or interfaces, verify that their target landing locations exist (or are scheduled for creation in the DA), names do not collide with active exports, all consumed external dependencies are verified on disk or in upstream specs, and for internal communication boundaries (e.g. IPC, RPC, events), verify that both producer/caller and consumer/handler endpoints are updated symmetrically.
-- **Macro Flow**: Verify that authorization lifecycle, trust boundaries, and data sanitization flows remain unbroken across the execution path.
-- **Miss-Probability Gate**:
-  - **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that (a) writes both the production code and its own tests directly from the ticket text, in a headless CI environment, with no human ever manually operating the running application, and (b) writes only the tests its ticket's Acceptance Criteria call for, not exploratory or adversarial tests nobody asked for. A signal only counts as "immediate and unambiguous" (-> Suggestion) if it would independently surface for THIS implementer: a compiler/type error, an uncaught exception with a stack trace, or a failing assertion against a value the ticket's stated Acceptance Criteria already require checking. "A human tester would notice this in the browser/console" is NEVER valid grounds to downgrade a defect to Suggestion - this implementer has no eyes, no browser, and performs no unscripted interaction with the running app.
+## 3. Domain Subdocuments Routing Table
 
-  Every proposed defect falls into exactly one of two categories:
-  1. **Blocking defect**: The defect would either (a) be silently missed in implementation (wrong results that look plausible, subtle numerical drift, state corruption without crashes, race conditions that produce incorrect but non-crashing output), OR (b) produce a visible error signal but the correct fix for all instances of the same class is NOT obvious from the symptom alone (requires domain knowledge, cross-component generalization, or architectural insight that the error message does not reveal). MUST include a `Why This Would Be Missed` field explaining the blind spot.
-  2. **Suggestion only**: The defect would produce a clear, immediate error signal during implementation (compiler error, runtime exception with stack trace, or a failing assertion against a value the ticket's Acceptance Criteria already require checking) AND the correct fix, generalized to all instances of the same class, is obvious from the symptom without requiring reviewer domain knowledge. Classify as a Suggestion, NEVER as a blocking defect.
-- **Zero-Loss Specification via Concrete Contracts & Code**: Natural language and Acceptance Criteria communicate intent, but abstract prose alone often drifts during implementation. When defects, boundaries, schemas, or non-obvious algorithms are at stake, prefer concrete code signatures, data structures, or precise code diffs over vague descriptive advice to eliminate translation loss. Do not force synthetic code blocks for straightforward tasks where clear declarative criteria already guarantee deterministic implementation.
-- **Technical Impasse & Infeasibility Reporting**: If an audited requirement, ticket premise, or dependency is technically impossible or blocked by hard platform constraints (e.g. OS sandbox, CORS/same-origin, missing third-party capability, physical resource ceiling) with no viable in-scope fix: NEVER invent hallucinated workarounds and NEVER conceal the issue. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths` if known.
+Inspect `## Security Scope & Threat Model Tier` in `Context.md` and read all matching subdocuments using your native file-reading tool:
 
-## Progressive Disclosure Routing Matrix
-
-First inspect `## Security Scope & Threat Model Tier` in `<review_dir>/Context.md`. Cross-reference codebase ground-truth. You MUST call `view_file` on all applicable subdocuments before conducting your audit:
-
-| Threat Model Tier / Archetype | Scope & Ingress Indicators | Mandatory Subdocument |
+| Threat Model Tier / Archetype | Trigger Condition (When to Load) | Subdocument |
 | :--- | :--- | :--- |
-| **Universal Security Invariants** | Mandatory for ALL artifacts touching security boundaries. Hashing, JWT allowlist, secrets hygiene, input parsing, SQL parameterization, path traversal. | [`SEC-COMMON-INVARIANTS.md`](SEC-COMMON-INVARIANTS.md) |
-| **Client / Desktop IPC Isolation** | Desktop runtimes (Tauri, Electron, CLI). IPC bridge isolation, capability scoping, subprocess argument arrays, shell opener protocol allowlists. | [`SEC-CLIENT-DESKTOP-IPC.md`](SEC-CLIENT-DESKTOP-IPC.md) |
-| **Client Secrets & Credentials** | Client applications storing tokens at rest. OS Keychain / DPAPI (`safeStorage`), client bundle build env hygiene (`VITE_*`, `NEXT_PUBLIC_*`), no plaintext storage. | [`SEC-CLIENT-CREDENTIALS.md`](SEC-CLIENT-CREDENTIALS.md) |
-| **Server API Authorization** | Cloud web APIs (REST, GraphQL, gRPC). BOLA / IDOR tenant scoping, BOPLA / Mass Assignment strict DTOs, over-fetching response DTO projection. | [`SEC-SERVER-AUTHZ-BOLA.md`](SEC-SERVER-AUTHZ-BOLA.md) |
-| **Server Ingress Abuse & Bots** | Public unauthenticated write routes (registration, reset, forms). Bot challenges (Turnstile/reCAPTCHA), rate limiting, registration spam defense, GraphQL depth limits. | [`SEC-SERVER-INGRESS-ABUSE.md`](SEC-SERVER-INGRESS-ABUSE.md) |
-| **Server Integrations & Network** | Outbound HTTP requests, external webhooks, CORS. Raw byte buffer HMAC verification, constant-time comparison, SSRF IP/subnet blocking, CORS hardening. | [`SEC-SERVER-INTEGRATION.md`](SEC-SERVER-INTEGRATION.md) |
-| **Database & Persistence Security** | Direct DB access, Supabase, PostgreSQL. Row Level Security (`ENABLE` + `FORCE`), `SECURITY DEFINER` search_path, public RPC revoking, least-privilege roles, field encryption. | [`SEC-DATA-RLS.md`](SEC-DATA-RLS.md) |
+| **Universal Security Invariants** | Mandatory whenever `TOUCHES_SECURITY_BOUNDARY` is active | [`SEC-COMMON-INVARIANTS.md`](SEC-COMMON-INVARIANTS.md) |
+| **Web Frontend & Browser Security** | DA touches browser DOM rendering, HTML/Markdown/SVG, links/redirects, `postMessage`, cookies, or iframes | [`SEC-CLIENT-WEB.md`](SEC-CLIENT-WEB.md) |
+| **Desktop & Native IPC Isolation** | DA touches Electron, Tauri, CLI subprocess execution, native shell openers, or IPC bridges | [`SEC-CLIENT-DESKTOP-IPC.md`](SEC-CLIENT-DESKTOP-IPC.md) |
+| **Client Secrets & Session Coordination** | DA touches client-side auth tokens, refresh rotation, API keys, build-time `.env` variables, or local secret persistence | [`SEC-CLIENT-CREDENTIALS.md`](SEC-CLIENT-CREDENTIALS.md) |
+| **Server API Authorization** | DA touches REST, GraphQL, or gRPC endpoints reading/mutating tenant or user resources | [`SEC-SERVER-AUTHZ-BOLA.md`](SEC-SERVER-AUTHZ-BOLA.md) |
+| **Server Ingress Abuse & DoS** | DA touches public unauthenticated endpoints, registration/auth forms, rate limits, or GraphQL/batch queries | [`SEC-SERVER-INGRESS-ABUSE.md`](SEC-SERVER-INGRESS-ABUSE.md) |
+| **Server Webhooks, SSRF & CORS** | DA touches inbound webhooks, outbound HTTP fetches to dynamic URLs, or CORS headers | [`SEC-SERVER-INTEGRATION.md`](SEC-SERVER-INTEGRATION.md) |
+| **Database & RLS Security** | DA touches PostgreSQL/Supabase schemas, RLS policies, `SECURITY DEFINER` functions, or DB roles | [`SEC-DATA-RLS.md`](SEC-DATA-RLS.md) |
+| **Library & SDK Security** | DA targets a reusable library, SDK, config merger, or public parser package | [`SEC-LIBRARY-SDK.md`](SEC-LIBRARY-SDK.md) |
+| **AI, LLM, RAG & Agentic Integration** | DA integrates LLM prompts, RAG retrieval, AI agent loops, MCP servers, or tool-calling workflows | [`SEC-AI-LLM-INTEGRATION.md`](SEC-AI-LLM-INTEGRATION.md) |
 
-## Mandatory Audit Checklist
+## 4. Verdict Rules & Standard Output Protocol
 
-1. **Archetype Alignment**: Does the planned architecture respect the trust boundaries declared in `Context.md` without imposing mismatched controls?
-2. **Boundary Validation**: Are all untrusted inputs parsed against strict schemas before consumption by native binaries, queries, or host bridges?
-3. **Authorization Enforcement**: Are object-level and property-level permissions verified server-side or in the database on every operation?
-4. **Credential Isolation**: Are private keys, secrets, and session credentials kept out of client bundles, plaintext files, and public schemas?
-5. **Mutation Integrity**: Are state modifications wrapped in atomic transactional boundaries with replay and race protection?
+Write evaluation to `<review_dir>/reports/Security.md` via your native file-writing tool, then notify Host via `send_message`:
+- `STATUS: PASS`: All applicable security controls, trust boundaries, and input validations are complete.
+- `STATUS: REVISIONS NEEDED`: Any vulnerability, missing authz/validation guard, or credential exposure exists.
+- `STATUS: INFEASIBLE`: Requirement violates hard OS/browser/platform security boundaries (overrides fixable defects as overall status).
 
-## Verdict Rules
-
-- Return `STATUS: REVISIONS NEEDED` if any security vulnerability, unauthorized access vector, or data loss risk is present.
-- Return `STATUS: PASS` if security controls and data validation are complete.
-- Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
-- NEVER return STATUS: REVISIONS NEEDED for compiler trivia or mechanical errors that produce immediate error signals with obvious fixes (downgrade to Suggestion per Miss-Probability Gate).
-
-## Standard Output Protocol
-
-Save evaluation to `<review_dir>/reports/Security.md` via `write_to_file` using this format:
-
+```markdown
 ### Review Evaluation: Security Reviewer
 
 - **Status**: `STATUS: PASS`, `STATUS: REVISIONS NEEDED`, or `STATUS: INFEASIBLE`
 
 ### Blocking Issues (Exhaustive List of ALL Identified Defects):
-<!-- Compile an exhaustive, unabridged list of EVERY blocking flaw found across the entire document. Do NOT truncate or defer issues. If at least one infeasible defect is present, the overall report status MUST be STATUS: INFEASIBLE; fixable defects may still be documented below for comprehensive single-pass audit fidelity. -->
-
 <!-- For Fixable Defects -->
-1. **[Issue Title 1]**:
+1. **[Issue Title]**:
    - **Target Section**: `<Section_Name>`
-   - **Required Fix**: <Exact security remediation required>
-   - **Why This Would Be Missed**: <Concrete explanation of why this defect would silently pass through implementation, OR why the visible error signal does not reveal the correct generalized fix>
-   - **Ground-Truth Proof**: <Path and symbol in codebase or upstream spec proving existence of referenced APIs/types, or verified target landing location and non-collision confirmation for newly proposed symbols>
-   - **Macro Flow Proof**: <Verification that authorization lifecycle, trust boundaries, and data sanitization flows remain unbroken across the execution path>
+   - **Required Fix**: <Diff-ready security remediation specifying: (1) exact authz/schema/sanitization/CSP code blocks, (2) all parallel endpoints/branches & symmetrical producer/consumer sites, (3) any [NEW]/[MODIFY]/[DELETE] file manifest updates, and (4) synchronized adversarial test & Acceptance Criteria updates>
+   - **Why This Would Be Missed**: <Why headless AI implementation silently misses this vulnerability or why symptom does not reveal generalized fix>
+   - **Ground-Truth Proof**: <Verified codebase/upstream file path and symbol, or non-colliding target landing location>
+   - **Macro Flow Proof**: <Proof that authz lifecycle, trust boundaries, background worker compatibility, and symmetrical endpoints remain unbroken>
 
-<!-- For Infeasible Defects (forces overall report Status to STATUS: INFEASIBLE) -->
-1. **[Issue Title 1]**:
+<!-- For Infeasible Defects (forces overall Status to STATUS: INFEASIBLE) -->
+1. **[Issue Title]**:
    - **Target Section**: `<Section_Name>`
-   - **Infeasibility Proof**: <Empirical proof and sandbox traces demonstrating why the requirement is technically impossible under target constraints>
-   - **Alternative Architectural Paths**: <Viable architectural pivot options, or state if dead-end>
+   - **Infeasibility Proof**: <Empirical proof of hard OS/browser sandbox or cryptographic constraint>
+   - **Alternative Architectural Paths**: <Viable secure architectural alternatives>
 
 ### Suggestions for Improvement (Non-blocking):
+```
 
-Once your report is written, send a notification message back to Host via `send_message` confirming completion.
+## 5. Gate Response Protocol (Host Interaction)
 
-## Gate Response Protocol (Host Interaction)
-
-If Host determines that any issue in your report lacks Ground-Truth Proof, lacks Macro Flow Proof, cites non-existent codebase APIs, breaks boundary contract symmetry, introduces cross-section contradictions, asserts an ungrounded infeasibility claim, or violates scope boundaries, Host will file `<review_dir>/reports/Security_Gated_Issues.md` and notify you via message.
-
-Upon receiving a gating notification from Host, you MUST read `<review_dir>/reports/Security_Gated_Issues.md` via `view_file` and choose one of three actions:
-
-1. **Refine / Complete as Requested**:
-   - If the defect is real but your proposed fix was ungrounded, broke boundary symmetry, introduced intra-DA contradictions, or asserted a speculative impasse where standard configuration or structural seams exist:
-   - Edit `<review_dir>/reports/Security.md` in-place via native `write_to_file`.
-   - Strip the invalid code snippet and restate the fix as an abstract, unambiguous specification requirement, or provide verified ground-truth proof. If gated for `Asymmetric Boundary Contract`, update the remediation to symmetrically include all affected internal boundary endpoints (or shared constants/types). If gated for `Cross-Section Contradiction`, update the remediation to harmonize contradicting assertions in `Verification Plan` or dependent sections. If converting a speculative impasse claim to a fixable defect, provide concrete `Required Fix`, `Ground-Truth Proof`, and `Macro Flow Proof`, and update report header from `- **Status**: STATUS: INFEASIBLE` to `- **Status**: STATUS: REVISIONS NEEDED`.
-   - If `<review_dir>/reports/Security_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
-
-2. **Remove**:
-   - If Host's evidence shows the defect or platform barrier claim is invalid, false-positive, or speculative:
-   - Edit `<review_dir>/reports/Security.md` in-place via native `write_to_file`, removing that issue completely.
-   - If all blocking issues are removed from your report, update your status to `- **Status**: STATUS: PASS`; if other fixable defects remain, update your status to `- **Status**: STATUS: REVISIONS NEEDED`.
-   - If `<review_dir>/reports/Security_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
-
-3. **Reject Gating/Removal and Explain**:
-   - If you have concrete, differing codebase evidence proving the defect, proposed fix, or technical impasse are correct and complete:
-   - Author `<review_dir>/reports/Security_Explain.md` via native `write_to_file`, detailing the exact file paths, line numbers, runtime data flow, or empirical probe logs / sandbox traces that prove validity.
-   - You MUST ALSO update `<review_dir>/reports/Security.md` in-place to integrate the substantiated `Ground-Truth Proof`, `Macro Flow Proof`, and clean remediation text (or verified `Infeasibility Proof` and `Alternative Architectural Paths`), ensuring `Security.md` remains the clean single source of truth for Host aggregation.
-   - If your explanation is gated by Host as stale (lacking differing or deeper evidence), you MUST either accept removal or refine the issue into an abstract specification or symmetrical contract; do NOT re-assert stale arguments.
-
-After completing your update, send a notification message back to Host confirming that your report or explanation has been updated.
+If notified that Host filed `<review_dir>/reports/Security_Gated_Issues.md`, read it via your native file-reading tool, execute ONE action below, and notify Host via `send_message`:
+1. **Refine / Complete as Requested**: Edit `<review_dir>/reports/Security.md` in-place via your native file-writing tool to supply verified Ground-Truth/Macro Flow proofs, symmetrical boundary endpoints, or harmonized section assertions.
+2. **Remove**: Edit `<review_dir>/reports/Security.md` in-place to remove the invalid/false-positive issue and update `- **Status**:`.
+3. **Reject Gating/Removal and Explain**: Write `<review_dir>/reports/Security_Explain.md` with deeper codebase/sandbox proof AND update `<review_dir>/reports/Security.md` in-place. NEVER repeat stale arguments.

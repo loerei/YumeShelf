@@ -2,157 +2,89 @@
 
 Audits whether the Directive Artifact (DA) establishes an incremental, dependency-ordered execution progression across phases, milestones, and tickets.
 
-## Review Constraints
+## 1. Core Review Protocol & Constraints
 
-Audit the Directive Artifact solely against codebase ground-truth and requirement criteria. Treat all phase breakdowns, ticket boundaries, and sequencing as a first-draft proposal regardless of git history, commit frequency, or edit timestamps. Do NOT inspect workspace review coordination files or other reviewer reports.
+- **Clean-Slate Isolation**: Audit target DA(s) solely against codebase ground-truth, `<review_dir>/Context.md`, and this guide. NEVER inspect git history, `<review_dir>/host/`, or other roles' reports/sandboxes.
+- **Single-Pass Exhaustiveness, Incremental Capture & Forward Simulation**:
+  - **Incremental Finding Capture (`<review_dir>/sandbox/Progress/Findings.md`)**: To prevent "lost-in-the-middle" context drift across large multi-ticket epics, immediately append every discovered WBS gap, dependency cycle, unsequenced step, or horizontal slicing defect to `<review_dir>/sandbox/Progress/Findings.md` as lightweight notes (ticket/file location, defect description, affected dependencies, proposed restructuring) as you audit each section. NEVER write prematurely to `<review_dir>/reports/Progress.md` while reading.
+  - **Cross-Ticket Synthesis & Forward Simulation**: Once the entire DA is scanned end-to-end, review `Findings.md` holistically to reconcile cross-ticket execution ordering, eliminate false positives, group shared root causes, mentally apply all proposed transformations, and re-audit the projected ticket DAG. Report all WBS, sequencing, and slicing defects in one pass, then synthesize and write the final evaluation to `<review_dir>/reports/Progress.md` via your native file-writing tool.
+- **Lineage & Operational Continuity Alignment**:
+  - Read all DAs in `## Cross-Referenced DAs & Dependency Lineage` in `Context.md` so target tickets do not duplicate or invert `Upstream` milestones.
+  - Read `## Operational Continuity` in `<review_dir>/Context.md` and enforce the matching phasing/slicing model:
 
-- **Zero Tolerance for Technical Debt**: Regardless of how detailed or complete a Directive Artifact appears, any violation of your domain standards is a defect. You MUST hold the proposal to the highest standard defined in your guide. A design that "works flawlessly" is insufficient if it introduces unnecessary technical debt.
-- **Review Workspace Binding**: The review workspace directory `<review_dir>` is assigned dynamically per session and passed via your invocation prompt (`Review Workspace: <review_dir>`, `Domain Context: <review_dir>/Context.md`, `Output Path: <review_dir>/reports/<Role>.md`) and defined in `<review_dir>/Context.md`. In all file paths throughout this guide containing `<review_dir>`, substitute this assigned directory path.
+| Operational Continuity Mode | Required Phasing & Verification Model |
+| :--- | :--- |
+| `CONTINUOUS_OPERATION` *(default: 24/7 live service)* | Enforce vertical tracer-bullet slicing (UI-to-DB), zero-downtime $N$ & $N+1$ compatibility, and expand-contract phasing at every ticket. |
+| `NON_CONTINUOUS_OPERATION` *(tag `!NC`: offline upgrades/refactors, local/desktop/CLI apps, greenfield builds, or isolated rewrite branches)* | Permit horizontal foundation phasing during implementation; BAN throwaway UI mocks on early tickets and BAN 24/7 multi-deploy dual-write shims; enforce headless atomic testability on early tickets, sequential migration script staging ($S \to B$) when persistent schemas evolve, and full system cutover with bootable verification + legacy decommissioning at the terminal ticket. |
+| `NON_CONTINUOUS_INTERMEDIATE` *(tag `!NC0` / `!NCI`: intermediate scaffolding)* | Enforce headless contract verification (unit tests, typecheck, export schemas) and downstream handoff integrity only. BAN demanding application bootability, UI rendering, migration runners, or runtime cutovers during OR after the epic. |
+- **Fix Pre-Verification & Miss-Probability Gate (Headless AI Implementer Baseline)**:
+  - Verify on disk that referenced modules, files, and tickets exist and boundary contracts remain symmetrical across split/reordered tickets.
+  - Never flag syntax/type trivia in illustrative code snippets as blocking; demand an Acceptance Criterion instead.
+  - **Observer Identity**: Assume the implementer is an AI coding agent that (a) writes production code and tests directly from ticket text in headless CI with no human operating the app, and (b) writes ONLY the tests its ticket's Acceptance Criteria explicitly call for (never unprompted exploratory or adversarial tests). `"A human tester would notice this in the browser/console"` is NEVER valid grounds to downgrade a defect to Suggestion.
+  - Classify as **Blocking Defect** only issues that silently cause delivery deadlocks, unverified big-bang integration accumulation, forward/circular dependencies, or unexecutable slices for a headless AI implementer (include `Why This Would Be Missed`). If a ticket premise is impossible under platform bounds, return `STATUS: INFEASIBLE`.
 
-**Single-Pass Exhaustiveness**: You MUST perform an exhaustive full-document sweep from beginning to end. Report an unabridged inventory of ALL progress, sequencing, and work-breakdown defects across the entire document in a single pass. Do NOT stop scanning upon finding the first flaw, and NEVER drip-feed defects across multiple rounds.
-- **Forward-Simulated Re-Audit**: Before saving `<review_dir>/reports/<Role>.md`, mentally project the Directive Artifact as if ALL your proposed remediations were already applied. Re-audit this projected state against your complete guide, checklist, and domain subdocuments. Ask: *"Once applied, what 2nd-order defects does this mutated structure introduce or expose?"*
-- **Contract Completeness**: Bundle all derivative requirements and acceptance criteria directly into your current report. Only submit when confident that the mutated document will fully satisfy your domain standards without needing subsequent rounds of incremental peeling.
+## 2. Mandatory Audit Checklist & WBS Action Primitives
 
-**Ground-Truth Alignment**:
-- Ground ticket breakdowns in actual codebase dependencies and test suites. Do NOT demand speculative ticket splits for stable, working modules.
-- **Dependency Lineage Alignment**: If `<review_dir>/Context.md` specifies `## Cross-Referenced DAs & Dependency Lineage`, you MUST read all listed DAs:
-  - Verify that the target DA's milestones and ticket prerequisites correctly sequence with `Upstream` DAs (ensuring target tickets do not attempt to implement upstream capabilities or assume upstream milestones are complete without explicit staging).
-- **Operational Continuity Alignment**: Read `<review_dir>/Context.md` for `## Operational Continuity`. Default to `CONTINUOUS_OPERATION` if omitted:
-  - `CONTINUOUS_OPERATION`: System must remain operable during implementation. Enforce vertical slicing, zero-downtime N & N+1 compatibility, and transitional shims.
-  - `NON_CONTINUOUS_OPERATION`: System does not operate during implementation, but must be fully operational after the epic. Permit horizontal foundation phasing, ban throwaway zero-downtime shims, and enforce headless atomic testability on early tickets and full system cutover with bootable verification on the terminal ticket.
-  - `NON_CONTINUOUS_INTERMEDIATE`: System does not operate during OR after the epic (intermediate stepping stone / scaffolding / partial migration). BANS requiring application bootability, GUI rendering, or runtime cutovers; enforce headless contract verification and downstream handoff interface integrity.
+1. **Ticket Granularity & Atomic Checkboxes**: Is every ticket an independently verifiable slice, and is every `- [ ]` step a single-turn atomic modification followed by automated verification?
+2. **Topological DAG Soundness**: Are ticket and step sequences strictly acyclic with zero forward dependencies (e.g. Ticket $N$ consuming APIs built in Ticket $N+2$)?
+3. **Tidy First Isolation ($S \to B$)**: Are preparatory structural refactorings ($S$), config modernizations, and schema migration runner setups isolated into prerequisite steps/tickets before behavioral feature steps ($B$)?
+4. **Plan Decomposition Threshold**: Does a single-file plan bundle 2+ discrete deliverables requiring staged sequential verification gates (requiring `DECOMPOSE_PLAN_TO_PRD_AND_TICKETS`), or is it a single cohesive deliverable verifiable in one test run (which MUST remain a single file)?
 
-**Fix Pre-Verification**:
-- **Ground-Truth**: Verify on disk that referenced modules, files, or tickets exist before prescribing relocation, splitting, or phase sequencing, and verify boundary contracts are updated symmetrically.
-- **Macro Flow**: Verify that the proposed breakdown maintains dependency order and does not create deadlocks across phases.
-- **Miss-Probability Gate**:
-  - **Observer Identity**: All miss-probability judgments assume the implementer is an AI coding agent that (a) writes both the production code and its own tests directly from the ticket text, in a headless CI environment, with no human ever manually operating the running application, and (b) writes only the tests its ticket's Acceptance Criteria call for, not exploratory or adversarial tests nobody asked for. A signal only counts as "immediate and unambiguous" (-> Suggestion) if it would independently surface for THIS implementer: a compiler/type error, an uncaught exception with a stack trace, or a failing assertion against a value the ticket's stated Acceptance Criteria already require checking. "A human tester would notice this in the browser/console" is NEVER valid grounds to downgrade a defect to Suggestion - this implementer has no eyes, no browser, and performs no unscripted interaction with the running app.
+### Structured WBS Action Primitives
+Formulate every blocking finding using one of these exact action tags:
+- **Document-Level**: `DECOMPOSE_PLAN_TO_PRD_AND_TICKETS` (splits multi-gate single-file plan into `<epic_dir>/PRD.md` + `<epic_dir>/tickets/01-...md`).
+- **Macro (PRD ↔ PRD)**: `MERGE_PRDS`, `SPLIT_PRD`, `REORDER_PHASES`.
+- **Cross-Level (PRD ↔ Ticket)**: `EXTRACT_PRD_FROM_TICKETS`, `RELOCATE_TICKET`, `DEMOTE_PRD_TO_TICKET`.
+- **Micro (Ticket ↔ Ticket)**: `SPLIT_TICKET_TRACER_BULLETS` (MUST use symmetrical **Hierarchical Dot Notation** `3.1, 3.2` or `3.2.1, 3.2.2`; **NEVER renumber downstream tickets** `04 -> 05`), `MERGE_TICKETS`, `REORDER_TICKETS`, `INJECT_SCAFFOLDING_TICKET`, `[IMPASSE]`.
+- **Nano (Step ↔ Step inside Ticket)**: `SPLIT_STEP`, `REORDER_STEPS`, `EXTRACT_STEP_TO_TICKET`, `INJECT_VERIFICATION_STEP`, `ISOLATE_STEP_TIDYING`.
 
-  Every proposed defect falls into exactly one of two categories:
-  1. **Blocking defect**: The defect would either (a) be silently missed in implementation (wrong results that look plausible, subtle numerical drift, state corruption without crashes, race conditions that produce incorrect but non-crashing output), OR (b) produce a visible error signal but the correct fix for all instances of the same class is NOT obvious from the symptom alone (requires domain knowledge, cross-component generalization, or architectural insight that the error message does not reveal). MUST include a `Why This Would Be Missed` field explaining the blind spot.
-  2. **Suggestion only**: The defect would produce a clear, immediate error signal during implementation (compiler error, runtime exception with stack trace, or a failing assertion against a value the ticket's Acceptance Criteria already require checking) AND the correct fix, generalized to all instances of the same class, is obvious from the symptom without requiring reviewer domain knowledge. Classify as a Suggestion, NEVER as a blocking defect.
-- **Technical Impasse & Infeasibility Reporting**: If an audited requirement, ticket premise, or dependency is technically impossible or blocked by hard platform constraints (e.g. OS sandbox, CORS/same-origin, missing third-party capability, physical resource ceiling) with no viable in-scope fix: NEVER invent hallucinated workarounds and NEVER conceal the issue. Return `STATUS: INFEASIBLE` with an `Infeasibility Proof` demonstrating the hard constraint, and outline `Alternative Architectural Paths` if known.
+## 3. Domain Subdocuments Routing Table
 
-## Mandatory Audit Questions
+Always load `PROG-COMMON-WBS.md`, plus the subdocument matching `## Operational Continuity` in `Context.md`:
 
-1. **Ticket Granularity**: Is each ticket an independently testable slice that can be implemented and verified without waiting for the entire phase? Are monolithic tickets (entangling multiple disparate concerns or spanning disjoint subsystem boundaries) identified for splitting?
-2. **Dependency & Sequencing Soundness**: Is the execution order topologically sound? Are there forward-dependencies (e.g. Ticket N depending on unbuilt APIs from Ticket N+2) or circular dependencies across tickets and phases?
-3. **Phase & Milestone Boundaries**: Does Phase 0 / baseline milestones deliver an MVP / verifiable foundation without scope creep from subsequent phases? Are phase prerequisites explicitly specified?
-4. **Prerequisite & Seam Unlocking**: Does early ticket sequencing prioritize unblocking test seams, fixtures, and interfaces needed by subsequent tickets?
-
-## Work Breakdown Restructuring Actions Catalog
-
-When restructuring multi-phase PRDs or tickets, reviewers MUST formulate findings using these structured action primitives:
-
-### 0. Document-Level Morphing (Plan ↔ PRD + Modular Tickets)
-- **`DECOMPOSE_PLAN_TO_PRD_AND_TICKETS`**: Decompose a single-file plan into an epic directory structure (`<epic_dir>/PRD.md` and `<epic_dir>/tickets/*.md`) when the plan bundles 2 or more discrete deliverables requiring staged, sequential verification gates (e.g. data contracts verified headlessly before consumer UI or routes can be mounted).
-  - Epic PRD: `<epic_dir>/PRD.md` (architectural context, milestone DAG, operational continuity invariants).
-  - Modular Tickets: `<epic_dir>/tickets/01-...md`, `02-...md` (independent tracer bullets with dedicated acceptance criteria and automated verification commands).
-  - Host Transaction: Host creates `<epic_dir>/` on disk, writes `PRD.md` and tickets, backs up source plan as `<source_plan_stem>.bak.md`, deletes original plan file, and updates `## Target Directive Artifacts` in `Context.md`.
-
-### 1. Macro & Phase-Level Actions (PRD ↔ PRD)
-- **`MERGE_PRDS`**: Consolidate tightly coupled or circular PRDs into a single unified phase to eliminate artificial boundaries.
-- **`SPLIT_PRD`**: Decompose an overloaded PRD into sequential phases (e.g., Phase A: Backend Service MVP -> Phase B: Client UI).
-- **`REORDER_PHASES`**: Re-sequence execution order when a downstream phase contains mandatory architectural prerequisites for an upstream phase.
-
-### 2. Cross-Level Actions (PRD ↔ Ticket)
-- **`EXTRACT_PRD_FROM_TICKETS`**: Extract a cluster of related tickets from an existing PRD into a new standalone PRD/Phase when they form an independent subsystem.
-- **`RELOCATE_TICKET`**: Move a ticket from a later phase to an earlier phase (e.g., promoting shared test fixtures or schema migrations to Phase 1) or defer a non-essential ticket to a later phase.
-- **`DEMOTE_PRD_TO_TICKET`**: Demote an overly trivial PRD into a single ticket within an existing parent PRD.
-
-### 3. Micro & Ticket-Level Actions (Ticket ↔ Ticket)
-- **`[IMPASSE]`**: Identify an insurmountable platform or technical impossibility in a ticket or phase premise where no viable in-scope work breakdown restructuring exists.
-- **`SPLIT_TICKET_TRACER_BULLETS`**: Split a monolithic ticket into sequential tracer bullets using **Hierarchical Dot Notation** (e.g., `Ticket 3` $\rightarrow$ `Ticket 3.1` and `Ticket 3.2`; `Ticket 3.2` $\rightarrow$ `Ticket 3.2.1` and `Ticket 3.2.2`). NEVER renumber subsequent tickets (`04 -> 05`).
-- **`MERGE_TICKETS`**: Combine fragmented tickets that cannot be independently tested or delivered in isolation into a single cohesive ticket.
-- **`REORDER_TICKETS`**: Re-sequence tickets within a phase to build data models, contracts, and test seams before consuming logic.
-- **`INJECT_SCAFFOLDING_TICKET`**: Author a new prerequisite ticket for missing test fixtures, mock data providers, or developer utilities.
-
-### Hierarchical Dot-Splitting & Anti-Renumbering Directives
-1. **Hierarchical Dot Notation (`X.1, X.2 ... X.n`)**: When decomposing a ticket, MUST use symmetrical dot notation (`3.1, 3.2` rather than `3, 3b` or `3a, 3b`). Deep nesting (`3.2.1, 3.2.2 ... 3.2.n`) is permitted when sub-scopes require granular breakdown.
-2. **Anti-Cascading Renumbering**: NEVER renumber downstream tickets (e.g. do not rename `04` to `05` when splitting `03`). Downstream dependencies converge to the terminal child node (`3.2` or `3.2.n`).
-3. **Scope Evaluation**: Evaluate tickets solely on technical scope, cyclomatic complexity, and testability. Numbering depth does not exempt a ticket from splitting.
-
-### 4. Nano & Step-Level Actions (Step ↔ Step / Checkbox Inside Ticket)
-- **`SPLIT_STEP`**: Decompose a multi-concern, overloaded checkbox (`- [ ]`) into atomic, single-turn executable steps.
-- **`REORDER_STEPS`**: Re-sequence checkboxes within a ticket (e.g. interfaces/fixtures first -> core logic -> edge cases -> verification).
-- **`EXTRACT_STEP_TO_TICKET`**: Promote a high-complexity or scope-creeping step out of a ticket into a dedicated prerequisite/subsequent ticket.
-- **`INJECT_VERIFICATION_STEP`**: Add a dedicated automated test/harness execution step (`- [ ]`) with stdout verification after complex modifications.
-- **`ISOLATE_STEP_TIDYING`**: Separate structural refactoring steps ($S$) from behavioral feature steps ($B$) within ticket execution checklists.
-
-## Domain Subdocuments Routing Table
-
-Reviewers MUST call `view_file` on [`PROG-COMMON-WBS.md`](PROG-COMMON-WBS.md) for universal WBS invariants, and call `view_file` on the specialized operational subdocument matching `## Operational Continuity` from `<review_dir>/Context.md`:
-
-| Target Operational Archetype | Triggers & Context Scope | Subdocument |
+| Target Operational Archetype | Trigger Condition (When to Load) | Subdocument |
 | :--- | :--- | :--- |
-| **Universal WBS & Slicing Invariants** | Always audited for all Directive Artifacts (DAG topology, dot-splitting, atomic checkboxes, S -> B isolation). | [`PROG-COMMON-WBS.md`](PROG-COMMON-WBS.md) |
-| **Continuous Operation** | `CONTINUOUS_OPERATION` in `Context.md` (or default): live production services, zero-downtime deployments, vertical tracer-bullet slicing, expand-contract phasing. | [`PROG-CONTINUOUS-OPERATION.md`](PROG-CONTINUOUS-OPERATION.md) |
-| **Non-Continuous Operation** | `NON_CONTINUOUS_OPERATION` or `NON_CONTINUOUS_INTERMEDIATE` in `Context.md`: offline refactors, greenfield builds, isolated rewrite branches, horizontal foundation phasing. | [`PROG-NON-CONTINUOUS-OPERATION.md`](PROG-NON-CONTINUOUS-OPERATION.md) |
+| **Universal WBS Invariants** | Mandatory for all Progress audits | [`PROG-COMMON-WBS.md`](PROG-COMMON-WBS.md) |
+| **24/7 Continuous Operation** | `Operational Continuity: CONTINUOUS_OPERATION` in `Context.md` | [`PROG-CONTINUOUS-OPERATION.md`](PROG-CONTINUOUS-OPERATION.md) |
+| **Non-Continuous / Offline / Intermediate** | `NON_CONTINUOUS_OPERATION` (`!NC`) or `NON_CONTINUOUS_INTERMEDIATE` (`!NC0` / `!NCI`) in `Context.md` | [`PROG-NON-CONTINUOUS-OPERATION.md`](PROG-NON-CONTINUOUS-OPERATION.md) |
 
-## Verdict Rules
+## 4. Verdict Rules & Standard Output Protocol
 
-- Return `STATUS: REVISIONS NEEDED` if tickets are monolithic/unsplit, have broken/forward dependencies, leak scope across phase boundaries, or lack incremental verifiability.
-- Return `STATUS: PASS` if the work breakdown structure is strictly incremental, dependency-sound, and granularly decomposed into tracer bullets (for continuous systems) or verified horizontal foundation slices (for non-continuous systems).
-- Return `STATUS: INFEASIBLE` if a core requirement or ticket premise violates hard platform or technical constraints with no viable in-scope fix. When both infeasible and fixable defects are present, `STATUS: INFEASIBLE` takes strict precedence as the overall report status.
-- NEVER return `STATUS: REVISIONS NEEDED` for internal implementation mechanics (e.g. syntax, types, exports, regex flags) in illustrative code snippets; demand an Acceptance Criterion instead.
+Write evaluation to `<review_dir>/reports/Progress.md` via your native file-writing tool, then notify Host via `send_message`:
+- `STATUS: PASS`: WBS is dependency-sound, properly sliced for its continuity mode, and incrementally verifiable.
+- `STATUS: REVISIONS NEEDED`: Monolithic multi-gate plans, forward/circular dependencies, mixed $S+B$ steps, or missing verification gates exist.
+- `STATUS: INFEASIBLE`: Core ticket/phase premise violates hard platform constraints (takes overall status precedence).
 
-## Standard Output Protocol
-
-Save evaluation to `<review_dir>/reports/Progress.md` via `write_to_file` using this format:
-
+```markdown
 ### Review Evaluation: Progress
 
 - **Status**: `STATUS: PASS`, `STATUS: REVISIONS NEEDED`, or `STATUS: INFEASIBLE`
 
 ### Blocking Issues (Exhaustive List of ALL Identified Defects):
-<!-- Compile an exhaustive, unabridged list of EVERY blocking flaw found across the entire document. Do NOT truncate or defer issues. If at least one infeasible defect is present, the overall report status MUST be STATUS: INFEASIBLE; fixable defects may still be documented below for comprehensive single-pass audit fidelity. -->
-
 <!-- For Fixable WBS Defects -->
-1. **[<ACTION_NAME>] <Issue Title 1>**:
+1. **[<ACTION_NAME>] <Issue Title>**:
    - **Target Scope / Source**: `<Source_Files_or_Tickets>`
    - **Target Destination**: `<Target_Files_or_New_PRD_Path>`
-   - **Technical Rationale**: <Why this restructuring is required for incremental deliverability or dependency soundness>
-   - **Why This Would Be Missed**: <Concrete explanation of why delivery deadlock, unexecutable vertical slice, or forward-dependency blind spot would silently pass through implementation>
-   - **Required Transformation**: <Step-by-step instructions on splitting, merging, extracting, or reordering>
-   - **Ground-Truth Proof**: <Path to existing files, modules, or tickets on disk/spec verifying dependency exists, or verified target destination location for newly planned tickets/files>
-   - **Macro Flow Proof**: <Verification that delivery sequence, phase prerequisites, and milestone boundaries remain acyclic and deliverable>
+   - **Technical Rationale**: <Why restructuring is required for dependency soundness or continuity alignment>
+   - **Why This Would Be Missed**: <Why headless AI implementation hits a deadlock, forward dependency, or big-bang failure>
+   - **Required Transformation**: <Diff-ready WBS transformation specifying: (1) exact split/merged/reordered steps or tickets, (2) symmetrical interface, Blocked-by DAG, and [NEW]/[MODIFY]/[DELETE] file manifest updates across PRD and sibling tickets, and (3) synchronized Verification Command & Acceptance Criteria updates>
+   - **Ground-Truth Proof**: <Verified codebase/spec paths and non-colliding target locations>
+   - **Macro Flow Proof**: <Proof that the resulting phase/ticket DAG is acyclic and verifiable>
 
-<!-- For Infeasible WBS Defects (forces overall report Status to STATUS: INFEASIBLE) -->
-1. **[IMPASSE] <Issue Title 1>**:
+<!-- For Infeasible WBS Defects (forces overall Status to STATUS: INFEASIBLE) -->
+1. **[IMPASSE] <Issue Title>**:
    - **Target Scope / Source**: `<Source_Files_or_Tickets>`
-   - **Technical Rationale**: <Technical rationale explaining why the ticket or phase premise is impossible>
-   - **Infeasibility Proof**: <Empirical proof and sandbox traces demonstrating why the requirement is technically impossible under target constraints>
-   - **Alternative Architectural Paths**: <Viable architectural pivot options, or state if dead-end>
-   - **Macro Flow Proof**: <Verification that delivery sequence, phase prerequisites, and milestone boundaries remain acyclic and deliverable>
+   - **Technical Rationale**: <Why the ticket/phase premise is impossible>
+   - **Infeasibility Proof**: <Empirical proof of hard platform constraint>
+   - **Alternative Architectural Paths**: <Viable pivot options>
+   - **Macro Flow Proof**: <Impact on milestone dependency DAG>
 
 ### Suggestions for Improvement (Non-blocking):
+```
 
-Once your report is written, send a notification message back to Host via `send_message` confirming completion.
+## 5. Gate Response Protocol (Host Interaction)
 
-- <Optional roadmap polish or backlog consideration that does NOT block PASS status>
-
-## Gate Response Protocol (Host Interaction)
-
-If Host determines that any issue in your report lacks Ground-Truth Proof, lacks Macro Flow Proof, cites non-existent codebase APIs, breaks boundary contract symmetry, introduces cross-section contradictions, asserts an ungrounded infeasibility claim, or violates scope boundaries, Host will file `<review_dir>/reports/Progress_Gated_Issues.md` and notify you via message.
-
-Upon receiving a gating notification from Host, you MUST read `<review_dir>/reports/Progress_Gated_Issues.md` via `view_file` and choose one of three actions:
-
-1. **Refine / Complete as Requested**:
-   - If the defect is real but your proposed transformation was ungrounded, broke boundary symmetry, introduced intra-DA contradictions, or asserted a speculative impasse where standard configuration, seam, or work breakdown restructuring exists:
-   - Edit `<review_dir>/reports/Progress.md` in-place via native `write_to_file`.
-   - Strip invalid snippets and restate the transformation as an abstract, unambiguous specification requirement, or provide verified ground-truth proof. If gated for `Asymmetric Boundary Contract`, update the transformation to symmetrically include all affected internal boundary endpoints. If gated for `Cross-Section Contradiction`, update the transformation to harmonize dependent sections. If converting a speculative impasse claim to a fixable defect, provide concrete `Required Transformation` alongside `Target Scope / Source`, `Target Destination`, `Technical Rationale`, `Ground-Truth Proof`, and `Macro Flow Proof`, and update report header from `- **Status**: STATUS: INFEASIBLE` to `- **Status**: STATUS: REVISIONS NEEDED`.
-   - If `<review_dir>/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
-
-2. **Remove**:
-   - If Host's evidence shows the defect or platform barrier claim is invalid, false-positive, or speculative:
-   - Edit `<review_dir>/reports/Progress.md` in-place via native `write_to_file`, removing that issue completely.
-   - If all blocking issues are removed from your report, update your status to `- **Status**: STATUS: PASS`; if other fixable defects remain, update your status to `- **Status**: STATUS: REVISIONS NEEDED`.
-   - If `<review_dir>/reports/Progress_Explain.md` was authored in a prior turn of the active tier batch, reviewer MUST invalidate it (either by deleting it, or by overwriting it with empty content via `write_to_file(CodeContent="")` if native file deletion tools are unavailable) to eliminate stale defense artifacts; Host handles authoritative physical file removal upon accepting the updated report.
-
-3. **Reject Gating/Removal and Explain**:
-   - If you have concrete, differing codebase evidence proving the defect, proposed fix, or technical impasse are correct and complete:
-   - Author `<review_dir>/reports/Progress_Explain.md` via native `write_to_file`, detailing the exact file paths, line numbers, runtime data flow, or empirical probe logs / sandbox traces that prove validity.
-   - You MUST ALSO update `<review_dir>/reports/Progress.md` in-place to integrate the substantiated `Ground-Truth Proof`, `Macro Flow Proof`, and clean remediation text (or verified `Infeasibility Proof` and `Alternative Architectural Paths`), ensuring `Progress.md` remains the clean single source of truth for Host aggregation.
-   - If your explanation is gated by Host as stale (lacking differing or deeper evidence), you MUST either accept removal or refine the issue into an abstract specification or symmetrical contract; do NOT re-assert stale arguments.
-
-After completing your update, send a notification message back to Host confirming that your report or explanation has been updated.
+If notified that Host filed `<review_dir>/reports/Progress_Gated_Issues.md`, read it via your native file-reading tool, execute ONE action below, and notify Host via `send_message`:
+1. **Refine / Complete as Requested**: Edit `<review_dir>/reports/Progress.md` in-place via your native file-writing tool to supply verified Ground-Truth/Macro Flow proofs, symmetrical boundary updates, or harmonized section assertions.
+2. **Remove**: Edit `<review_dir>/reports/Progress.md` in-place to remove the invalid/false-positive issue (e.g. demanding vertical slicing on `!NC` or decomposing a cohesive single-run plan) and update `- **Status**:`.
+3. **Reject Gating/Removal and Explain**: Write `<review_dir>/reports/Progress_Explain.md` with deeper codebase dependency evidence AND update `<review_dir>/reports/Progress.md` in-place. NEVER repeat stale arguments.

@@ -1,57 +1,41 @@
 # Non-Continuous Operation Phasing and Direct Cutover
 
-Audit criteria for greenfield projects, offline refactors, and isolated rewrite branches where intermediate states do NOT serve live traffic.
+Audit criteria for offline upgrades/refactors, local/desktop/CLI applications, greenfield builds, and isolated rewrite branches (`NON_CONTINUOUS_OPERATION` / `!NC` and `NON_CONTINUOUS_INTERMEDIATE` / `!NC0` / `!NCI`) where old ($N$) and new ($N+1$) application binaries do NOT serve live traffic simultaneously.
 
 ## Domain Audit Checklist
 
 ### 1. Authorized Horizontal Foundation Phasing
-- [ ] Layer-Wise Staging Authorization: Milestones MAY be sequenced horizontally by architectural layer (e.g. Milestone 1: Headless Core & Domain State Store $\rightarrow$ Milestone 2: IPC/Transport Adapters $\rightarrow$ Milestone 3: Declarative UI Views). Reject reviewer feedback that penalizes horizontal layering when the codebase does not need to run continuously during implementation.
-- [ ] No Artificial UI Scaffolding: BANS requiring throwaway UI components, temporary mock views, or synthetic tracer bullets in early foundation milestones when real presentation layers are scheduled for subsequent milestones.
+- [ ] **Layer-Wise Milestone Staging**: Milestones MAY be sequenced horizontally by architectural layer (e.g. Milestone 1: Headless Core & Domain State Store + Migration Runner $\rightarrow$ Milestone 2: IPC/Transport Adapters $\rightarrow$ Milestone 3: Declarative UI Views). Reject reviewer feedback that penalizes horizontal layering when the codebase does not need to run continuously during implementation.
+- [ ] **No Artificial UI Scaffolding**: BANS requiring throwaway UI components, temporary mock views, or synthetic tracer bullets in early foundation milestones when real presentation layers are scheduled for subsequent milestones.
 
 ### 2. Operational Targets: Final Cutover (`!NC`) vs Intermediate Stepping Stone (`!NC0` / `!NCI`)
-- [ ] Terminal System Cutover (`NON_CONTINUOUS_OPERATION` / `!NC`): When scoped as `NON_CONTINUOUS_OPERATION`, the codebase must be fully operational after the epic concludes. The final milestone/tickets MUST deliver complete end-to-end cutovers, bootable application verification, and legacy decommissioning. Reject reviewer demands for continuous operation during intermediate foundation tickets, but enforce full bootability at the epic boundary.
-- [ ] Downstream Handoff Contract (`NON_CONTINUOUS_INTERMEDIATE` / `!NC0` / `!NCI`): When scoped as `NON_CONTINUOUS_INTERMEDIATE`, the codebase does NOT need to operate during OR after the epic (e.g. foundational schema extraction, tooling migration, or intermediate stepping stone). BANS reviewer demands requiring application bootability, GUI rendering, or runtime launchers. Reviewers MUST enforce strict headless contract verification (unit tests, typecheck) and downstream handoff interface integrity only.
+- [ ] **Terminal System Cutover & Data Migration (`NON_CONTINUOUS_OPERATION` / `!NC`)**:
+  - The codebase must be fully operational after the epic concludes. The final milestone/tickets MUST deliver complete end-to-end cutovers, bootable application verification, and legacy dead-code decommissioning.
+  - When evolving persistent schemas, **sequential migration scripts/runners ($V_1 \to V_2$) preserving existing data are mandatory**, executed as a direct atomic cutover at startup/upgrade without 24/7 multi-deploy dual-write shims.
+- [ ] **Downstream Handoff Contract (`NON_CONTINUOUS_INTERMEDIATE` / `!NC0` / `!NCI`)**:
+  - The codebase does NOT need to operate during OR after the epic (e.g. foundational schema extraction, tooling migration, or intermediate stepping stone).
+  - BANS reviewer demands requiring application bootability, GUI rendering, runtime launchers, or migration runners. Enforce strict headless contract verification (unit tests, typecheck) and downstream handoff interface integrity only.
 
 ### 3. Direct Atomic Cutover & Clean Decommissioning
-- [ ] Ban on Accidental Complexity Shims: Reject reviewer feedback demanding dual-write pipelines, expand-contract phasing, or temporary backward-compatibility adapters. Systems operating offline must execute clean, direct cutovers without transitional runtime shims.
-- [ ] Explicit Legacy Decommissioning: Ensure old subsystems, obsolete files, and legacy dead code have dedicated, scheduled deletion steps immediately upon completion of the replacement subsystem.
+- [ ] **Ban on 24/7 Dual-Write / Expand-Contract Shims**: Reject reviewer feedback demanding multi-deploy dual-write pipelines, shadow-read phases, or temporary runtime backward-compatibility adapters. Systems upgraded offline must execute clean, direct cutovers via startup/deployment migration scripts without transitional runtime shims in domain code.
+- [ ] **Explicit Legacy Decommissioning**: Ensure old subsystems, obsolete files, and legacy dead code have dedicated, scheduled deletion steps immediately upon completion of the replacement subsystem.
 
-### 4. Headless Atomic Verification
-- [ ] Self-Contained Ticket Verification: Every ticket MUST deliver isolated, automated verification (unit tests, headless integration fixtures, contract mocks, or CLI test runners) that passes in headless CI, regardless of whether the complete application can boot or render. BANS deferring test coverage to subsequent phases ("Big-Bang Integration").
-- [ ] Contract Surface Verification: Foundation tickets (state stores, engines, schemas) must verify their public API contracts and invariant boundaries with automated assertions before downstream consumer tickets are implemented.
-
-### 5. Single-Turn Execution Sizing
-- [ ] Cognitive Containment: Slicing depth is governed strictly by agent context limits, testability, and cyclomatic complexity, NOT by live user deployability. Split monolithic foundation tasks so each ticket can be deterministically implemented in a single turn.
+### 4. Headless Atomic Verification & Single-Turn Sizing
+- [ ] **Self-Contained Ticket Verification**: Every ticket MUST deliver isolated, automated verification (unit tests, headless integration fixtures, migration dry-runs, or CLI test runners) that passes in headless CI, regardless of whether the complete application can boot or render. BANS deferring test coverage to the final milestone ("Big-Bang Integration").
+- [ ] **Contract Surface Verification**: Foundation tickets (state stores, engines, schemas, migration scripts) must verify their public API contracts and invariant boundaries with automated assertions before downstream consumer tickets are implemented.
+- [ ] **Cognitive Containment**: Slicing depth is governed strictly by agent context limits, testability, and cyclomatic complexity, NOT by live 24/7 user deployability. Split monolithic foundation tasks so each ticket can be deterministically implemented in a single turn.
 
 ## Concrete Anti-Patterns
 
-### Anti-Pattern 1: Accidental Complexity Shims
-BAD (Fake Vertical Slicing in Non-Continuous Branch):
-- Milestone 1 Ticket 3: Create temporary mock React components and fake event bridges just to verify state store visually, when the entire UI is being rewritten in Milestone 3.
-(Flaw: Wastes tokens and engineering effort on throwaway UI code that must be deleted later.)
-
-GOOD (Headless Contract Verification):
-- Milestone 1 Ticket 3: Verify state store transitions, reducers, and selectors thoroughly using automated Vitest/Jest unit test suites without rendering any UI.
+### Anti-Pattern 1: Fake Vertical UI Scaffolding or 24/7 Dual-Write Shims in `!NC`
+- **BAD (Fake Vertical Slicing)**: Milestone 1 Ticket 3 creates temporary mock React components and fake event bridges just to verify a state store visually when the real UI is scheduled for Milestone 3.
+- **BAD (24/7 Cloud Overkill on Offline Upgrade)**: Demanding a 5-phase Expand-Contract rollout with dual-writing to `old_col` and `new_col` in application code when old and new binaries never run concurrently.
+- **GOOD (Headless Contract & Direct Atomic Migration)**: Verify state store and sequential migration script ($V_1 \to V_2$) using automated Vitest/Jest/in-memory DB tests in Milestone 1, and switch domain code directly to the $V_2$ schema.
 
 ### Anti-Pattern 2: Unverified Foundation Accumulation (Big-Bang Integration)
-BAD (Deferred Testing):
-- Tickets 1 through 5 build data schemas, state stores, and controllers with zero automated tests, with a plan to "test everything when the UI boots in Ticket 6".
-(Flaw: Accumulates hidden regressions; debugging root causes during final integration becomes exponentially harder.)
+- **BAD (Deferred Testing)**: Tickets 1 through 5 build data schemas, migration scripts, state stores, and controllers with zero automated tests, planning to "test everything when the UI boots in Ticket 6".
+- **GOOD (Atomic Verification per Ticket)**: Ticket 1 includes automated schema parsing & $V_1 \to V_2$ migration tests; Ticket 2 includes automated state mutation tests; Ticket 3 includes automated IPC round-trip tests.
 
-GOOD (Atomic Verification per Ticket):
-- Ticket 1 includes automated schema parsing tests.
-- Ticket 2 includes automated state mutation tests.
-- Ticket 3 includes automated IPC round-trip tests.
-(Result: Each layer is verified solid before the next layer builds on top of it.)
-
-### Anti-Pattern 3: Demanding Full Application Boot on Intermediate Stepping Stone
-BAD (False-Positive Boot Demand):
-- Reviewer rejects a Phase 0 epic (scoping headless state store extraction under `!NC0`) because "the application does not render a UI or launch a window upon completion".
-(Flaw: Forces engineers to write throwaway UI bootstrap code or fakes for an epic whose explicit purpose is headless foundation.)
-
-GOOD (Headless Contract & Handoff Integrity):
-- Reviewer verifies that all state store reducers pass headless unit test suites, exports are strictly typed, and the handoff boundary matches downstream epic expectations.
-
-## Failure Modes & Mitigations
-- Big-Bang Integration Failure: Mitigate by enforcing automated headless tests on every ticket before it can be marked complete.
-- Zombie Legacy Clutter: Mitigate by requiring explicit deletion tickets (`DECOMMISSION_LEGACY`) in the work breakdown.
+### Anti-Pattern 3: Demanding Full Application Boot on Intermediate Stepping Stone (`!NC0` / `!NCI`)
+- **BAD (False-Positive Boot Demand)**: Rejecting a Phase 0 epic (scoped under `!NC0`) because "the application does not render a UI or launch a window upon completion".
+- **GOOD (Headless Contract & Handoff Integrity)**: Verify that all reducers pass headless unit test suites, exports are strictly typed, and the handoff boundary matches downstream epic expectations.

@@ -10,7 +10,7 @@ Format and synchronize GitHub Pull Request descriptions using Conventional Commi
 ## Directives
 
 1. **Title Format**: MUST follow Conventional Commits: `<type>(<scope>): <short description>` (e.g., `feat(cli): add short alias flags`).
-2. **Session History Retrieval**: When summarizing multi-turn sessions, MUST retrieve context via `chronicle-mcp` (`get_session_details` with `conversationStepsOnly: true`). NEVER read raw SQLite or jsonl transcripts.
+2. **Session History Retrieval**: When summarizing multi-turn sessions, MUST retrieve context via `chronicle` (`query_transcript` with dialogue detail). NEVER read raw SQLite or `.jsonl` transcripts unless `chronicle` is unavailable.
 3. **No Fluff**: State factual code changes; NEVER use marketing adjectives (`robust`, `seamless`, `powerful`).
 
 | Bad (Marketing Fluff) | Good (Plain English) |
@@ -51,7 +51,7 @@ Format and synchronize GitHub Pull Request descriptions using Conventional Commi
 
 ## Workflow
 
-1. **Inspect Diffs & History**: Check `git status`, `git diff`, and retrieve session steps via `chronicle-mcp`.
+1. **Inspect Diffs & History**: Check `git status`, `git diff`, and retrieve session steps via `chronicle:query_transcript`.
 2. **Draft PR**: Fill PR Template following Directives.
 3. **Publish / Update**:
    - Create PR: Call `github:create_pull_request` (or `gh pr create`).

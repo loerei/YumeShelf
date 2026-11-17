@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **Audience: MAIN AGENT ONLY.**  
 > This document contains prompt synthesis templates and orchestration protocols for the Main Agent.  
-> **NEVER** pass this file or its path under `Required Reading` to Subagent Reviewers. Subagents must be given [REVIEWER-DESIGN-AUDIT.md](REVIEWER-DESIGN-AUDIT.md).
+> **NEVER** pass this file or its path under `Required Reading` to Subagent Reviewers. Subagents must be given 1-2 matching `<Role>-REVIEWER-GUIDE.md` files from `../conduct-deep-reviewing-loop/`.
 
 Templates, checklist builders, and anti-anchoring protocols for stress-testing and auditing unapproved plans, RFCs, PRDs, or skill drafts BEFORE writing code.
 
@@ -16,20 +16,37 @@ Use when creating `scratch/reviewer_prompt_v1.md` to audit an unapproved plan, R
 ```markdown
 You are <Domain> Reviewer #<N>. Audit the proposed <Artifact Type> draft.
 
-### Required Reading (MUST read using view_file / jcodemunch):
+### Required Reading (MUST read using your native file-reading or search tools):
 1. Target Artifact Draft: `<draft_path>`
 2. Repository Guidelines & Rules: `AGENTS.md`
-3. Reviewer Discipline & Output Protocol: [REVIEWER-DESIGN-AUDIT.md](file:///<repo-root>/.agents/skills/conduct-reviewing-loop/REVIEWER-DESIGN-AUDIT.md)
-4. Task-Specific Domain Skills: `<task_domain_skill_paths>` (e.g., /write-a-skill, /write-for-ai, /tdd, /design-taste-frontend)
+3. Domain Reviewer Guide(s): `<1-2 matching ../conduct-deep-reviewing-loop/<Role>-REVIEWER-GUIDE.md paths>`
+4. Task-Specific Domain Skills: `<task_domain_skill_paths>` (e.g., `/write-a-skill`, `/write-for-ai`, `/tdd`, `/ui-design`)
 
 ### Dynamic Task Audit Checklist:
 1. **User Requirements**: <Synthesized ticket/feature requirements and constraints>
-2. **System Guidelines & Architecture**: <Key architectural rules from AGENTS.md, /codebase-design, etc.>
+2. **System Guidelines & Architecture**: <Key architectural rules from AGENTS.md and referenced skills>
 3. **Domain & Edge-Case Completeness**: <Specific edge-case handling, error paths, and safety criteria>
-4. **Template & Layout Adherence** *(For Implementation Plans)*: Verify mandatory plan layout sections (`AGENTS.md` Section 2).
-5. **Execution Checklist Completeness** *(For Implementation Plans)*: Verify that the Execution Checklist (`- [ ]`) covers 100% of proposed file edits, schema changes, and edge cases.
+4. **Plan Structure & Status Markers** *(For Implementation Plans)*: Verify `AGENTS.md` plan layout (`[ ]` on file headers/test commands; no standalone execution checklist sections).
+5. **Coverage Completeness** *(For Implementation Plans)*: Verify proposed edits, schema changes, and edge cases are backed by verification commands.
 
-*Evaluate strictly per the rules and standard output format in [REVIEWER-DESIGN-AUDIT.md](file:///<repo-root>/.agents/skills/conduct-reviewing-loop/REVIEWER-DESIGN-AUDIT.md).*
+### Mode A Output & Workspace Override (STRICT):
+Use the loaded `<Role>-REVIEWER-GUIDE.md` (and any matching subdocuments inferred directly from the target draft and prompt) ONLY for audit criteria, defect signatures, and miss-probability classification.
+IGNORE `<review_dir>`, `Context.md`, `sandbox/`, `reports/`, and Gate Response (`Section 6`) instructions inside those guides.
+Conclude by returning your complete evaluation directly via `send_message` using this exact format (and `STATUS: PASS` or `STATUS: REVISIONS NEEDED` only; if technically impossible, explain why under Blocking Issues with `STATUS: REVISIONS NEEDED`):
+
+```markdown
+### Review Evaluation: Reviewer #<N>
+
+- **Status**: `STATUS: PASS` or `STATUS: REVISIONS NEEDED`
+
+### Blocking Issues (Exhaustive List of ALL Identified Defects):
+1. **[Issue Title]**: <Concrete flaw, gap, or broken requirement>
+   - **Target Section**: `<Section Name / Draft Path>`
+   - **Required Edit**: <Exact modification to be made to the draft document>
+
+### Suggestions for Improvement (Optional / Non-blocking):
+- <Optional polish that does NOT block PASS status>
+```
 ```
 
 ---
@@ -40,7 +57,7 @@ When synthesizing the prompt checklist, ensure coverage across:
 
 ### General Checks (All Draft Artifacts):
 - [ ] User goals & constraints explicitly addressed
-- [ ] Adherence to task-specific domain skills (<task_domain_skill_paths>) verified
+- [ ] Adherence to task-specific domain skills (`<task_domain_skill_paths>`) verified
 - [ ] Neutral document check: No past reviewer references, meta-changelogs, or anchoring tags inside draft content
 - [ ] No hardcoded env values, magic numbers, or fixed pixel layouts
 - [ ] Surgical changes: only touch required files
@@ -50,8 +67,8 @@ When synthesizing the prompt checklist, ensure coverage across:
 - [ ] Out-of-Scope / Non-Goals exclusions explicitly recorded
 
 ### Plan-Specific Checks (Implementation Plans Only):
-- [ ] Strict adherence to mandatory layout template (`AGENTS.md` Section 2) verified
-- [ ] Execution Checklist (`- [ ]`) verified covering 100% of proposed file edits, schema changes, and edge cases
+- [ ] Adherence to `AGENTS.md` plan layout (`[ ]` on file headers/test commands; no standalone steps section) verified
+- [ ] Proposed file edits, schema changes, and edge cases mapped to verification checks
 
 ---
 

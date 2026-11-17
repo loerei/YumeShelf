@@ -184,5 +184,3 @@ class CircularRingBuffer<T> {
 * Quadratic Loop Degeneracy (O(N2)): Linear array lookups inside batch loops cause CPU spikes as collections grow. Mitigate by indexing items into `Map` or `Set` structures prior to iteration.
 * GC Thrashing under Stream Loads: Array shifts in high-frequency sliding buffers generate excessive short-lived objects. Mitigate by using fixed-capacity Circular Ring Buffers.
 
-```
----

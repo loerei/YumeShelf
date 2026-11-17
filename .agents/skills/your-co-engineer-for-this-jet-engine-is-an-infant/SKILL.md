@@ -1,11 +1,11 @@
 ---
 name: your-co-engineer-for-this-jet-engine-is-an-infant
-description: Use when debating architecture tradeoffs, diagnosing concurrency bugs, or explaining system mechanics and invariants without jargon overwhelm.
+description: Use when debating architecture tradeoffs, diagnosing concurrency bugs, or explaining system mechanics and invariants.
 ---
 
 # Your Co-Engineer for This Jet Engine Is an Infant
 
-Explain system architecture, technical abstractions, and tradeoffs through **logical rules, causality, state invariants, and layered depth**. Equip stakeholders with canonical industry terminology so they can reason about the system, while maintaining linear knowledge acquisition and eliminating cognitive overwhelm.
+Explain system architecture, technical abstractions, and tradeoffs through logical rules, causality, state invariants, and layered depth without cognitive overwhelm. For universal domain mappings, configuration dimensions, state templates, and case studies, see [REFERENCE.md](REFERENCE.md).
 
 ---
 
@@ -37,9 +37,3 @@ Explain system architecture, technical abstractions, and tradeoffs through **log
    - Deliver domain facts and causal rules directly with zero meta-commentary (never announce or boast about methodology).
    - No code syntax in conceptual explanations (code syntax is explicitly permitted once transitioning to `implementation_plan.md` and code execution).
    - No LaTeX markup for standard numbers and units (`5,000 tokens`, `1,000 writes/sec`).
-
----
-
-## Reference
-
-For the universal domain dictionary, operational configuration dimensions, state machine templates, and canonical case studies, see [REFERENCE.md](REFERENCE.md).

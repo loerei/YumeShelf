@@ -1,40 +1,41 @@
-# Server-Side Relational Schema and Non-Blocking DDL Safety
+# Server-Side Relational Schema and Migration Safety
 
-Audits relational database migrations, locking dynamics, and zero-downtime lifecycles.
+Audits relational database migrations, locking dynamics, and operational continuity alignment.
 
 ## Domain Audit Checklist
 
-* [ ] Lock and Statement Timeouts: Verify all DDL scripts explicitly set `lock_timeout` (e.g. 2s) and `statement_timeout` (e.g. 5s) before issuing alterations.
-* [ ] Non-Blocking Index Builds: Ensure indexes are created using non-blocking commands (`CREATE INDEX CONCURRENTLY` in Postgres; `ALGORITHM=INPLACE, LOCK=NONE` in MySQL).
-* [ ] Phased Constraint Validation: Confirm foreign key and check constraints are added using `NOT VALID` and validated in a separate transaction via `VALIDATE CONSTRAINT`.
-* [ ] Expand-Contract Execution (CONTINUOUS_OPERATION only): Verify structural renames or column splits use multi-deploy expand, backfill, and contract phases rather than atomic renames. Under NON_CONTINUOUS_*, permit direct atomic cutovers and ban temporary shims.
-* [ ] Keyset-Paginated Backfills: Ensure data migrations execute in throttled batches using keyset pagination (`WHERE id > :last_id ORDER BY id ASC LIMIT :batch_size`).
-* [ ] Reversibility / Rollback Safety: Confirm every schema change includes an operational rollback script that does not destroy un-migrated production data (exempt under NON_CONTINUOUS_INTERMEDIATE where no live data or runner exists).
+- [ ] **Mandatory Versioned Migration Scripts**: Every schema alteration MUST execute through a versioned migration script with deterministic up/down or backup-restore paths ensuring zero data loss.
+- [ ] **Lock & Statement Timeouts**: Set explicit `lock_timeout` (e.g. `2s`) and `statement_timeout` before executing DDL alterations on live tables.
+- [ ] **Non-Blocking Index & Constraint Builds (`CONTINUOUS_OPERATION`)**: On live 24/7 tables, build indexes via `CREATE INDEX CONCURRENTLY` (Postgres) / `ALGORITHM=INPLACE, LOCK=NONE` (MySQL), and add foreign keys/check constraints with `NOT VALID` followed by a separate `VALIDATE CONSTRAINT` transaction.
+- [ ] **Operational Continuity Migration Alignment**:
+  - `CONTINUOUS_OPERATION` *(default: 24/7 zero-downtime)*: Enforce multi-deploy Expand $\rightarrow$ Backfill $\rightarrow$ Switch $\rightarrow$ Contract migration phases so application versions $N$ and $N+1$ operate concurrently without errors.
+  - `NON_CONTINUOUS_OPERATION` *(tag `!NC`: offline maintenance upgrades or single-instance deployments where $N$ & $N+1$ do not run simultaneously)*: **Enforce sequential migration scripts ($V_1 \to V_2$) that transform and preserve existing records**, while permitting direct single-step atomic cutover DDL (e.g. `ALTER TABLE ... RENAME/DROP COLUMN` after data transformation in the migration script) and **banning** temporary multi-deploy dual-write shims.
+  - `NON_CONTINUOUS_INTERMEDIATE` *(tag `!NC0` / `!NCI`)*: Audit schema types and constraints only; do not demand migration runners or rollback scripts.
+- [ ] **Keyset-Paginated Data Backfills**: Execute large data backfills in bounded batches (`WHERE id > :last_id ORDER BY id ASC LIMIT :batch_size`) across short transactions to prevent vacuum/undo-log bloat.
+- [ ] **Reversibility & Rollback Safety**: Confirm every schema migration includes an operational rollback script or pre-migration snapshot verification that does not lose production data (exempt under `NON_CONTINUOUS_INTERMEDIATE`).
 
 ## Concrete Anti-Patterns
 
-### Anti-Pattern 1: Blocking Index and Constraint Addition
+### Anti-Pattern 1: Blocking Index and Constraint Addition on Live Tables (`CONTINUOUS_OPERATION`)
 
 ```sql
-
--- BAD: Takes ACCESS EXCLUSIVE lock on orders; blocks all concurrent traffic.
+-- BAD: Acquires ACCESS EXCLUSIVE lock while scanning entire table, blocking all reads and writes
 ALTER TABLE orders ADD CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES customers(id);
 CREATE INDEX idx_orders_customer ON orders(customer_id);
 
--- GOOD: Non-blocking index creation and non-blocking constraint validation.
--- Step 1: Build index concurrently without blocking writes
+-- GOOD (CONTINUOUS_OPERATION): Non-blocking index build and two-step constraint validation
 CREATE INDEX CONCURRENTLY idx_orders_customer ON orders(customer_id);
 
--- Step 2: Add constraint without validating existing rows (instant catalog lock)
 SET lock_timeout = '2s';
 ALTER TABLE orders ADD CONSTRAINT fk_customer FOREIGN KEY (customer_id) REFERENCES customers(id) NOT VALID;
 RESET lock_timeout;
 
--- Step 3: Validate constraint concurrently
 ALTER TABLE orders VALIDATE CONSTRAINT fk_customer;
-
 ```
+
 ## Failure Modes & Mitigations
 
-- Lock Queue Death Spiral: Heavy DDL waiting on lock blocks subsequent queries, exhausting connection pool. Mitigate by setting `SET lock_timeout = '2s'`.
-- Autovacuum Wraparound Freeze: Multi-hour backfill transactions block table cleanup, risking XID wraparound shutdown. Mitigate by batching backfills in short, isolated transactions.
+| Failure Mode | Root Cause | Mitigation |
+| :--- | :--- | :--- |
+| **Lock Queue Cascade Outage** | `ALTER TABLE` waiting on an active query blocks all subsequent queries behind its `ACCESS EXCLUSIVE` lock request. | Precede every `ALTER TABLE` with `SET lock_timeout = '2s'` and retry with backoff. |
+| **Autovacuum / XID Wraparound Stall** | Single multi-hour transaction backfilling millions of rows. | Commit backfills in keyset-paginated batches of 1,000–5,000 rows per transaction. |

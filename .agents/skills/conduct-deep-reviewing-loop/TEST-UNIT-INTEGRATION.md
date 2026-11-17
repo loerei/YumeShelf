@@ -1,43 +1,69 @@
-# Unit and Integration Test Determinism
+# Unit and Integration Test Determinism, Seam Integrity, and Anti-Tautology
+
+Audits assertion determinism, mock boundary fidelity, self-fulfilling test prevention, and fixture isolation.
 
 ## Domain Audit Checklist
 
-### 1. Assertion Determinism & Isolation
-- [ ] System Time Isolation: Verify that tests depending on time consume mockable clock abstractions (`Clock`, `TimeProvider`) rather than calling system time primitives (`Date.now()`, `time.Now()`).
-- [ ] Randomness Seeding: Ensure pseudo-random sequence generations consume fixed seed inputs within test suites.
+### 1. Anti-Tautology & Self-Fulfilling Test Prevention
+- [ ] **Ban Mocking the System Under Test (SUT)**: Reject tests that stub or spy-override methods on the class/module being tested, or tests that assert only `expect(mockFn).toHaveBeenCalled()` without asserting observable output values, state transitions, or persisted side effects.
+- [ ] **No Formula Duplication & Mandatory Normalization Boundaries**: Reject tests that copy-paste the production implementation formula into the `expect(...)` calculation. Mandate concrete, pre-calculated expected literals including numeric boundary values (`0`, `-1`, empty, overflow) and, for any string/identity comparison (emails, usernames, paths), mandatory normalization boundaries: case variants (`"User@Example.com"`), leading/trailing whitespace (`" user@example.com\n"`), and Unicode normalization forms (`NFC` vs `NFD`).
+- [ ] **Disambiguating Masked Responses via Side-Effect & Telemetry Assertions**: When multiple distinct internal execution paths intentionally return identical public outputs (e.g., anti-enumeration endpoints returning `200 OK` on both dispatch and mismatch), tests MUST assert both the external boundary side-effect state (e.g., `outbox.length === 1` vs `0`) AND the exact internal diagnostic outcome/reason (e.g., `abortReason: "EMAIL_MISMATCH"` vs `"USER_NOT_FOUND"` via injected logger/telemetry seam) so tests cannot pass via the wrong early-return branch.
+- [ ] **Mock-to-Contract Schema Parity (Anti-Mock-Drift)**: Verify mock payloads and stub responses are typed against and parsed through the exact canonical producer DTO / Zod schema so schema changes immediately fail consumer unit tests.
 
-### 2. Mock Boundary Design
-- [ ] Over-Mocking Anti-Patterns: Confirm unit tests mock only foreign infrastructure boundaries (HTTP clients, DB drivers), not local domain logic structs or internal helper utility modules.
-- [ ] Mock Verification: Ensure all mock objects verify expected call counts and input values explicitly.
+### 2. Assertion Determinism & Clock/Random Isolation
+- [ ] **System Time & Timer Isolation**: Verify time-dependent logic consumes an injected clock (`Clock`, `performance.now` seam) or deterministic fake timers (`vi.useFakeTimers()`, `jest.useFakeTimers()`) rather than real wall-clock sleeps.
+- [ ] **Seeded Randomness**: Ensure randomized or property-based tests consume explicit, reproducible PRNG seeds.
 
-### 3. Test Fixture Leakage
-- [ ] Independent State Cleanup: Verify that integration tests execute within isolated database transactions that roll back automatically upon test completion, or use atomic schema isolation per worker.
+### 3. Mock Boundary & Fixture Isolation
+- [ ] **External Boundary Mocking & Programmatic Builders**: Mock only foreign I/O boundaries (network clients, third-party SDKs, LLM/AI providers, OS dialogs), never internal domain entities, pure reducers, or parser helpers. Ban live LLM or external network calls in unit/integration suites (inject deterministic replay cassettes or schema-validated fixture seams). For local SQLite/storage logic, prefer fast in-memory instances (`:memory:`) or cross-platform in-memory VFS adapters (`IFileSystem`), and use **programmatic byte/AST fixture builders** for binary/protocol parsers rather than committing opaque binary blobs or mocking internal parser steps.
+- [ ] **Independent State & Handle Teardown**: Verify integration tests run inside isolated transactions/temp directories and clean up all open timers, file handles, and event listeners in `afterEach`/`finally` hooks.
 
 ## Concrete Anti-Patterns
 
-### Anti-Pattern 1: Non-Deterministic Time Coupling
+### Anti-Pattern 1: Self-Fulfilling Tautological Mock Test
 
 ```typescript
-// BAD: Test fails depending on execution duration or system clock boundary.
-test('verifies subscription active status', () => {
-  const user = createUser({ subExpires: new Date(Date.now() + 1000) });
-  // If garbage collection pauses execution for >1 second, this assertion fails.
-  expect(user.isSubscriptionActive()).toBe(true);
+// BAD: Test mocks the internal calculation and only asserts the mock was called with whatever it was given.
+// Passes 100% of the time even if production discount logic is completely broken.
+test("applies discount (BAD - tautological)", () => {
+  const service = new CheckoutService();
+  vi.spyOn(service as any, "computeDiscount").mockReturnValue(150);
+  const total = service.checkout({ subtotal: 1000, coupon: "SAVE15" });
+  expect((service as any).computeDiscount).toHaveBeenCalledWith(1000, "SAVE15");
+  expect(total).toBe(1000 - 150); // Mirrors formula instead of testing real behavior
 });
 
-// GOOD: Freeze time context using fake clock provider.
-test('verifies subscription active status', () => {
-  jest.useFakeTimers();
-  jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
-  
-  const user = createUser({ subExpires: new Date('2026-01-01T00:00:01Z') });
-  expect(user.isSubscriptionActive()).toBe(true);
-  
-  jest.useRealTimers();
+// GOOD: Exercises real public interface against concrete input/output fixtures without mocking internals
+test("applies 15% SAVE15 coupon in integer cents", () => {
+  const service = new CheckoutService(new InMemoryCouponRepo({ SAVE15: { percentOff: 15 } }));
+  const receipt = service.checkout({ subtotalCents: 1000n, couponCode: "SAVE15" });
+  expect(receipt).toEqual({
+    subtotalCents: 1000n,
+    discountCents: 150n,
+    finalTotalCents: 850n
+  });
+});
+```
+
+### Anti-Pattern 2: Unvalidated Mock Payload Causing Silent Mock Drift
+
+```typescript
+// BAD: Untyped inline mock object omits required v2 field `currency` added to producer API
+const mockApiResponse = { id: "ord_1", amountCents: 500 } as any;
+
+// GOOD: Parse mock fixture through canonical producer schema so contract drift breaks test immediately
+const mockApiResponse = OrderResponseSchema.parse({
+  id: "ord_1",
+  amountCents: 500,
+  currency: "USD"
 });
 ```
 
 ## Failure Modes & Mitigations
 
-- Flaky Tests via Parallel Shared State Mutation: Run test engines in process-isolated modes with randomized test execution ordering.
-- False Positive Assertion Passes: Reject tests containing missing dynamic assertion validations or unhandled promise catch blocks.
+| Failure Mode | Root Cause | Mitigation |
+| :--- | :--- | :--- |
+| **Green Tests on Broken Production Code** | AI implementer mocks internal helpers or asserts mock call arguments instead of output state. | Require assertions on returned values/persisted state across public interfaces with zero internal spies. |
+| **Mock Drift Integration Crash** | Producer changes response schema while consumer unit tests keep passing against stale hand-rolled mocks. | Validate all test fixtures through shared canonical schemas (`Schema.parse(fixture)`) at test setup. |
+| **Flaky / Expensive CI Runs** | Real `setTimeout` delays, live LLM/network calls, or uncleaned open sockets/intervals across test files. | Use fake timers, deterministic replay seams for external/LLM APIs, and `afterEach` handle teardown. |
+| **False-Positive Masked Response Test** | Test asserts `HTTP 200` (or only `outbox.length === 0`) on a security-masked endpoint, passing even when code aborts at the wrong branch or drops valid requests. | Require positive tests to assert persisted outbox/queue side effects and negative tests to assert the exact internal `abort_reason` diagnostic event. |

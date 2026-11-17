@@ -4,15 +4,15 @@
 
 ## 1. The 7 Essential Script Repertoires
 
-| Category | Typical Commands | Primary Responsibility & Failure Mode Prevented |
-| :--- | :--- | :--- |
-| **1. Preflight & Auditing** | `verify:deps`, `sync:deps`, `typecheck`, `lint` | **Fail-Fast Gates**: Prevents starting heavy multi-minute builds when runtime dependencies or type contracts are broken. |
-| **2. Native & Asset Setup** | `ensure:bins`, `copy:assets` | **Idempotent Asset Preparation**: Pre-compiles Rust/C++ binaries, downloads platform drivers, and copies runtime shims into `dist/`. |
-| **3. Core Compilation** | `build:main`, `build:preload`, `build:vite` | **Tiered Compilation**: Converts TypeScript sources and bundles renderer assets with deterministic sourcemaps. |
-| **4. Testing & Verification** | `test`, `test:vitest`, `test:node`, `test:e2e` | **Regression Defense**: Runs in-memory unit tests, domain simulations, and cross-platform compatibility suites. |
-| **5. Packaging & Distribution** | `build:win`, `build:linux`, `build:fast` | **Heavy Packaging**: Executes electron-builder/docker. Always preceded by preflight and followed by output organization. |
-| **6. Output Organization** | `organize:build-output` | **Asset Hygiene**: Sorts raw build dumps into structured subdirectories (`application/`, `feed/`, `metadata/`, `unpacked/`). |
-| **7. Health & Maintenance** | `doctor`, `clean`, `clean:all` | **Environment & Cache Reset**: Diagnoses local toolchain discrepancies and clears ghost build caches. |
+| Category & Typical Commands | Gate Responsibility |
+| :--- | :--- |
+| **Preflight & Auditing** (`verify:deps`, `sync:deps`, `typecheck`, `lint`) | Fail-fast gate before multi-minute builds when runtime dependencies or types break. |
+| **Native & Asset Setup** (`ensure:bins`, `copy:assets`) | Idempotently prepare Rust/C++ binaries, drivers, and runtime shims in `dist/`. |
+| **Core Compilation** (`build:main`, `build:preload`, `build:vite`) | Compile TypeScript sources and bundle renderer assets with sourcemaps. |
+| **Testing & Verification** (`test`, `test:vitest`, `test:node`, `test:e2e`) | Run unit, domain simulation, and cross-platform suites. |
+| **Packaging & Distribution** (`build:win`, `build:linux`, `build:fast`) | Run heavy packagers after preflight checks and before output organization. |
+| **Output Organization** (`organize:build-output`) | Sort raw artifacts into `application/`, `feed/`, `metadata/`, and `unpacked/`. |
+| **Health & Maintenance** (`doctor`, `clean`, `clean:all`) | Diagnose toolchain mismatches and clear stale build caches. |
 
 ---
 
@@ -152,22 +152,22 @@ function main() {
 
     if (missing.length > 0) {
         if (isFixMode) {
-            console.log(`🔧 Auto-syncing ${missing.length} missing dependencies into package.json...`);
+            console.log(`Auto-syncing ${missing.length} missing dependencies into package.json...`);
             pkg.dependencies = pkg.dependencies || {};
             missing.forEach(dep => {
                 pkg.dependencies[dep] = 'latest';
             });
             fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-            console.log('✅ package.json updated. Run pnpm install to finalize.');
+            console.log('[OK] package.json updated. Run pnpm install to finalize.');
             process.exit(0);
         } else {
-            console.error(`❌ VERIFICATION FAILED: Missing dependencies: ${missing.join(', ')}`);
-            console.error('👉 Run `pnpm run sync:deps` to automatically add them.');
+            console.error(`[FAIL] Missing dependencies: ${missing.join(', ')}`);
+            console.error('Run `pnpm run sync:deps` to add them.');
             process.exit(1);
         }
     }
 
-    console.log(`🎉 100% GREEN: All ${verifiedTree.size} modules verified.`);
+    console.log(`[OK] All ${verifiedTree.size} modules verified.`);
 }
 
 main();
@@ -252,12 +252,12 @@ function clean() {
     for (const dir of targets) {
         const fullPath = path.join(root, dir);
         if (fs.existsSync(fullPath)) {
-            console.log(`🧹 Removing ${dir}...`);
+            console.log(`Removing ${dir}...`);
             fs.rmSync(fullPath, { recursive: true, force: true });
         }
     }
 
-    console.log('✨ Project directory cleaned successfully.');
+    console.log('[OK] Project directory cleaned.');
 }
 
 clean();
@@ -274,16 +274,16 @@ function checkTool(name, command, versionRegex) {
     try {
         const output = execSync(command, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
         const match = output.match(versionRegex);
-        console.log(`  ✅ ${name.padEnd(16)}: ${match ? match[0] : 'Installed'}`);
+        console.log(`  [OK]   ${name.padEnd(16)}: ${match ? match[0] : 'Installed'}`);
         return true;
     } catch {
-        console.error(`  ❌ ${name.padEnd(16)}: NOT FOUND (Required for development)`);
+        console.error(`  [MISS] ${name.padEnd(16)}: NOT FOUND (Required for development)`);
         return false;
     }
 }
 
 function doctor() {
-    console.log('🩺 System & Toolchain Diagnostics:');
+    console.log('System & Toolchain Diagnostics:');
     let ok = true;
     ok = checkTool('Node.js', 'node -v', /v[\d.]+/) && ok;
     ok = checkTool('PNPM', 'pnpm -v', /[\d.]+/) && ok;
@@ -292,10 +292,10 @@ function doctor() {
     ok = checkTool('Docker', 'docker --version', /[\d.]+/) && ok;
 
     if (!ok) {
-        console.error('\n⚠️ Some required toolchain dependencies are missing!');
+        console.error('\n[FAIL] Missing required toolchain dependencies.');
         process.exit(1);
     } else {
-        console.log('\n🎉 Environment is fully configured for all build targets.');
+        console.log('\n[OK] Environment configured for all build targets.');
     }
 }
 

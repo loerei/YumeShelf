@@ -1,32 +1,19 @@
 ---
 name: implement-with-subagents
-description: Orchestrate multi-ticket or implementation plan execution using subagents with chronicle context benchmarking and strict spec separation. Use when dispatching tickets, PRD tasks, or plan steps to subagents.
+description: Use when dispatching tickets, PRD tasks, or plan steps sequentially to subagents.
 ---
 
 # Implement With Subagents
 
-Orchestrate multi-ticket or multi-step execution using sequential subagents, empirical context monitoring via `chronicle`, and strict separation of specs from orchestrator prompts.
+Execute multi-ticket or multi-step work sequentially via subagents, monitoring context health with `chronicle` and isolating specification files from orchestrator prompts.
 
 ## Core Principles
 
-1. **Zero Specs in Prompt (No Prompt Telephone Game)**:
-   - The orchestrator prompt MUST NOT summarize, paraphrase, or re-explain requirements or acceptance criteria.
-   - The prompt contains ONLY:
-     - Target Ticket / Plan / Spec artifact path.
-     - Git operational instructions (target branch, conventional commit template, issue closing directive `closes #XX`).
-     - Tool and verification directives (e.g., test commands, linters).
-   - The subagent MUST read the artifact file directly from disk.
+1. **Zero Specs in Prompt (No Prompt Telephone Game)**: NEVER summarize, paraphrase, or re-explain requirements or acceptance criteria in the orchestrator prompt. Include ONLY the target ticket/spec path, git directives (branch, commit format, `closes #XX`), and verification commands; subagents MUST read specs directly from disk.
+2. **Sequential Ticket Execution**: Dispatch one ticket at a time for atomic commits, clean history, and conflict-free testing.
+3. **Data-Driven Context Lifecycle**: Before assigning another ticket to an existing subagent, inspect its context health via `chronicle:get_session_benchmarks` rather than guessing truncation or saturation.
 
-2. **Sequential Ticket Execution**:
-   - Dispatch one ticket at a time to ensure atomic commits, clean git history, and conflict-free testing.
-
-3. **Data-Driven Context Lifecycle Management**:
-   - Before assigning the next ticket to an existing subagent, inspect its context health using `chronicle` MCP tool `get_session_benchmarks`.
-   - Never guess whether a subagent is degraded or truncated.
-
----
-
-## Workflow Decision Tree
+## Workflow
 
 ```mermaid
 flowchart TD
@@ -49,16 +36,12 @@ flowchart TD
     SubagentDone --> VerifyCommit["Orchestrator verifies test status & git log"]
     VerifyCommit --> MoreTickets{"More Tickets in Queue?"}
     MoreTickets -->|"Yes"| HasSubagent
-    MoreTickets -->|"No"| Finalize["All Tickets Implemented → Final Quality Gate"]
+    MoreTickets -->|"No"| Finalize["All Tickets Implemented -> Final Quality Gate"]
 ```
 
----
+### 1. Formulate Dispatch Prompt
 
-## Step-by-Step Execution Guide
-
-### Step 1: Dispatch Prompt Formulation
-
-When launching (`invoke_subagent`) or reusing (`send_message`) a subagent, format the prompt strictly following this template:
+When calling `invoke_subagent` or `send_message`, pass only artifact pointers and execution commands:
 
 ```markdown
 Implement Ticket: <Ticket-Title>
@@ -69,8 +52,8 @@ Directives:
 1. Work on branch: `<branch-name>`.
 2. Execution Mandate:
    - Read the Target Ticket and Parent Spec files directly from disk. Do not assume or guess specifications.
-   - Follow `implement-a-ticket` / `tdd` skill workflows.
-   - Use MCP `patchitright` for code edits.
+   - Follow `implement-a-ticket` / `tdd` workflows.
+   - Use the configured repository file-edit tool (e.g. MCP `patchitright`) for code edits.
    - Run verification commands: `<test-command>` and `<build-command>`.
    - Git commit & push: `<type>(<scope>): <summary> (closes #<ID>)`.
 3. Report back with:
@@ -79,31 +62,14 @@ Directives:
    - Git commit hash
 ```
 
-### Step 2: Context Health Evaluation via Chronicle
+### 2. Evaluate Subagent Health (`chronicle:get_session_benchmarks`)
 
-When a subagent reports completion and another ticket is pending, check the subagent's session metrics:
+Before sending a follow-up ticket to an existing subagent, call `chronicle:get_session_benchmarks` with `{"sessionIds": ["<subagent-conversation-id>"]}`:
 
-```json
-// Tool Call: chronicle -> get_session_benchmarks
-{
-  "sessionIds": ["<subagent-conversation-id>"]
-}
-```
+| Chronicle Metric Condition | Action |
+| :--- | :--- |
+| `Truncation Count` (`Checkpoint Count - 1`) `> 0` | **SPAWN NEW**: Context was truncated/compressed and precision is degraded. |
+| `Curr. Context >= 90,000` tokens | **SPAWN NEW**: Near capacity; risks mid-turn truncation on next ticket. |
+| `Checkpoint Count == 1` AND `Curr. Context < 90,000` | **REUSE SUBAGENT**: Healthy reasoning history and token headroom. |
 
-#### Decision Matrix
-
-| Metric | Formula / Value | Action | Rationale |
-| :--- | :--- | :--- | :--- |
-| **Truncation Count** | `Checkpoint Count - 1` | If $> 0 \rightarrow$ **SPAWN NEW** | The subagent context was truncated and compressed; reasoning precision is degraded. |
-| **Current Context** | `Curr. Context` tokens | If $\ge 90,000 \rightarrow$ **SPAWN NEW** | Context window is near capacity; risks mid-turn truncation on next ticket. |
-| **Clean Context** | `Checkpoint Count == 1` AND `Curr. Context < 90,000` | **REUSE SUBAGENT** | Subagent has full reasoning history and healthy token headroom. Saves startup tool calls. |
-
----
-
-## Checklist for the Orchestrator (Main Agent)
-
-- [ ] Did I refrain from summarizing ticket requirements in the prompt?
-- [ ] Is the ticket file path explicitly provided and valid?
-- [ ] Is the git commit convention and issue number clearly stated?
-- [ ] Did I run `get_session_benchmarks` before sending a new ticket to an existing subagent?
-- [ ] Did I verify the commit on the target branch after the subagent reported done?
+After each subagent reports done, verify tests and the commit on the target branch before dispatching the next ticket.

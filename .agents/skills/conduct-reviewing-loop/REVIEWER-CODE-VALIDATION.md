@@ -30,7 +30,7 @@ As a Code Coverage Validator, verify that the real codebase completely and safel
 
 ## 2. Review Target & Standard Output Protocol
 
-- The review target is the **codebase implementation** (`src/`, `tests/`) and the `.diff` patch.
+- The review target is the **modified codebase and test files** alongside the `.diff` patch.
 - All findings MUST specify numbered missing implementations or defects in the codebase.
 
 Conclude evaluation and report back to the parent agent using `send_message` with this exact structure:

@@ -1,31 +1,21 @@
 ---
 name: manage-global-policies
-description: Edit, audit, and distribute global agent policy files (AGENTS.md) across IDEs. Use when modifying or auditing global rules.
+description: Use when editing, auditing, or distributing global agent policy files (AGENTS.md).
 ---
 
 # Manage Global Policies
 
-Author policies in the central `myskills/` catalog, then distribute them to active IDE global targets (`~/.gemini`, `~/.claude`, `~/.cursor`) and project workspaces.
-
-## Workflow
-
-```mermaid
-flowchart TD
-    Start["Policy Edit Request"] --> Edit["1. Edit Source: AGENTS.md or <platform>/AGENTS.md"]
-    Edit --> Audit["2. Sync Table 1 Catalog: agents audit -a -p"]
-    Audit --> Distribute["3. Deploy to IDEs & Workspaces: agents distribute"]
-    Distribute --> Git["4. Commit & Push myskills Repo"]
-```
+Author global policies in the central `myskills/` catalog, then validate and distribute them to IDE global configs (`~/.gemini`, `~/.claude`, `~/.cursor`) and project workspaces.
 
 ## Core Rules
 
-1. **Source-First**: ALWAYS edit policy files in `<myskills-root>/` directly. NEVER edit deployed destination copies in `~/.gemini/` or `.claude/` (they are overwritten during distribution).
-2. **Policy Targets**:
-   - Universal root policy: `<myskills-root>/AGENTS.md`
-   - Platform delta overrides: `<myskills-root>/<platform>/AGENTS.md` (e.g. `gemini/AGENTS.md`)
-3. **Lookup & Inspection**:
-   - Locate target paths: `agents info policy.general` or `agents info policy.<platform>`.
-   - Print raw subdoc content: `agents read policy.<subdocname>`.
-4. **Distribution & Audit**:
-   - Run `agents audit -a -p` to sync Table 1 skill catalogs in `AGENTS.md`.
-   - Run `agents distribute` to deploy policy deltas across all IDE home configs and project workspaces.
+1. **Source-First**: ALWAYS edit policy files in `<myskills-root>/`. NEVER edit deployed destination copies in `~/.gemini/` or `.claude/` (they are overwritten on distribution).
+2. **Policy Targets**: Universal root policy lives at `<myskills-root>/AGENTS.md`; platform delta overrides live at `<myskills-root>/<platform>/AGENTS.md` (e.g. `gemini/AGENTS.md`).
+3. **Lookup**: Locate policy paths with `agents info policy.general` or `agents info policy.<platform>`, and print raw subdoc content with `agents read policy.<subdocname>`.
+
+## Workflow
+
+1. Edit `<myskills-root>/AGENTS.md` or `<myskills-root>/<platform>/AGENTS.md`.
+2. Run `agents audit` to validate skill frontmatter and policy files.
+3. Run `agents distribute` to deploy policies across IDE home configs and registered project workspaces.
+4. Commit and push changes in `myskills`.

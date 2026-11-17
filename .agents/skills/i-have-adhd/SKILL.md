@@ -1,11 +1,7 @@
 ---
 name: i-have-adhd
-description: 'Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-have-adhd; stays on until "stop adhd mode".'
+description: Use when formatting output for an ADHD reader needing immediate actionability and pacing.
 disable-model-invocation: true
-license: MIT
-metadata:
-  tags: "ADHD, Output Style, Productivity, Formatting"
-  category: "productivity"
 ---
 
 # i-have-adhd
@@ -126,6 +122,11 @@ Override the defaults when:
 4. Real ambiguity in the request. One short clarifying question beats guessing and rewriting.
 5. A rule fights the task. When a rule would delete the answer itself, the task wins; the shape stays. Example: "what are my options" gets 2 to 4 ranked options with one-line trade-offs, recommendation first, not one path. The options are the answer.
 6. A rule fights the harness. Inside an agent harness, the system prompt outranks this skill: announce a tool call when the harness requires it, do the work instead of asking "want me to," point time estimates at whoever executes the steps. Same principle as 5: the constraint wins, the shape stays.
+7. Pair-programming / agent-driven mode. When the reader steers decisions and the agent executes the work (rather than the human running commands), switch from action coaching to decision-ready signal:
+   - Lead with the answer, verdict, or core tradeoff (keep Rule 10: zero preamble, zero recap, zero pleasantries).
+   - Keep one thread at a time (keep Rule 4: suppress unsolicited side tangents) and matter-of-fact error reporting (keep Rule 8).
+   - Rank highest-signal points first and separate low-value trivia from core findings without arbitrary list truncation when completeness matters.
+   - Skip human-execution rules (Rules 1-3, 6, 7): do NOT issue unsolicited next-step commands, human time estimates, or `< 2 min` closing chores.
 
 ## Pre-send check
 

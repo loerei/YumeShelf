@@ -1,156 +1,162 @@
 ---
 name: conduct-deep-reviewing-loop
-description: Use when asked to conduct a multi-role review loop on implementation plans.
+description: Use when asked to conduct a multi-role review loop with cross-domain remediation review on implementation plans.
 ---
 
 # Conduct Deep Reviewing Loop
 
-Multi-agent review loop using isolated domain reviewers, topological dependency routing, and independent gatekeeping to verify Directive Artifacts (DA).
+Multi-agent review loop using isolated clean-slate domain reviewers, topological dependency routing, independent gatekeeping, and cross-domain remediation review to verify Directive Artifacts (DA).
 
 ## Execution Architecture
 
 | Layer | Agent | Primary Responsibility |
 | :--- | :--- | :--- |
-| **Layer 1** | Main Agent | Resolves `<short_title>` and binds `<review_dir>` (`.scratch/deep-review-<short_title>`), initializes isolated workspace, spawns Layer 2 Host passing `<review_dir>`, handles Host verdict (including user escalation on `PLAN_INFEASIBLE`), manages `!PA` pause gate, rollback handling, cleans `<da_stem>.bak.md` backups, deletes `<review_dir>/host/Analyzation.md` prior to Round N+1, terminates Host subagents, purges `<review_dir>/*` on completion, presents final output. |
-| **Layer 2** | Review Host & Critical Gate | Consumes assigned `<review_dir>` from prompt and `Context.md`, dynamically selects active reviewers in `Reviewer_Choice_Rationale.md`, spawns active reviewers passing `<review_dir>`, purges `<review_dir>/reports/` before passes, isolates host artifacts in `<review_dir>/host/`, runs reviewer DAG routing (consuming `State.md`), enforces Tier Batch Gate negotiation and in-place fix pre-verification, terminates subagent processes upon tier batch resolution, backfills skipped roles (upstream and untouched), applies verified DA mutations directly (creating `<da_stem>.bak.md` for modified DAs), writes `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md` (halting without DA mutation on `PLAN_INFEASIBLE`). |
-| **Layer 3** | Domain Reviewers | Independent specialist subagents (up to 11 roles across 4 Tiers) consuming `<review_dir>` from prompt and `Context.md`, executing domain audits per `<Role>-REVIEWER-GUIDE.md`. |
+| **Layer 1** | Main Agent | Resolves `<short_title>`, binds `<review_dir>` (`.scratch/deep-review-<short_title>`) and external `<trace_vault>` (`/tmp/deep-review-trace-<short_title>`), initializes `Context.md`, spawns clean-slate Layer 2 Host per round, archives round artifacts to `<trace_vault>/round-<NN>/` after killing Host, manages `!PA` pause gate and rollbacks, and exports chronological trace on completion. |
+| **Layer 2** | Review Host & Critical Gate | Ephemeral single-round orchestrator (`REVIEW-HOST-GUIDE.md`) and gatekeeper (`HOW-TO-GATE.md`). Selects active roster in Round 1, executes 4-tier DAG routing, enforces Tier Batch Gate and Intra-Tier Conflict resolution, runs Cross-Domain Remediation Review (unless `!NCR` disables it), preserves intra-round negotiation artifacts in `<review_dir>/host/trace/`, backfills skipped roles, mutates target DA(s) in-place, and writes `host/State.md` and `host/Analyzation.md`. |
+| **Layer 3** | Domain Reviewers | Ephemeral clean-slate specialist subagents (up to 12 roles across 4 Tiers) executing domain audits per `<Role>-REVIEWER-GUIDE.md`, or summoned as fresh single-turn Cross-Reviewers to validate sibling role remediations. |
 
 ## Workflow
 
 ```mermaid
 flowchart TD
-    Start["Round 1: Full DAG Sweep"] --> Eval{"Host Gate Verdict?"}
-    Eval -->|"ROUND_REVISION_NEEDED"| Apply["Layer 2 Host: Mutate DA directly<br/>(Write State.md & Analyzation.md, create <da_stem>.bak.md)"]
-    Eval -->|"ROUND_PASS"| Accumulate["PassCount += 1<br/>(Write State.md & Analyzation.md)"]
-    Eval -->|"PLAN_INFEASIBLE"| HaltInfeasible["Layer 1: Present Technical Impasse & Alternatives.<br/>Halt review loop immediately"]
-    Apply --> CheckPA{"!PA Active?"}
-    CheckPA -->|"Yes"| PAPause["Layer 1: Report diff, halt turn.<br/>Await 'C' or rollback"]
-    PAPause -->|"Receives 'C'"| Handoff["Layer 1: Delete Analyzation.md,<br/>re-spawn Host"] --> TargetRun["Round N+1: Targeted Re-Review<br/>(Host reads State.md)"]
-    PAPause -->|"Rollback"| RevertHalt["Layer 1: Revert mutations & Halt Loop"]
-    CheckPA -->|"No"| Handoff
-    CheckTarget{"Targeted Roles PASS?"}
-    TargetRun --> CheckTarget
-    CheckTarget -->|"No"| Apply
-    CheckTarget -->|"PLAN_INFEASIBLE"| HaltInfeasible
-    CheckTarget -->|"Yes (Pending Skipped Roles)"| Backfill["Snapshot Delta Backfill<br/>(Topologically summon skipped roles on SN)"]
-    Backfill --> BackfillCheck{"Skipped Roles PASS?"}
-    BackfillCheck -->|"No"| Apply
-    BackfillCheck -->|"PLAN_INFEASIBLE"| HaltInfeasible
-    BackfillCheck -->|"Yes"| Accumulate
-    CheckTarget -->|"Yes (100% Roster Audited)"| Accumulate
-    Accumulate --> SPCheck{"PassCount >= SP?"}
-    SPCheck -->|"No"| HandoffSweep["Layer 1: Delete Analyzation.md,<br/>re-spawn Host"] --> FullSweep["Next Full Sweep Round<br/>(Host reads State.md, runs static DA)"]
-    FullSweep --> SweepCheck{"All Active Roles PASS?"}
-    SweepCheck -->|"No"| Apply
-    SweepCheck -->|"PLAN_INFEASIBLE"| HaltInfeasible
-    SweepCheck -->|"Yes"| Accumulate
-    SPCheck -->|"Yes"| FinalPass["Issue FINAL_PASS & Conclude"]
+    Init["Layer 1: Init <review_dir>, <trace_vault>, & Context.md"] --> SpawnHost["Layer 1: Spawn Clean-Slate Layer 2 Host"]
+    SpawnHost --> HostExec["Layer 2 Host: Execute Single Round<br/>(DAG Audit -> Gate -> Cross-Review [unless !NCR] -> Backfill / Mutate DA)"]
+    HostExec --> Archive["Layer 1: Kill Host & Archive Round to <trace_vault>/round-NN/<br/>(Purge <review_dir>/reports, sandbox, host/trace, Analyzation.md)"]
+    Archive --> Eval{"Verdict in State.md?"}
+    Eval -->|"PLAN_INFEASIBLE / ABORTED"| ExportHalt["Layer 1: Export <trace_vault>, report details & halt"]
+    Eval -->|"ROUND_REVISION_NEEDED"| CheckPA{"!PA Active?"}
+    CheckPA -->|"Yes"| CheckBudget{"Remaining<br/>Budget B > 0?"}
+    CheckBudget -->|"Yes (B > 0)"| DecrBudget["B = B - 1<br/>Delete .bak.md files"] --> SpawnHost
+    CheckBudget -->|"No (B == 0)"| PAPause["Layer 1: Report diff vs .bak.md, halt turn.<br/>Await 'C', '<N>C', or rollback"]
+    PAPause -->|"Receives 'C' or '<N>C'"| SetBudget["Parse Budget N (Default: 1)<br/>B = N - 1<br/>Delete .bak.md files"] --> SpawnHost
+    PAPause -->|"Rollback"| RevertHalt["Layer 1: Restore from .bak.md, export <trace_vault> & halt"]
+    CheckPA -->|"No"| SpawnHost
+    Eval -->|"ROUND_PASS"| SpawnHost
+    Eval -->|"FINAL_PASS"| Finalize["Layer 1: Purge <review_dir>, export <trace_vault> & present verified DA"]
 ```
 
-### Step 1: Initialize Workspace
+### Step 1: Initialize Workspace & Trace Vault [FOR LAYER 1 ONLY]
 
-1. **Resolve `<short_title>` and Workspace Directory (`<review_dir>`)**:
-   - Determine `<short_title>` according to strict precedence:
-     1. **Explicit User Specification**: User-specified title, slug, or tag in prompt (e.g. `/conduct-deep-reviewing-loop <title>`), excluding active role identifiers, modifier tags, and target DA file paths. Extract the candidate string and pass it to the slugification rules as `<Topic>`.
-     2. **Single Target DA Topic / Stem**: If auditing a single file whose stem is generic (`implementation_plan`, `plan`, `spec`, `draft`, `index`) or located in an agent brain session folder (`.gemini/antigravity/brain/<id>/`), extract `<short_title>` from the document's top-level H1 header:
-        - Extract raw text from top-level H1 header (stripping `#` and whitespace).
-        - Strip case-insensitive leading document archetype prefixes matching `^(?:Implementation\s+Plan|Plan|Spec(?:ification)?|Design\s+Doc(?:ument)?|Architecture\s+Spec(?:ification)?)\s*[:–—|-]\s*`.
-        - Trim remaining leading/trailing whitespace and punctuation, and pass the resulting string as `<Topic>` to the slugification rules (e.g. `# Implementation Plan: Dynamic Workspace Isolation` -> `dynamic-workspace-isolati` (truncated to 25 chars)).
-        - If no prefix matches, pass the entire trimmed H1 header text to the slugification rules.
-        - Fall back to the filename stem only if no H1 header exists or extraction yields empty. For non-generic filenames (and filename stem fallbacks), pass the extracted stem to the slugification rules as `<Topic>` (e.g. `auth_service.md` -> stem `auth_service` passed to pipeline -> `auth-service`).
-     3. **Cluster / Epic Topic**: Common parent folder name or 2-3 word topic slug if auditing multiple DAs (e.g. `notifier-tickets`). Pass the candidate string to the 5-stage slugification pipeline as `<Topic>`.
-   - **Strict Slugification Rules & Bounds**:
-     - Multi-stage sanitization:
-       1. Convert whitespace, underscores (`_`), and non-alphanumeric characters to hyphens (`-`).
-       2. Convert all characters to lowercase.
-       3. Collapse consecutive hyphens (`-+` -> `-`).
-       4. Truncate to maximum 25 characters (prevents Windows `MAX_PATH` overflow in nested `sandbox/` probe scripts).
-       5. Trim leading and trailing hyphens.
-     - Empty slug fallback: If sanitized slug is empty (`""`), use `default` (`.scratch/deep-review-default`). MUST NOT contain `#`.
+1. **Resolve `<short_title>`, `<review_dir>`, and `<trace_vault>`**:
+   - Determine `<Topic>` by strict precedence:
+     1. **Explicit User Specification**: Title/slug in prompt (excluding role names, modifier tags, and file paths).
+     2. **Single Target DA Topic / Stem**: If filename stem is generic (`implementation_plan`, `plan`, `spec`, `draft`, `index`) or inside `.gemini/antigravity/brain/<id>/`, extract top-level H1 header text and strip leading prefixes matching `^(?:Implementation\s+Plan|Plan|Spec(?:ification)?|Design\s+Doc(?:ument)?|Architecture\s+Spec(?:ification)?)\s*[:–—|-]\s*`. Fallback to filename stem if no H1 exists.
+     3. **Cluster / Epic Topic**: Common parent folder name or 2–3 word topic slug when auditing multiple DAs.
+   - **Slugification Pipeline**:
+     1. Convert whitespace, underscores (`_`), and non-alphanumeric characters to hyphens (`-`).
+     2. Convert to lowercase and collapse consecutive hyphens (`-+` -> `-`).
+     3. Truncate to maximum 25 characters and trim leading/trailing hyphens.
+     4. If empty, fallback to `default`. MUST NOT contain `#`.
    - Bind `<review_dir>` = `.scratch/deep-review-<short_title>`. Never fallback to plain `.scratch/deep-review/`.
+   - Bind `<trace_vault>` = `/tmp/deep-review-trace-<short_title>` (physically outside `<repo-root>` during active rounds so subagent codebase-search, file-find, and directory-listing calls inside `<repo-root>` cannot leak prior rounds).
 
-2. **Directory Initialization**:
-   - Create or purge `<repo-root>/<review_dir>/host/`, `<repo-root>/<review_dir>/reports/`, and `<repo-root>/<review_dir>/sandbox/`.
-   - Delete any pre-existing sibling `<da_stem>.bak.md` files for target DAs listed in `Context.md`.
-   - Initialize `<repo-root>/<review_dir>/Context.md` with:
+2. **Directory & Trace Vault Initialization**:
+   - Create or purge `<repo-root>/<review_dir>/host/`, `<repo-root>/<review_dir>/host/trace/`, `<repo-root>/<review_dir>/reports/`, and `<repo-root>/<review_dir>/sandbox/`.
+   - Create or purge `/tmp/deep-review-trace-<short_title>/00-initial-context/da-initial/` and copy unmutated target DA(s) into `da-initial/`.
+   - Delete any pre-existing sibling `<da_stem>.bak.md` files for target DAs.
+   - Author `<repo-root>/<review_dir>/Context.md` containing:
      - `## Review Workspace: <review_dir>`
-     - Target DA path(s).
-     - Cross-referenced DAs with dependency lineage (`Upstream` / `Downstream` and `Implemented` / `Unimplemented`).
-     - `## Data Storage & Migration Scope`: Layer 1 inspects target DAs and codebase ground-truth for persistence markers (migration dirs `migrations/`, DDL `*.sql`, ORM models, storage drivers `sqlite3`, `IndexedDB`, `localStorage`, or sync libraries `powersync`, `yjs`).
-       - If persistence is touched: declare `Persistence Status: TOUCHES_PERSISTENCE`, `Storage Archetype` (`Local-Side Storage` | `Server-Side Storage` | `Hybrid / Sync-Driven`), `Underlying Technology / Engine`, and `Target Seams & Files`.
-       - If no persistence is touched: declare `Persistence Status: NO_PERSISTENCE` with concise technical justification.
-     - `## Observability Scope & Monitoring Archetype`: Layer 1 inspects target DAs and codebase ground-truth for telemetry/observability touchpoints (structured logging, crash reporting, minidumps, CLI verbosity flags, `--json`, health check probes, tracing, metrics, or feature flags).
-       - If observability is touched: declare `Observability Status: TOUCHES_OBSERVABILITY`, `Primary Archetype` (`Client-Side / Desktop Application` | `CLI / Developer Utility` | `Frontend Web / Mobile RUM` | `Server-Side / Cloud Microservice` | `Multi-Tier / Hybrid Application`), `Diagnostic Sinks`, `Crash Capture & Boundaries`, and `Privacy & Consent Constraints`.
-       - If no observability is touched (e.g. pure internal mathematical algorithm, isolated formatting function, static mockup): declare `Observability Status: NO_OBSERVABILITY` with concise technical justification.
-     - `## Security Scope & Threat Model Tier`: Layer 1 inspects target DAs and codebase ground-truth for security-relevant touchpoints (authentication, authorization, session tokens, password hashing, OAuth/OIDC, tenant isolation, IDOR/BOLA paths, ingress input parsing, file uploads, outbound HTTP/SSRF, webhooks, IPC channels, native shell commands, RLS policies, or sensitive secret storage).
-       - If security boundaries are touched: declare `Security Status: TOUCHES_SECURITY_BOUNDARY`, `Primary Archetype` (`Client-Side / Local Application` | `Server-Side / Multi-Tenant SaaS API` | `Database & Persistence Security` | `Multi-Tier / Hybrid Application`), `Trust Boundaries`, `Ingress & Egress Vectors`, and `Credential Exposure Surfaces`.
-         - If no security boundaries are touched (e.g. pure mathematical algorithms, localized UI formatting utilities, static mockup layouts): declare `Security Status: NO_SECURITY_BOUNDARY` with concise technical justification.
-       - `## Operational Continuity`: Layer 1 inspects invocation prompt for tag `!NC0` / `!NCI`, `!NC`, or user directive:
-         - If `!NC0` or `!NCI` is present in prompt or prompt explicitly specifies intermediate stepping stone / non-operational after epic: declare `Operational Continuity: NON_CONTINUOUS_INTERMEDIATE` with concise technical justification.
-         - If `!NC` is present in prompt or prompt explicitly specifies non-continuous/offline: declare `Operational Continuity: NON_CONTINUOUS_OPERATION` with concise technical justification.
-         - Otherwise: declare `Operational Continuity: CONTINUOUS_OPERATION` (default).
-     - Active modifier tags (e.g. `## Active Modifiers: !PA, !SP<N>`).
-     - Codebase rules (`AGENTS.md`), task domain skills, criteria, and static `SP` threshold.
+     - Target DA path(s) and `## Cross-Referenced DAs & Dependency Lineage` (`Upstream` | `Downstream`, `Implemented` | `Unimplemented`, and contract boundary).
+     - `## Data Storage & Migration Scope`: Inspect target DAs and codebase for persistence markers (`migrations/`, `*.sql`, ORM models, `sqlite3`, `IndexedDB`, `localStorage`, `powersync`, `yjs`). Declare `Persistence Status: TOUCHES_PERSISTENCE` (with `Storage Archetype`: `Local-Side Storage` | `Server-Side Storage` | `Hybrid / Sync-Driven`, `Underlying Technology / Engine`, and `Target Seams & Files`) or `Persistence Status: NO_PERSISTENCE` with justification.
+     - `## Data Science & ML Modeling Scope`: Inspect target DAs and codebase for data science, statistical modeling, ML training/evaluation, custom neural/ONNX export, analytics, or scientific reporting markers. Declare `ML Status: TOUCHES_DATA_SCIENCE` (specifying `Objective Regime`: `Model & Inference Engineering` [`MODEL_AND_INFERENCE_ENGINEERING`, standalone architectures, custom training loops, or ONNX export/runtime libraries] | `Production & Decision ML` [`PRODUCTION_DECISION_ML`, live business/decision workflows, forecasting, or deployed scorers] | `Competitive Benchmarking` [`COMPETITIVE_BENCHMARK`, fixed-eval metric maximization] | `Exploratory Analysis & Reporting` [`RESEARCH_AND_EDA`]; composable `Active Subsystems`: `CUSTOM_DL_AND_ONNX`, `TABULAR_AND_STRUCTURED_ML`, `EDA_AND_REPORTING`; plus `Validation Split Topology`, `Evaluation Metrics / Utility Function`, `Inference & Serialization Seams`, and explicit `DA Constraints`) or `ML Status: NO_DATA_SCIENCE` with justification.
+     - `## Observability Scope & Monitoring Archetype`: Inspect for logging, crash reporting, CLI flags, RUM, health probes, tracing, metrics, or feature flags. Declare `Observability Status: TOUCHES_OBSERVABILITY` (with `Primary Archetype`: `Client-Side / Desktop Application` | `CLI / Developer Utility` | `Frontend Web / Mobile RUM` | `Server-Side / Cloud Microservice` | `Library / SDK / Reusable Package` | `Multi-Tier / Hybrid Application`, `Diagnostic Sinks`, `Crash Capture & Boundaries`, `Privacy & Consent Constraints`) or `Observability Status: NO_OBSERVABILITY` with justification.
+     - `## Security Scope & Threat Model Tier`: Inspect for authn/authz, tokens, hashing, tenant isolation, ingress parsing, file uploads, SSRF, webhooks, IPC, shell execution, RLS, LLM/agent tool-calls, or secrets. Declare `Security Status: TOUCHES_SECURITY_BOUNDARY` (with `Primary Archetype`: `Client-Side / Local Application` | `Frontend Web / Browser Application` | `Server-Side / Multi-Tenant SaaS API` | `Database & Persistence Security` | `Library / SDK / Reusable Package` | `AI / LLM / Agentic System` | `Multi-Tier / Hybrid Application`, `Trust Boundaries`, `Ingress & Egress Vectors`, `Credential Exposure Surfaces`) or `Security Status: NO_SECURITY_BOUNDARY` with justification.
+     - `## Operational Continuity`: Inspect invocation prompt for `!NC0` / `!NCI`, `!NC`, or user directive:
+       - If `!NC0` or `!NCI` is present, or prompt explicitly specifies intermediate stepping stone / non-operational after epic: declare `Operational Continuity: NON_CONTINUOUS_INTERMEDIATE` with concise technical justification.
+       - If `!NC` is present, or prompt/architecture explicitly specifies non-continuous/offline upgrades (e.g. offline refactors, single-instance local/desktop/CLI version upgrades where versions $N$ and $N+1$ do not run side-by-side, or isolated rewrite branches; must be operational after the epic and preserve data via sequential migration scripts when schemas evolve): declare `Operational Continuity: NON_CONTINUOUS_OPERATION` with concise technical justification.
+       - Otherwise (live 24/7 continuous services requiring side-by-side $N$ & $N+1$ zero-downtime rollout): declare `Operational Continuity: CONTINUOUS_OPERATION` (default).
+     - `## UX/UI & Accessibility Regime`: Inspect invocation prompt (`!A11Y` / `!WCAG`, `!MOBILE` / `!RESPONSIVE`), target DA scope, and product/platform archetype to declare BOTH `UX/UI Regime` and `Form Factor`:
+       - **`UX/UI Regime`**:
+         - If `!A11Y` or `!WCAG` is present, or prompt/architecture explicitly targets an ADA/EAA/Section 508/WCAG-mandated product (e.g. Enterprise B2B SaaS, Public-Sector/GovTech, FinTech/Banking, Healthcare, Education, public E-Commerce storefront, or shared UI Component Library / Design System): declare `UX/UI Regime: STRICT_ACCESSIBILITY_COMPLIANCE` with concise technical justification (routes `UXUI` to `UX-STRICT-ACCESSIBILITY-WCAG.md`).
+         - Otherwise (local/desktop apps, game launchers/save editors, community/indie tools, developer utilities, internal dashboards, or products without statutory disability compliance mandates): declare `UX/UI Regime: PRAGMATIC_PRODUCT_UX` (default; routes `UXUI` exclusively to `UX-PRAGMATIC-INTERACTION-DX.md`).
+       - **`Form Factor`**:
+         - If `!MOBILE` or `!RESPONSIVE` is present, or codebase/DA targets mobile/tablet/multi-screen web browsers or PWAs: declare `Form Factor: CROSS_DEVICE_RESPONSIVE` with concise technical justification (routes `UXUI` to `UX-MOBILE-RESPONSIVE-PERFORMANCE.md`).
+         - Otherwise (Electron, Tauri, native desktop GUI, or desktop-only web tools/launchers/IDEs with fine pointer mouse/trackpad and bounded window dimensions): declare `Form Factor: DESKTOP_ONLY` (default for desktop apps; routes `UXUI` exclusively to `UX-DESKTOP-LAYOUT-PERFORMANCE.md`).
+     - `## Cross-Domain Remediation Review`: Inspect invocation prompt for `!NCR` (case-insensitive):
+       - If `!NCR` is present: declare `Cross-Review: DISABLED` (Host skips Step 4B Cross-Domain Remediation Review).
+       - Otherwise: declare `Cross-Review: ENABLED` (default).
+     - `## Active Modifiers` (e.g. `!PA`, `!SP<N>`, `!NC`, `!NCR`, `!A11Y`, `!MOBILE`), codebase rules (`AGENTS.md`), task domain skills, user criteria, and static `SP` threshold.
+   - Copy `<repo-root>/<review_dir>/Context.md` to `/tmp/deep-review-trace-<short_title>/00-initial-context/Context.md`.
 
 ### Step 2: Spawn Review Host & Critical Gate (Layer 2)
 
-#### 2A. Define Host Subagent Type (Prerequisite)
-If `review_host` is not already defined in the active session, call `define_subagent` to register the subagent type:
+#### 2A. Define Host Subagent Type
+If `review_host` is not registered in the active session, call `define_subagent`:
 - `name`: `"review_host"`
 - `description`: `"Host and Critical Gate for multi-agent deep reviewing loop"`
-- `enable_subagent_tools: true`
-- `enable_write_tools: true`
-- `enable_mcp_tools: true`
-- `system_prompt`: Provide Host operational instructions referencing `REVIEW-HOST-GUIDE.md` and `HOW-TO-GATE.md`.
+- `enable_subagent_tools: true`, `enable_write_tools: true`, `enable_mcp_tools: true`
+- `system_prompt`: Reference `REVIEW-HOST-GUIDE.md` and `HOW-TO-GATE.md`.
 
 #### 2B. Invoke Review Host
-Invoke the registered `review_host` subagent via `invoke_subagent`:
-- `TypeName`: `"review_host"`
-- `Role`: `"Review Host & Critical Gate"`
-- `Prompt`:
-  - **Round 1 (Initial)**:
-    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution: Upon receiving resuming command, check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round. Re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
-  - **Round N+1 (Targeted or Full Sweep)**:
-    `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. State: <review_dir>/host/State.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution: Upon receiving resuming command, check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round. Re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
+Call `invoke_subagent` with `TypeName: "review_host"`, `Role: "Review Host & Critical Gate"`, and exact `Prompt`:
+- **Round 1**:
+  `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution: Upon receiving resuming command, check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round. Re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
+- **Round N+1**:
+  `You are Review Host & Critical Gate. Review Workspace: <review_dir>. Target DA(s): <da_path(s)>. System Rules: AGENTS.md. Execution Protocol: REVIEW-HOST-GUIDE.md. Gating Standards: HOW-TO-GATE.md. Context: <review_dir>/Context.md. State: <review_dir>/host/State.md. FIRST read the listed files, then execute review round per guides. If your context is compacted during execution: Upon receiving resuming command, check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round. Re-read REVIEW-HOST-GUIDE.md and HOW-TO-GATE.md.`
 
-### Step 3: Handle Host Verdict [FOR LAYER 1 ONLY]
+#### 2C. In-Flight Host Interruption & Resume Protocol [FOR LAYER 1 ONLY]
+When an active round is interrupted mid-execution (e.g. server restart, process compaction, or user commands resume like `"Resume"`, `"Continue"`, `"Tell Host to Resume"` while a host is running or idle):
+1. Locate the active Layer 2 Host conversation ID.
+2. Send the canonical Resume Message to the active Host via `send_message`:
+   `"Please resume as instructed in REVIEW-HOST-GUIDE.md. Check your progress by checking subagents, reports and host files and resume if unfinished, conclude and report if finished. DO NOT create a new round."`
+3. Await Host completion without creating a new round or modifying `.bak.md` files. Only if the host is confirmed unrecoverable or permanently destroyed may Layer 1 clean unmutated scratch files and respawn a fresh Host for the current round per Step 2B.
 
-Read `<review_dir>/host/Analyzation.md` and `<review_dir>/host/State.md`.
+### Step 3: Archive Round Trace & Handle Host Verdict [FOR LAYER 1 ONLY]
 
-| Verdict in `State.md` | Action |
+#### 3A. Mandatory Post-Round Teardown & Chronological Trace Archival
+Immediately upon receiving completion from `review_host` for Round $N$:
+1. Read `<review_dir>/host/Analyzation.md` and `<review_dir>/host/State.md`.
+2. Terminate `review_host` via `manage_subagents(Action="kill")` (cascading termination to all Layer 3 subagents).
+3. Archive Round $N$ into `/tmp/deep-review-trace-<short_title>/round-<NN>/`:
+   Run the bundled archival script relative to `<skill_dir>` (`.agents/skills/conduct-deep-reviewing-loop` in distributed projects, `skills/conduct-deep-reviewing-loop` in standalone plugin checkouts, or `productivity/conduct-deep-reviewing-loop` in central `myskills`; atomically snapshots target DAs, moves reports/trace/sandbox, preserves pre-mutation `.bak.md` in `da-pre-mutation/`, respects `!PA` retention, and purges `host/Analyzation.md`):
+   ```bash
+   pwsh <skill_dir>/scripts/archive-round.ps1 -ReviewDir <review_dir> -Target <target_da_or_dir> -Round <N> [-Pause]
+   # Or cross-platform Node.js:
+   node <skill_dir>/scripts/archive-round.mjs --review-dir <review_dir> --target <target_da_or_dir> --round <N> [--pause]
+   ```
+
+#### 3B. Verdict Routing Table
+
+| Verdict in `State.md` | Layer 1 Action (After Step 3A Archival) |
 | :--- | :--- |
-| `ROUND_REVISION_NEEDED` | Host applied verified mutations directly to DA(s) and generated `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md`.<br>• **DA Path Verification**: If Host updated `Context.md` for WBS restructuring, Layer 1 re-reads `<review_dir>/Context.md` and verifies active paths.<br>• **If `!PA` / `!WA` active**: Host retained `<da_stem>.bak.md` backups. Layer 1 outputs quota pause message, halts turn, and awaits user command (`"C"` or rollback). See **Pause Gate Protocol** below.<br>• **If no pause tag**: Layer 1 deletes `<review_dir>/host/Analyzation.md` (preserving `<review_dir>/host/State.md`), terminates prior `review_host` via `manage_subagents(Action="kill")`, and immediately re-spawns Layer 2 Host for Round N+1. |
-| `PLAN_INFEASIBLE` | Host verified an insurmountable technical impasse or platform impossibility with zero in-scope fixes. Host preserved target DA(s) without mutation and generated `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md`. Layer 1 terminates `review_host` via `manage_subagents(Action="kill")`, extracts the impasse analysis and `Alternative Architectural Paths` from `<review_dir>/host/Analyzation.md`, presents them directly to the user, and immediately halts the review loop. |
-| `ABORTED_MUTATION_FAILURE` | Host experienced a write verification failure or filesystem error during DA mutation and restored DAs from backups. Layer 1 terminates `review_host` via `manage_subagents(Action="kill")`, reports failure details from `<review_dir>/host/Analyzation.md` to user, and halts review loop. |
-| `ROUND_PASS` | Layer 1 deletes `<review_dir>/host/Analyzation.md` (preserving `<review_dir>/host/State.md`), terminates prior `review_host` via `manage_subagents(Action="kill")`, and re-spawns Layer 2 Host for next Full Sweep round on unchanged DA. |
-| `FINAL_PASS` | Conclude review loop (`PassCount >= SP`). Layer 1 terminates `review_host` via `manage_subagents(Action="kill")`. Read `<review_dir>/host/Analyzation.md` to confirm verified clearance, present verified DA to user, and execute final isolated directory purge of `<repo-root>/<review_dir>/*` (preserving other active review workspaces). |
+| `ROUND_REVISION_NEEDED` | • If Host updated `Context.md` for WBS restructuring, re-read `<review_dir>/Context.md` to bind active DA paths.<br>• **If `!PA` / `!WA` active**: If remaining continuous budget $B > 0$, delete working tree `.bak.md` files, decrement $B \leftarrow B - 1$, log auto-advance in `Chain of Actions.md`, and immediately spawn a fresh Layer 2 Host for Round $N+1$ per Step 2B without halting. If $B = 0$ (budget exhausted or default), retain `<da_stem>.bak.md` backups on disk, output quota pause message, halt turn, and await `"C"`, `"<N>C"`, or rollback (see **Pause Gate Protocol**).<br>• **If no pause tag**: Immediately spawn a fresh Layer 2 Host for Round $N+1$ per Step 2B. |
+| `ROUND_PASS` | Immediately spawn a fresh Layer 2 Host for the next Full Sweep round on the unchanged DA per Step 2B. |
+| `FINAL_PASS` | Copy verified target DA(s) to `/tmp/deep-review-trace-<short_title>/final-verified-da/`. Purge `<repo-root>/<review_dir>/*`. Present verified DA(s) and report trace vault path `/tmp/deep-review-trace-<short_title>/` to user. |
+| `PLAN_INFEASIBLE` | Purge `<repo-root>/<review_dir>/*`. Present `Technical Impasse Analysis` and `Alternative Architectural Paths` from archived `Analyzation.md` along with trace vault path `/tmp/deep-review-trace-<short_title>/`, and halt loop. |
+| `ABORTED_MUTATION_FAILURE` | Purge `<repo-root>/<review_dir>/*`. Report filesystem failure details from archived `Analyzation.md` along with trace vault path `/tmp/deep-review-trace-<short_title>/`, and halt loop. |
 
-#### Pause Gate Protocol (!PA / !WA) [FOR LAYER 1 ONLY]
+#### 3C. Pause Gate Protocol (`!PA` / `!WA`) [FOR LAYER 1 ONLY]
 When `ROUND_REVISION_NEEDED` occurs under `!PA` / `!WA`:
-- Output standardized quota pause message:
-  `> "Paused per !PA request. Verified mutations were applied directly to target DA(s). Please check your API quota status or inspect diff against <da_stem>.bak.md. Send 'C' to remove backup files and proceed to Round {N+1}, or request rollback to revert mutations and halt."`
-- **Upon receiving "C"**: Layer 1 executes ordered cleanup:
-  1. If `<review_dir>/Context.bak.md` is present: identify deleted target DAs (present in `Context.bak.md` but absent in active `Context.md`), delete their sibling `<da_stem>.bak.md` files, and delete `<review_dir>/Context.bak.md`.
-  2. For every active target DA in `<review_dir>/Context.md`: delete its sibling `<da_stem>.bak.md` file (if present).
-  3. Delete any remaining orphaned sibling `<da_stem>.bak.md` files in target DA directories.
-  4. Delete `<review_dir>/host/Analyzation.md` (preserve `<review_dir>/host/State.md`).
-  5. Terminate prior `review_host` via `manage_subagents(Action="kill")` and re-spawn Host for Round N+1.
-- **Upon user rollback command**: Layer 1 executes rollback:
-  1. If `<review_dir>/Context.bak.md` is present: identify newly created DAs (present in active `Context.md` but absent in `Context.bak.md`) and delete them; restore `<review_dir>/Context.md` from `<review_dir>/Context.bak.md` and delete `<review_dir>/Context.bak.md`.
-  2. For every target DA listed in `<review_dir>/Context.md` (restored from `Context.bak.md` if present): restore from its sibling `<da_stem>.bak.md` file (if present) and delete the backup file.
-  3. Delete any remaining orphaned sibling `<da_stem>.bak.md` backup files.
-  4. Delete `<review_dir>/host/State.md` and `<review_dir>/host/Analyzation.md`, terminate `review_host` via `manage_subagents(Action="kill")`, and halt the review loop, reporting that mutations were reverted.
-- **Upon removing `!PA` / request for continuous execution** (e.g. "remove !PA", "run continuously", "proceed unpaused"): Layer 1 executes ordered cleanup:
-  1. Removes `!PA` from `## Active Modifiers` in `<review_dir>/Context.md`.
-  2. Cleans up any existing `<da_stem>.bak.md` and `Context.bak.md` backup files (same as receiving "C").
-  3. Autonomously drives the round loop without prompting the user between rounds (deleting `<review_dir>/host/Analyzation.md`, terminating prior `review_host` via `manage_subagents(Action="kill")`, and re-spawning a fresh Host per Step 2B). Host prompt MUST remain the exact static template defined in Step 2B.
+- Output message:
+  `> "Paused per !PA request. Verified mutations were applied directly to target DA(s). Round trace archived to /tmp/deep-review-trace-<short_title>/round-<NN>/. Please check API quota or inspect diff against <da_stem>.bak.md. Send 'C' to remove backup files and proceed to Round {N+1}, '<N>C' (e.g. '5C') to execute up to N rounds continuously before the next quota check pause, or request rollback to revert mutations and halt."`
+- **Upon receiving `"C"` or `"<N>C"`**:
+  1. **Parse Multi-Round Continuous Budget $N$**:
+     - Budget commands are evaluated freshly per prompt (zero sticky inheritance).
+     - Plain `"C"` (or `"1C"`): Runs exactly 1 iteration before pausing again on the next mutation (strictly sets remaining auto-advance budget $B = 0$, overriding any previous count).
+     - `"<N>C"` (e.g. `2C`, `3C`, `5C`, `10C`, case-insensitive `<N>c` / `<N>C` where $N \ge 1$): Sets remaining continuous budget $B = N - 1$.
+  2. If `<review_dir>/Context.bak.md` exists: delete sibling `<da_stem>.bak.md` files for any deleted DAs, and delete `<review_dir>/Context.bak.md`.
+  3. Delete sibling `<da_stem>.bak.md` files for all active target DAs in `Context.md` and any orphaned `.bak.md` files.
+  4. Spawn fresh Layer 2 Host for Round $N+1$ per Step 2B.
+  5. **Auto-Advancement under Budget ($B > 0$)**:
+     - On subsequent `ROUND_REVISION_NEEDED` outcomes while $B > 0$, Layer 1 executes Step 3A archival (snapshotting target DAs, moving reports/sandbox to trace vault), deletes working tree `.bak.md` files, decrements $B \leftarrow B - 1$, and immediately spawns Round $N+1$ without halting or prompting the user.
+     - When $B = 0$ and another `ROUND_REVISION_NEEDED` occurs, Layer 1 pauses at the gate as normal, retaining `.bak.md` files and prompting the user to check quota.
+- **Upon user rollback command**:
+  1. If `<review_dir>/Context.bak.md` exists: delete newly created DAs, restore `<review_dir>/Context.md` from `Context.bak.md`, and delete `Context.bak.md`.
+  2. Restore every target DA in `Context.md` from its sibling `<da_stem>.bak.md` and delete all `.bak.md` files.
+  3. Purge `<repo-root>/<review_dir>/*`, report that mutations were reverted, provide trace vault path `/tmp/deep-review-trace-<short_title>/`, and halt loop.
+- **Upon request to remove `!PA` / run continuously**:
+  1. Remove `!PA` / `!WA` from `## Active Modifiers` in `<review_dir>/Context.md`.
+  2. Clean up all `.bak.md` files (same as receiving `"C"`) and autonomously drive subsequent rounds via Step 2B.
 
 ## Modifiers
 
 | Command | Action |
 | :--- | :--- |
-| `!SP<N>` | Set required continuous Full Sweep PASS rounds threshold to N (Default: 1). |
-| `!PA` / `!WA` | Pre-review pause gate: Retains `<da_stem>.bak.md` copies on `ROUND_REVISION_NEEDED` and halts turn. Awaits "C" to proceed or rollback to revert. |
-| `!NC` | Set operational continuity to `NON_CONTINUOUS_OPERATION` (offline refactors, greenfield builds, isolated rewrite branches; must be operational after the epic). Default is `CONTINUOUS_OPERATION`. |
-| `!NC0` / `!NCI` | Set operational continuity to `NON_CONTINUOUS_INTERMEDIATE` (intermediate stepping stone / scaffolding / partial migration; does not need to operate during OR after this epic). |
+| `!SP<N>` | Set required continuous Full Sweep PASS rounds threshold to `N` (Default: `1`). |
+| `!PA` / `!WA` / `!PA<N>` | Pre-review pause gate: retains `<da_stem>.bak.md` on `ROUND_REVISION_NEEDED` and halts turn awaiting `"C"`, `"<N>C"` (executes $N$ rounds continuously before the next quota check pause), or rollback. If `!PA<N>` is specified at invocation (e.g. `!PA5`), initializes the continuous execution budget to $N$ rounds before pausing. |
+| `!NC` | Set operational continuity to `NON_CONTINUOUS_OPERATION` (offline upgrades/refactors, local/desktop apps, isolated rewrite branches; must be operational after the epic and migrate existing data via sequential migration scripts without 24/7 dual-write shims). Default is `CONTINUOUS_OPERATION`. |
+| `!NC0` / `!NCI` | Set operational continuity to `NON_CONTINUOUS_INTERMEDIATE` (intermediate stepping stone / scaffolding; does not need to operate during OR after this epic). |
+| `!A11Y` / `!WCAG` | Set UX/UI regime to `STRICT_ACCESSIBILITY_COMPLIANCE` (loads `UX-STRICT-ACCESSIBILITY-WCAG.md`). Default is `PRAGMATIC_PRODUCT_UX` (`UX-PRAGMATIC-INTERACTION-DX.md`). |
+| `!MOBILE` / `!RESPONSIVE` | Set UX/UI form factor to `CROSS_DEVICE_RESPONSIVE` (loads `UX-MOBILE-RESPONSIVE-PERFORMANCE.md`). Default for desktop/Electron/Tauri apps is `DESKTOP_ONLY` (`UX-DESKTOP-LAYOUT-PERFORMANCE.md`). |
+| `!NCR` | Disable Step 4B Cross-Domain Remediation Review (`Cross-Review: DISABLED` in `Context.md`). Default is enabled. |
 | `!FPA` | Instantly kill running subagents and pause execution. |

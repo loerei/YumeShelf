@@ -10,6 +10,7 @@ Audit criteria for cloud microservices covering health probe isolation, RED/USE 
 - [ ] **RED / USE Metric Coverage**: Does the service export Rate, Errors, and Duration (RED) for request endpoints, and Utilization, Saturation, and Errors (USE) for system resources?
 - [ ] **Strict Metric Cardinality Limits**: Are user IDs, UUIDs, email addresses, and dynamic request paths excluded from metric tag/label keys?
 - [ ] **DLQ Backlog Alerts**: Do asynchronous message queues configure alerting thresholds on Dead Letter Queue depth ($> 0$) and consumer processing lag?
+- [ ] **Domain Outcome vs. Transport Status Separation**: For endpoints where HTTP status codes intentionally mask business outcomes (e.g., returning `200 OK` or `202 Accepted` regardless of validation drops, anti-enumeration checks, or async queueing), are bounded domain counters (`domain_operation_total{operation, outcome, reason}`) emitted alongside standard HTTP RED metrics?
 
 ## Concrete Anti-Patterns
 
@@ -53,6 +54,5 @@ httpRequestsTotal.WithLabelValues(req.Method, matchedRoute, strconv.Itoa(statusC
 | **Cascading Restart Storm** | Database slowdown causes all API container liveness probes to fail simultaneously. | Remove external dependency connectivity checks from `/healthz/liveness`. |
 | **TSDB Memory Outage** | Recording user IDs or GUIDs in Prometheus metric labels creates millions of time series. | Reject any metric label whose value domain is unbounded; use parameterized routes only. |
 | **Silent Queue Poisoning** | Messages continuously fail and route to a DLQ without operational alerting. | Require explicit alerts triggering on `dlq_messages_visible > 0` with notification routing. |
+| **Green Dashboard on Broken Business Funnel** | Endpoint returns `200 OK` on silent validation/security drops while RED metrics only track HTTP status codes. | Emit bounded domain counters (`outcome="dispatched"` vs `outcome="silently_dropped"`, `reason="email_mismatch"`) independent of HTTP transport status. |
 
-```
----

@@ -9,11 +9,10 @@ Draft idea-level proposals, behavioral change requests, and policy enhancements 
 
 ## Directives
 
-1. **Zero Speculation**: Propose at the behavioral or interface level (`what/how it looks`); NEVER dictate internal algorithms or guessed architecture.
-2. **Concrete Grounding**: MUST anchor the problem in an observed bottleneck or real example; no hypothetical generalities.
-3. **No Fluff Rationale**: State direct technical value and saved friction without marketing hype.
-
----
+1. **Zero Speculation**: Specify the change at behavioral or interface level (`what` and how it looks); NEVER dictate internal algorithms or guessed architecture.
+2. **Concrete Grounding**: Anchor the problem in an observed bottleneck or real example rather than hypothetical generalities.
+3. **No Fluff Rationale**: State direct operational value and eliminated friction without marketing language.
+4. **Output & Delivery**: Write to `REQUEST.md` (or `<appDataDir>/brain/<convo-id>/request_<topic>.md`), then present the file link and brief summary.
 
 ## Template (`REQUEST.md`)
 
@@ -36,12 +35,3 @@ Draft idea-level proposals, behavioral change requests, and policy enhancements 
 ## 3. Rationale (Why)
 - Direct operational value and friction eliminated.
 ```
-
----
-
-## Workflow
-
-1. Identify the target entity and exact friction point.
-2. Formulate behavioral proposal following Directives.
-3. Write artifact to `REQUEST.md` (or `<appDataDir>/brain/<convo-id>/request_<topic>.md`).
-4. Present file link and brief summary to user.

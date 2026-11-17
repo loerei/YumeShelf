@@ -79,5 +79,3 @@ function App() {
 | **Complete App Crash** | Uncaught render error in a child component unmounts root tree. | Enforce Error Boundaries around independent functional UI widgets. |
 | **PII Leak in Session Logs** | Session recording captures sensitive user keystrokes in form inputs. | Demand default masking on all input elements (`input, textarea, [contenteditable]`). |
 
-```
----

@@ -31,10 +31,4 @@ Minimize tokens loaded per execution path while keeping `SKILL.md` self-containe
 | Reference material or heavy tables needed across runs | Single subdoc `REFERENCE.md` |
 | Rules or setup instructions isolated to specific branches | Scoped subdoc `<DOMAIN>.md` |
 
-NEVER combine independent branch guides into a monolithic subdoc if execution paths load irrelevant bytes.
-
----
-
-## 4. Extraction Tool
-
-To extract subdocs using these heuristics, invoke the `write-skill-subdocs` skill.
+NEVER combine independent branch guides into a monolithic subdoc if execution paths load irrelevant bytes. To extract subdocs using these heuristics, invoke `write-skill-subdocs`.

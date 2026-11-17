@@ -5,43 +5,46 @@ description: Use when asked to review, edit, or deslop AI-facing text (prompts, 
 
 # Write for AI
 
-Text written for AI must directly drive decisions, constraints, or routing. It should never market, reassure, speculate, or over-explain.
+For human-facing documentation (READMEs, API docs, release notes), use the `deslop` skill instead. For reference tables, case studies, and the Noise Checklist, see [REFERENCE.md](REFERENCE.md).
 
 ## Core Rules
 
-1. **One sentence = one decision signal.** Every sentence must help the AI choose a tool, set a parameter, or enforce a constraint. If removing a sentence changes nothing in AI execution, cut it.
-2. **Cut noise, never signal.** Deslopping means stripping conversational fluff, marketing adjectives, and tautology, NEVER dropping domain mechanics, failure recovery procedures, parameter contracts, or operational constraints. If removing a detail deprives the agent of a recovery action or a decision branch, it MUST be preserved.
-3. **Only add information to resolve ambiguity.** Add context only if two tools or rules could be confused. Do not explain what a tool name or parameter name already makes obvious.
-4. **State failure modes and recovery actions.** Tell the AI *when* an action fails and *what to do next*.
-5. **Delete the trigger instead of banning the artifact.** When removing an unwanted behavior created by a previous prompt or revision, delete the trigger instruction. Do not add negative constraints (`"NEVER do X"`) against artifacts that the AI has no natural baseline tendency to generate. Reserve `NEVER` and `MUST NOT` for overriding default LLM biases (e.g., sycophancy, conversational filler, hallucinating code).
-6. **Use plain English, no fluff.** Say things simply with simple active verbs (`get`, `set`, `run`, `check`, `edit`, `delete`). Avoid pompous buzzwords (`orchestrate`, `leverage`, `facilitate`, `paradigm`), marketing adjectives (`robust`, `seamless`, `powerful`, `intelligent`), and conversational padding (`Please note`, `Make sure to`).
-7. **Preserve domain terms.** Keep exact code symbols, API names, and domain terms intact. Do not substitute synonyms for established domain concepts.
-8. **Preserve rule-strength imperatives.** Words like `MUST`, `NEVER`, `ALWAYS`, and `do NOT` carry critical constraint weight. Keep them sharp and unambiguous.
-9. **Keep "e.g." on non-exhaustive lists.** Removing "e.g." signals that a list is complete when it may only be representative.
-10. **Use tables for lookups & decision matrices; Mermaid for multi-step workflows.** Use 2-column tables (`| Condition | Action |`) for rule branching, mappings, and enums. Use Mermaid diagrams ONLY for sequential state machines, multi-step execution loops, and cross-agent handoffs.
-11. **Do not force-escort bullets with decorative titles.** Never force-escort every bullet with a title if decoration is the only reason. Make sure bullet titles are to help calling and referring to a rule shortly, not to put a pretty name on it. If titling, use only plain English, not fancy names.
-12. **No theatrical or hollow headers.** Do not create section headers or sub-headers for 1–2 sentences. Merge directly into parent flow.
-13. **Frontmatter description is trigger condition only.** Answer ONLY "When to choose this skill?" in 10–15 words. Never summarize features (What), explain benefits (Why), or include slash command mentions.
-14. **Use universal, self-contained examples.** NEVER write examples, lookup tables, or case studies that depend on specific context from a random repository or proprietary domain that an LLM does not always have. All examples MUST be universally understandable from first principles ("Hello World examples", e.g. canonical scenarios like resizing an image, sending an email, user auth, or basic CRUD pagination) that any LLM can understand and generalize instantly.
+1. **Instruction equivalence & generative compression (Occam's Instruction Law):** If an instruction or instruction set can be reproduced by another instruction or instruction set that is more generalized or more concise with similar or better quality, the old instruction or instruction set MUST be replaced by that simpler instruction or instruction set. To decide, look strictly at the ultimate objective the instruction or instruction set is aiming for.
+2. **Never sacrifice logical precision for stylistic brevity (No lossy compression):** Do NOT rewrite or shorten an instruction if doing so narrows its scope, drops a condition (`more generalized OR more concise`), weakens an imperative (`MUST`), or alters set mappings (`1-to-1` vs. `N-to-M`). Repeating an exact noun phrase across clauses to maintain strict variable binding is execution signal, NOT stylistic noise. **Checklists vs. Policies:** Compress *gating/routing policies* into general invariants so sub-case lists do not create loopholes, but preserve explicit *audit checklists, concrete defect signatures, and minimal `BAD`/`GOOD` contrasts* as inspection recall anchors instead of collapsing them into vague umbrella directives.
+3. **Apply the Drop Test:** Every sentence or detail must change how the AI selects a tool, sets a parameter, recovers from failure, handles an edge case, or catches a defect during evaluation. If removing it changes nothing in AI execution or judgment, delete it.
+4. **State failure modes and recovery actions:** Explicitly state *when* an action fails and *what* the AI must do next.
+5. **Delete triggers instead of banning artifacts:** To stop unwanted behavior caused by an existing prompt, delete the instruction triggering it. Use `NEVER` or `MUST NOT` only to override default LLM biases (e.g., sycophancy, filler, hallucinated APIs, domain-default bleed, unauthorized wrapper scripts) or enforce cross-file/cross-agent isolation where no trigger exists to remove.
+6. **Write with zero repo context:** Assume the AI has no prior knowledge of local repository paths, dataset quirks, or one host IDE's built-in tool names. Use universal examples (e.g., user auth, image resize, CRUD pagination), dynamic/relative paths for bundled assets, and capability wording (e.g., native file-reading/search tools) instead of hardcoded built-in tool names in portable skills.
+7. **Format for fast parsing:**
+   - **Frontmatter `description`:** 10–15 words in `SKILL.md` stating ONLY *when* to trigger the skill (no features, benefits, or slash commands). NEVER add YAML frontmatter to internal subdocuments or guides.
+   - **Compact decision tables:** Use 2-column (`| Condition | Action |`) or small truth tables for rule branching, mappings, and enums.
+   - **Mermaid diagrams:** Use ONLY for sequential state machines, multi-step loops, and cross-agent handoffs.
+   - **Headers & bullet titles:** Never create headers for 1–2 sentences (merge into parent text). Title bullets in plain English ONLY when needed for cross-referencing.
+
+| Keep (Execution Signal) | Cut (Zero-Execution Noise) |
+| :--- | :--- |
+| Exact code symbols, domain terms, and contract-pinned API/tool names | Synonym substitutions, or IDE-locked built-in tool names in portable skills |
+| Repeated exact terms that bind variables or preserve scope (`instruction or instruction set`) | Stylistic paraphrasing that drops quantifiers, conditions, or edge-case coverage |
+| Hard imperatives (`MUST`, `NEVER`, `ALWAYS`, `do NOT`) | Hedging and conversational padding (`Please note`, `Make sure to`) |
+| `e.g.` on non-exhaustive lists; concrete failure signatures in audit checklists | Exhaustive sub-case lists in routing/gating policies where a general rule suffices |
+| Disambiguation between easily confused tools or rules | Explanations of self-evident tool or parameter names |
+| Operational rationale required to resolve ambiguity, prevent edge-case errors, or override LLM biases | Creation history, author preferences, motivational and business justifications |
+| Simple active verbs (`get`, `set`, `run`, `check`, `edit`, `delete`) | Buzzwords and marketing adjectives (`orchestrate`, `leverage`, `robust`, `seamless`) |
 
 ## Workflows
 
-### 1. Deslop & Optimize Existing Text
-1. Read as the AI model to assess decision value.
-2. Strip buzzwords, marketing claims, and Latinate verbs.
-3. Eliminate redundancy: schema duplication, circular naming, hedging, motivation history, synonym stacking, and reference over-specification.
-4. Test each sentence: if removing it does not change AI execution, delete it.
-5. Present Original -> Deslopped with concise rationale for cuts.
+### Deslop Existing Text
+1. Classify the target artifact first (`Tool/Param`, `Rule/Workflow`, `Skill`, or `Audit Checklist` per [REFERENCE.md](REFERENCE.md)): verify whether enumerations are *decision gates* (compress to invariants) or *defect-recall anchors* (preserve).
+2. In multi-file specs or skills, repair protocol parity and portability before editing prose: align status enums, caller/callee templates, prerequisite registration steps, dynamic/relative script paths, and strip spurious YAML frontmatter from non-skill subdocs.
+3. Apply the Core Rules and Keep/Cut table to strip noise and compress redundant rules.
+4. Output `Original -> Deslopped` with a brief rationale for each edit or cut.
 
-### 2. Write New AI-Facing Text
-Answer only these 4 questions before writing:
-1. What does this do? (One concrete verb phrase)
-2. When should the AI choose this over alternatives? (Unique trigger or differentiator)
-3. What inputs are required vs optional? (State only if not obvious from schema)
-4. How does it fail and what is the recovery step? (Actionable error signal)
-
----
-
-## Subdoc Reference
-
-- Reference tables, before/after case studies, and Noise Checklist: see [REFERENCE.md](REFERENCE.md).
+### Write New AI-Facing Text
+Choose the structure matching the artifact type ([REFERENCE.md](REFERENCE.md) §2):
+- **Tool / Parameter docs** (include only answers to these 4 questions):
+  1. **Action:** What does this do? (One concrete verb phrase)
+  2. **Trigger:** When must the AI choose this over alternatives?
+  3. **Inputs:** Which parameters are required vs. optional? (Omit if obvious from schema)
+  4. **Recovery:** How does it fail and what is the exact recovery step?
+- **Agent Rules / Orchestration Skills:** Condition, invariant (`MUST`/`NEVER`), recovery step, and scope/isolation boundary.
+- **Audit / Reviewer Guides:** Scope isolation, conditional subdoc routing (`When to Load`), concrete defect signatures / `BAD` vs. `GOOD` contrasts, and exact verdict/output schema.

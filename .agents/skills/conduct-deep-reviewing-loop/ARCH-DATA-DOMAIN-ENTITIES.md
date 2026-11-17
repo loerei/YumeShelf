@@ -18,6 +18,7 @@ Audits domain modeling, boundary parsing membranes, Value Object immutability, a
 ### 3. Ingress Parsing Membrane ("Parse, Don't Validate")
 
 * [ ] Boundary Ingress Parsing: External payloads (HTTP requests, message broker payloads, configuration inputs, IPC data) must be parsed into strongly typed domain models immediately upon entry.
+* [ ] Single-Source Schema-to-Type Derivation: Derive static DTO and configuration types directly from canonical runtime boundary schemas (`type OrderInput = z.infer<typeof OrderIngressSchema>`, TypeBox `Static<typeof Schema>`, or Pydantic models) rather than maintaining separate hand-written `interface` declarations that drift out of sync with runtime validators.
 * [ ] Smart Constructors: Types enforcing domain invariants must restrict instantiation to validated factory functions or smart constructors that return explicit error types or throw at the boundary.
 * [ ] Zero Internal Property Sniffing: Core domain services, use cases, and entities must reject untyped raw records (`Record<string, any>`, loose dicts). Internal pipelines must never execute defensive fallbacks, null sniffing, or speculative defaults.
 
@@ -148,5 +149,3 @@ class Order {
 * Aggregate Desynchronization: Exposing child collections enables callers to bypass business rules. Mitigate by returning immutable views (`readonly`) and encapsulating state mutations inside Aggregate Root methods.
 * DTO Leakage: Exposing persistence or domain entities directly through public APIs causes breaking changes when database schemas evolve. Mitigate by mandating strict DTO mapping layers.
 
-```
----

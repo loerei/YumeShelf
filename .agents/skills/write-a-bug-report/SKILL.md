@@ -9,11 +9,10 @@ Document reproducible failures, tool errors, and bug reproductions in `BUG_REPOR
 
 ## Directives
 
-1. **Zero Speculation**: State ONLY observed inputs, stderr/stdout logs, exit codes, and measured timings; NEVER guess unverified root causes or fabricate durations.
-2. **File Snapshot on Failure**: When a file operation or patch fails, MUST copy target file(s) to `scratch/replica_<filename>` immediately before further modifications.
-3. **Exact Payloads**: MUST preserve complete raw command invocations, request payloads, and minimal repro scripts without truncation.
-
----
+1. **Zero Speculation**: Record ONLY observed inputs, stdout/stderr logs, exit codes, and measured timings; NEVER guess unverified root causes or fabricate durations.
+2. **File Snapshot on Failure**: When a file write or patch fails, snapshot affected file(s) to `scratch/replica_<filename>` before making further edits.
+3. **Exact Payloads**: Preserve complete raw commands, request payloads, and minimal reproduction scripts without truncation.
+4. **Output & Delivery**: Write to `BUG_REPORT.md` (or `<appDataDir>/brain/<convo-id>/bug_<topic>.md`), then present the file link and brief summary.
 
 ## Template (`BUG_REPORT.md`)
 
@@ -44,12 +43,3 @@ Document reproducible failures, tool errors, and bug reproductions in `BUG_REPOR
 <exact command, payload, or minimal reproduction script>
 ```
 ```
-
----
-
-## Workflow
-
-1. Snapshot affected target files to `scratch/replica_<filename>` if a write/patch failed.
-2. Collect raw logs, error traces, and exact environment versions.
-3. Write bug artifact to `BUG_REPORT.md` (or `<appDataDir>/brain/<convo-id>/bug_<topic>.md`).
-4. Present file link and brief summary to user.

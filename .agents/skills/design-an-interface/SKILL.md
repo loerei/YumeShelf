@@ -1,6 +1,6 @@
 ---
 name: design-an-interface
-description: Generate multiple radically different interface designs for a module using parallel sub-agents. Use when user wants to design an API, explore interface options, compare module shapes, or mentions "design it twice".
+description: Use when designing an API, comparing module interface shapes, or applying design-it-twice.
 ---
 
 # Design an Interface
@@ -23,7 +23,7 @@ Ask: "What does this module need to do? Who will use it?"
 
 ### 2. Generate Designs (Parallel Sub-Agents)
 
-Spawn 3+ sub-agents simultaneously using Task tool. Each must produce a **radically different** approach.
+Spawn 3+ subagents simultaneously in parallel. Each must produce a **radically different** approach.
 
 ```
 Prompt template for each sub-agent:
@@ -59,10 +59,10 @@ Present designs sequentially so user can absorb each approach before comparison.
 
 After showing all designs, compare them on:
 
-- **Interface simplicity**: fewer methods, simpler params
-- **General-purpose vs specialized**: flexibility vs focus
-- **Implementation efficiency**: does shape allow efficient internals?
-- **Depth**: small interface hiding significant complexity (good) vs large interface with thin implementation (bad)
+- **Interface simplicity**: fewer methods, simpler params (easier to learn and use correctly)
+- **General-purpose vs specialized**: flexibility vs focus; avoid over-generalizing
+- **Implementation efficiency**: does shape allow efficient internals without forcing awkward code?
+- **Depth**: small interface hiding significant complexity (good) vs large interface with thin implementation (avoid)
 - **Ease of correct use** vs **ease of misuse**
 
 Discuss trade-offs in prose, not tables. Highlight where designs diverge most.
@@ -73,18 +73,6 @@ Often the best design combines insights from multiple options. Ask:
 
 - "Which design best fits your primary use case?"
 - "Any elements from other designs worth incorporating?"
-
-## Evaluation Criteria
-
-From "A Philosophy of Software Design":
-
-**Interface simplicity**: Fewer methods, simpler params = easier to learn and use correctly.
-
-**General-purpose**: Can handle future use cases without changes. But beware over-generalization.
-
-**Implementation efficiency**: Does interface shape allow efficient implementation? Or force awkward internals?
-
-**Depth**: Small interface hiding significant complexity = deep module (good). Large interface with thin implementation = shallow module (avoid).
 
 ## Anti-Patterns
 

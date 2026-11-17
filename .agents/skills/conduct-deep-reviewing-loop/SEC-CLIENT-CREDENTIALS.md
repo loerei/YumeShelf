@@ -1,6 +1,6 @@
-# Client-Side Credentials & Secrets Hygiene
+# Client-Side Credentials, Session Coordination, and Secrets Hygiene
 
-Covers client-side secret management, frontend build-time asset hygiene, and credential storage at rest for desktop, web, and local applications.
+Covers client-side secret management, frontend build-time asset hygiene, credential storage at rest, and multi-tab/multi-window session coordination for desktop, web, and local applications.
 
 ## Domain Audit Checklist
 
@@ -15,6 +15,10 @@ Covers client-side secret management, frontend build-time asset hygiene, and cre
   - Windows: Data Protection API (DPAPI) via `safeStorage`
   - Linux: Secret Service API (`libsecret`)
 - [ ] **Ban Plaintext Local Storage**: MUST NOT store unencrypted sensitive credentials in browser `localStorage`, `sessionStorage`, cookies lacking `HttpOnly; Secure; SameSite`, unencrypted SQLite databases, or plaintext configuration files (`config.json`).
+
+### 3. Multi-Tab & Multi-Window Session Coordination
+- [ ] **Refresh Token Rotation Stampede Lock (`navigator.locks`)**: When multiple browser tabs or desktop windows share rotating refresh tokens, serialize token refresh requests across tabs via `navigator.locks.request("auth_refresh", ...)` (or a `BroadcastChannel` leader) and re-check stored token freshness after acquiring the lock. Otherwise, concurrent tabs firing parallel refresh requests with the same single-use refresh token trigger server-side reuse detection and revoke the user's entire session.
+- [ ] **Cross-Tab Logout & Sensitive Memory Purge**: Broadcast logout and session revocation events across all open tabs/windows (`BroadcastChannel` or `window.addEventListener("storage")`) so logging out in one tab immediately purges in-memory caches and cancels background polling in all sibling tabs.
 
 ---
 
@@ -78,4 +82,5 @@ async function saveAuthSession(appDataDir, sessionToken) {
 | :--- | :--- | :--- |
 | **Service Key Exfiltration via Bundle** | Private secret prefixed with `VITE_*` / `NEXT_PUBLIC_*` inlined into static JS assets. | Strip client prefix. Route operations requiring secret through server API proxy. |
 | **Local Credential Extraction** | Plaintext tokens in `localStorage` or unencrypted JSON readable by malware or local users. | Encrypt credentials at rest via native OS Keychain / DPAPI (`safeStorage`). |
+| **Multi-Tab Forced Logout (Refresh Stampede)** | 5 open tabs simultaneously send the same rotating refresh token on expiry, triggering reuse revocation. | Serialize token refresh across tabs via `navigator.locks.request` and broadcast updated tokens via `BroadcastChannel`. |
 | **Cookie Session Theft via XSS** | Session tokens saved in client-accessible storage or cookies without `HttpOnly`. | Issue authentication cookies with `HttpOnly; Secure; SameSite=Lax/Strict`. |

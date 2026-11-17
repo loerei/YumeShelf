@@ -93,7 +93,7 @@ export function createSettingsController({
     let currentTelemetry = 'off';
     let currentExposeBeta = false;
     let currentMascotShow = localStorage.getItem('yumeshelf_mascot_show') || 'on';
-    let currentMascotScale = localStorage.getItem('yumeshelf_mascot_scale') || '100';
+    let currentMascotScale = localStorage.getItem('yumeshelf_mascot_scale') || '30';
     let currentMascotSound = localStorage.getItem('yumeshelf_mascot_sound') || 'squeaker';
     let currentMascotVolume = localStorage.getItem('yumeshelf_mascot_volume') || '20';
 

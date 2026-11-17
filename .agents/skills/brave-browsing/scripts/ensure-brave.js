@@ -24,8 +24,19 @@ async function checkPort9222() {
 function isRegistryConfigured() {
   if (os.platform() !== 'win32') return false;
   try {
-    const out = execSync(String.raw`powershell -NoProfile -Command "(Get-ItemProperty 'HKCU:\Software\Classes\http\shell\open\command').'(default)'"`, { encoding: 'utf8' });
+    const ps = `$p1 = (Get-ItemProperty 'HKCU:\\Software\\Classes\\http\\shell\\open\\command' -ErrorAction SilentlyContinue).'(default)'; $h = (Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice' -ErrorAction SilentlyContinue).ProgId; $p2 = if ($h) { (Get-ItemProperty "HKCU:\\Software\\Classes\\$h\\shell\\open\\command" -ErrorAction SilentlyContinue).'(default)' } else { '' }; "$p1 | $p2"`;
+    const out = execSync(`powershell -NoProfile -Command "${ps}"`, { encoding: 'utf8' });
     return out.includes('--remote-debugging-port=9222');
+  } catch {
+    return false;
+  }
+}
+
+function hasBraveRunningWithoutPort() {
+  if (os.platform() !== 'win32') return false;
+  try {
+    const out = execSync(`powershell -NoProfile -Command "(Get-Process brave -ErrorAction SilentlyContinue | Measure-Object).Count"`, { encoding: 'utf8' });
+    return parseInt(out.trim(), 10) > 0;
   } catch {
     return false;
   }
@@ -58,6 +69,12 @@ function launchBraveGUI(braveExe, flags) {
   if (await checkPort9222()) {
     console.log('[✔] Brave 9222 ready');
     process.exit(0);
+  }
+
+  if (hasBraveRunningWithoutPort()) {
+    console.warn('[⚠️] Notice: Background Brave processes detected without port 9222.');
+    console.warn('    Chromium ignores debug flags when attaching to existing processes.');
+    console.warn('    If connection fails, terminate running instances (Stop-Process -Name brave -Force) and rerun.');
   }
 
   const hasReg = isRegistryConfigured();

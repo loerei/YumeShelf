@@ -8,9 +8,9 @@ Configure `sonar-project.properties` in the project root to define scope and exc
 > **UTF-8 Encoding without BOM**: You MUST save `sonar-project.properties` in UTF-8 format **without BOM**. Saving it with BOM (which is the default behavior of Windows PowerShell `Set-Content`) will cause the SonarScanner to fail to parse the first line, throwing an error: `You must define the following mandatory properties: sonar.organization`.
 
 ```properties
-sonar.organization=loerei
-sonar.projectKey=loerei_YumeShelf
-sonar.projectName=YumeShelf
+sonar.organization=<org>
+sonar.projectKey=<org>_<repo>
+sonar.projectName=<ProjectName>
 sonar.sources=src,native
 sonar.tests=tests
 sonar.test.inclusions=tests/**/*.test.ts,tests/**/*.spec.ts
@@ -95,7 +95,7 @@ You must disable SonarCloud's built-in Automatic Analysis to avoid duplicate ana
 1. Navigate to your project dashboard on [sonarcloud.io](https://sonarcloud.io/).
 2. Click **Administration** in the left menu.
 3. Select **Analysis Method**.
-4. Gạt nút **Toggle OFF** cho **Automatic Analysis**.
+4. Toggle **Automatic Analysis** **OFF**.
 
 ---
 

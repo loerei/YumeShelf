@@ -623,7 +623,7 @@ export function createMascotWidget({
         init: () => {
             // Set initial state from localStorage
             const initialShow = localStorage.getItem('yumeshelf_mascot_show') !== 'off';
-            const initialScale = localStorage.getItem('yumeshelf_mascot_scale') || '100';
+            const initialScale = localStorage.getItem('yumeshelf_mascot_scale') || '30';
             const initialSound = localStorage.getItem('yumeshelf_mascot_sound') || 'squeaker';
             const initialVolume = localStorage.getItem('yumeshelf_mascot_volume') ?? '20';
 

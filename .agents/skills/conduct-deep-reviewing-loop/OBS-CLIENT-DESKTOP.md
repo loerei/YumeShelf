@@ -80,5 +80,3 @@ function reportFileError(filePath: string, error: Error, userSettings: Settings)
 | **GDPR Privacy Violation** | Telemetry payloads contain absolute home directory paths revealing user names. | Enforce regex path normalization before writing to local log files or remote telemetry sinks. |
 | **Thundering Herd on Reconnect** | Client retries all queued offline events immediately upon network restoration. | Require exponential backoff with full randomized jitter for queued event transport. |
 
-```
----

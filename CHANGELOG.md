@@ -3,6 +3,13 @@
 All notable changes to YumeShelf are documented here. Entries follow a two-tier structure: a quick summary for regular users, and technical details for developers.
 
 ---
+
+## [L.O.E] - 2026-11-19
+
+My calendar is packed lately, I just finished GCI World so I guess I'll have more time soon. School is still heavy so don't expect much until Jan tho.
+
+---
+
 ## [2.2.9] - 2026-11-17 — released
 
 ### What Changed

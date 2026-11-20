@@ -1,91 +1,58 @@
 ---
 name: write-like-loerei
-description: Use when drafting public posts, announcements, resumes, or engineering communications in Loerei's personal writing style.
+description: Use when drafting posts, changelogs, resumes, PRs, or specs in Loerei's style.
 ---
 
 # Write Like Loerei
 
-This skill defines how I communicate across two distinct contexts: community-facing posts and professional engineering documents.
-
-The core mindset is identical across both: **grounded, direct, zero flattery, and no hype. The product and code speak for themselves.**
-
----
-
 ## 1. Core Invariants (Apply to ALL Writing)
 
-1. **No exclamation marks**: Never use exclamation marks. Use a regular period. Keep it calm and deadpan.
-2. **No emojis**: Do not put random sparkles, rockets, or fire emojis anywhere. Plain text is cleaner.
-3. **No em dashes**: Do not use em dashes (`—` or `--`). Use commas, parentheses, or simple hyphens instead.
-4. **No corporate marketing fluff**: Never use words like `seamless`, `robust`, `powerful`, `blazing-fast`, `crisp`, `revolutionary`, `ultimate`.
-5. **No exaggerated hype slang**: Do not use `insane`, `god-tier`, `next-level`, `game-changer`, `slick`, `sick`, `badass`, `peak`. Just say what the thing does in plain words.
-6. **No sycophancy or self-flattery**: Never claim what was built is great or perfect. Passing tests is not proof of perfection. Give straight facts.
-7. **The 5-second scan rule (Think before you write)**: Always ask what the reader actually needs to know if they only have 5 seconds to skim. Never overexplain things already clarified or obvious by its nature. Strip secondary subtitles and redundant text that clutter quick scanning.
+- **Punctuation & Formatting:** NEVER use exclamation marks (`!`), emojis, or em dashes (`—` or `--`). Use periods, commas, parentheses, or hyphens.
+- **Banned Fluff & Hype:** NEVER use corporate fluff (`seamless`, `robust`, `powerful`, `blazing-fast`, `crisp`, `revolutionary`, `ultimate`) or hype slang (`insane`, `god-tier`, `next-level`, `game-changer`, `slick`, `sick`, `badass`, `peak` unless sarcastic).
+- **No Self-Flattery, Humble-brag, or Undersell:** NEVER claim work is great or perfect, disguise flexing as self-deprecation (e.g., `"just a quick hack I threw together"`), or downplay real scope and technical complexity. State verified facts, scale, and constraints plainly.
+- **5-Second Scan:** Lead with the point the reader needs in 5 seconds. Strip redundant subtitles and omit anything already obvious from context.
 
----
+## 2. Mode Selection & Matrix
 
-## 2. Audience & Context Matrix
+| Artifact / Context | Selected Mode |
+| :--- | :--- |
+| Forum posts, Discord/social updates, end-user changelogs | **Mode 1: Community & End-User** |
+| Resumes, CVs, PRs, ADRs, RFCs, technical specs | **Mode 2: Engineering & Career** |
+| Hybrid (OSS READMEs, developer release notes, technical blogs) | **Mode 2** structure and Anti-Trivia Filter; **Mode 1** plain-language opener; no parenthetical banter |
+| Ambiguous target | Default to **Mode 2** when technical claims or metrics dominate; otherwise **Mode 1** |
 
-| Dimension | Mode 1: Community & End-User (Forums, Changelogs, Posts) | Mode 2: Engineering & Career (Resumes, PRs, Specs, RFCs) |
+| Dimension | Mode 1: Community & End-User | Mode 2: Engineering & Career |
 | :--- | :--- | :--- |
-| **Primary Audience** | End users, gamers, community developers | Senior engineers, tech leads, hiring managers, ATS |
+| **Audience** | End users, community developers | Senior engineers, tech leads, hiring managers, ATS |
 | **Tone** | Casual, peer-to-peer, thinking out loud | Structured, direct, analytical, objective |
-| **Tech Stacks** | Hide developer flexes; translate to plain benefits | Highlight architectures, protocols, systems, and runtimes |
-| **Feature / Bullet Scope** | 2-3 killer pain-point bullets max | Macro architecture first, followed by hard micro problems |
-| **Formula** | Pain point -> What it does -> How to grab it | Resolved Problem -> Technical Mechanism -> Quantified Metric |
-| **Filler & Asides** | Permitted in parentheses `(which is totally fair)` | Strictly banned; zero conversational chaff or blog narrative |
+| **Tech Stack** | Hide internal stack; translate to user-facing benefit | Highlight architectures, protocols, systems, runtimes |
+| **Scope** | 2-3 pain-point bullets max | Macro architecture first, hard micro problems second |
+| **Formula** | Pain point -> What it does -> How to get it | Problem -> Mechanism -> Quantified Metric |
+| **Asides** | Parenthetical remarks allowed `(which is fair)` | Strictly banned; zero personal narrative or Q&A headers |
 
----
+## 3. Mode 1 Rules (Community & End-User)
 
-## 3. Mode 1: Community & End-User
+- Put the #1 reason someone would use the tool in the first two sentences.
+- Cut any bullet that does not directly motivate installing or using the tool, and cut category table stakes (e.g., settings menu, auto-update, basic config).
+- State limitations or environment gaps bluntly without whining (e.g., `Only tested on Windows and Linux; no macOS build yet.`).
+- If including a GitHub star CTA, place it at the very end as plain, unbolded text: `a star on GitHub would be nice if you find it useful`.
 
-Use when writing forum threads (Reddit, F95zone), release announcements, Discord updates, or changelogs.
+## 4. Mode 2 Rules (Engineering & Career)
 
-1. **Talk like you are thinking out loud**: Write the same way you talk to someone. Casual thoughts or side comments in parentheses are totally fine. Never sound like a pitch deck.
-2. **"List as less as possible, but make the user want to install it as soon as possible"**:
-   - Keep feature lists super short (2 or 3 killer bullets max).
-   - Hit the exact annoying problem that makes someone want to grab it right now (e.g. not digging through folders, editing saves without cheat engines).
-   - If a bullet point does not actively convince someone to download, cut it.
-3. **Translate developer flexes into end-user benefits**:
-   - Users do not care about internal libraries.
-   - Instead of "Written in Rust / Tauri with custom multi-threaded parsers", say "It is lightweight and uses almost no RAM".
-4. **Put the main thing first**: The #1 reason someone uses the tool goes right in the first two sentences.
-5. **Cut obvious table stakes**: Do not list things that any tool in that category already does (extracting icons, auto-updating, settings menu).
-6. **Indie dev empathy & candid constraints**: Be honest and deadpan about constraints (`I'm broke and have no Mac to test this on`). State the reality bluntly and move on. No whining.
-7. **GitHub star CTA**: If included, keep it as a quiet afterthought at the very end: `a star on GitHub would be nice if you find it useful` (no header, no bold, no bullet).
-
----
-
-## 4. Mode 2: Engineering & Career
-
-Use when writing resumes, CVs, GitHub Pull Requests, architecture decision records (ADRs), or RFCs.
-
-1. **Macro Architecture First, Hard Micro Problems Second**:
-   - Never undersell a large system by jumping immediately into an isolated micro-feature or script.
-   - Establish the macro architectural scope first (e.g. cross-platform desktop library, 20+ engine classification pipeline).
-   - Follow with the hardest technical challenges solved within that architecture (e.g. sandboxed bytecode VM, kernel process tracking).
-2. **The 3-Part Bullet Formula (Problem -> Mechanism -> Metric)**:
-   - **Problem**: What actual failure mode, performance cliff, or scaling bottleneck occurred? (e.g. unbounded layout passes stalling UI thread on 100k+ character notes).
-   - **Mechanism**: What concrete architecture or algorithm solved it? (e.g. standalone view hierarchy, O(1) cursor windowing, AST symbol patching).
-   - **Metric**: What was the measured outcome with scale context? (e.g. reduced `onDraw()` latency by 63% from 80.5ms to 29.8ms on 100k+ character notes).
-3. **The Anti-Trivia Filter (Cut Implementation Noise)**:
-   - **Cut magic numbers**: Strip arbitrary hardcoded constants from code (e.g. cut `200-character boundary`, cut `30s timer`). Keep only real scale context (e.g. `100,000+ characters`, `7,700 files`).
-   - **Cut internal API names**: Strip specific method names unless they are the core architectural subject (e.g. say `via CDP and reverse proxy header rewriting` instead of quoting `Page.setBypassCSP`).
-   - **Cut third-party library names**: Strip incidental dependency names (e.g. say `using BPE tokenization` instead of `using js-tiktoken`; say `across Python, JS/TS, JSON, YAML` instead of `(ast)` and `(Biome/tsc)`).
-   - **Cut schema / argument trivia**: Strip tool schema flags (e.g. say `at symbol level (functions, classes)` instead of `(body and full scopes)`).
-4. **Cut Table Stakes / Expected Behavior**:
-   - In PRs and CVs, do not highlight basic cleanup or restoring things broken by your own refactor (e.g. restoring basic fling scroll after removing a ScrollView is expected table stakes, not the engineering accomplishment).
-   - Focus purely on the primary problem that was diagnosed and resolved.
-5. **Zero Conversational Narrative**:
-   - Banned in technical docs: "I was too lazy to...", "I stumbled across...", Q&A interview headers ("What are my strengths?").
-   - Replace personal narrative with direct, active engineering statements.
-
----
+- **Macro-First Ordering:** Establish system scope (e.g., distributed task runner, multi-tenant API gateway) before detailing individual mechanisms.
+- **3-Part Bullet (`Problem -> Mechanism -> Metric`):** State the failure mode or bottleneck, the concrete architecture or algorithm that resolved it, and the measured outcome with scale context (e.g., `cut p99 query latency by 58% from 420ms to 175ms across 2M+ rows`).
+- **Anti-Trivia Filter:**
+  - Cut hardcoded constants (`200-char limit`, `30s timeout`); keep only real scale context (`100k+ records`, `5,000 req/s`).
+  - Cut internal method or API names unless they are the core subject (say `via reverse-proxy header rewriting`, not an internal method name).
+  - Cut incidental third-party library names (say `using BPE tokenization` or `across Python, TS, and JSON`, not wrapper package names).
+  - Cut internal schema or flag trivia (say `at symbol level (functions, classes)`, not raw flag names).
+- **Cut Table Stakes:** Omit routine cleanup or fixing regressions introduced by your own refactor; focus on the primary diagnosed problem.
 
 ## 5. Transformation Reference
 
-| Input / Slop | Mode 1 (Community) | Mode 2 (Engineering / Resume) |
+| Input / Slop | Mode 1 (Community) | Mode 2 (Engineering / Career) |
 | :--- | :--- | :--- |
-| `✨ Seamlessly extracts crisp high-resolution 256x256 icons using advanced PE parsers!` | *(Leave it out, people expect a launcher to show icons)* | `Implemented an in-memory PE .rsrc parser synthesizing RFC-compliant ICO buffers directly from raw DIB frames without native add-ons.` |
-| `Built with a high-performance Rust helper and multi-threaded memory parsers!` | `It is lightweight and runs without extra runtimes.` | `Engineered an out-of-process process supervisor in Rust using Win32 Job Objects and Linux /proc to track child process trees when launchers exit.` |
-| `I was too lazy to explain broken UI to AI agents, so I built HoverSource to save time.` | `Hover on what you want changed, press Alt+C, paste to your agent.` | `Built a zero-invasive UI-to-Code inspector that extracts DOM hierarchy and exact line/column source coordinates on hover, cutting agent input tokens by 94.5% on a 7,700-file monorepo benchmark.` |
-| `Restored native fling inertia and touch text selection by integrating OverScroller in Simplenote.` | *(Omit)* | *(Omit as table stakes. Focus on: Replaced unbounded layout pipeline with standalone editor hierarchy, reducing onDraw() latency by 63% on 100k+ character notes).* |
+| `✨ Seamlessly handles config hot-reloading and dark mode using an advanced watcher!` | *(Omit; users expect config reload and dark mode)* | *(Omit as table stakes unless hot-reload solved a specific race condition or leak)* |
+| `Built with a blazing-fast Rust worker pool and lock-free ring buffers!` | `Uses almost no RAM and finishes batch jobs in seconds.` | `Built an out-of-process worker pool using bounded ring buffers and backpressure to isolate CPU-bound parsing from the request thread.` |
+| `I was too lazy to manually paginate API responses, so I built a cursor helper to save time.` | `Streams all pages in one command so you never have to stitch JSON files together.` | `Replaced offset pagination with keyset cursor streaming, cutting memory usage by 80% and eliminating skipped rows under concurrent writes on 1M+ row exports.` |
+| `Restored retry backoff after refactoring the queue consumer.` | *(Omit)* | *(Omit as table stakes. Focus on the primary fix: Deduplicated at-least-once webhook deliveries with idempotency keys, eliminating duplicate charges under retry storms.)* |

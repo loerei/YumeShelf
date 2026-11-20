@@ -14,7 +14,7 @@ flowchart TD
     --> E02["Epic 02: Codebase Readiness & MultiOS<br/><b>STATUS: IMPLEMENTED</b><br/>(Cross-platform seams & path hygiene)"]
     --> E06["Epic 06: Headless Icon Pipeline<br/><b>STATUS: IMPLEMENTED</b><br/>(PE/Bundle icon extractor & cache)"]
     --> E07["Epic 07: Storage Schema Migration & Domain Core<br/><b>STATUS: IMPLEMENTED / READY</b><br/>(schemaVersion: 1, canonical gameKey, path subsumption)"]
-    --> E08["Epic 08: React & VDOM Migration Foundation<br/><b>STATUS: NOT IMPLEMENTED (NEXT)</b><br/>(Vite React setup, tech debt cleanup, state bridge, GameCard & LibraryGrid)"]
+    --> E08["Epic 08: React Migration & Renderer Reconstruction<br/><b>STATUS: NOT IMPLEMENTED (NEXT)</b><br/>(React 19 setup, strict TS, Core Shell, LibraryGrid, and Save Editor reconstruction)"]
     --> E09["Epic 09: Sort by Folder Feature<br/><b>STATUS: SPEC READY</b><br/>(Variant C ShelfTabs, FolderAccordion, @dnd-kit reorder)"]
     --> E03["Epic 03: Virtual Nested Folders & Workspaces<br/><b>STATUS: ACTIVE SPEC REVIEW</b><br/>(App folders, dual workspaces, drag & drop)"]
     --> E04["Epic 04: Marketplace & Tool Manager<br/><b>STATUS: SCHEDULED</b><br/>(Community add-ons & tool runners)"]
@@ -43,7 +43,7 @@ flowchart TD
 | **02** | **Codebase Readiness MultiOS** | [`02-codebase-readiness-multios/`](02-codebase-readiness-multios/) | **Implemented** | Cross-platform architectural baseline for Windows, Linux, and macOS. Deep seams abstracting platform paths, path normalization, and 100% in-memory virtual testability. |
 | **06** | **Headless Icon Pipeline** | [`06-headless-icon-pipeline/`](06-headless-icon-pipeline/) | **Implemented** | Headless extraction, normalization, and caching pipeline for game executable icons (`.ico`, `.exe` resources, `.icns`, `.app` bundles). Provides high-fidelity thumbnail icon assets. |
 | **07** | **Storage Schema Migration & Domain Core** | [`07-storage-schema-migration-and-domain-core/`](07-storage-schema-migration-and-domain-core/) | **Implemented / Ready** | Root database schema versioning (`schemaVersion: 1`), isolated storage schema migration runner, pure-string cross-platform path subsumption, canonical `gameKey` derivation, and domain actions (`toggleFavorite`, `setFolderAlias`, `addManualGame`). |
-| **08** | **React & Virtual DOM Migration Foundation** | [`08-react-migration/`](08-react-migration/) | **Not Implemented (Next)** | Setup React 19 and `@vitejs/plugin-react`, purge frontend drag tech debt (`drag-math.ts`, `flip-animation.ts`, HTML5 drag handlers), mount React root and reactive state bridge to `ui-runtime-state.ts`, and migrate flat Library Grid and Game Cards to declarative components (`GameCard.tsx`, `LibraryGrid.tsx`). |
+| **08** | **React Migration & Renderer Reconstruction** | [`08-react-migration/`](08-react-migration/) | **Not Implemented (Next)** | Setup React 19, purge frontend drag & dual-FLIP debt, establish observable state store and clean IPC bridge, migrate Core Shell and Library Grid to declarative components, isolate Save Editor seam, consolidate all save schema extraction into `@yumeshelf/engine` (deleting renderer shadow engines), and reconstruct Save Editor into pure presentation UI (eliminating sidebar monolith, JSON.stringify dirty-checking, and all `@ts-nocheck` directives). |
 | **09** | **Sort by Folder & Multi-Zone Drag-Drop** | [`09-sort-by-folder/`](09-sort-by-folder/) | **Spec Ready** | Sort by Folder (Variant C Top Segmented Shelf Tabs), collapsible CSS Grid accordions, multi-container `@dnd-kit` drag-and-drop reordering, favorites cross-zone drop, single-click inline folder rename, and empty folder manual game addition. |
 | **03** | **Virtual Nested Folders & Dual Workspaces** | [`03-virtual-nested-folders-and-workspaces/`](03-virtual-nested-folders-and-workspaces/) | **Active Spec Review** | Virtual folder hierarchies (iOS/Android-style app folders), dual workspace modes ("Favorite Desk" vs "Library"), spring-loaded drag-and-drop, atomic write coordination, and virtualized grid viewport recycling. Consumes Epic 06 for 2x2 folder card preview matrix. |
 | **04** | **Marketplace & Tool Manager** | [`04-marketplace-and-tool-manager/`](04-marketplace-and-tool-manager/) | **Scheduled** | Community add-on registries, external tool execution, and cascading tool menus. Plugs into Epic 03 via the `cardActionMenuProviders` extension seam. |
@@ -58,7 +58,7 @@ flowchart TD
    - Epic 08 and 09 consume this hardened backend seam directly.
 
 2. **Epic 08 as React Foundation for Epic 09**:
-   - Epic 08 migrates the flat library grid to React and excises legacy HTML5 drag math and animations.
+   - Epic 08 reconstructs the entire renderer in React 19, purges legacy HTML5 drag math and animations, and establishes strict TypeScript typing without `@ts-nocheck`.
    - Epic 09 builds folder tabs, accordions, and `@dnd-kit` drag-and-drop directly into the declarative React component tree.
 
 3. **Epic 06 as Prerequisite to Epic 03 UI Assets**:

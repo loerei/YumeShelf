@@ -33,11 +33,19 @@ For human-facing documentation (READMEs, API docs, release notes), use the `desl
 
 ## Workflows
 
-### Deslop Existing Text
+### Edit Existing Text
 1. Classify the target artifact first (`Tool/Param`, `Rule/Workflow`, `Skill`, or `Audit Checklist` per [REFERENCE.md](REFERENCE.md)): verify whether enumerations are *decision gates* (compress to invariants) or *defect-recall anchors* (preserve).
 2. In multi-file specs or skills, repair protocol parity and portability before editing prose: align status enums, caller/callee templates, prerequisite registration steps, dynamic/relative script paths, and strip spurious YAML frontmatter from non-skill subdocs.
-3. Apply the Core Rules and Keep/Cut table to strip noise and compress redundant rules.
-4. Output `Original -> Deslopped` with a brief rationale for each edit or cut.
+3. **When adding or changing an instruction:** run the candidate through the Core Rules first (Drop Test, Occam's Law, zero repo context, trigger deletion vs. `NEVER`), then choose placement:
+
+| Condition | Action |
+| :--- | :--- |
+| Already covered by existing rules (Drop Test fails) | Add nothing |
+| Shares scope with existing instruction(s) | Extend or generalize the existing instruction(s) in-place |
+| Orthogonal scope with no existing anchor | Add a new rule or section using the matching structure below |
+
+4. **Deslop:** apply the Core Rules and Keep/Cut table to strip noise and compress redundant rules.
+5. Output `Original -> Edited` with a brief rationale for each edit, addition, or cut.
 
 ### Write New AI-Facing Text
 Choose the structure matching the artifact type ([REFERENCE.md](REFERENCE.md) §2):

@@ -3,6 +3,10 @@
 ## Epic
 PRD 03: Virtual Nested Folders (App Folders) & Dual Workspace Views ("Favorite Desk" vs "Library")
 
+## Target Files
+- `[NEW] src/renderer/utils/gesture-timer.ts`
+- `[NEW] src/renderer/utils/drag-gestures.test.ts`
+
 ## Structural Refactoring Notice
 > [!NOTE]
 > This is a purely headless, structural timing and intent state machine adapter ($S$) with an injectable `IClock` seam authored in `[NEW] src/renderer/utils/gesture-timer.ts`. It contains zero DOM or rendering logic, leaves legacy `src/renderer/drag-drop-grid.ts` intact, and is verified 100% via in-memory unit tests using `MockClock`. Visual prototype gates are enforced on visual UI tickets (04.1.2, 05.1, 05.2, 06.1.1, 06.1.2, 06.2.1.1, 06.2.1.2, 06.2.2, 07.1, 07.2, 08.2).
@@ -13,7 +17,7 @@ A brand-new, isolated headless drag gesture timing adapter authored at `src/rend
 
 ## Acceptance criteria
 
-- [ ] Re-export shared `IClock` and `MockClock` from `src/shared/virtual-tree/types.ts` (or `src/shared/types/clock.ts`) in `[NEW] src/renderer/utils/gesture-timer.ts`:
+- [ ] Re-export shared `IClock` and `MockClock` interface types from `src/shared/virtual-tree/types.ts` in `[NEW] src/renderer/utils/gesture-timer.ts` (test mock factory `createMockClock` resides strictly in test utility `[NEW] src/shared/virtual-tree/mock-clock.ts` and is NOT re-exported by production code):
   ```typescript
   export interface IClock {
     now(): number;
@@ -29,7 +33,7 @@ A brand-new, isolated headless drag gesture timing adapter authored at `src/rend
     cancelAnimationFrame(id: any): void;
   }
   ```
-  In `MockClock`, implement concrete shared test utility factory `createMockClock(): MockClock` (in `src/shared/testing/mock-clock.ts` or `src/renderer/testing/mock-clock.ts`). Specify that `MockClock.advanceTime(ms: number)` executes queued `requestAnimationFrame` callbacks in discrete, bounded 16ms frame steps rather than draining the queue in an unbounded `while (queue.length > 0)` loop, invoking queued callbacks with `clock.now()` timestamps.
+  In `MockClock`, implement concrete shared test utility factory `createMockClock(): MockClock` in `[NEW] src/shared/virtual-tree/mock-clock.ts`. Specify that `MockClock.advanceTime(ms: number)` executes queued `requestAnimationFrame` callbacks in discrete, bounded 16ms frame steps rather than draining the queue in an unbounded `while (queue.length > 0)` loop, invoking queued callbacks with `clock.now()` timestamps.
 - [ ] Inject operational parameters via `DragGestureOptions`:
   ```typescript
   export interface DragGestureOptions {
@@ -51,4 +55,4 @@ A brand-new, isolated headless drag gesture timing adapter authored at `src/rend
 
 ## Blocked by
 
-- None — can start immediately.
+- 03.1.1 — Shared Virtual Tree Types and Structural Invariants

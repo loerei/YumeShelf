@@ -5,6 +5,7 @@ import { bindControlEvents, bindGlobalUiEvents, bindWindowStatusEvents } from '.
 import { bindIpcEvents } from './renderer/events/ipc-events.js';
 import { runRendererBootstrap } from './renderer/lifecycle/bootstrap.js';
 import { createUiRuntimeState } from './renderer/state/ui-runtime-state.js';
+import { migrateUiPreferences } from './renderer/state/ui-storage-migrations.js';
 import { initSaveEditorUI } from './renderer/save-editor-ui.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -22,8 +23,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    const defaultStorage = typeof localStorage !== 'undefined' ? localStorage : null;
+    if (defaultStorage) {
+        migrateUiPreferences(defaultStorage);
+    }
     const refs = buildRendererRefs(document);
-    const state = createUiRuntimeState();
+    const state = createUiRuntimeState(defaultStorage ?? undefined);
     const composition = createRendererComposition({
         refs,
         state,
@@ -33,29 +38,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         dragPointerSlop: 18
     });
 
-    bindIpcEvents({
-        electronAPI: window.electronAPI,
-        bootController: composition.bootController,
-        updateNotificationFeature: composition.updateNotificationFeature,
-        getAllGames: () => state.getAllGames(),
-        getCurrentSort: () => state.getCurrentSort(),
-        setAllGames: composition.libraryRuntime.setAllGames,
-        setRunningFlag: (gameKey, isRunning) => {
-            const target = state.getAllGames().find((game) => (
-                game.gameId === gameKey
-                || game.gameKey === gameKey
-                || (Array.isArray(game.instances) && game.instances.some((instance) => (
-                    instance.gameId === gameKey
-                    || instance.gameKey === gameKey
-                )))
-            ));
-            if (target) {
-                target.isRunning = isRunning;
-            }
+    const disposeIpcEvents = bindIpcEvents(
+        state,
+        {
+            bootController: composition.bootController,
+            updateNotificationFeature: composition.updateNotificationFeature,
+            setAllGames: composition.libraryRuntime.setAllGames,
+            setRunningFlag: (gameKey, isRunning) => {
+                const target = state.getAllGames().find((game) => (
+                    game.gameId === gameKey
+                    || game.gameKey === gameKey
+                    || (Array.isArray(game.instances) && game.instances.some((instance) => (
+                        instance.gameId === gameKey
+                        || instance.gameKey === gameKey
+                    )))
+                ));
+                if (target) {
+                    target.isRunning = isRunning;
+                }
+            },
+            sortGames: (type) => composition.libraryRuntime.sortGames(type)
         },
-        sortGames: (type) => composition.libraryRuntime.sortGames(type),
-        getStrings: composition.getStrings
-    });
+        window.electronAPI
+    );
 
     bindControlEvents({
         refs,
@@ -81,7 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindWindowStatusEvents(composition.uiTextController);
     initSaveEditorUI();
 
-    await runRendererBootstrap({
+    const disposeBootstrap = await runRendererBootstrap({
         refs,
         bootController: composition.bootController,
         settingsController: composition.settingsController,
@@ -92,5 +97,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateNotificationFeature: composition.updateNotificationFeature,
         uiTextController: composition.uiTextController,
         initApp: composition.initApp
+    });
+
+    window.addEventListener('beforeunload', () => {
+        disposeIpcEvents();
+        if (typeof disposeBootstrap === 'function') {
+            disposeBootstrap();
+        }
     });
 });

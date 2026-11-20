@@ -32,7 +32,7 @@ export async function runRendererBootstrap({
     settingsController.applyLibraryConfig(bootstrapData ? bootstrapData.config : null);
     refs.searchPlaceholder.innerText = localeController.getPlaceholders()[localeController.getPlaceholderIndex()];
     localeController.setCurrentLanguage(localeController.getCurrentLang(), { persist: false });
-    setInterval(() => searchController.rotatePlaceholder(), 60000);
+    const placeholderInterval = setInterval(() => searchController.rotatePlaceholder(), 60000);
     const deferredInstallPending = !!bootstrapData?.deferredAppUpdateInstall?.pending;
     if (!deferredInstallPending) {
         await initApp(bootstrapData);
@@ -64,4 +64,8 @@ export async function runRendererBootstrap({
     }
 
     await uiTextController.applyUIStrings();
+
+    return () => {
+        clearInterval(placeholderInterval);
+    };
 }

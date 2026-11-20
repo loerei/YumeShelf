@@ -52,22 +52,42 @@ const api: ElectronAPI = {
     getLanguagePackManifest: () => ipcRenderer.invoke('get-language-pack-manifest'),
     installLanguagePack: (code: string) => ipcRenderer.invoke('install-language-pack', code),
     onBootStatus: (callback: (payload: any) => void) => {
-        ipcRenderer.on('boot-status', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('boot-status', handler);
+        return () => {
+            ipcRenderer.removeListener('boot-status', handler);
+        };
     },
     onAppUpdateStatus: (callback: (payload: any) => void) => {
-        ipcRenderer.on('app-update-status', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('app-update-status', handler);
+        return () => {
+            ipcRenderer.removeListener('app-update-status', handler);
+        };
     },
     onGameStopped: (callback: (payload: any) => void) => {
-        ipcRenderer.on('game-stopped', (_event, payload) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => {
             console.log(`[PRELOAD] Received game-stopped IPC for ${payload ? payload.gameKey : 'unknown'}`);
             callback(payload);
-        });
+        };
+        ipcRenderer.on('game-stopped', handler);
+        return () => {
+            ipcRenderer.removeListener('game-stopped', handler);
+        };
     },
     onGamePlaytimeUpdated: (callback: (payload: any) => void) => {
-        ipcRenderer.on('game-playtime-updated', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('game-playtime-updated', handler);
+        return () => {
+            ipcRenderer.removeListener('game-playtime-updated', handler);
+        };
     },
     onTranslationStatus: (callback: (payload: any) => void) => {
-        ipcRenderer.on('translation-status', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('translation-status', handler);
+        return () => {
+            ipcRenderer.removeListener('translation-status', handler);
+        };
     },
     // Save Editor
     listSaveFiles: (gameKey: string) => ipcRenderer.invoke('save-editor:list-files', gameKey),

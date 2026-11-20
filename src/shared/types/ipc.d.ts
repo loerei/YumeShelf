@@ -1,4 +1,65 @@
-// @ts-nocheck
+export interface SaveFolderInfo {
+    path: string | null;
+    engine: string | null;
+    confidence: 'high' | 'medium' | 'low' | 'none';
+    source?: 'override' | 'deterministic' | 'heuristic' | 'appdata' | 'none';
+    overrideMissing?: boolean;
+}
+
+export interface LanguagePackMeta {
+    code: string;
+    bcp47: string | null;
+    englishName: string;
+    nativeName: string;
+    packVersion: string;
+    minAppVersion?: string | null;
+    reviewedForAppVersion?: string | null;
+    aliases?: string[];
+    keywords?: string[];
+    source: 'built-in' | 'downloaded' | 'remote';
+}
+
+export interface LanguageState {
+    repoUrl: string;
+    manifestUrl: string;
+    appVersion: string;
+    builtIn: LanguagePackMeta[];
+    installed: LanguagePackMeta[];
+    locales: Record<string, unknown>;
+}
+
+export interface ManifestPack {
+    code: string;
+    bcp47: string | null;
+    englishName: string;
+    nativeName: string;
+    packVersion: string;
+    minAppVersion?: string | null;
+    reviewedForAppVersion?: string | null;
+    aliases?: string[];
+    keywords?: string[];
+    downloadUrl?: string;
+    sha256?: string;
+}
+
+export interface LanguagePackManifestResponse {
+    ok: boolean;
+    offline?: boolean;
+    source?: string;
+    error?: string;
+    repoUrl?: string;
+    packs: ManifestPack[];
+}
+
+export interface InstallLanguagePackResult {
+    ok: boolean;
+    installedCode?: string;
+    error?: string;
+    reason?: string;
+    state?: LanguageState | null;
+    offline?: boolean;
+}
+
 export interface ElectronAPI {
     // App Bootstrap & Configuration
     bootstrapApp: (options: any) => Promise<any>;
@@ -28,7 +89,7 @@ export interface ElectronAPI {
     addManualGame(data?: { folderPath?: string } | string): Promise<{ ok: boolean; game?: any; canceled?: boolean; error?: string }>;
     
     // Settings & Utils
-    getSaveFolder: (gameKey: string) => Promise<any>;
+    getSaveFolder: (gameKey: string) => Promise<SaveFolderInfo>;
     openSaveFolder: (gameKey: string) => Promise<{ ok: boolean; path?: string; error?: string }>;
     selectSaveFolder: () => Promise<{ canceled: boolean; folderPath: string | null }>;
     setSaveFolderOverride: (data: { gameKey: string; folderPath: string }) =>
@@ -55,9 +116,9 @@ export interface ElectronAPI {
     openAppUpdateDownloadPage: () => Promise<any>;
     
     // Internationalization (i18n)
-    getLanguageState: () => Promise<any>;
-    getLanguagePackManifest: () => Promise<any>;
-    installLanguagePack: (code: string) => Promise<any>;
+    getLanguageState: () => Promise<LanguageState>;
+    getLanguagePackManifest: () => Promise<LanguagePackManifestResponse>;
+    installLanguagePack: (code: string) => Promise<InstallLanguagePackResult>;
     
     // Save Editor
     listSaveFiles: (gameKey: string) => Promise<string[]>;
@@ -79,11 +140,11 @@ export interface ElectronAPI {
     setMinimizeToTray: (enabled: boolean) => void;
     
     // Event Listeners (Callbacks)
-    onBootStatus: (callback: (payload: any) => void) => void;
-    onAppUpdateStatus: (callback: (payload: any) => void) => void;
-    onGameStopped: (callback: (payload: any) => void) => void;
-    onGamePlaytimeUpdated: (callback: (payload: any) => void) => void;
-    onTranslationStatus: (callback: (payload: any) => void) => void;
+    onBootStatus: (callback: (payload: any) => void) => () => void;
+    onAppUpdateStatus: (callback: (payload: any) => void) => () => void;
+    onGameStopped: (callback: (payload: any) => void) => () => void;
+    onGamePlaytimeUpdated: (callback: (payload: any) => void) => () => void;
+    onTranslationStatus: (callback: (payload: any) => void) => () => void;
 }
 
 declare global {

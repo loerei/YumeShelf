@@ -1,298 +1,309 @@
-// @ts-nocheck
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createUiRuntimeState } from '../state/ui-runtime-state';
+import type { GameEntry, LibraryConfig } from '../types/game';
+import type { ElectronAPI } from '../../shared/types/ipc';
 import { bindIpcEvents } from './ipc-events';
 
-describe('bindIpcEvents - Playtime & Game Lifecycle Handling', () => {
-    function createMockElement(className = '', dataset = {}) {
-        const children = [];
-        const element = {
-            className,
-            dataset: { ...dataset },
-            textContent: '',
-            children,
-            querySelector: (selector) => {
-                if (selector === '.game-playtime') return children.find(c => c.className === 'game-playtime') || null;
-                if (selector === '.game-status') return children.find(c => c.className === 'game-status') || null;
-                return null;
-            },
-            querySelectorAll: (selector) => []
-        };
-        return element;
-    }
+function makeGame(overrides: Partial<GameEntry> & { gameKey: string }): GameEntry {
+  return {
+    name: overrides.name ?? overrides.gameKey,
+    ...overrides,
+  };
+}
 
-    function createMockCard(gameKey, isStackOverlay = false) {
-        const card = createMockElement(`game-card ${isStackOverlay ? 'stack-overlay-card' : ''}`, { gameKey });
-        const playtimeEl = createMockElement('game-playtime');
-        playtimeEl.textContent = '0m';
-        const statusEl = createMockElement('game-status');
-        statusEl.textContent = 'Never played';
-        card.children.push(playtimeEl, statusEl);
-        return card;
-    }
+function createMockElectronAPI() {
+  let bootHandler: ((payload: unknown) => void) | undefined;
+  let stoppedHandler: ((payload: unknown) => Promise<void> | void) | undefined;
+  let playtimeHandler: ((payload: unknown) => void) | undefined;
+  let translationHandler: ((payload: unknown) => void) | undefined;
 
-    it('handles onGamePlaytimeUpdated in-memory with finite accruedMs and session baseline calibration', async () => {
-        let playtimeUpdatedHandler;
-        const mockElectronAPI = {
-            onBootStatus: vi.fn(),
-            onGameStopped: vi.fn(),
-            onGamePlaytimeUpdated: (cb) => { playtimeUpdatedHandler = cb; },
-            onTranslationStatus: vi.fn(),
-            getGames: vi.fn()
-        };
+  const unsubBoot = vi.fn();
+  const unsubStopped = vi.fn();
+  const unsubPlaytime = vi.fn();
+  const unsubTranslation = vi.fn();
 
-        const games = [
-            {
-                gameId: 'game-1',
-                gameKey: 'game-1',
-                playtime: 60000,
-                basePlaytime: 60000,
-                isRunning: false
-            }
-        ];
+  const api = {
+    onBootStatus: vi.fn((cb: (payload: unknown) => void) => {
+      bootHandler = cb;
+      return unsubBoot;
+    }),
+    onGameStopped: vi.fn((cb: (payload: unknown) => Promise<void> | void) => {
+      stoppedHandler = cb;
+      return unsubStopped;
+    }),
+    onGamePlaytimeUpdated: vi.fn((cb: (payload: unknown) => void) => {
+      playtimeHandler = cb;
+      return unsubPlaytime;
+    }),
+    onTranslationStatus: vi.fn((cb: (payload: unknown) => void) => {
+      translationHandler = cb;
+      return unsubTranslation;
+    }),
+    getGames: vi.fn<() => Promise<GameEntry[]>>().mockResolvedValue([]),
+  } as unknown as ElectronAPI;
 
-        bindIpcEvents({
-            electronAPI: mockElectronAPI,
-            bootController: { show: vi.fn(), hide: vi.fn() },
-            updateNotificationFeature: {},
-            getAllGames: () => games,
-            getCurrentSort: () => 'name',
-            setAllGames: vi.fn(),
-            setRunningFlag: (key, isRunning) => { games[0].isRunning = isRunning; },
-            sortGames: vi.fn(),
-            documentRef: null,
-            getStrings: () => ({})
-        });
+  return {
+    api,
+    unsubs: { unsubBoot, unsubStopped, unsubPlaytime, unsubTranslation },
+    emitBoot: (payload: unknown) => bootHandler?.(payload),
+    emitStopped: (payload: unknown) => stoppedHandler?.(payload),
+    emitPlaytime: (payload: unknown) => playtimeHandler?.(payload),
+    emitTranslation: (payload: unknown) => translationHandler?.(payload),
+  };
+}
 
-        // First update: 5 seconds accrued
-        await playtimeUpdatedHandler({ gameKey: 'game-1', accruedMs: 5000 });
-        expect(games[0].playtime).toBe(65000);
-        expect(games[0].isRunning).toBe(true);
+describe('bindIpcEvents', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
 
-        // Subsequent update: 10 seconds accrued
-        await playtimeUpdatedHandler({ gameKey: 'game-1', accruedMs: 10000 });
-        expect(games[0].playtime).toBe(70000);
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
-        // Guard against NaN or malformed accruedMs
-        await playtimeUpdatedHandler({ gameKey: 'game-1', accruedMs: NaN });
-        expect(games[0].playtime).toBe(60000); // 60000 + 0
+  it('onGamePlaytimeUpdated updates store playtime and synchronizes running flag even when initially non-running', () => {
+    const store = createUiRuntimeState();
+    const child1 = makeGame({
+      gameKey: 'inst-1',
+      instanceId: 'inst-1',
+      playtime: 80000,
+      basePlaytime: 80000,
+      isRunning: false,
+    });
+    const parent = makeGame({
+      gameKey: 'stack-root',
+      playtime: 80000,
+      basePlaytime: 80000,
+      isRunning: false,
+      instances: [child1],
+    });
+    const single = makeGame({
+      gameKey: 'game-1',
+      playtime: 60000,
+      basePlaytime: 60000,
+      isRunning: false,
+    });
+    store.setAllGames([single, parent]);
 
-        // getGames() must NEVER have been called during playtime updates
-        expect(mockElectronAPI.getGames).not.toHaveBeenCalled();
+    const { api, emitPlaytime } = createMockElectronAPI();
+    const setRunningFlag = vi.fn();
+
+    const dispose = bindIpcEvents(store, { setRunningFlag }, api);
+
+    // Single non-running game transitions to running
+    emitPlaytime({ gameKey: 'game-1', accruedMs: 5000 });
+    expect(store.getSnapshot().allGames[0].playtime).toBe(65000);
+    expect(store.getSnapshot().allGames[0].isRunning).toBe(true);
+    expect(setRunningFlag).toHaveBeenCalledWith('game-1', true);
+
+    // Child instance transitions to running
+    emitPlaytime({ gameKey: 'inst-1', accruedMs: 15000 });
+    expect(store.getSnapshot().allGames[1].instances?.[0].isRunning).toBe(true);
+    expect(store.getSnapshot().allGames[1].instances?.[0].playtime).toBe(95000);
+    expect(setRunningFlag).toHaveBeenCalledWith('inst-1', true);
+
+    // Malformed NaN / negative accruedMs clamped to 0
+    emitPlaytime({ gameKey: 'game-1', accruedMs: Number.NaN });
+    expect(store.getSnapshot().allGames[0].playtime).toBe(60000);
+
+    expect(api.getGames).not.toHaveBeenCalled();
+    dispose();
+  });
+
+  it('onGameStopped executes two-phase running clear and authoritative annotated reconciliation', async () => {
+    const store = createUiRuntimeState();
+    const config: LibraryConfig = {
+      libraryPaths: ['C:\\Games'],
+      libraryPath: 'C:\\Games',
+      maxDepth: 2,
+      autoLaunch: false,
+      minimizeToTray: false,
+    };
+    store.setCurrentLibraryConfig(config);
+    store.setLocationDisplayMode('full');
+    store.setAllGames([
+      makeGame({
+        gameKey: 'game-1',
+        folderPath: 'C:\\Games\\Sub\\GameOne',
+        isRunning: true,
+        playtime: 60000,
+      }),
+    ]);
+
+    let resolveGames!: (games: GameEntry[]) => void;
+    const { api, emitStopped } = createMockElectronAPI();
+    vi.mocked(api.getGames).mockImplementation(
+      () =>
+        new Promise<GameEntry[]>((resolve) => {
+          resolveGames = resolve;
+        })
+    );
+
+    const setRunningFlag = vi.fn();
+    const setAllGames = vi.fn();
+    const sortGames = vi.fn();
+
+    const dispose = bindIpcEvents(store, { setRunningFlag, setAllGames, sortGames }, api);
+
+    const stopPromise = emitStopped({ gameKey: 'game-1' });
+
+    // Phase 1: synchronous clear before getGames resolves
+    expect(store.getSnapshot().allGames[0].isRunning).toBe(false);
+    expect(setRunningFlag).toHaveBeenCalledWith('game-1', false);
+
+    // Phase 2: resolve backend games with path annotations
+    resolveGames([
+      makeGame({
+        gameKey: 'game-1',
+        folderPath: 'C:\\Games\\Sub\\GameOne',
+        isRunning: false,
+        playtime: 90000,
+        lastPlayed: 1700000000000,
+      }),
+    ]);
+    await stopPromise;
+
+    const reconciled = store.getSnapshot().allGames[0];
+    expect(reconciled.playtime).toBe(90000);
+    expect(reconciled.relativePathFullDisplay).toBe('/Games/game-1');
+    expect(reconciled.fullLocationLabel).toBe('Games/game-1');
+    expect(setAllGames).toHaveBeenCalledWith(store.getSnapshot().allGames);
+    expect(sortGames).toHaveBeenCalledTimes(1);
+
+    dispose();
+  });
+
+  it('onGameStopped discards stale reconciliation responses via latestReconciliationSeq', async () => {
+    const store = createUiRuntimeState();
+    store.setAllGames([makeGame({ gameKey: 'game-1', isRunning: true, playtime: 10 })]);
+
+    const resolvers: Array<(games: GameEntry[]) => void> = [];
+    const { api, emitStopped } = createMockElectronAPI();
+    vi.mocked(api.getGames).mockImplementation(
+      () =>
+        new Promise<GameEntry[]>((resolve) => {
+          resolvers.push(resolve);
+        })
+    );
+
+    const dispose = bindIpcEvents(store, {}, api);
+
+    const firstStop = emitStopped({ gameKey: 'game-1' });
+    const secondStop = emitStopped({ gameKey: 'game-1' });
+
+    // Resolve newer request first, then older stale request
+    resolvers[1]([makeGame({ gameKey: 'game-1', playtime: 200, isRunning: false })]);
+    await secondStop;
+    expect(store.getSnapshot().allGames[0].playtime).toBe(200);
+
+    resolvers[0]([makeGame({ gameKey: 'game-1', playtime: 50, isRunning: false })]);
+    await firstStop;
+    expect(store.getSnapshot().allGames[0].playtime).toBe(200);
+
+    dispose();
+  });
+
+  it('onGameStopped logs sanitized error context when getGames rejects', async () => {
+    const store = createUiRuntimeState();
+    const { api, emitStopped } = createMockElectronAPI();
+    vi.mocked(api.getGames).mockRejectedValue(
+      new Error('Failed reading C:\\Users\\John Doe\\AppData\\Local\\games.json')
+    );
+
+    const dispose = bindIpcEvents(store, {}, api);
+
+    await emitStopped({ gameKey: '/Users/alice/Games/Demo' });
+
+    expect(console.error).toHaveBeenCalledWith(
+      '[IpcEvents] Failed to reconcile games on stop:',
+      expect.objectContaining({
+        gameKey: '<USER_DIR>/Games/Demo',
+        error: expect.stringContaining('<USER_DIR>'),
+      })
+    );
+    const logged = vi.mocked(console.error).mock.calls[0][1] as { gameKey: string; error: string; stack?: string };
+    expect(logged.gameKey).not.toContain('alice');
+    expect(logged.error).not.toContain('John Doe');
+
+    dispose();
+  });
+
+  it('onTranslationStatus maps blocking statuses, clamps progress, and manages delayed hideTimeout', () => {
+    vi.useFakeTimers();
+    const store = createUiRuntimeState();
+    const { api, emitTranslation, emitBoot } = createMockElectronAPI();
+    const bootController = { show: vi.fn(), hide: vi.fn() };
+
+    const dispose = bindIpcEvents(store, { bootController }, api);
+
+    emitBoot({ key: 'boot_init' });
+    expect(bootController.show).toHaveBeenCalledWith({ key: 'boot_init' });
+
+    emitTranslation({ status: 'downloading', progress: 1.5 });
+    expect(bootController.show).toHaveBeenLastCalledWith({
+      key: null,
+      fallbackText: 'Downloading Translator (100%)...',
+      showProgress: true,
+      progress: 1,
+      mode: 'startup',
     });
 
-    it('synchronizes child instances and differentiates DOM cards between library grid and stack overlay modal', async () => {
-        let playtimeUpdatedHandler;
-        const mockElectronAPI = {
-            onBootStatus: vi.fn(),
-            onGameStopped: vi.fn(),
-            onGamePlaytimeUpdated: (cb) => { playtimeUpdatedHandler = cb; },
-            onTranslationStatus: vi.fn(),
-            getGames: vi.fn()
-        };
-
-        const stackGame = {
-            gameId: 'stack-root',
-            gameKey: 'stack-root',
-            playtime: 120000,
-            basePlaytime: 120000,
-            isRunning: false,
-            instances: [
-                {
-                    gameId: 'inst-1',
-                    gameKey: 'inst-1',
-                    playtime: 80000,
-                    basePlaytime: 80000,
-                    isRunning: false
-                },
-                {
-                    gameId: 'inst-2',
-                    gameKey: 'inst-2',
-                    playtime: 40000,
-                    basePlaytime: 40000,
-                    isRunning: false
-                }
-            ]
-        };
-
-        const repGridCard = createMockCard('stack-root', false);
-        const inst1Card = createMockCard('inst-1', true);
-        const inst2Card = createMockCard('inst-2', true);
-
-        const mockDocument = {
-            querySelectorAll: (selector) => {
-                if (selector.includes('stack-root') && selector.includes(':not(.stack-overlay-card)')) {
-                    return [repGridCard];
-                }
-                if (selector.includes('.stack-overlay-card') && selector.includes('inst-1')) {
-                    return [inst1Card];
-                }
-                if (selector.includes('.stack-overlay-card') && selector.includes('inst-2')) {
-                    return [inst2Card];
-                }
-                return [];
-            }
-        };
-
-        bindIpcEvents({
-            electronAPI: mockElectronAPI,
-            bootController: { show: vi.fn(), hide: vi.fn() },
-            updateNotificationFeature: {},
-            getAllGames: () => [stackGame],
-            getCurrentSort: () => 'name',
-            setAllGames: vi.fn(),
-            setRunningFlag: vi.fn(),
-            sortGames: vi.fn(),
-            documentRef: mockDocument,
-            getStrings: () => ({ status_playing: 'Playing Now' })
-        });
-
-        // inst-1 is playing, 15s accrued
-        await playtimeUpdatedHandler({ gameKey: 'inst-1', accruedMs: 15000 });
-
-        // Check in-memory state
-        expect(stackGame.instances[0].isRunning).toBe(true);
-        expect(stackGame.instances[0].playtime).toBe(95000);
-        expect(stackGame.instances[1].isRunning).toBe(false);
-        expect(stackGame.instances[1].playtime).toBe(40000);
-
-        // Check DOM state
-        // 1. Representative grid card receives Playing Now and aggregate playtime
-        expect(repGridCard.querySelector('.game-status').textContent).toBe('Playing Now');
-        expect(repGridCard.querySelector('.game-playtime').textContent).toBe('2m'); // 135000ms = 2m
-
-        // 2. Active child instance overlay card receives Playing Now and individual playtime
-        expect(inst1Card.querySelector('.game-status').textContent).toBe('Playing Now');
-        expect(inst1Card.querySelector('.game-playtime').textContent).toBe('1m'); // 95000ms = 1m
-
-        // 3. Inactive sibling instance card MUST NOT be modified
-        expect(inst2Card.querySelector('.game-status').textContent).toBe('Never played');
-        expect(inst2Card.querySelector('.game-playtime').textContent).toBe('0m');
+    emitTranslation({ status: 'preparing', progress: -0.5 });
+    expect(bootController.show).toHaveBeenLastCalledWith({
+      key: null,
+      fallbackText: 'Preparing Auto-Translator...',
+      showProgress: true,
+      progress: 0,
+      mode: 'startup',
     });
 
-    it('onGameStopped fast-updates status in DOM synchronously before async getGames reload', async () => {
-        let gameStoppedHandler;
-        const mockElectronAPI = {
-            onBootStatus: vi.fn(),
-            onGameStopped: (cb) => { gameStoppedHandler = cb; },
-            onGamePlaytimeUpdated: vi.fn(),
-            onTranslationStatus: vi.fn(),
-            getGames: vi.fn().mockResolvedValue([
-                { gameId: 'game-1', gameKey: 'game-1', playtime: 90000, lastPlayed: Date.now(), isRunning: false }
-            ])
-        };
+    // Terminal status schedules hide after 800ms
+    emitTranslation({ status: 'ready' });
+    expect(bootController.hide).not.toHaveBeenCalled();
 
-        const targetGame = {
-            gameId: 'game-1',
-            gameKey: 'game-1',
-            playtime: 90000,
-            lastPlayed: 0,
-            isRunning: true,
-            _sessionBasePlaytime: 60000
-        };
+    // Interleaved blocking status cancels pending hideTimeout
+    vi.advanceTimersByTime(400);
+    emitTranslation({ status: 'extracting-binaries', progress: 0.25 });
+    vi.advanceTimersByTime(800);
+    expect(bootController.hide).not.toHaveBeenCalled();
 
-        const gridCard = createMockCard('game-1', false);
-        gridCard.querySelector('.game-status').textContent = 'Playing';
+    // Terminal status completes after 800ms when uninterrupted
+    emitTranslation({ status: 'error' });
+    vi.advanceTimersByTime(800);
+    expect(bootController.hide).toHaveBeenCalledTimes(1);
 
-        const mockDocument = {
-            querySelectorAll: (selector) => {
-                if (selector.includes('game-1')) return [gridCard];
-                return [];
-            }
-        };
+    // dispose() cancels active hideTimeout
+    emitTranslation({ status: 'ready' });
+    dispose();
+    vi.advanceTimersByTime(1000);
+    expect(bootController.hide).toHaveBeenCalledTimes(1);
+  });
 
-        const setAllGames = vi.fn();
-        const sortGames = vi.fn();
+  it('dispose invokes all unsubscribe handles and sanitizes unsubscribe errors', () => {
+    const store = createUiRuntimeState();
+    const { api, unsubs } = createMockElectronAPI();
 
-        bindIpcEvents({
-            electronAPI: mockElectronAPI,
-            bootController: { show: vi.fn(), hide: vi.fn() },
-            updateNotificationFeature: {},
-            getAllGames: () => [targetGame],
-            getCurrentSort: () => 'name',
-            setAllGames,
-            setRunningFlag: (key, isRunning) => { targetGame.isRunning = isRunning; },
-            sortGames,
-            documentRef: mockDocument,
-            getStrings: () => ({ status_recent: 'Just now' })
-        });
-
-        await gameStoppedHandler({ gameKey: 'game-1' });
-
-        // In-memory target state reset
-        expect(targetGame.isRunning).toBe(false);
-        expect(targetGame._sessionBasePlaytime).toBeUndefined();
-        expect(targetGame.lastPlayed).toBeGreaterThan(0);
-
-        // DOM updated immediately to localized recent status
-        expect(gridCard.querySelector('.game-status').textContent).toBe('Just now');
-
-        // Backend reloaded and sorted
-        expect(mockElectronAPI.getGames).toHaveBeenCalledTimes(1);
-        expect(setAllGames).toHaveBeenCalledTimes(1);
-        expect(sortGames).toHaveBeenCalledTimes(1);
+    unsubs.unsubStopped.mockImplementation(() => {
+      throw new Error('Unsubscribe failed for C:\\Users\\John Doe\\ipc');
     });
 
-    it('updates card to Playing and increments playtime when gameId differs from gameKey (continuity ID)', async () => {
-        let playtimeUpdatedHandler;
-        let gameStoppedHandler;
-        const mockElectronAPI = {
-            onBootStatus: vi.fn(),
-            onGameStopped: (cb) => { gameStoppedHandler = cb; },
-            onGamePlaytimeUpdated: (cb) => { playtimeUpdatedHandler = cb; },
-            onTranslationStatus: vi.fn(),
-            getGames: vi.fn().mockResolvedValue([])
-        };
+    const dispose = bindIpcEvents(store, {}, api);
+    dispose();
 
-        const targetGame = {
-            gameId: 'game:folder:living with a little fox girl|exe:game',
-            gameKey: 'living with a little fox girl',
-            playtime: 0,
-            basePlaytime: 0,
-            isRunning: false
-        };
+    expect(unsubs.unsubBoot).toHaveBeenCalledTimes(1);
+    expect(unsubs.unsubTranslation).toHaveBeenCalledTimes(1);
+    expect(unsubs.unsubPlaytime).toHaveBeenCalledTimes(1);
+    expect(unsubs.unsubStopped).toHaveBeenCalledTimes(1);
 
-        const gridCard = createMockCard('game:folder:living with a little fox girl|exe:game', false);
-
-        const mockDocument = {
-            querySelectorAll: (selector) => {
-                const unescaped = selector.replace(/\\/g, '');
-                if (unescaped.includes(':not(.stack-overlay-card)') && (
-                    unescaped.includes('living with a little fox girl') || unescaped.includes('exe:game')
-                )) {
-                    return [gridCard];
-                }
-                return [];
-            }
-        };
-
-        bindIpcEvents({
-            electronAPI: mockElectronAPI,
-            bootController: { show: vi.fn(), hide: vi.fn() },
-            updateNotificationFeature: {},
-            getAllGames: () => [targetGame],
-            getCurrentSort: () => 'name',
-            setAllGames: vi.fn(),
-            setRunningFlag: (key, isRunning) => { targetGame.isRunning = isRunning; },
-            sortGames: vi.fn(),
-            documentRef: mockDocument,
-            getStrings: () => ({ status_playing: 'Playing', status_recent: 'Just now' })
-        });
-
-        await playtimeUpdatedHandler({
-            gameKey: 'game:folder:living with a little fox girl|exe:game',
-            accruedMs: 65000
-        });
-
-        expect(targetGame.isRunning).toBe(true);
-        expect(targetGame.playtime).toBe(65000);
-        expect(gridCard.querySelector('.game-status').textContent).toBe('Playing');
-        expect(gridCard.querySelector('.game-playtime').textContent).toBe('1m');
-
-        // Now stop the game and verify fast transition to 'Just now'
-        await gameStoppedHandler({
-            gameKey: 'game:folder:living with a little fox girl|exe:game'
-        });
-        expect(targetGame.isRunning).toBe(false);
-        expect(gridCard.querySelector('.game-status').textContent).toBe('Just now');
-    });
+    expect(console.warn).toHaveBeenCalledWith(
+      '[IpcDispatcher] Unsubscribe failed during teardown:',
+      expect.objectContaining({
+        error: expect.stringContaining('<USER_DIR>'),
+      })
+    );
+    const logged = vi.mocked(console.warn).mock.calls[0][1] as { error: string };
+    expect(logged.error).not.toContain('John Doe');
+  });
 });

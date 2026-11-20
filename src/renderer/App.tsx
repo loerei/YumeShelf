@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { sanitizeUserPaths } from '../shared/path-sanitizer';
 import type { ElectronAPI } from '../shared/types/ipc';
 import { Header } from './components/Header';
+import { LibraryGrid } from './components/LibraryGrid';
 import { LibraryStateProvider } from './context/LibraryStateContext';
 import { useBootstrapLibrary } from './hooks/useBootstrapLibrary';
 import {
@@ -108,7 +109,13 @@ export function AppShell({
         onRefreshLibrary={bootstrapState.refresh}
         isRefreshing={bootstrapState.isRefreshing}
       />
-      <main className="app-main" />
+      <main className="app-main">
+        <LibraryGrid
+          electronAPI={api}
+          storage={storage}
+          onRefreshLibrary={bootstrapState.refresh}
+        />
+      </main>
     </div>
   );
 }

@@ -24,6 +24,20 @@
     --tooltip-bg: rgba(22, 22, 22, 0.96);
     --tooltip-border: rgba(255, 255, 255, 0.1);
     --tooltip-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+    /* ELEVATION SCALE TOKENS */
+    --zIndex-dropdown: 1000;
+    --zIndex-widget: 1600;
+    --zIndex-widget-overlay: 1700;
+    --zIndex-notification: 1800;
+    --zIndex-modal: 2000;
+    --zIndex-overlay: 6000;
+    --zIndex-tooltip: 10000;
+    --zIndex-toast: 10005;
+
+    /* DANGER ACTION TOKENS */
+    --danger-btn-bg: #e03131;
+    --danger-btn-hover-bg: #c92a2a;
 }
 
 body.light-theme {

@@ -1,9 +1,17 @@
 import { SaveCodecError } from './errors.js';
 import { safeJsonParse, sanitizeDeep } from './sanitize.js';
-import type { SaveCodecContext } from '../types.js';
+import { DEFAULT_MAX_DECOMPRESSED_BYTES, type SaveCodecContext } from '../types.js';
+import { safeLog } from './schema/index.js';
 
 export class KeyedJsonSaveCodec {
   static decode(rawData: Buffer, context?: SaveCodecContext): any {
+    const maxBytes = context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+    if (rawData && rawData.length > maxBytes) {
+      throw new SaveCodecError(
+        `Keyed JSON save exceeds maximum allowed size (${maxBytes} bytes)`,
+        'DECOMPRESSION_FAILED'
+      );
+    }
     const str = rawData.toString('utf8').trim();
 
     // If it already looks like pure JSON
@@ -15,7 +23,12 @@ export class KeyedJsonSaveCodec {
         }
         return parsed;
       } catch (err: any) {
-        throw new SaveCodecError(`Keyed JSON parse failed: ${err.message}`, 'PARSE_FAILED');
+        safeLog(context?.options?.logger, 'error', 'Keyed JSON parse failed', {
+          error: err?.message ?? String(err),
+        });
+        throw new SaveCodecError(`Keyed JSON parse failed: ${err.message}`, 'PARSE_FAILED', {
+          cause: err,
+        });
       }
     }
 
@@ -25,9 +38,21 @@ export class KeyedJsonSaveCodec {
     // 2. Base64 Decode
     let decoded: string;
     try {
-      decoded = Buffer.from(reversed, 'base64').toString('utf8');
+      const decodedBuf = Buffer.from(reversed, 'base64');
+      if (decodedBuf.length > maxBytes) {
+        throw new SaveCodecError(
+          `Decompressed Keyed JSON payload exceeds maximum allowed size (${maxBytes} bytes)`,
+          'DECOMPRESSION_FAILED'
+        );
+      }
+      decoded = decodedBuf.toString('utf8');
     } catch (e: any) {
-      throw new SaveCodecError(`Keyed JSON base64 decode failed: ${e.message}`, 'DECOMPRESSION_FAILED');
+      if (e instanceof SaveCodecError) throw e;
+      throw new SaveCodecError(
+        `Keyed JSON base64 decode failed: ${e.message}`,
+        'DECOMPRESSION_FAILED',
+        { cause: e }
+      );
     }
 
     // 3. Extract Key and JSON
@@ -48,10 +73,11 @@ export class KeyedJsonSaveCodec {
       // Try parsing directly or fail
       try {
         return safeJsonParse(str);
-      } catch {
+      } catch (err: any) {
         throw new SaveCodecError(
           'Failed to extract JSON payload from keyed-json wrapper',
-          'PARSE_FAILED'
+          'PARSE_FAILED',
+          { cause: err }
         );
       }
     }
@@ -65,7 +91,9 @@ export class KeyedJsonSaveCodec {
       }
       return json;
     } catch (err: any) {
-      throw new SaveCodecError(`Keyed JSON parse failed: ${err.message}`, 'PARSE_FAILED');
+      throw new SaveCodecError(`Keyed JSON parse failed: ${err.message}`, 'PARSE_FAILED', {
+        cause: err,
+      });
     }
   }
 
@@ -94,7 +122,9 @@ export class KeyedJsonSaveCodec {
       return Buffer.from(final, 'utf8');
     } catch (err: any) {
       if (err instanceof SaveCodecError) throw err;
-      throw new SaveCodecError(`Keyed JSON encoding failed: ${err.message}`, 'PARSE_FAILED');
+      throw new SaveCodecError(`Keyed JSON encoding failed: ${err.message}`, 'PARSE_FAILED', {
+        cause: err,
+      });
     }
   }
 }

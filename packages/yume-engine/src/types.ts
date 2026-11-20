@@ -177,6 +177,33 @@ export interface CodecProgressUpdate {
   iterations?: number;
 }
 
+export interface SaveMetadataDto {
+  variables?: Array<string | null> | Record<string | number, string | null>;
+  switches?: Array<string | null> | Record<string | number, string | null>;
+  [key: string]: unknown;
+}
+
+export interface EngineLogger {
+  debug?(message: string, context?: Record<string, unknown>): void;
+  info?(message: string, context?: Record<string, unknown>): void;
+  warn?(message: string, context?: Record<string, unknown>): void;
+  error?(message: string, context?: Record<string, unknown>): void;
+}
+
+export interface SaveSchemaOptions {
+  stalenessTimeoutMs?: number;
+  stalenessTracker?: import('./utils/staleness-tracker.js').StalenessTracker;
+  earlyExit?: boolean;
+  earlyExitRoots?: boolean;
+  onProgress?: (progress: CodecProgressUpdate) => void;
+  shouldCancel?: () => boolean;
+  gameKey?: string;
+  fileName?: string;
+  metadata?: SaveMetadataDto;
+  logger?: EngineLogger;
+  maxBufferSizeBytes?: number;
+}
+
 export interface SaveCodecOptions {
   stalenessTimeoutMs?: number;
   stalenessTracker?: import('./utils/staleness-tracker.js').StalenessTracker;
@@ -184,6 +211,11 @@ export interface SaveCodecOptions {
   earlyExitRoots?: boolean;
   onProgress?: (progress: CodecProgressUpdate) => void;
   shouldCancel?: () => boolean;
+  gameKey?: string;
+  fileName?: string;
+  metadata?: SaveMetadataDto;
+  logger?: EngineLogger; // BYO-Logger seam defaulting to zero-allocation no-op
+  maxBufferSizeBytes?: number;
   savePath?: string;
   originalBuffer?: Buffer;
   wrapInZip?: boolean;
@@ -192,8 +224,86 @@ export interface SaveCodecOptions {
   outerIv?: string | Buffer;
   innerKey?: string | Buffer;
   innerIv?: string | Buffer;
-  [key: string]: any;
+  key?: string;
+  converterPath?: string;
+  assemblyPath?: string;
+  baseArgs?: string[];
+  runnerOptions?: import('./process/types.js').ProcessRunOptions;
+  originalBinPath?: string;
+  originalSavePath?: string;
+  exeDir?: string;
+  saveDir?: string;
+  dataDir?: string;
+  langDataDir?: string;
+  paths?: {
+    exeDir?: string;
+    saveDir?: string;
+    dataDir?: string;
+    langDataDir?: string;
+  };
 }
+
+export type CanonicalSaveStrategy =
+  | 'renpy-pickle'
+  | 'tinc-double-aes-json'
+  | 'wolf-sav'
+  | 'unity-binary-formatter'
+  | 'rpg-maker-mv'
+  | 'rpg-maker-mz'
+  | 'bakin-sgs'
+  | 'pure-json'
+  | 'keyed-json';
+
+export type ShorthandSaveStrategy =
+  | 'renpy'
+  | 'tinc'
+  | 'chrono-ecstasy'
+  | 'wolf'
+  | 'unity-mono'
+  | 'unity-mono-bin'
+  | 'binary-formatter'
+  | 'modern-save-converter'
+  | 'bakin'
+  | 'sgs'
+  | 'rpgmaker'
+  | 'rpgsave'
+  | 'rmmzsave'
+  | 'rpg-maker-mv-mz'
+  | 'lz-string'
+  | 'json'
+  | 'pure-json'
+  | 'keyed-json'
+  | 'simple-keyed'
+  | 'simple-keyed-json'
+  | 'generic';
+
+export type SupportedSaveStrategy = CanonicalSaveStrategy | ShorthandSaveStrategy;
+
+export interface SaveFieldDto {
+  id: string; // Qualified key: `${tabId}:${key}` (e.g. "variables:1", "switches:1")
+  tabId: string;
+  key: string;
+  label: string;
+  value: number | string | boolean;
+  type: 'number' | 'string' | 'boolean';
+  readOnly?: boolean;
+}
+
+export interface SaveTabDto {
+  id: string;
+  label: string;
+  count: number;
+}
+
+export interface NormalizedSaveDto {
+  gameKey: string;
+  fileName: string;
+  strategy: SupportedSaveStrategy;
+  tabs: SaveTabDto[];
+  fields: SaveFieldDto[];
+}
+
+export const DEFAULT_MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024; // 64 MB
 
 export interface SaveCodecContext {
   fileName?: string;

@@ -9,7 +9,13 @@ import { BakinSgsSaveCodec } from './bakin-sgs.js';
 import { UnityBinaryFormatterSaveCodec } from './unity-binary-formatter.js';
 import { TincDoubleAesJsonSaveCodec } from './tinc-double-aes-json.js';
 import { isDangerousKey, sanitizeDeep, createSafeDict, safeJsonParse } from './sanitize.js';
-import type { SaveCodecContext, SaveCodecOptions } from '../types.js';
+import type {
+  CanonicalSaveStrategy,
+  SaveCodecContext,
+  SaveCodecOptions,
+  SupportedSaveStrategy,
+} from '../types.js';
+import { extractSaveSchema, safeLog, resolveMetadataLabel } from './schema/index.js';
 
 export * from './errors.js';
 export * from './sanitize.js';
@@ -23,6 +29,51 @@ export * from './renpy-pickle.js';
 export * from './bakin-sgs.js';
 export * from './unity-binary-formatter.js';
 export * from './tinc-double-aes-json.js';
+export { extractSaveSchema, safeLog, resolveMetadataLabel };
+
+export const STRATEGY_CANONICAL_MAP: Record<string, CanonicalSaveStrategy | 'generic'> = Object.assign(
+  Object.create(null),
+  {
+    'renpy': 'renpy-pickle',
+    'renpy-pickle': 'renpy-pickle',
+    'tinc': 'tinc-double-aes-json',
+    'tinc-double-aes-json': 'tinc-double-aes-json',
+    'chrono-ecstasy': 'tinc-double-aes-json',
+    'wolf': 'wolf-sav',
+    'wolf-sav': 'wolf-sav',
+    'unity-mono': 'unity-binary-formatter',
+    'unity-mono-bin': 'unity-binary-formatter',
+    'binary-formatter': 'unity-binary-formatter',
+    'modern-save-converter': 'unity-binary-formatter',
+    'unity-binary-formatter': 'unity-binary-formatter',
+    'bakin': 'bakin-sgs',
+    'bakin-sgs': 'bakin-sgs',
+    'sgs': 'bakin-sgs',
+    'rpgmaker': 'rpg-maker-mz',
+    'rpg-maker-mv': 'rpg-maker-mv',
+    'rpg-maker-mz': 'rpg-maker-mz',
+    'rpg-maker-mv-mz': 'rpg-maker-mv',
+    'lz-string': 'rpg-maker-mv',
+    'rpgsave': 'rpg-maker-mv',
+    'rmmzsave': 'rpg-maker-mz',
+    'json': 'pure-json',
+    'pure-json': 'pure-json',
+    'keyed-json': 'keyed-json',
+    'simple-keyed': 'keyed-json',
+    'simple-keyed-json': 'keyed-json',
+    'generic': 'generic',
+  }
+);
+
+export function normalizeSaveStrategy(
+  strategy?: SupportedSaveStrategy | (string & {}) | string | null
+): CanonicalSaveStrategy | 'generic' {
+  if (typeof strategy !== 'string' || !strategy.trim()) return 'generic';
+  const clean = strategy.toLowerCase().trim();
+  return Object.hasOwn(STRATEGY_CANONICAL_MAP, clean)
+    ? (STRATEGY_CANONICAL_MAP[clean] as CanonicalSaveStrategy | 'generic')
+    : 'generic';
+}
 
 export function detectSaveStrategy(
   fileName?: string,
@@ -108,7 +159,7 @@ export async function decodeSaveFile(
   switch (norm) {
     case 'pure-json':
     case 'json':
-      return PureJsonSaveCodec.decode(rawBuffer);
+      return PureJsonSaveCodec.decode(rawBuffer, context);
 
     case 'keyed-json':
     case 'simple-keyed':
@@ -124,11 +175,12 @@ export async function decodeSaveFile(
     case 'rpg-maker-mv-mz':
     case 'rpgsave':
     case 'lz-string':
-      return RpgMakerMvSaveCodec.decode(rawBuffer);
+      return RpgMakerMvSaveCodec.decode(rawBuffer, context);
 
     case 'rpg-maker-mz':
     case 'rmmzsave':
-      return RpgMakerMzSaveCodec.decode(rawBuffer);
+    case 'rpgmaker':
+      return RpgMakerMzSaveCodec.decode(rawBuffer, context);
 
     case 'wolf-sav':
     case 'wolf':
@@ -139,10 +191,12 @@ export async function decodeSaveFile(
       return RenpyPickleSaveCodec.decode(rawBuffer, context);
 
     case 'bakin-sgs':
+    case 'bakin':
     case 'sgs':
       return BakinSgsSaveCodec.decode(rawBuffer);
 
     case 'unity-binary-formatter':
+    case 'unity-mono':
     case 'unity-mono-bin':
     case 'binary-formatter':
     case 'modern-save-converter':
@@ -166,7 +220,7 @@ export async function encodeSaveFile(
   switch (norm) {
     case 'pure-json':
     case 'json':
-      return PureJsonSaveCodec.encode(jsonData);
+      return PureJsonSaveCodec.encode(jsonData, context);
 
     case 'keyed-json':
     case 'simple-keyed':
@@ -182,11 +236,12 @@ export async function encodeSaveFile(
     case 'rpg-maker-mv-mz':
     case 'rpgsave':
     case 'lz-string':
-      return RpgMakerMvSaveCodec.encode(jsonData);
+      return RpgMakerMvSaveCodec.encode(jsonData, context);
 
     case 'rpg-maker-mz':
     case 'rmmzsave':
-      return RpgMakerMzSaveCodec.encode(jsonData);
+    case 'rpgmaker':
+      return RpgMakerMzSaveCodec.encode(jsonData, context);
 
     case 'wolf-sav':
     case 'wolf':
@@ -197,10 +252,12 @@ export async function encodeSaveFile(
       return RenpyPickleSaveCodec.encode(jsonData, context);
 
     case 'bakin-sgs':
+    case 'bakin':
     case 'sgs':
       return BakinSgsSaveCodec.encode(jsonData);
 
     case 'unity-binary-formatter':
+    case 'unity-mono':
     case 'unity-mono-bin':
     case 'binary-formatter':
     case 'modern-save-converter':

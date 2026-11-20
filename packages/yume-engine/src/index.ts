@@ -10,16 +10,26 @@
 
 import type {
   AppBundleInspectionResult,
+  CanonicalSaveStrategy,
   DirectorySizeResult,
+  EngineLogger,
   FileSystemProvider,
   GameEngineProfile,
   IFileHandle,
   IFileSystem,
   MachOInspectionResult,
+  NormalizedSaveDto,
   ResolvedSaveLocation,
   SaveCodecContext,
+  SaveCodecOptions,
+  SaveFieldDto,
+  SaveMetadataDto,
+  SaveSchemaOptions,
+  SaveTabDto,
+  ShorthandSaveStrategy,
+  SupportedSaveStrategy,
 } from './types.js';
-import { SaveCodecError } from './types.js';
+import { SaveCodecError, DEFAULT_MAX_DECOMPRESSED_BYTES } from './types.js';
 import { PEInspector } from './pe/pe-inspector.js';
 import {
   MachOInspector,
@@ -45,6 +55,11 @@ import {
   detectSaveStrategy,
   isSupportedSaveFile,
   listSupportedSaveExtensions,
+  extractSaveSchema,
+  normalizeSaveStrategy,
+  STRATEGY_CANONICAL_MAP,
+  safeLog,
+  resolveMetadataLabel,
 } from './save-codecs/index.js';
 import {
   StalenessTracker,
@@ -66,7 +81,26 @@ import {
 } from './pe/index.js';
 
 export type * from './types.js';
-export { SaveCodecError, DEFAULT_MAX_ARTWORK_SIZE } from './types.js';
+export type {
+  CanonicalSaveStrategy,
+  ShorthandSaveStrategy,
+  SupportedSaveStrategy,
+  NormalizedSaveDto,
+  SaveTabDto,
+  SaveFieldDto,
+  SaveMetadataDto,
+  SaveSchemaOptions,
+  SaveCodecOptions,
+  EngineLogger,
+};
+export { SaveCodecError, DEFAULT_MAX_ARTWORK_SIZE, DEFAULT_MAX_DECOMPRESSED_BYTES } from './types.js';
+export {
+  STRATEGY_CANONICAL_MAP,
+  normalizeSaveStrategy,
+  extractSaveSchema,
+  safeLog,
+  resolveMetadataLabel,
+};
 export * from './pe/index.js';
 export * from './binary/index.js';
 export * from './rules/index.js';
@@ -307,6 +341,22 @@ export class YumeEngine {
   ): Promise<Buffer> {
     return encodeSaveFile(strategy, jsonData, context);
   }
+
+  static normalizeSaveStrategy(
+    strategy?: SupportedSaveStrategy | (string & {}) | string | null
+  ): CanonicalSaveStrategy | 'generic' {
+    return normalizeSaveStrategy(strategy);
+  }
+
+  static extractSaveSchema(
+    strategy: SupportedSaveStrategy | (string & {}),
+    rawData: any,
+    options?: SaveSchemaOptions
+  ): NormalizedSaveDto {
+    return extractSaveSchema(strategy, rawData, options);
+  }
+
+  static readonly STRATEGY_CANONICAL_MAP = STRATEGY_CANONICAL_MAP;
 
   static async extractIcon(
     targetPath: string,

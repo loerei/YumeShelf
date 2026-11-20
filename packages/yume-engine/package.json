@@ -25,7 +25,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "test:run": "node --experimental-strip-types --test tests/**/*.test.ts",
     "test": "npm run build && npm run test:run"
   },

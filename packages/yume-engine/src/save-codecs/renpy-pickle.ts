@@ -10,7 +10,11 @@ import {
   defaultStalenessErrorMessage,
   type StalenessTrackerOptions,
 } from '../utils/staleness-tracker.js';
-import type { SaveCodecContext, CodecProgressUpdate } from '../types.js';
+import {
+  DEFAULT_MAX_DECOMPRESSED_BYTES,
+  type SaveCodecContext,
+  type CodecProgressUpdate,
+} from '../types.js';
 
 // CRC-32 precomputed lookup table
 const CRC_TABLE = new Uint32Array(256);
@@ -1033,7 +1037,9 @@ export class SandboxedPickleParser {
       } catch (err: any) {
         if (state.tracker?.isStale || (err as any)?.isStaleness || err instanceof StalenessError) {
           if (err instanceof SaveCodecError) throw err;
-          const codecErr = new SaveCodecError(err?.message ?? String(err), 'PARSE_FAILED');
+          const codecErr = new SaveCodecError(err?.message ?? String(err), 'PARSE_FAILED', {
+            cause: err,
+          });
           (codecErr as any).isStaleness = true;
           throw codecErr;
         }
@@ -1041,7 +1047,8 @@ export class SandboxedPickleParser {
         if (err instanceof RangeError || err.name === 'RangeError') {
           throw new SaveCodecError(
             `Corrupted or truncated pickle buffer: ${err.message}`,
-            'PARSE_FAILED'
+            'PARSE_FAILED',
+            { cause: err }
           );
         }
         throw err;
@@ -1083,7 +1090,9 @@ export class SandboxedPickleParser {
       } catch (err: any) {
         if (state.tracker?.isStale || (err as any)?.isStaleness || err instanceof StalenessError) {
           if (err instanceof SaveCodecError) throw err;
-          const codecErr = new SaveCodecError(err?.message ?? String(err), 'PARSE_FAILED');
+          const codecErr = new SaveCodecError(err?.message ?? String(err), 'PARSE_FAILED', {
+            cause: err,
+          });
           (codecErr as any).isStaleness = true;
           throw codecErr;
         }
@@ -1091,7 +1100,8 @@ export class SandboxedPickleParser {
         if (err instanceof RangeError || err.name === 'RangeError') {
           throw new SaveCodecError(
             `Corrupted or truncated pickle buffer: ${err.message}`,
-            'PARSE_FAILED'
+            'PARSE_FAILED',
+            { cause: err }
           );
         }
         throw err;
@@ -1736,7 +1746,8 @@ export class SandboxedPickleParser {
       if (err instanceof SaveCodecError) throw err;
       throw new SaveCodecError(
         `Corrupted or truncated pickle buffer: ${err.message}`,
-        'PARSE_FAILED'
+        'PARSE_FAILED',
+        { cause: err }
       );
     }
   }
@@ -1875,11 +1886,15 @@ export interface ZipEntry {
  * Pure-TS Multi-Entry ZIP extractor & builder for Ren'Py .save files
  */
 export class ZipContainer {
-  static extractEntries(buf: Buffer): ZipEntry[] {
+  static extractEntries(
+    buf: Buffer,
+    maxDecompressedBytes = DEFAULT_MAX_DECOMPRESSED_BYTES
+  ): ZipEntry[] {
     const entries: ZipEntry[] = [];
     if (!buf || buf.length < 22) {
       throw new SaveCodecError('Buffer too small to be a ZIP container', 'PARSE_FAILED');
     }
+    let totalDecompressedBytes = 0;
 
     // 1. Try Central Directory via EOCD
     let eocdPos = -1;
@@ -1915,12 +1930,28 @@ export class ZipContainer {
           let uncompressedData: Buffer;
           if (compressionMethod === 8) {
             uncompressedData =
-              compressedSize > 0 ? zlib.inflateRawSync(compressedData) : Buffer.alloc(0);
+              compressedSize > 0
+                ? zlib.inflateRawSync(compressedData, { maxOutputLength: maxDecompressedBytes })
+                : Buffer.alloc(0);
           } else if (compressionMethod === 0) {
+            if (compressedData.length > maxDecompressedBytes) {
+              throw new SaveCodecError(
+                `ZIP entry ${fileName} exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
+                'DECOMPRESSION_FAILED'
+              );
+            }
             uncompressedData = Buffer.from(compressedData);
           } else {
             throw new SaveCodecError(
               `Unsupported ZIP compression method: ${compressionMethod} for entry ${fileName}`,
+              'DECOMPRESSION_FAILED'
+            );
+          }
+
+          totalDecompressedBytes += uncompressedData.length;
+          if (totalDecompressedBytes > maxDecompressedBytes) {
+            throw new SaveCodecError(
+              `Decompressed ZIP container exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
               'DECOMPRESSION_FAILED'
             );
           }
@@ -1949,12 +1980,28 @@ export class ZipContainer {
         let uncompressedData: Buffer;
         if (compressionMethod === 8) {
           uncompressedData =
-            compressedSize > 0 ? zlib.inflateRawSync(compressedData) : Buffer.alloc(0);
+            compressedSize > 0
+              ? zlib.inflateRawSync(compressedData, { maxOutputLength: maxDecompressedBytes })
+              : Buffer.alloc(0);
         } else if (compressionMethod === 0) {
+          if (compressedData.length > maxDecompressedBytes) {
+            throw new SaveCodecError(
+              `ZIP entry ${fileName} exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
+              'DECOMPRESSION_FAILED'
+            );
+          }
           uncompressedData = Buffer.from(compressedData);
         } else {
           throw new SaveCodecError(
             `Unsupported ZIP compression method: ${compressionMethod} for entry ${fileName}`,
+            'DECOMPRESSION_FAILED'
+          );
+        }
+
+        totalDecompressedBytes += uncompressedData.length;
+        if (totalDecompressedBytes > maxDecompressedBytes) {
+          throw new SaveCodecError(
+            `Decompressed ZIP container exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
             'DECOMPRESSION_FAILED'
           );
         }
@@ -2108,10 +2155,13 @@ export class RenpyPickleSaveCodec {
 
     let pickleBuf: Buffer;
 
+    const maxDecompressedBytes =
+      context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+
     // Check if buffer is a ZIP container
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
       try {
-        const entries = ZipContainer.extractEntries(rawData);
+        const entries = ZipContainer.extractEntries(rawData, maxDecompressedBytes);
         const logEntry = entries.find((e) => e.fileName === 'log');
         if (!logEntry) {
           throw new SaveCodecError('Ren\'Py save zip does not contain "log" entry', 'PARSE_FAILED');
@@ -2121,7 +2171,8 @@ export class RenpyPickleSaveCodec {
         if (err instanceof SaveCodecError) throw err;
         throw new SaveCodecError(
           `Failed to extract Ren'Py save zip container: ${err.message}`,
-          'DECOMPRESSION_FAILED'
+          'DECOMPRESSION_FAILED',
+          { cause: err }
         );
       }
     } else {
@@ -2252,9 +2303,11 @@ export class RenpyPickleSaveCodec {
     }
 
     let pickleBuf: Buffer;
+    const maxDecompressedBytes =
+      context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
       try {
-        const entries = ZipContainer.extractEntries(rawData);
+        const entries = ZipContainer.extractEntries(rawData, maxDecompressedBytes);
         const logEntry = entries.find((e) => e.fileName === 'log');
         if (!logEntry) {
           throw new SaveCodecError('Ren\'Py save zip does not contain "log" entry', 'PARSE_FAILED');
@@ -2264,7 +2317,8 @@ export class RenpyPickleSaveCodec {
         if (err instanceof SaveCodecError) throw err;
         throw new SaveCodecError(
           `Failed to extract Ren'Py save zip container: ${err.message}`,
-          'DECOMPRESSION_FAILED'
+          'DECOMPRESSION_FAILED',
+          { cause: err }
         );
       }
     } else {

@@ -59,3 +59,50 @@ body {
     opacity: 0.7;
     margin-top: 8px;
 }
+
+.primary-btn {
+    background: var(--accent);
+    color: #ffffff;
+    border: 1px solid var(--accent);
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.primary-btn:hover {
+    filter: brightness(1.1);
+}
+
+.primary-btn:focus-visible,
+.secondary-btn:focus-visible,
+.danger-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.secondary-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.secondary-btn:hover {
+    border-color: var(--text-sub);
+    background: var(--hover-bg);
+}
+
+.primary-btn[aria-disabled="true"],
+.secondary-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}

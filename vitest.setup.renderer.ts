@@ -33,7 +33,7 @@ afterEach(() => {
   if (typeof sessionStorage !== 'undefined') {
     sessionStorage.clear();
   }
-  if (typeof document !== 'undefined') {
+  if (typeof document !== 'undefined' && document.body) {
     document.body.className = '';
     document.body.innerHTML = '';
   }

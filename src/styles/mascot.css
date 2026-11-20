@@ -259,3 +259,14 @@
     transition: opacity 0.2s ease;
 }
 
+
+@media (prefers-reduced-motion: reduce) {
+    .yume-mascot-widget,
+    .yume-mascot-widget.bonk-animating .yume-mascot-img,
+    .mascot-context-menu,
+    .mascot-menu-reset-btn,
+    .game-card.mascot-game-card.bonk-animating {
+        transition-duration: 0s !important;
+        animation-duration: 0s !important;
+    }
+}

@@ -44,7 +44,7 @@ export function initRenderer(options: InitRendererOptions = {}): () => void {
     })
   );
 
-  const unbindIpc = bindIpcEvents(store, undefined, options.electronAPI);
+  const unbindIpc = bindIpcEvents(store, options.electronAPI);
 
   const beforeUnloadHandler = () => {
     unbindIpc();

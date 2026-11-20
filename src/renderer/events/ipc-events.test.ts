@@ -12,21 +12,13 @@ function makeGame(overrides: Partial<GameEntry> & { gameKey: string }): GameEntr
 }
 
 function createMockElectronAPI() {
-  let bootHandler: ((payload: unknown) => void) | undefined;
   let stoppedHandler: ((payload: unknown) => Promise<void> | void) | undefined;
   let playtimeHandler: ((payload: unknown) => void) | undefined;
-  let translationHandler: ((payload: unknown) => void) | undefined;
 
-  const unsubBoot = vi.fn();
   const unsubStopped = vi.fn();
   const unsubPlaytime = vi.fn();
-  const unsubTranslation = vi.fn();
 
   const api = {
-    onBootStatus: vi.fn((cb: (payload: unknown) => void) => {
-      bootHandler = cb;
-      return unsubBoot;
-    }),
     onGameStopped: vi.fn((cb: (payload: unknown) => Promise<void> | void) => {
       stoppedHandler = cb;
       return unsubStopped;
@@ -35,20 +27,14 @@ function createMockElectronAPI() {
       playtimeHandler = cb;
       return unsubPlaytime;
     }),
-    onTranslationStatus: vi.fn((cb: (payload: unknown) => void) => {
-      translationHandler = cb;
-      return unsubTranslation;
-    }),
     getGames: vi.fn<() => Promise<GameEntry[]>>().mockResolvedValue([]),
   } as unknown as ElectronAPI;
 
   return {
     api,
-    unsubs: { unsubBoot, unsubStopped, unsubPlaytime, unsubTranslation },
-    emitBoot: (payload: unknown) => bootHandler?.(payload),
+    unsubs: { unsubStopped, unsubPlaytime },
     emitStopped: (payload: unknown) => stoppedHandler?.(payload),
     emitPlaytime: (payload: unknown) => playtimeHandler?.(payload),
-    emitTranslation: (payload: unknown) => translationHandler?.(payload),
   };
 }
 
@@ -59,7 +45,6 @@ describe('bindIpcEvents', () => {
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -88,21 +73,18 @@ describe('bindIpcEvents', () => {
     store.setAllGames([single, parent]);
 
     const { api, emitPlaytime } = createMockElectronAPI();
-    const setRunningFlag = vi.fn();
 
-    const dispose = bindIpcEvents(store, { setRunningFlag }, api);
+    const dispose = bindIpcEvents(store, api);
 
     // Single non-running game transitions to running
     emitPlaytime({ gameKey: 'game-1', accruedMs: 5000 });
     expect(store.getSnapshot().allGames[0].playtime).toBe(65000);
     expect(store.getSnapshot().allGames[0].isRunning).toBe(true);
-    expect(setRunningFlag).toHaveBeenCalledWith('game-1', true);
 
     // Child instance transitions to running
     emitPlaytime({ gameKey: 'inst-1', accruedMs: 15000 });
     expect(store.getSnapshot().allGames[1].instances?.[0].isRunning).toBe(true);
     expect(store.getSnapshot().allGames[1].instances?.[0].playtime).toBe(95000);
-    expect(setRunningFlag).toHaveBeenCalledWith('inst-1', true);
 
     // Malformed NaN / negative accruedMs clamped to 0
     emitPlaytime({ gameKey: 'game-1', accruedMs: Number.NaN });
@@ -141,17 +123,12 @@ describe('bindIpcEvents', () => {
         })
     );
 
-    const setRunningFlag = vi.fn();
-    const setAllGames = vi.fn();
-    const sortGames = vi.fn();
-
-    const dispose = bindIpcEvents(store, { setRunningFlag, setAllGames, sortGames }, api);
+    const dispose = bindIpcEvents(store, api);
 
     const stopPromise = emitStopped({ gameKey: 'game-1' });
 
     // Phase 1: synchronous clear before getGames resolves
     expect(store.getSnapshot().allGames[0].isRunning).toBe(false);
-    expect(setRunningFlag).toHaveBeenCalledWith('game-1', false);
 
     // Phase 2: resolve backend games with path annotations
     resolveGames([
@@ -169,8 +146,6 @@ describe('bindIpcEvents', () => {
     expect(reconciled.playtime).toBe(90000);
     expect(reconciled.relativePathFullDisplay).toBe('/Games/game-1');
     expect(reconciled.fullLocationLabel).toBe('Games/game-1');
-    expect(setAllGames).toHaveBeenCalledWith(store.getSnapshot().allGames);
-    expect(sortGames).toHaveBeenCalledTimes(1);
 
     dispose();
   });
@@ -188,7 +163,7 @@ describe('bindIpcEvents', () => {
         })
     );
 
-    const dispose = bindIpcEvents(store, {}, api);
+    const dispose = bindIpcEvents(store, api);
 
     const firstStop = emitStopped({ gameKey: 'game-1' });
     const secondStop = emitStopped({ gameKey: 'game-1' });
@@ -212,7 +187,7 @@ describe('bindIpcEvents', () => {
       new Error('Failed reading C:\\Users\\John Doe\\AppData\\Local\\games.json')
     );
 
-    const dispose = bindIpcEvents(store, {}, api);
+    const dispose = bindIpcEvents(store, api);
 
     await emitStopped({ gameKey: '/Users/alice/Games/Demo' });
 
@@ -230,57 +205,6 @@ describe('bindIpcEvents', () => {
     dispose();
   });
 
-  it('onTranslationStatus maps blocking statuses, clamps progress, and manages delayed hideTimeout', () => {
-    vi.useFakeTimers();
-    const store = createUiRuntimeState();
-    const { api, emitTranslation, emitBoot } = createMockElectronAPI();
-    const bootController = { show: vi.fn(), hide: vi.fn() };
-
-    const dispose = bindIpcEvents(store, { bootController }, api);
-
-    emitBoot({ key: 'boot_init' });
-    expect(bootController.show).toHaveBeenCalledWith({ key: 'boot_init' });
-
-    emitTranslation({ status: 'downloading', progress: 1.5 });
-    expect(bootController.show).toHaveBeenLastCalledWith({
-      key: null,
-      fallbackText: 'Downloading Translator (100%)...',
-      showProgress: true,
-      progress: 1,
-      mode: 'startup',
-    });
-
-    emitTranslation({ status: 'preparing', progress: -0.5 });
-    expect(bootController.show).toHaveBeenLastCalledWith({
-      key: null,
-      fallbackText: 'Preparing Auto-Translator...',
-      showProgress: true,
-      progress: 0,
-      mode: 'startup',
-    });
-
-    // Terminal status schedules hide after 800ms
-    emitTranslation({ status: 'ready' });
-    expect(bootController.hide).not.toHaveBeenCalled();
-
-    // Interleaved blocking status cancels pending hideTimeout
-    vi.advanceTimersByTime(400);
-    emitTranslation({ status: 'extracting-binaries', progress: 0.25 });
-    vi.advanceTimersByTime(800);
-    expect(bootController.hide).not.toHaveBeenCalled();
-
-    // Terminal status completes after 800ms when uninterrupted
-    emitTranslation({ status: 'error' });
-    vi.advanceTimersByTime(800);
-    expect(bootController.hide).toHaveBeenCalledTimes(1);
-
-    // dispose() cancels active hideTimeout
-    emitTranslation({ status: 'ready' });
-    dispose();
-    vi.advanceTimersByTime(1000);
-    expect(bootController.hide).toHaveBeenCalledTimes(1);
-  });
-
   it('dispose invokes all unsubscribe handles and sanitizes unsubscribe errors', () => {
     const store = createUiRuntimeState();
     const { api, unsubs } = createMockElectronAPI();
@@ -289,11 +213,9 @@ describe('bindIpcEvents', () => {
       throw new Error('Unsubscribe failed for C:\\Users\\John Doe\\ipc');
     });
 
-    const dispose = bindIpcEvents(store, {}, api);
+    const dispose = bindIpcEvents(store, api);
     dispose();
 
-    expect(unsubs.unsubBoot).toHaveBeenCalledTimes(1);
-    expect(unsubs.unsubTranslation).toHaveBeenCalledTimes(1);
     expect(unsubs.unsubPlaytime).toHaveBeenCalledTimes(1);
     expect(unsubs.unsubStopped).toHaveBeenCalledTimes(1);
 

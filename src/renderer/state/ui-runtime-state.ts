@@ -37,27 +37,6 @@ export interface ObservableUiRuntimeStore {
   setLocationDisplayMode(mode: 'parent' | 'full'): void;
 }
 
-export interface LegacyUiRuntimeShim {
-  /** @deprecated Transitional Phase 1 coexistence getter; contracted in Ticket 07.2.2 */
-  getAllGames(): readonly GameEntry[];
-  /** @deprecated Transitional Phase 1 coexistence getter; contracted in Ticket 07.2.2 */
-  getActiveCategoryId(): string | null;
-  /** @deprecated Transitional Phase 1 coexistence getter; contracted in Ticket 07.2.2 */
-  getCurrentSort(): string;
-  /** @deprecated Transitional Phase 1 coexistence getter; contracted in Ticket 07.2.2 */
-  getCategoryTree(): readonly CategoryNode[];
-  /** @deprecated Transitional Phase 1 coexistence getter; contracted in Ticket 07.2.2 */
-  getCurrentLibraryConfig(): LibraryConfig | null;
-  /** @deprecated Transitional Phase 1 drag stub; contracted in Ticket 07.2.2 */
-  getDraggedGameFolder(): null;
-  /** @deprecated Transitional Phase 1 drag stub; contracted in Ticket 07.2.2 */
-  setDraggedGameFolder(value: any): void;
-  /** @deprecated Transitional Phase 1 drag stub; contracted in Ticket 07.2.2 */
-  getDragTargetInfo(): null;
-  /** @deprecated Transitional Phase 1 drag stub; contracted in Ticket 07.2.2 */
-  setDragTargetInfo(value: any): void;
-}
-
 export const CANONICAL_SORT_OPTIONS = new Set(['az', 'date', 'played', 'custom']);
 
 export function selectSearchableGames(snapshot: UiRuntimeSnapshot): readonly SearchableGameItem[] {
@@ -98,7 +77,7 @@ function collectCategoryIds(tree: readonly CategoryNode[], validIds: Set<string>
 
 export function createUiRuntimeState(
   storage?: UiStorageAdapter
-): ObservableUiRuntimeStore & LegacyUiRuntimeShim {
+): ObservableUiRuntimeStore {
   const resolvedStorage: UiStorageAdapter =
     storage ?? (typeof localStorage !== 'undefined' ? localStorage : createInMemoryStorage());
 
@@ -655,15 +634,5 @@ export function createUiRuntimeState(
       }
       invalidateSnapshot();
     },
-
-    getAllGames: () => currentSnapshot.allGames,
-    getActiveCategoryId: () => currentSnapshot.activeCategoryId,
-    getCurrentSort: () => currentSnapshot.currentSort,
-    getCategoryTree: () => currentSnapshot.categoryTree,
-    getCurrentLibraryConfig: () => currentSnapshot.currentLibraryConfig,
-    getDraggedGameFolder: () => null,
-    setDraggedGameFolder: (_value: any) => {},
-    getDragTargetInfo: () => null,
-    setDragTargetInfo: (_value: any) => {},
   };
 }

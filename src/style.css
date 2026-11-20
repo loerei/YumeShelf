@@ -4,14 +4,11 @@
 @import "./styles/game-cards.css";
 @import "./styles/menus-tooltips.css";
 @import "./styles/settings.css";
-@import "./styles/welcome.css";
-@import "./styles/stack-overlay.css";
 @import "./styles/responsive.css";
 @import "./styles/boot.css";
 @import "./styles/language-packs.css";
 @import "./styles/update-notifications.css";
 @import "./styles/save-editor.css";
-@import "./styles/telemetry-modal.css";
 @import "./styles/toast-pill.css";
 @import "./styles/mascot.css";
 @import "./styles/modals.css";

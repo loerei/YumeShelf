@@ -1,19 +1,4 @@
 @media (max-width: 900px) {
-    .stack-overlay {
-        padding: 18px;
-    }
-
-    .stack-overlay-panel {
-        width: 100%;
-        max-height: calc(100vh - 36px);
-        padding: 12px;
-    }
-
-    .stack-overlay-grid {
-        grid-template-columns: 1fr;
-        gap: 18px;
-    }
-
     .settings-panel {
         width: calc(100% - 24px);
         max-width: none;

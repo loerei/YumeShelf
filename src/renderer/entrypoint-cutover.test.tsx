@@ -921,5 +921,33 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     // Zero unscoped top-level .primary-btn { or .secondary-btn {
     expect(saveEditorCss).not.toMatch(/^\s*\.primary-btn\s*\{/m);
     expect(saveEditorCss).not.toMatch(/^\s*\.secondary-btn\s*\{/m);
+
+    const indexHtml = fs.readFileSync(path.resolve(process.cwd(), 'src/index.html'), 'utf8');
+    expect(indexHtml).toContain('<div id="react-root" tabindex="-1"></div>');
+    expect(indexHtml).toContain('<div id="portal-root"></div>');
+    expect(indexHtml).toContain(
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://translate.googleapis.com;"
+    );
+    expect(indexHtml).not.toContain('id="settings-overlay"');
+    expect(indexHtml).not.toContain('id="about-overlay"');
+    expect(indexHtml).not.toContain('id="language-pack-overlay"');
+    expect(indexHtml).not.toContain('id="duplicate-stack-overlay"');
+    expect(indexHtml).not.toContain('id="toast-pill-host"');
+    expect(indexHtml).not.toContain('id="welcome-screen"');
+    expect(indexHtml).not.toContain('id="yume-mascot-widget"');
+    expect(indexHtml).not.toContain('id="fav-grid"');
+    expect(indexHtml).not.toContain('id="unfav-grid"');
+
+    const styleCss = fs.readFileSync(path.resolve(process.cwd(), 'src/style.css'), 'utf8');
+    expect(styleCss).not.toContain('welcome.css');
+    expect(styleCss).not.toContain('stack-overlay.css');
+    expect(styleCss).not.toContain('telemetry-modal.css');
+
+    const responsiveCss = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/styles/responsive.css'),
+      'utf8'
+    );
+    expect(responsiveCss).not.toContain('.stack-overlay');
+    expect(responsiveCss).toContain('.setting-field-group');
   });
 });

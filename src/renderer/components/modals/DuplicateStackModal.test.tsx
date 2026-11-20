@@ -9,10 +9,10 @@ import { DuplicateStackModal } from './DuplicateStackModal';
 function makeInstance(overrides: Partial<GameEntry> & { gameKey: string; name: string }): GameEntry {
   return {
     gameId: overrides.gameKey,
-    path: `C:/Games/${overrides.gameKey}/game.exe`,
+    exePath: `C:/Games/${overrides.gameKey}/game.exe`,
     folderPath: `C:/Games/${overrides.gameKey}`,
     favorite: false,
-    playtimeMs: 0,
+    playtime: 0,
     ...overrides,
   };
 }
@@ -21,12 +21,11 @@ function makeStackParent(groupKey: string, name: string, instances: GameEntry[])
   return {
     gameId: groupKey,
     gameKey: groupKey,
-    groupKey,
     name,
-    path: instances[0]?.path ?? `C:/Games/${groupKey}/game.exe`,
+    exePath: instances[0]?.exePath ?? `C:/Games/${groupKey}/game.exe`,
     folderPath: instances[0]?.folderPath ?? `C:/Games/${groupKey}`,
     favorite: instances.some((i) => i.favorite),
-    playtimeMs: 0,
+    playtime: 0,
     instances,
     primaryInstance: instances[0],
   };

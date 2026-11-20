@@ -401,19 +401,16 @@ describe('ObservableUiRuntimeStore (createUiRuntimeState)', () => {
     }
   });
 
-  it('provides LegacyUiRuntimeShim getters and drag no-op stubs', () => {
-    const store = createUiRuntimeState(createMemoryStorage());
-    store.setAllGames([makeSingleGame()]);
-    expect(store.getAllGames()).toHaveLength(1);
-    expect(store.getActiveCategoryId()).toBeNull();
-    expect(store.getCurrentSort()).toBe('date');
-    expect(store.getCategoryTree()).toEqual([]);
-    expect(store.getCurrentLibraryConfig()).toBeNull();
-    expect(store.getDraggedGameFolder()).toBeNull();
-    store.setDraggedGameFolder('foo');
-    expect(store.getDraggedGameFolder()).toBeNull();
-    expect(store.getDragTargetInfo()).toBeNull();
-    store.setDragTargetInfo({ id: '1' });
-    expect(store.getDragTargetInfo()).toBeNull();
+  it('contracts LegacyUiRuntimeShim getters and drag stubs from the store surface', () => {
+    const store = createUiRuntimeState(createMemoryStorage()) as unknown as Record<string, unknown>;
+    expect(store.getAllGames).toBeUndefined();
+    expect(store.getActiveCategoryId).toBeUndefined();
+    expect(store.getCurrentSort).toBeUndefined();
+    expect(store.getCategoryTree).toBeUndefined();
+    expect(store.getCurrentLibraryConfig).toBeUndefined();
+    expect(store.getDraggedGameFolder).toBeUndefined();
+    expect(store.setDraggedGameFolder).toBeUndefined();
+    expect(store.getDragTargetInfo).toBeUndefined();
+    expect(store.setDragTargetInfo).toBeUndefined();
   });
 });

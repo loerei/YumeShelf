@@ -95,7 +95,6 @@ export function createSearchController({
             const gameKey = getGameKey(game);
             const item = document.createElement('div');
             item.className = 'search-item';
-            item.draggable = !getActiveCategoryId();
             item.innerHTML = `
                 <div class="search-item-info">
                     <div class="search-item-icon">${game.iconData ? renderIconMarkup(game.iconData, game.iconFit, game.iconSource) : '🎮'}</div>
@@ -123,18 +122,6 @@ export function createSearchController({
                     source: game.iconSource || 'game-icon',
                     debug: game.iconDebug
                 }, item.querySelector('.search-item-icon img'));
-            }
-
-            if (item.draggable) {
-                item.ondragstart = (event) => {
-                    setDraggedGameFolder(gameKey);
-                    event.dataTransfer.setData('gameKey', gameKey);
-                };
-                item.ondragend = () => {
-                    if (getDraggedGameFolder() === getGameKey(game)) {
-                        setDraggedGameFolder(null);
-                    }
-                };
             }
 
             const launchIconWrapper = item.querySelector('.search-launch-icon-wrapper');

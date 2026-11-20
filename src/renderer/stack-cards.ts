@@ -18,7 +18,6 @@ export function createStackCardFactory({
     function createStackCard(stack, options = {}) {
         const { primaryGame, representativeKey, stackSize } = stack;
         const interactiveSelector = '.fav-btn, .menu-btn, .dropdown-menu, .rename-input';
-        const draggable = options.draggable !== false;
         const uniqueLocations = [...new Set(stack.games.map((game) => game.locationLabel).filter(Boolean))];
         const locationSummary = uniqueLocations.length > 1
             ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
@@ -32,7 +31,6 @@ export function createStackCardFactory({
         card.className = `game-card stack-card ${stack.favorite ? 'favorited' : ''}`;
         card.dataset.gameKey = representativeKey;
         card.dataset.duplicateSignature = primaryGame.duplicateSignature || '';
-        card.draggable = draggable;
         const d = getStrings();
         const isStackRunning = stack.games.some(g => g.isRunning);
         card.innerHTML = `
@@ -71,7 +69,6 @@ export function createStackCardFactory({
         }));
 
         const favoriteButton = card.querySelector('.fav-btn');
-        favoriteButton.draggable = false;
         favoriteButton.onmousedown = (event) => {
             event.preventDefault();
         };
@@ -105,13 +102,8 @@ export function createStackCardFactory({
         });
 
 
-        let suppressNextClick = false;
         card.onclick = (event) => {
             if (event.target.closest(interactiveSelector)) return;
-            if (suppressNextClick) {
-                suppressNextClick = false;
-                return;
-            }
             onOpenStack(stack);
         };
         card.ondblclick = (event) => {
@@ -120,33 +112,6 @@ export function createStackCardFactory({
             event.stopPropagation();
             onOpenStack(stack);
         };
-        if (draggable) {
-            card.ondragstart = (event) => {
-                if (event.target.closest(interactiveSelector)) {
-                    event.preventDefault();
-                    return false;
-                }
-                const didStart = onDragStart(representativeKey);
-                if (didStart === false) {
-                    event.preventDefault();
-                    return false;
-                }
-                suppressNextClick = true;
-                event.dataTransfer.setData('gameKey', representativeKey);
-                event.dataTransfer.effectAllowed = 'move';
-                requestAnimationFrame(() => {
-                    card.style.opacity = '0.01';
-                });
-            };
-            card.ondragend = () => {
-                card.style.opacity = '1';
-                onDragStateReset();
-            };
-            card.ondragenter = (event) => { event.preventDefault(); };
-            card.ondragleave = (event) => { event.preventDefault(); };
-            card.ondragover = (event) => { event.preventDefault(); };
-            card.ondrop = (event) => { event.preventDefault(); };
-        }
 
         return card;
     }

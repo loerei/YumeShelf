@@ -23,7 +23,6 @@ export function createGameCardFactory({
         console.log('[DIAG][createCard] gameKey:', getGameKey(game), 'name:', game?.name);
         const d = getStrings();
         const gameKey = getGameKey(game);
-        const draggable = options.draggable !== false;
         const launchMode = options.launchMode || 'double';
         const interactiveSelector = '.fav-btn, .menu-btn, .dropdown-menu, .rename-input';
         const showDuplicateChip = options.showDuplicateChip !== false;
@@ -40,7 +39,6 @@ export function createGameCardFactory({
         if (game.duplicateSignature) {
             card.dataset.duplicateSignature = game.duplicateSignature;
         }
-        card.draggable = draggable;
         card.innerHTML = `
             <div class="fav-btn ${game.favorite ? 'active' : ''}">★</div>
             <div class="menu-btn"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></div>
@@ -123,7 +121,6 @@ export function createGameCardFactory({
         }));
 
         const favoriteButton = card.querySelector('.fav-btn');
-        favoriteButton.draggable = false;
         favoriteButton.onmousedown = (event) => {
             event.preventDefault();
         };
@@ -304,29 +301,6 @@ export function createGameCardFactory({
                 if (event.target.closest(interactiveSelector)) return;
                 launchGame();
             };
-        }
-
-        if (draggable) {
-            card.ondragstart = (event) => {
-                if (event.target.closest(interactiveSelector)) {
-                    event.preventDefault();
-                    return false;
-                }
-                event.dataTransfer.setData('gameKey', gameKey);
-                event.dataTransfer.effectAllowed = 'move';
-                requestAnimationFrame(() => {
-                    card.style.opacity = '0.01';
-                });
-                onDragStart(gameKey);
-            };
-            card.ondragend = () => {
-                card.style.opacity = '1';
-                onDragStateReset();
-            };
-            card.ondragenter = (event) => { event.preventDefault(); };
-            card.ondragleave = (event) => { event.preventDefault(); };
-            card.ondragover = (event) => { event.preventDefault(); };
-            card.ondrop = (event) => { event.preventDefault(); };
         }
 
         return card;

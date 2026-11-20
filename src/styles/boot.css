@@ -1,7 +1,8 @@
 .loading-overlay {
     position: fixed;
     inset: 0;
-    z-index: 6000;
+    z-index: var(--zIndex-overlay);
+    isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: center;

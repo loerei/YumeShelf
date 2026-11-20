@@ -4,7 +4,7 @@
     position: fixed;
     bottom: 0;
     right: 20px;
-    z-index: 1650;
+    z-index: var(--zIndex-widget);
     display: inline-flex;
     align-items: flex-end;
     justify-content: center;
@@ -85,7 +85,8 @@
 /* Mascot Quick Context Menu Popover */
 .mascot-context-menu {
     position: fixed;
-    z-index: 2100;
+    z-index: var(--zIndex-widget-overlay);
+    isolation: isolate;
     min-width: 250px;
     background: var(--card-bg);
     backdrop-filter: blur(16px);
@@ -197,7 +198,7 @@
 /* Bonk Hit Impact Effect Particle */
 .bonk-impact-particle {
     position: fixed;
-    z-index: 1655;
+    z-index: var(--zIndex-widget-overlay);
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;

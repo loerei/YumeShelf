@@ -4,7 +4,8 @@
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(20px);
-  z-index: 10005;
+  z-index: var(--zIndex-toast);
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;

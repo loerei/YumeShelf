@@ -2,7 +2,8 @@
     position: fixed;
     right: 28px;
     bottom: 28px;
-    z-index: 1600;
+    z-index: var(--zIndex-notification, 1800);
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     align-items: flex-end;

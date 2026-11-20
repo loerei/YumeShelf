@@ -222,6 +222,12 @@
     gap: 10px;
 }
 
+.language-pack-actions button[aria-disabled="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
 .language-pack-hint,
 .language-pack-source {
     margin: 0;

@@ -1,0 +1,157 @@
+/* src/styles/modals.css */
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay-bg, rgba(0, 0, 0, 0.7));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: var(--zIndex-modal, 2000);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    isolation: isolate;
+}
+
+.modal-panel {
+    background: var(--card-bg, #1e1e1e);
+    border: 1px solid var(--border-color, #333333);
+    border-radius: 12px;
+    box-shadow: var(--menu-shadow, 0 12px 28px rgba(0, 0, 0, 0.42));
+    width: 100%;
+    max-width: 520px;
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--text-main, #ffffff);
+    outline: none;
+}
+
+.modal-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #333333);
+}
+
+.modal-header h2,
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main, #ffffff);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.modal-header h2 .duplicate-stack-count {
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--text-sub, #b3b3b3);
+}
+
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-sub, #b3b3b3);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modal-close-btn:hover {
+    background: var(--hover-bg, #2a2a2a);
+    color: var(--text-main, #ffffff);
+}
+
+.modal-close-btn:focus-visible {
+    outline: 2px solid var(--accent, #0078d4);
+    outline-offset: 1px;
+}
+
+.modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    scrollbar-gutter: stable;
+    color: var(--text-main, #ffffff);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.modal-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-color, #333333);
+    background: var(--card-bg, #1e1e1e);
+}
+
+/* Duplicate Stack Dialog Specialization */
+.duplicate-stack-dialog {
+    max-width: 640px;
+}
+
+.duplicate-stack-instances {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 16px 0;
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-gutter: stable;
+}
+
+/* Destruction Action Button */
+.danger-btn {
+    background: var(--danger-btn-bg, #e03131);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.danger-btn:hover {
+    background: var(--danger-btn-hover-bg, #c92a2a);
+}
+
+.danger-btn:focus-visible {
+    outline: 2px solid var(--accent, #0078d4);
+    outline-offset: 2px;
+}
+
+.danger-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Motion Reduction */
+@media (prefers-reduced-motion: reduce) {
+    .modal-backdrop,
+    .modal-panel,
+    .modal-close-btn,
+    .danger-btn {
+        transition-duration: 0.001ms !important;
+        animation-duration: 0.001ms !important;
+    }
+}

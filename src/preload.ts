@@ -104,7 +104,9 @@ const api: ElectronAPI = {
     renameSaveFile: (data: any) => ipcRenderer.invoke('save-editor:rename-file', data),
     deleteSaveFile: (data: any) => ipcRenderer.invoke('save-editor:delete-file', data),
     updateMapping: (data: any) => ipcRenderer.invoke('save-editor:update-mapping', data),
-    openSaveEditorWindow: (gameKey: string) => ipcRenderer.send('open-save-editor-window', gameKey),
+    openSaveEditorWindow: async (gameKey: string): Promise<void> => {
+        ipcRenderer.send('save-editor:open-window', gameKey);
+    },
     loadTranslations: (lang: string) => ipcRenderer.invoke('save-editor:load-translations', lang),
     saveTranslations: (lang: string, translations: any) => ipcRenderer.invoke('save-editor:save-translations', { lang, translations }),
     // System Startup & Tray Settings

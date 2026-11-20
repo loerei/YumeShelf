@@ -1,13 +1,17 @@
-// @ts-ignore
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import * as path from 'path';
 import { SaveEditorIpcController } from './save-editor.controller';
 import { createSaveEditorService } from '../../save-editor/index';
 
 describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Selection)', () => {
+    afterEach(() => {
+        vi.unstubAllEnvs();
+    });
+
     function createIpcHarness(customOverrides: Record<string, any> = {}) {
         const handlers = new Map<string, (...args: any[]) => any>();
         const listeners = new Map<string, (...args: any[]) => any>();
+        const appListeners = new Map<string, (...args: any[]) => any>();
 
         const mockIpcMain: any = {
             handle: vi.fn((channel: string, handler: (...args: any[]) => any) => {
@@ -16,6 +20,15 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             on: vi.fn((channel: string, listener: (...args: any[]) => any) => {
                 listeners.set(channel, listener);
             }),
+        };
+
+        const mockApp: any = {
+            on: vi.fn((event: string, listener: (...args: any[]) => any) => {
+                appListeners.set(event, listener);
+            }),
+            emit: (event: string, ...args: any[]) => {
+                appListeners.get(event)?.(...args);
+            },
         };
 
         const mockLibraryState: any = {
@@ -47,23 +60,64 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
 
         const mockShell: any = {
             openPath: vi.fn(async (_p: string) => ''),
+            openExternal: vi.fn(async (_url: string) => {}),
         };
 
         const mockDialog: any = {
             showOpenDialog: vi.fn(async () => ({ canceled: false, filePaths: ['C:\\Selected\\SaveFolder'] })),
+            showMessageBox: vi.fn(async () => ({ response: 1 })),
         };
 
-        const mockBrowserWindow: any = {
-            fromWebContents: vi.fn(() => ({ id: 1 })),
-            getFocusedWindow: vi.fn(() => ({ id: 1 })),
+        const winListeners = new Map<string, (...args: any[]) => any>();
+        const webContentsListeners = new Map<string, (...args: any[]) => any>();
+        let windowOpenHandler: ((details: { url: string }) => any) | null = null;
+
+        const mockWindowInstance: any = {
+            id: 1,
+            isDestroyed: vi.fn(() => false),
+            isMinimized: vi.fn(() => false),
+            restore: vi.fn(),
+            focus: vi.fn(),
+            destroy: vi.fn(),
+            removeMenu: vi.fn(),
+            setMenuBarVisibility: vi.fn(),
+            loadFile: vi.fn(async () => {}),
+            loadURL: vi.fn(async () => {}),
+            on: vi.fn((event: string, cb: (...args: any[]) => void) => {
+                winListeners.set(event, cb);
+            }),
+            emit: (event: string, ...args: any[]) => {
+                winListeners.get(event)?.(...args);
+            },
+            webContents: {
+                on: vi.fn((event: string, cb: (...args: any[]) => void) => {
+                    webContentsListeners.set(event, cb);
+                }),
+                emit: (event: string, ...args: any[]) => {
+                    webContentsListeners.get(event)?.(...args);
+                },
+                setWindowOpenHandler: vi.fn((cb: (details: { url: string }) => any) => {
+                    windowOpenHandler = cb;
+                }),
+                getWindowOpenHandler: () => windowOpenHandler,
+            },
         };
+
+        const mockBrowserWindow: any = vi.fn(function () { return mockWindowInstance; });
+        mockBrowserWindow.fromWebContents = vi.fn(() => mockWindowInstance);
+        mockBrowserWindow.getFocusedWindow = vi.fn(() => mockWindowInstance);
 
         const options: any = {
+            app: mockApp,
             ipcMain: mockIpcMain,
             libraryState: mockLibraryState,
             saveFolderResolver: mockSaveFolderResolver,
             saveEditorService: {},
-            paths: { preloadPath: 'preload.js', mainWindowIconPath: 'icon.png' },
+            paths: {
+                preloadPath: 'preload.js',
+                mainWindowIconPath: 'icon.png',
+                saveEditorHtmlPath: path.join('D:', 'Projects', 'YumeShelf', 'dist', 'renderer', 'save-editor.html'),
+            },
             shell: mockShell,
             dialog: mockDialog,
             browserWindow: mockBrowserWindow,
@@ -74,14 +128,17 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
         controller.registerHandlers();
 
         return {
+            controller,
             handlers,
             listeners,
+            mockApp,
             mockIpcMain,
             mockLibraryState,
             mockSaveFolderResolver,
             mockShell,
             mockDialog,
             mockBrowserWindow,
+            mockWindowInstance,
         };
     }
 
@@ -193,24 +250,145 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             expect(mockDialog.showOpenDialog).toHaveBeenCalledWith(focusedWin, expect.anything());
 
             // When both are null, it calls showOpenDialog without window parameter
-            mockBrowserWindow.getFocusedWindow.mockReturnValueOnce(null);
+            mockBrowserWindow.getFocusedWindow.mockReturnValueOnce(null as any);
             await handler({});
             expect(mockDialog.showOpenDialog).toHaveBeenCalledWith(expect.objectContaining({ properties: ['openDirectory'] }));
         });
     });
 
-    describe('open-save-editor-window headless safety', () => {
+    describe('save-editor:open-window lifecycle, diagnostics, and security', () => {
         it('logs warning and does not crash when BrowserWindowConstructor is not available', () => {
             const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             try {
                 const { listeners } = createIpcHarness({ browserWindow: null });
-                const listener = listeners.get('open-save-editor-window');
+                const listener = listeners.get('save-editor:open-window');
                 expect(listener).toBeDefined();
                 expect(() => listener!({}, 'valid-game')).not.toThrow();
                 expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('BrowserWindowConstructor is not available'));
             } finally {
                 warnSpy.mockRestore();
             }
+        });
+
+        it('validates gameKey ingress, configures sandbox: true, reuses/restores existing window, and cleans up on closed', () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const { listeners, mockBrowserWindow, mockWindowInstance } = createIpcHarness();
+            const listener = listeners.get('save-editor:open-window')!;
+
+            listener({}, '');
+            listener({}, '   ');
+            listener({}, null);
+            expect(mockBrowserWindow).not.toHaveBeenCalled();
+
+            listener({}, 'valid-game');
+            expect(mockBrowserWindow).toHaveBeenCalledTimes(1);
+            expect(mockBrowserWindow).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    webPreferences: expect.objectContaining({
+                        sandbox: true,
+                        contextIsolation: true,
+                        nodeIntegration: false,
+                    }),
+                })
+            );
+
+            mockWindowInstance.isMinimized.mockReturnValueOnce(true);
+            listener({}, 'valid-game');
+            expect(mockBrowserWindow).toHaveBeenCalledTimes(1);
+            expect(mockWindowInstance.restore).toHaveBeenCalledTimes(1);
+            expect(mockWindowInstance.focus).toHaveBeenCalledTimes(1);
+
+            mockWindowInstance.emit('closed');
+            listener({}, 'valid-game');
+            expect(mockBrowserWindow).toHaveBeenCalledTimes(2);
+            warnSpy.mockRestore();
+        });
+
+        it('buffers sanitized console-message entries and filters getLogEntries via sanitized gameKey', () => {
+            const { controller, listeners, mockWindowInstance } = createIpcHarness({ diagnosticBufferCapacity: 3 });
+            const listener = listeners.get('save-editor:open-window')!;
+
+            listener({}, 'C:\\Users\\alice\\game-1');
+            mockWindowInstance.webContents.emit(
+                'console-message',
+                { sender: { isDestroyed: () => false } },
+                2,
+                'Loaded C:\\Users\\alice\\save.dat'
+            );
+
+            const buf = controller.getLogBuffer('C:\\Users\\alice\\game-1');
+            expect(buf.toArray()).toHaveLength(1);
+            expect(buf.toArray()[0]).toContain('<USER_DIR>\\save.dat');
+            expect(buf.toArray()[0]).not.toContain('alice');
+
+            const filtered = controller.getLogEntries('C:\\Users\\alice\\game-1');
+            expect(filtered).toHaveLength(1);
+        });
+
+        it('handles render-process-gone crash recovery dialog (reopen on 0, close on 1, suppress on clean-exit / isQuitting)', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => {});
+            const { listeners, mockApp, mockBrowserWindow, mockDialog, mockWindowInstance } = createIpcHarness();
+            const listener = listeners.get('save-editor:open-window')!;
+
+            listener({}, 'valid-game');
+            expect(mockBrowserWindow).toHaveBeenCalledTimes(1);
+
+            // Reopen when user chooses 0
+            mockDialog.showMessageBox.mockResolvedValueOnce({ response: 0 });
+            await mockWindowInstance.webContents.emit('render-process-gone', {}, { reason: 'crashed', exitCode: 1 });
+            expect(mockDialog.showMessageBox).toHaveBeenCalledTimes(1);
+            expect(mockBrowserWindow).toHaveBeenCalledTimes(2);
+
+            // Clean exit suppresses dialog
+            mockDialog.showMessageBox.mockClear();
+            await mockWindowInstance.webContents.emit('render-process-gone', {}, { reason: 'clean-exit', exitCode: 0 });
+            expect(mockDialog.showMessageBox).not.toHaveBeenCalled();
+
+            // isQuitting suppresses dialog
+            listener({}, 'valid-game');
+            mockApp.emit('before-quit');
+            await mockWindowInstance.webContents.emit('render-process-gone', {}, { reason: 'killed', exitCode: 1 });
+            expect(mockDialog.showMessageBox).not.toHaveBeenCalled();
+        });
+
+        it('enforces setWindowOpenHandler and will-navigate containment in dev and Windows case-insensitive prod', () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            vi.stubEnv('VITE_DEV_SERVER_URL', 'http://localhost:5173');
+            const { listeners, mockShell, mockWindowInstance } = createIpcHarness({ platform: 'win32' });
+            const listener = listeners.get('save-editor:open-window')!;
+
+            listener({}, 'valid-game');
+            expect(mockWindowInstance.loadURL).toHaveBeenCalledWith(
+                'http://localhost:5173/save-editor.html?gameKey=valid-game'
+            );
+
+            const openHandler = mockWindowInstance.webContents.getWindowOpenHandler()!;
+            expect(openHandler({ url: 'https://example.com' })).toEqual({ action: 'deny' });
+            expect(mockShell.openExternal).toHaveBeenCalledWith('https://example.com/');
+
+            // Dev origin allowed
+            const devEvt = { preventDefault: vi.fn() };
+            mockWindowInstance.webContents.emit('will-navigate', devEvt, 'http://localhost:5173/other');
+            expect(devEvt.preventDefault).not.toHaveBeenCalled();
+
+            // Case-insensitive Windows file path allowed
+            const winFileEvt = { preventDefault: vi.fn() };
+            mockWindowInstance.webContents.emit(
+                'will-navigate',
+                winFileEvt,
+                'file:///d:/projects/yumeshelf/dist/renderer/save-editor.html?gameKey=valid-game'
+            );
+            expect(winFileEvt.preventDefault).not.toHaveBeenCalled();
+
+            // Sibling directory traversal blocked
+            const siblingEvt = { preventDefault: vi.fn() };
+            mockWindowInstance.webContents.emit(
+                'will-navigate',
+                siblingEvt,
+                'file:///D:/Projects/YumeShelf/dist/renderer-evil/save-editor.html'
+            );
+            expect(siblingEvt.preventDefault).toHaveBeenCalledTimes(1);
+            warnSpy.mockRestore();
         });
     });
 
@@ -382,7 +560,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             const callArgs = mockSaveEditorService.loadSaveData.mock.calls[0];
             expect(callArgs[0]).toBe('valid-game');
             expect(callArgs[1]).toBe('saveSlot1.json');
-            const passedOptions = callArgs[2];
+            const passedOptions = callArgs[2] as any;
             expect(passedOptions.outerKey).toBe('testOuterKey');
             expect(passedOptions.outerIv).toBe('testOuterIv');
             expect(passedOptions.innerKey).toBe('testInnerKey');
@@ -399,7 +577,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
         });
 
         it('sanitizes options, removes prototype pollution, and forwards valid options to writeSaveData', async () => {
-            const mockSaveEditorService = {
+            const mockSaveEditorService: any = {
                 loadSaveData: vi.fn(async () => ({})),
                 writeSaveData: vi.fn(async () => ({ ok: true })),
             };

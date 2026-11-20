@@ -1,26 +1,59 @@
 import path from 'path';
-import { BrowserWindow as electronBrowserWindow, dialog as electronDialog, shell as electronShell } from 'electron';
+import { fileURLToPath } from 'node:url';
+import { BrowserWindow, BrowserWindow as electronBrowserWindow, dialog as electronDialog, shell as electronShell } from 'electron';
 import { RegisterIpcOptions } from '../types';
+import { CircularRingBuffer } from '../../../shared/ring-buffer';
+import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
 
 export class SaveEditorIpcController {
-    constructor(private readonly options: RegisterIpcOptions) {}
+    private readonly openWindows = new Map<string, BrowserWindow>();
+    private readonly logBuffer: CircularRingBuffer<string>;
+    private isQuitting = false;
+    private beforeQuitBound = false;
+
+    constructor(private readonly options: RegisterIpcOptions) {
+        const rawCapacity = this.options.diagnosticBufferCapacity;
+        const capacity =
+            typeof rawCapacity === 'number' && Number.isInteger(rawCapacity) && rawCapacity > 0
+                ? rawCapacity
+                : 500;
+        this.logBuffer = new CircularRingBuffer<string>(capacity);
+    }
+
+    public getLogBuffer(_gameKey?: string): CircularRingBuffer<string> {
+        return this.logBuffer;
+    }
+
+    public getLogEntries(gameKey?: string): string[] {
+        const entries = this.logBuffer.toArray();
+        const targetKey = gameKey ? sanitizeUserPaths(gameKey) : undefined;
+        return targetKey ? entries.filter((e) => e.includes(`[${targetKey}]`)) : entries;
+    }
 
     public registerHandlers(): void {
-        const { ipcMain, libraryState, saveFolderResolver, saveEditorService, paths } = this.options;
+        const { ipcMain, libraryState, saveFolderResolver, saveEditorService } = this.options;
         if (!ipcMain) return;
 
+        this.isQuitting = false;
+        if (!this.beforeQuitBound && typeof this.options.app?.on === 'function') {
+            this.options.app.on('before-quit', () => {
+                this.isQuitting = true;
+            });
+            this.beforeQuitBound = true;
+        }
+
         ipcMain.handle('get-save-folder', async (_event, gameKey) => {
-            console.log(`[IPC][get-save-folder] Received request for: ${gameKey}`);
+            console.log(`[IPC][get-save-folder] Received request for: ${sanitizeUserPaths(gameKey)}`);
             const record = await libraryState?.getGameRecord(gameKey);
             if (!record) {
-                console.warn(`[IPC][get-save-folder] Could not resolve record for key: ${gameKey}`);
+                console.warn(`[IPC][get-save-folder] Could not resolve record for key: ${sanitizeUserPaths(gameKey)}`);
                 return { path: null, engine: null, confidence: 'none' };
             }
             if (!record.exePath) {
-                console.warn(`[IPC][get-save-folder] Record found but has no exePath: ${record.name}`);
+                console.warn(`[IPC][get-save-folder] Record found but has no exePath: ${sanitizeUserPaths(record.name)}`);
                 return { path: null, engine: null, confidence: 'none' };
             }
-            console.log(`[IPC][get-save-folder] Resolved to record: ${record.name} (${record.exePath})`);
+            console.log(`[IPC][get-save-folder] Resolved to record: ${sanitizeUserPaths(record.name)} (${sanitizeUserPaths(record.exePath)})`);
             return saveFolderResolver?.resolveSaveFolder(record.exePath, record.saveFolderOverride);
         });
 
@@ -260,40 +293,193 @@ function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
             return saveEditorService?.saveTranslations(lang, translations);
         });
 
-        ipcMain.on('open-save-editor-window', (_event, gameKey) => {
-            const BrowserWindowConstructor = this.options.browserWindow || electronBrowserWindow;
-            if (typeof BrowserWindowConstructor !== 'function') {
-                console.warn('[IPC][open-save-editor-window] BrowserWindowConstructor is not available in headless runtime');
+        ipcMain.on('save-editor:open-window', (_event, gameKey) => {
+            this.openSaveEditorWindow(gameKey);
+        });
+    }
+
+    private openSaveEditorWindow(gameKey: unknown): void {
+        if (typeof gameKey !== 'string' || !gameKey.trim()) {
+            console.warn(
+                '[IPC][save-editor:open-window] Invalid gameKey received:',
+                typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey
+            );
+            return;
+        }
+        const normalizedGameKey = gameKey.trim();
+
+        const existingWin = this.openWindows.get(normalizedGameKey);
+        if (existingWin && !existingWin.isDestroyed()) {
+            if (existingWin.isMinimized?.()) {
+                existingWin.restore?.();
+            }
+            existingWin.focus?.();
+            return;
+        }
+
+        const BrowserWindowConstructor = this.options.browserWindow || electronBrowserWindow;
+        if (typeof BrowserWindowConstructor !== 'function') {
+            console.warn('[IPC][save-editor:open-window] BrowserWindowConstructor is not available in headless runtime');
+            return;
+        }
+
+        const { paths } = this.options;
+        const shell = this.options.shell || electronShell;
+
+        const saveEditorWin = new BrowserWindowConstructor({
+            width: 1000,
+            height: 700,
+            backgroundColor: '#121212',
+            autoHideMenuBar: true,
+            icon: paths ? paths.mainWindowIconPath : undefined,
+            webPreferences: {
+                preload: paths ? paths.preloadPath : undefined,
+                contextIsolation: true,
+                nodeIntegration: false,
+                sandbox: true
+            }
+        });
+
+        this.openWindows.set(normalizedGameKey, saveEditorWin);
+
+        saveEditorWin.on?.('closed', () => {
+            if (this.openWindows.get(normalizedGameKey) === saveEditorWin) {
+                this.openWindows.delete(normalizedGameKey);
+            }
+        });
+
+        saveEditorWin.webContents?.on?.('render-process-gone', async (_event: any, details: any) => {
+            const reason = details?.reason ?? 'unknown';
+            const exitCode = details?.exitCode ?? -1;
+            const sanitizedKey = sanitizeUserPaths(normalizedGameKey);
+            const message = `Render process gone for gameKey "${sanitizedKey}": reason=${reason}, exitCode=${exitCode}`;
+            console.error(`[save-editor] ${message}`);
+            this.logBuffer.push(`[${new Date().toISOString()}][ERROR][${sanitizedKey}] ${message}`);
+            if (this.openWindows.get(normalizedGameKey) === saveEditorWin) {
+                this.openWindows.delete(normalizedGameKey);
+            }
+            try {
+                if (!saveEditorWin.isDestroyed()) {
+                    saveEditorWin.destroy();
+                }
+            } catch (destroyErr) {
+                console.warn('[save-editor] Non-fatal error destroying window after render-process-gone:', {
+                    gameKey: sanitizedKey,
+                    error: sanitizeUserPaths(destroyErr instanceof Error ? destroyErr.message : destroyErr),
+                    stack: destroyErr instanceof Error && destroyErr.stack ? sanitizeUserPaths(destroyErr.stack) : undefined,
+                });
+            }
+
+            if (reason === 'clean-exit' || this.isQuitting) {
                 return;
             }
-            const saveEditorWin = new BrowserWindowConstructor({
-                width: 1000,
-                height: 700,
-                backgroundColor: '#121212',
-                autoHideMenuBar: true,
-                icon: paths ? paths.mainWindowIconPath : undefined,
-                webPreferences: {
-                    preload: paths ? paths.preloadPath : undefined,
-                    contextIsolation: true,
-                    nodeIntegration: false
-                }
-            });
-            saveEditorWin.removeMenu?.();
-            saveEditorWin.setMenuBarVisibility?.(false);
 
-            saveEditorWin.webContents?.on('console-message', (_event, _level, message) => {
-                console.log(`[STANDALONE-EDITOR-LOG] ${message}`);
-            });
-
-            if (paths) {
-                if (process.env.VITE_DEV_SERVER_URL) {
-                    saveEditorWin.loadURL?.(`${process.env.VITE_DEV_SERVER_URL}?mode=save-editor&gameKey=${encodeURIComponent(gameKey)}`);
-                } else {
-                    saveEditorWin.loadFile?.(paths.indexHtmlPath, {
-                        search: `mode=save-editor&gameKey=${encodeURIComponent(gameKey)}`
+            const dialog = this.options.dialog || electronDialog;
+            if (typeof dialog?.showMessageBox === 'function') {
+                try {
+                    const res = await dialog.showMessageBox({
+                        type: 'error',
+                        title: 'Save Editor Crashed',
+                        message: 'The Save Editor window terminated unexpectedly.',
+                        detail: `Reason: ${reason} (Exit Code: ${exitCode})\n\nAny unsaved edits in that window could not be preserved.`,
+                        buttons: ['Reopen Save Editor', 'Close'],
+                        defaultId: 0,
+                        cancelId: 1,
+                        noLink: true,
+                    });
+                    if (this.isQuitting) {
+                        return;
+                    }
+                    if (res?.response === 0) {
+                        this.openSaveEditorWindow(normalizedGameKey);
+                    }
+                } catch (dialogErr) {
+                    console.warn('[save-editor] Failed to display crash recovery dialog:', {
+                        gameKey: sanitizedKey,
+                        error: sanitizeUserPaths(dialogErr instanceof Error ? dialogErr.message : dialogErr),
+                        stack: dialogErr instanceof Error && dialogErr.stack ? sanitizeUserPaths(dialogErr.stack) : undefined,
                     });
                 }
             }
         });
+
+        const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+        let appOrigin: string | null = null;
+        if (devServerUrl) {
+            try {
+                appOrigin = new URL(devServerUrl).origin;
+            } catch {
+                appOrigin = null;
+            }
+        }
+
+        saveEditorWin.webContents?.setWindowOpenHandler?.(({ url: targetUrl }) => {
+            try {
+                const parsed = new URL(targetUrl);
+                if (['https:', 'http:'].includes(parsed.protocol)) {
+                    void shell?.openExternal(parsed.href);
+                }
+            } catch (err) {
+                const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
+                console.warn('[save-editor] Blocked malformed navigation URL:', sanitizeUserPaths(targetUrl), sanitizedError);
+            }
+            return { action: 'deny' };
+        });
+
+        saveEditorWin.webContents?.on?.('will-navigate', (event, navigationUrl) => {
+            try {
+                const parsed = new URL(navigationUrl);
+                if (appOrigin && parsed.origin === appOrigin) {
+                    return;
+                }
+                if (parsed.protocol === 'file:' && paths?.saveEditorHtmlPath) {
+                    const rawTarget = path.normalize(fileURLToPath(parsed.href));
+                    const rawAllowed = path.normalize(paths.saveEditorHtmlPath);
+                    const rawAllowedDir = path.dirname(rawAllowed);
+
+                    const targetPlatform = this.options?.platform ?? process.platform;
+                    const isCaseInsensitive = targetPlatform === 'win32' || targetPlatform === 'darwin';
+                    const targetPath = isCaseInsensitive ? rawTarget.toLowerCase() : rawTarget;
+                    const allowedPath = isCaseInsensitive ? rawAllowed.toLowerCase() : rawAllowed;
+                    const allowedDir = isCaseInsensitive ? rawAllowedDir.toLowerCase() : rawAllowedDir;
+
+                    const boundary = allowedDir.endsWith(path.sep) ? allowedDir : `${allowedDir}${path.sep}`;
+                    if (targetPath === allowedPath || targetPath.startsWith(boundary)) {
+                        return;
+                    }
+                }
+                event.preventDefault();
+                if (['https:', 'http:'].includes(parsed.protocol)) {
+                    void shell?.openExternal(parsed.href);
+                } else {
+                    console.warn('[save-editor] Blocked unauthorized navigation:', sanitizeUserPaths(navigationUrl));
+                }
+            } catch (err) {
+                event.preventDefault();
+                const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
+                console.warn('[save-editor] Blocked malformed navigation URL:', sanitizeUserPaths(navigationUrl), sanitizedError);
+            }
+        });
+
+        saveEditorWin.removeMenu?.();
+        saveEditorWin.setMenuBarVisibility?.(false);
+
+        saveEditorWin.webContents?.on?.('console-message', (event, level, message) => {
+            if (saveEditorWin.isDestroyed() || (event as any)?.sender?.isDestroyed?.()) return;
+            const sanitized = sanitizeUserPaths(message);
+            const sanitizedKey = sanitizeUserPaths(normalizedGameKey);
+            const entry = `[${new Date().toISOString()}][level:${level}][${sanitizedKey}] ${sanitized}`;
+            this.logBuffer.push(entry);
+        });
+
+        if (paths) {
+            if (process.env.VITE_DEV_SERVER_URL) {
+                saveEditorWin.loadURL?.(`${process.env.VITE_DEV_SERVER_URL}/save-editor.html?gameKey=${encodeURIComponent(normalizedGameKey)}`);
+            } else {
+                saveEditorWin.loadFile?.(paths.saveEditorHtmlPath, {
+                    search: `gameKey=${encodeURIComponent(normalizedGameKey)}`
+                });
+            }
+        }
     }
 }

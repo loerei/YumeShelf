@@ -20,6 +20,7 @@ export interface AppPathsInstance {
     mainWindowIconPath: string;
     preloadPath: string;
     indexHtmlPath: string;
+    saveEditorHtmlPath: string;
 }
 
 export interface ElectronAppInterface {
@@ -62,8 +63,11 @@ export function createAppPaths(app: ElectronAppInterface, sourceRootDir: string)
         localLanguagePacksDir: path.join(sourceRootDir, '..', 'language-packs', 'packs'),
         mainWindowIconPath: path.join(sourceRootDir, '..', 'assets', 'yumeshelf_icon_highres_4096.png'),
         preloadPath: path.join(sourceRootDir, 'preload.js'),
-        indexHtmlPath: isDev 
-            ? path.join(sourceRootDir, '..', 'index.html') 
-            : path.join(sourceRootDir, 'renderer', 'index.html')
+        indexHtmlPath: isDev
+            ? path.join(sourceRootDir, '..', 'src', 'index.html')
+            : path.join(sourceRootDir, 'renderer', 'index.html'),
+        saveEditorHtmlPath: isDev
+            ? path.join(sourceRootDir, '..', 'src', 'save-editor.html')
+            : path.join(sourceRootDir, 'renderer', 'save-editor.html')
     };
 }

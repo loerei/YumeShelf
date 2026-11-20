@@ -39,7 +39,13 @@ export default defineConfig({
     build: {
         outDir: '../dist/renderer',
         emptyOutDir: true,
-        target: 'esnext'
+        target: 'esnext',
+        rollupOptions: {
+            input: {
+                main: resolve(__dirname, 'src/index.html'),
+                saveEditor: resolve(__dirname, 'src/save-editor.html')
+            }
+        }
     },
     server: {
         port: 5173,

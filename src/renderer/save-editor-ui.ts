@@ -1,14 +1,22 @@
-import { SaveEditorOpenOptions, SaveEditorViewController } from './save-editor/view-controller';
+import { type ISaveEditorLauncher, ElectronSaveEditorLauncher } from './services/save-editor-launcher';
 
 declare global {
-    interface Window {
-        showSaveEditor?: (gameKey: string, options?: SaveEditorOpenOptions) => Promise<void>;
-    }
+  interface Window {
+    __IS_STANDALONE_SAVE_EDITOR__?: boolean;
+    showSaveEditor?: (gameKey: string) => Promise<void>;
+  }
 }
 
-export function initSaveEditorUI(): void {
-    const controller = new SaveEditorViewController();
-    window.showSaveEditor = async (gameKey: string, options: SaveEditorOpenOptions = {}) => {
-        await controller.open(gameKey, options);
+export function initSaveEditorUI(launcher: ISaveEditorLauncher = new ElectronSaveEditorLauncher()): void {
+  const isStandaloneWindow =
+    typeof window !== 'undefined' &&
+    (window.__IS_STANDALONE_SAVE_EDITOR__ === true ||
+      window.location.pathname.includes('save-editor') ||
+      window.location.search.includes('gameKey='));
+
+  if (typeof window !== 'undefined' && !isStandaloneWindow) {
+    window.showSaveEditor = async (gameKey: string) => {
+      await launcher.open(gameKey);
     };
+  }
 }

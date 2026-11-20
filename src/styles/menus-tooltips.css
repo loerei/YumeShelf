@@ -207,3 +207,17 @@
     font-size: 11px;
     line-height: 1.45;
 }
+
+.dropdown-item {
+    width: 100%;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    text-align: left;
+}
+
+.dropdown-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    background-color: var(--menu-hover-bg);
+}

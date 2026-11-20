@@ -37,4 +37,10 @@ docs/changelogs/
 docs/Report.md
 .env
 .env.local
-.purritize/\
+
+# Ignore .agents except local skills (local: true)
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/yumeshelf-release/
+!.agents/skills/game-save-inspection/

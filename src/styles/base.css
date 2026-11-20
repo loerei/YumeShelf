@@ -106,3 +106,85 @@ body {
     cursor: not-allowed;
     pointer-events: none;
 }
+
+/* Global Application Error Boundary Fallback */
+.app-error-boundary-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: var(--bg-color, #1a1a1a);
+    color: var(--text-main, #ffffff);
+}
+
+.app-error-boundary-content {
+    max-width: 560px;
+    width: 100%;
+    padding: 32px;
+    background: var(--card-bg, #242424);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: 12px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+.app-error-boundary-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 12px;
+    color: var(--text-main, #ffffff);
+}
+
+.app-error-boundary-desc {
+    font-size: 0.9rem;
+    color: var(--text-sub, #a0a0a0);
+    margin: 0 0 20px;
+    line-height: 1.5;
+}
+
+.app-error-boundary-details {
+    margin: 0 0 20px;
+    padding: 12px;
+    background: var(--bg-color, #1a1a1a);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: 6px;
+    color: var(--text-sub, #a0a0a0);
+    font-family: monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    max-height: 160px;
+    overflow-y: auto;
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-all;
+    scrollbar-gutter: stable;
+}
+
+.app-error-boundary-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.app-error-boundary-actions .app-error-boundary-btn {
+    padding: 8px 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    background: var(--card-bg, #242424);
+    color: var(--text-main, #ffffff);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.app-error-boundary-actions .app-error-boundary-btn:hover {
+    background: var(--hover-bg, #2a2a2a);
+    border-color: var(--border-color);
+}
+
+.app-error-boundary-actions .app-error-boundary-btn:focus-visible {
+    outline: 2px solid var(--accent, #0078d4);
+    outline-offset: 2px;
+}

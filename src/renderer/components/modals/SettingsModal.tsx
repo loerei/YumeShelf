@@ -1698,27 +1698,39 @@ export function SettingsModal({
             </div>
           </div>
         )}
-      </Modal.Body>
 
-      <Modal.Footer className="settings-footer">
-        <div className="settings-footer-info">
-          <span className="settings-version">
-            {strings.title || 'YumeShelf'}{appVersion ? ` v${appVersion}` : ''}
-          </span>
-          <span className="settings-tagline">
-            {language === 'en'
-              ? 'Local-first game library'
-              : strings.footer_desc || 'Local-first game library'}
-          </span>
+        <div className="settings-info">
+          <p id="ui-app-version">
+            {appVersion ? (
+              <a
+                className="settings-version-link"
+                href={`https://github.com/loerei/YumeShelf/releases/tag/v${appVersion}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void api?.openExternalUrl?.(
+                    `https://github.com/loerei/YumeShelf/releases/tag/v${appVersion}`
+                  );
+                }}
+              >
+                {`${strings.title || 'YumeShelf'} v${appVersion}`}
+              </a>
+            ) : (
+              strings.title || 'YumeShelf'
+            )}
+          </p>
+          <p id="ui-footer-desc">{strings.footer_desc || 'Your dreams, organized perfectly.'}</p>
+          <div className="settings-about-row">
+            <button
+              type="button"
+              id="settings-about-btn"
+              className="settings-about-link"
+              onClick={() => onOpenAbout?.()}
+            >
+              {strings.settings_about_credits || 'About & Credits'}
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          className="small-btn text-btn"
-          onClick={() => onOpenAbout?.()}
-        >
-          {strings.settings_about_credits || 'About & Credits'}
-        </button>
-      </Modal.Footer>
+      </Modal.Body>
     </Modal>
   );
 }

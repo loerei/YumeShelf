@@ -1,7 +1,35 @@
 import { App, Protocol } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+
+function readPackageJsonVersion(): string | null {
+    const candidates = [
+        path.join(__dirname, '..', '..', 'package.json'),
+        path.join(__dirname, '..', '..', '..', 'package.json'),
+        path.join(process.cwd(), 'package.json')
+    ];
+    for (const candidate of candidates) {
+        try {
+            const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+            if (parsed?.name === 'yumeshelf' && typeof parsed.version === 'string') {
+                return parsed.version;
+            }
+        } catch {
+            // try next candidate
+        }
+    }
+    return null;
+}
 
 export function applyVersionOverride(app: App): void {
-    const originalGetVersion = app.getVersion.bind(app);
+    const rawOriginalGetVersion = app.getVersion.bind(app);
+    const originalGetVersion = () => {
+        const raw = rawOriginalGetVersion();
+        if (!app.isPackaged && raw === process.versions.electron) {
+            return readPackageJsonVersion() || raw;
+        }
+        return raw;
+    };
     const readOverrideVersion = () => {
         const overrideArg = process.argv.find(arg => /^-\d+\.\d+\.\d+/.test(arg));
         return overrideArg ? overrideArg.slice(1) : null;

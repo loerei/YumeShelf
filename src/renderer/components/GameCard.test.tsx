@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { GameEntry } from '../types/game';
 import { GameCard } from './GameCard';
@@ -60,7 +60,9 @@ describe('GameCard', () => {
     expect(menuBtn.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
 
     expect(container.querySelector('.game-title')).toHaveTextContent('Alpha Quest');
-    expect(container.querySelector('.game-path-subtitle')).toHaveTextContent('/Games/RPG');
+    expect(container.querySelector('.game-status')).toHaveTextContent('Never played');
+    expect(container.querySelector('.game-playtime')).toHaveTextContent('2h 5m');
+    expect(container.querySelector('.game-path')).toHaveTextContent('/Games/RPG');
 
     rerender(<GameCard ref={ref} game={{ ...BASE_GAME, favorite: true }} />);
     expect(card).toHaveClass('game-card', 'favorited');
@@ -238,5 +240,27 @@ describe('GameCard', () => {
     expect(cardsCss).toMatch(/\.game-card:focus-within\s+\.menu-btn[\s\S]*?opacity:\s*1/);
     expect(cardsCss).toMatch(/\.fav-btn,\s*\.menu-btn[\s\S]*?border:\s*none[\s\S]*?padding:\s*0[\s\S]*?font-family:\s*inherit/);
     expect(cardsCss).toMatch(/\.fav-btn:focus-visible,\s*\.menu-btn:focus-visible[\s\S]*?outline:\s*2px solid var\(--accent\)[\s\S]*?opacity:\s*1/);
+  });
+
+  it('resolves dataUrl icon payloads returned by window.electronAPI.getIcon', async () => {
+    const getIcon = vi.fn().mockResolvedValue({
+      dataUrl: 'data:image/png;base64,QUJD',
+      fit: 'contain',
+      source: 'pe-icon',
+    });
+    const prevApi = window.electronAPI;
+    window.electronAPI = { ...prevApi, getIcon } as typeof window.electronAPI;
+    try {
+      const { container } = render(
+        <GameCard game={{ ...BASE_GAME, exePath: 'C:/Games/Test/Game.exe' }} />
+      );
+      await waitFor(() => {
+        const img = container.querySelector('img.game-icon') as HTMLImageElement | null;
+        expect(img).toBeTruthy();
+        expect(img?.getAttribute('src')).toBe('data:image/png;base64,QUJD');
+      });
+    } finally {
+      window.electronAPI = prevApi;
+    }
   });
 });

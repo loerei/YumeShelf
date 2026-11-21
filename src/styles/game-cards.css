@@ -297,6 +297,10 @@ img.game-icon {
     text-shadow: 0 0 10px rgba(255, 215, 0, 0.8); /* Glow effect */
 }
 
+.fav-btn.active svg {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.75));
+}
+
 body.light-theme .fav-btn {
     color: rgba(18, 18, 18, 0.22);
 }

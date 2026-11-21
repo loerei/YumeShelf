@@ -4,25 +4,37 @@ import type { GameEntry } from '../types/game';
 const iconUrlCache = new Map<string, string>();
 
 export interface GameIconProps {
-  readonly game: Pick<GameEntry, 'name' | 'exePath' | 'iconUrl'>;
+  readonly game: Pick<GameEntry, 'name' | 'exePath' | 'iconUrl'> & { readonly iconData?: string };
   readonly className?: string;
+}
+
+function extractIconSrc(result: unknown): string {
+  if (typeof result === 'string') return result;
+  if (result && typeof result === 'object') {
+    const record = result as { dataUrl?: unknown; iconUrl?: unknown };
+    if (typeof record.dataUrl === 'string' && record.dataUrl) return record.dataUrl;
+    if (typeof record.iconUrl === 'string' && record.iconUrl) return record.iconUrl;
+  }
+  return '';
 }
 
 export const GameIcon = React.memo(function GameIcon({
   game,
   className = 'game-icon',
 }: GameIconProps): React.ReactElement {
+  const directUrl = game.iconUrl || game.iconData;
   const initialUrl =
-    game.iconUrl || (game.exePath ? iconUrlCache.get(game.exePath) : undefined) || null;
+    directUrl || (game.exePath ? iconUrlCache.get(game.exePath) : undefined) || null;
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(initialUrl);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     setHasError(false);
-    if (game.iconUrl) {
-      setResolvedUrl(game.iconUrl);
+    const direct = game.iconUrl || game.iconData;
+    if (direct) {
+      setResolvedUrl(direct);
       if (game.exePath) {
-        iconUrlCache.set(game.exePath, game.iconUrl);
+        iconUrlCache.set(game.exePath, direct);
       }
       return;
     }
@@ -39,8 +51,13 @@ export const GameIcon = React.memo(function GameIcon({
     }
 
     const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
-    if (!api || typeof api.getIcon !== 'function') {
+    if (!api) {
       setResolvedUrl(null);
+      return;
+    }
+    if (typeof api.getIcon !== 'function') {
+      const protocolUrl = `game-icon://app?path=${encodeURIComponent(game.exePath)}`;
+      setResolvedUrl(protocolUrl);
       return;
     }
 
@@ -48,12 +65,7 @@ export const GameIcon = React.memo(function GameIcon({
     void Promise.resolve(api.getIcon(game.exePath))
       .then((result: unknown) => {
         if (cancelled) return;
-        const url =
-          typeof result === 'string'
-            ? result
-            : result && typeof result === 'object' && 'iconUrl' in result
-              ? String((result as { iconUrl?: unknown }).iconUrl || '')
-              : '';
+        const url = extractIconSrc(result);
         if (url) {
           iconUrlCache.set(game.exePath!, url);
           setResolvedUrl(url);
@@ -68,7 +80,7 @@ export const GameIcon = React.memo(function GameIcon({
     return () => {
       cancelled = true;
     };
-  }, [game.iconUrl, game.exePath]);
+  }, [game.iconUrl, game.iconData, game.exePath]);
 
   if (resolvedUrl && !hasError) {
     return (

@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { buildDuplicateChipLabel, buildPathSubtitle } from '../game-annotations';
 import type { GameEntry } from '../types/game';
+import { formatPlaytime, timeSince } from '../utils/formatting';
 import { GameIcon } from './GameIcon';
 
 export type GameCardMenuAction =
@@ -37,14 +38,16 @@ function isInteractiveDescendant(target: EventTarget | null): boolean {
   );
 }
 
-function formatPlaytimeBadge(playtimeMs?: number): string | null {
-  if (!playtimeMs || playtimeMs <= 0) return null;
-  const totalMinutes = Math.floor(playtimeMs / 60000);
-  if (totalMinutes < 1) return '<1m';
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-}
+const DEFAULT_TIME_STRINGS = {
+  status_playing: 'Playing',
+  status_never: 'Never played',
+  status_recent: 'Just now',
+  status_mins: 'm ago',
+  status_hours: 'h ago',
+  status_days: 'd ago',
+  status_months: ' months ago',
+  status_years: 'y ago',
+};
 
 export const GameCard = React.memo(
   React.forwardRef<HTMLDivElement, GameCardProps>(function GameCard(
@@ -211,7 +214,10 @@ export const GameCard = React.memo(
 
     const duplicateChip = showDuplicateChip ? buildDuplicateChipLabel(game.duplicateCount) : null;
     const pathSubtitle = showPath ? buildPathSubtitle(game) : '';
-    const playtimeLabel = formatPlaytimeBadge(game.playtime);
+    const statusLabel = game.isRunning
+      ? DEFAULT_TIME_STRINGS.status_playing
+      : timeSince(game.lastPlayed, DEFAULT_TIME_STRINGS);
+    const playtimeLabel = formatPlaytime(game.playtime);
     const favLabel = isFavorited ? 'Remove from favorites' : 'Add to favorites';
 
     return (
@@ -545,10 +551,11 @@ export const GameCard = React.memo(
           </div>
         )}
 
-        {duplicateChip && <span className="duplicate-chip">{duplicateChip}</span>}
-        {playtimeLabel && <span className="playtime-badge">{playtimeLabel}</span>}
+        {duplicateChip && <div className="game-duplicate-chip">{duplicateChip}</div>}
+        <div className="game-status">{statusLabel}</div>
+        <div className="game-playtime">{playtimeLabel}</div>
         {pathSubtitle && (
-          <div className="game-path-subtitle" title={pathSubtitle}>
+          <div className="game-path" title={pathSubtitle}>
             {pathSubtitle}
           </div>
         )}

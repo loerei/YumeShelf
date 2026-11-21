@@ -8,6 +8,13 @@ export default defineConfig({
     plugins: [
         react(),
         {
+            name: 'dev-csp-react-refresh',
+            apply: 'serve',
+            transformIndexHtml(html) {
+                return html.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'");
+            }
+        },
+        {
             name: 'ban-engine-runtime-in-renderer',
             generateBundle(_options, bundle) {
                 for (const fileName in bundle) {

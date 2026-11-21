@@ -201,11 +201,48 @@ describe('main-window hardening and crash recovery', () => {
     const cspHeader = cspCallback.mock.calls[0][0].responseHeaders['Content-Security-Policy'][0];
     expect(cspHeader).not.toContain('yumeshelf-telemetry.sayusumat.workers.dev');
     expect(cspHeader).not.toContain('https://translate.googleapis.com');
+    expect(cspHeader).toContain("script-src 'self';");
     expect(cspHeader).toContain("connect-src 'self'");
 
     const consoleHandler = mocks.webContentsListeners.get('console-message')!;
     consoleHandler({ sender: { isDestroyed: () => false } }, 1, 'Error in C:\\Users\\alice\\save.dat');
     expect(logSpy).toHaveBeenCalledWith('[RENDERER-LOG] Error in <USER_DIR>\\save.dat');
+  });
+
+  it('allows inline React Refresh preamble script in CSP only when unpackaged dev server is active', () => {
+    const prevDevUrl = process.env.VITE_DEV_SERVER_URL;
+    process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173';
+    try {
+      const devApp = { ...createMockApp(), isPackaged: false };
+      createMainWindow({
+        app: devApp,
+        paths: basePaths,
+        launchedAfterUpdate: false,
+      });
+      const devCb = mocks.getHeadersReceivedCb()!;
+      const devCspCallback = vi.fn();
+      devCb({ responseHeaders: {} }, devCspCallback);
+      const devCspHeader = devCspCallback.mock.calls[0][0].responseHeaders['Content-Security-Policy'][0];
+      expect(devCspHeader).toContain("script-src 'self' 'unsafe-inline';");
+
+      const prodApp = { ...createMockApp(), isPackaged: true };
+      createMainWindow({
+        app: prodApp,
+        paths: basePaths,
+        launchedAfterUpdate: false,
+      });
+      const prodCb = mocks.getHeadersReceivedCb()!;
+      const prodCspCallback = vi.fn();
+      prodCb({ responseHeaders: {} }, prodCspCallback);
+      const prodCspHeader = prodCspCallback.mock.calls[0][0].responseHeaders['Content-Security-Policy'][0];
+      expect(prodCspHeader).toContain("script-src 'self';");
+    } finally {
+      if (prevDevUrl === undefined) {
+        delete process.env.VITE_DEV_SERVER_URL;
+      } else {
+        process.env.VITE_DEV_SERVER_URL = prevDevUrl;
+      }
+    }
   });
 
   it('enforces setWindowOpenHandler and will-navigate containment with platform-aware case comparison', () => {

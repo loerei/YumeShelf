@@ -193,13 +193,16 @@ export function createMainWindow({
     win.removeMenu();
     win.setMenuBarVisibility(false);
 
+    const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+    const scriptSrc = !app.isPackaged && devServerUrl ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'";
+
     // Dynamic Content Security Policy (SEC-06)
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
-                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+                    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'`
                 ]
             }
         });
@@ -215,7 +218,6 @@ export function createMainWindow({
         console.log(`[RENDERER-LOG] ${sanitizeUserPaths(message)}`);
     });
 
-    const devServerUrl = process.env.VITE_DEV_SERVER_URL;
     let appOrigin: string | null = null;
     if (devServerUrl) {
         try {

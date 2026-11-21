@@ -223,7 +223,7 @@ export default class SaveMappingManager {
       this.customFs.mkdirSync(this.mappingDir, { recursive: true });
     }
 
-    const tmpPath = `${this.mappingPath}.tmp.${this.nowProvider()}_${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
+    const tmpPath = `${this.mappingPath}.tmp.${this.nowProvider()}_${process.pid}_${crypto.randomBytes(6).toString('hex')}`;
     const payload = JSON.stringify(this.mappings, null, 2);
     let fd: number | null = null;
 
@@ -272,7 +272,7 @@ export default class SaveMappingManager {
     const run = async (): Promise<void> => {
       await this.customFs.promises.mkdir(this.mappingDir, { recursive: true });
 
-      const tmpPath = `${this.mappingPath}.tmp.${this.nowProvider()}_${process.pid}_${Math.random().toString(36).slice(2, 8)}`;
+      const tmpPath = `${this.mappingPath}.tmp.${this.nowProvider()}_${process.pid}_${crypto.randomBytes(6).toString('hex')}`;
       const payload = JSON.stringify(this.mappings, null, 2);
       let handle: fs.promises.FileHandle | null = null;
 

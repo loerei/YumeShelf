@@ -17,4 +17,7 @@ export interface RegisterIpcOptions {
     startupServices: any;
     defaultGamesDir: string;
     paths: any;
+    diagnosticBufferCapacity?: number;
+    platform?: NodeJS.Platform;
+    fetchFn?: typeof fetch;
 }

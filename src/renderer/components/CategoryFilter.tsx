@@ -1,0 +1,177 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { type CategoryNode, flattenCategoryTree } from '../domain/category-tree';
+
+export interface CategoryFilterProps {
+  categories?: readonly CategoryNode[];
+  activeCategoryId: string | null;
+  onSelectCategory: (categoryId: string | null) => void;
+}
+
+interface FilterOption {
+  id: string | null;
+  name: string;
+  depth: number;
+}
+
+export function CategoryFilter({
+  categories = [],
+  activeCategoryId,
+  onSelectCategory,
+}: CategoryFilterProps): React.ReactElement {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  const flattenedCategories = useMemo(
+    () => flattenCategoryTree(categories),
+    [categories]
+  );
+
+  const allOptions: FilterOption[] = useMemo(
+    () => [{ id: null, name: 'All categories', depth: 0 }, ...flattenedCategories],
+    [flattenedCategories]
+  );
+
+  const activeCategory = useMemo(
+    () => (activeCategoryId ? flattenedCategories.find((c) => c.id === activeCategoryId) ?? null : null),
+    [activeCategoryId, flattenedCategories]
+  );
+
+  const handleSelect = (catId: string | null) => {
+    setIsOpen(false);
+    onSelectCategory(catId);
+    triggerBtnRef.current?.focus();
+  };
+
+  const openDropdown = () => {
+    setIsOpen(true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openDropdown();
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+      triggerBtnRef.current?.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isOpen]);
+
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (containerRef.current && !containerRef.current.contains(e.relatedTarget as Node | null)) {
+      setIsOpen(false);
+    }
+  };
+
+  if (categories.length === 0) {
+    return (
+      <div className="category-filter-container">
+        <button
+          type="button"
+          className="category-filter-btn"
+          aria-disabled="true"
+          aria-label="Filter by category"
+          title="No categories available"
+          tabIndex={-1}
+        >
+          <svg
+            className="icon-svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          <span className="category-filter-label">No categories</span>
+        </button>
+      </div>
+    );
+  }
+
+  const labelText = activeCategory ? activeCategory.name : 'All categories';
+
+  return (
+    <div
+      ref={containerRef}
+      className="category-filter-container"
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+    >
+      <button
+        ref={triggerBtnRef}
+        type="button"
+        className="category-filter-btn"
+        aria-label="Filter by category"
+        title="Filter by category"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={() => (isOpen ? setIsOpen(false) : openDropdown())}
+      >
+        <svg
+          className="icon-svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
+        <span className="category-filter-label">{labelText}</span>
+      </button>
+      {isOpen && (
+        <div
+          id="category-filter-menu"
+          className={`sort-menu category-filter-menu ${isOpen ? 'show' : ''}`}
+          role="menu"
+          aria-label="Categories"
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {allOptions.map((item) => {
+            const isSelected = activeCategoryId === item.id;
+            return (
+              <button
+                key={item.id ?? '__all__'}
+                type="button"
+                id={`category-option-${item.id ?? 'all'}`}
+                role="menuitem"
+                aria-current={isSelected ? 'true' : undefined}
+                className={`sort-item category-filter-item ${isSelected ? 'active' : ''}`}
+                style={{ paddingLeft: `${15 + item.depth * 16}px` }}
+                onClick={() => handleSelect(item.id)}
+                title={item.name}
+              >
+                {item.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

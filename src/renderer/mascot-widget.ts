@@ -1,11 +1,10 @@
-// @ts-nocheck
 import yumeSmug from '../../assets/yume_smug.png';
 import yumeBonked from '../../assets/yume_bonked.png';
 import yumeBonkedTooMuch from '../../assets/yume_bonkedtoomuch.png';
 import bonkEffectImg from '../../assets/BONK.png';
 import squeakerSound from '../../assets/squeaker.mp3';
 import metalPipeSound from '../../assets/metal-pipe.mp3';
-import { getNextShuffledIndex } from './features/hide-and-seek';
+import type { UiStorageAdapter } from './state/ui-runtime-state';
 
 export interface MascotController {
     init(): void;
@@ -17,20 +16,34 @@ export interface MascotController {
     setSound(soundKey: string): void;
     setVolume(volumePercent: number | string): void;
     resetPosition(): void;
+    playBonkSound(): void;
+    spawnBonkImpact(clickX?: number, clickY?: number): void;
+    returnFromHideAndSeek(streak: number, accumulatedMs: number): void;
 }
 
-const IMAGES = {
+export interface MascotWidgetOptions {
+    widgetEl: HTMLElement | null;
+    imgEl: HTMLImageElement | null;
+    contextMenuEl?: HTMLElement | null;
+    getStrings?: () => Record<string, any> | null | undefined;
+    getLanguage?: () => string;
+    onBonk?: (quote: string) => void;
+    onRecoverSmug?: () => void;
+    storage?: UiStorageAdapter;
+}
+
+const IMAGES: Record<'smug' | 'bonked' | 'bonkedTooMuch', string> = {
     smug: yumeSmug,
     bonked: yumeBonked,
     bonkedTooMuch: yumeBonkedTooMuch
 };
 
-const SOUNDS = {
+const SOUNDS: Record<string, string> = {
     squeaker: squeakerSound,
     'metal-pipe': metalPipeSound
 };
 
-const DEFAULT_BONK_QUOTES = [
+const DEFAULT_BONK_QUOTES: string[] = [
     'OIIIIIIII!!!',
     'Ugh!',
     'Poor me :(',
@@ -42,23 +55,56 @@ const DEFAULT_BONK_QUOTES = [
     '???'
 ];
 
+export function getNextShuffledIndex(
+    storageKey: string,
+    totalCount: number,
+    storage?: UiStorageAdapter
+): number {
+    if (totalCount <= 1) return 0;
+    const store = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+    let deck: number[] = [];
+    try {
+        const raw = store?.getItem(storageKey);
+        if (raw) {
+            const parsed: unknown = JSON.parse(raw);
+            if (
+                Array.isArray(parsed) &&
+                parsed.every((n): n is number => typeof n === 'number' && n >= 0 && n < totalCount)
+            ) {
+                deck = parsed;
+            }
+        }
+    } catch {
+        deck = [];
+    }
+
+    if (deck.length === 0) {
+        deck = Array.from({ length: totalCount }, (_, i) => i);
+        // Fisher-Yates shuffle
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+    }
+
+    const nextIndex = deck.pop() ?? 0;
+    try {
+        store?.setItem(storageKey, JSON.stringify(deck));
+    } catch {
+        // Ignore storage errors
+    }
+    return nextIndex;
+}
+
 export function createMascotWidget({
     widgetEl,
     imgEl,
     contextMenuEl,
     getStrings,
-    getLanguage,
     onBonk,
-    onRecoverSmug
-}: {
-    widgetEl: HTMLElement | null;
-    imgEl: HTMLImageElement | null;
-    contextMenuEl?: HTMLElement | null;
-    getStrings?: () => any;
-    getLanguage?: () => string;
-    onBonk?: (quote: string) => void;
-    onRecoverSmug?: () => void;
-}): MascotController {
+    onRecoverSmug,
+    storage
+}: MascotWidgetOptions): MascotController {
     if (!widgetEl || !imgEl) {
         return {
             init: () => {},
@@ -69,9 +115,17 @@ export function createMascotWidget({
             setScale: () => {},
             setSound: () => {},
             setVolume: () => {},
-            resetPosition: () => {}
+            resetPosition: () => {},
+            playBonkSound: () => {},
+            spawnBonkImpact: () => {},
+            returnFromHideAndSeek: () => {}
         };
     }
+
+    const store: UiStorageAdapter | undefined =
+        storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+    const widget = widgetEl;
+    const img = imgEl;
 
     let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
     let secondaryRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -98,11 +152,11 @@ export function createMascotWidget({
     let elemStartX = 0;
     let elemStartY = 0;
 
-    // Preload images into memory for instant zero-latency swap
-    [...Object.values(IMAGES), bonkEffectImg].forEach((src) => {
-        const preloader = new Image();
-        preloader.src = src;
-    });
+    let resetBtnEl: Element | null = null;
+    const onResetBtnClick = (e: Event) => {
+        e.stopPropagation();
+        resetPosition();
+    };
 
     function playBonkSound() {
         if (activeAudio) {
@@ -142,7 +196,7 @@ export function createMascotWidget({
     function getRandomBonkedQuote(): string {
         const d = typeof getStrings === 'function' ? getStrings() : {};
         const pool = Array.isArray(d?.mascot_bonk_quotes) && d.mascot_bonk_quotes.length > 0 ? d.mascot_bonk_quotes : DEFAULT_BONK_QUOTES;
-        const index = getNextShuffledIndex('yumeshelf_deck_bonked_quotes', pool.length);
+        const index = getNextShuffledIndex('yumeshelf_deck_bonked_quotes', pool.length, store);
         return pool[index % pool.length] || 'OIIIIIIII!!!';
     }
 
@@ -159,7 +213,7 @@ export function createMascotWidget({
     }
 
     function clampAndApplyPosition(x: number, y: number, save = true) {
-        const rect = widgetEl.getBoundingClientRect();
+        const rect = widget.getBoundingClientRect();
         const width = rect.width || 200;
         const height = rect.height || 200;
 
@@ -172,20 +226,20 @@ export function createMascotWidget({
         posX = clampedX;
         posY = clampedY;
 
-        widgetEl.style.left = `${clampedX}px`;
-        widgetEl.style.top = `${clampedY}px`;
-        widgetEl.style.right = 'auto';
-        widgetEl.style.bottom = 'auto';
+        widget.style.left = `${clampedX}px`;
+        widget.style.top = `${clampedY}px`;
+        widget.style.right = 'auto';
+        widget.style.bottom = 'auto';
 
         if (save) {
-            localStorage.setItem('yumeshelf_mascot_x', String(clampedX));
-            localStorage.setItem('yumeshelf_mascot_y', String(clampedY));
+            store?.setItem('yumeshelf_mascot_x', String(clampedX));
+            store?.setItem('yumeshelf_mascot_y', String(clampedY));
         }
     }
 
     function restoreSavedPosition() {
-        const savedX = localStorage.getItem('yumeshelf_mascot_x');
-        const savedY = localStorage.getItem('yumeshelf_mascot_y');
+        const savedX = store?.getItem('yumeshelf_mascot_x') ?? null;
+        const savedY = store?.getItem('yumeshelf_mascot_y') ?? null;
 
         if (savedX !== null && savedY !== null) {
             const parsedX = Number.parseFloat(savedX);
@@ -199,21 +253,21 @@ export function createMascotWidget({
         // Default: docked bottom-right
         posX = null;
         posY = null;
-        widgetEl.style.left = '';
-        widgetEl.style.top = '';
-        widgetEl.style.right = '';
-        widgetEl.style.bottom = '';
+        widget.style.left = '';
+        widget.style.top = '';
+        widget.style.right = '';
+        widget.style.bottom = '';
     }
 
     function resetPosition() {
         posX = null;
         posY = null;
-        localStorage.removeItem('yumeshelf_mascot_x');
-        localStorage.removeItem('yumeshelf_mascot_y');
-        widgetEl.style.left = '';
-        widgetEl.style.top = '';
-        widgetEl.style.right = '';
-        widgetEl.style.bottom = '';
+        store?.removeItem('yumeshelf_mascot_x');
+        store?.removeItem('yumeshelf_mascot_y');
+        widget.style.left = '';
+        widget.style.top = '';
+        widget.style.right = '';
+        widget.style.bottom = '';
         closeContextMenu();
     }
 
@@ -224,7 +278,7 @@ export function createMascotWidget({
     }
 
     function spawnBonkImpact(clickX?: number, clickY?: number) {
-        const rect = widgetEl.getBoundingClientRect();
+        const rect = widget.getBoundingClientRect();
 
         let cx = clickX;
         let cy = clickY;
@@ -396,22 +450,22 @@ export function createMascotWidget({
             onBonk(quote);
         }
 
-        // Increment persistent bonk counter in localStorage
-        const prevCount = Number.parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
-        localStorage.setItem('yumeshelf_mascot_bonk_count', String(prevCount + 1));
+        // Increment persistent bonk counter in storage
+        const prevCount = Number.parseInt(store?.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+        store?.setItem('yumeshelf_mascot_bonk_count', String(prevCount + 1));
 
         // Retrigger 0.5s bonk squash animation smoothly
-        widgetEl.classList.remove('bonk-animating');
-        const _reflow = widgetEl.offsetWidth; // Trigger DOM reflow cleanly without void operator
+        widget.classList.remove('bonk-animating');
+        const _reflow = widget.offsetWidth; // Trigger DOM reflow cleanly without void operator
         if (_reflow >= 0) {
-            widgetEl.classList.add('bonk-animating');
+            widget.classList.add('bonk-animating');
         }
 
         if (animEndTimer) {
             clearTimeout(animEndTimer);
         }
         animEndTimer = setTimeout(() => {
-            widgetEl.classList.remove('bonk-animating');
+            widget.classList.remove('bonk-animating');
         }, 500);
     }
 
@@ -424,11 +478,11 @@ export function createMascotWidget({
         dragStartX = event.clientX;
         dragStartY = event.clientY;
 
-        const rect = widgetEl.getBoundingClientRect();
+        const rect = widget.getBoundingClientRect();
         elemStartX = rect.left;
         elemStartY = rect.top;
 
-        widgetEl.setPointerCapture(event.pointerId);
+        widget.setPointerCapture(event.pointerId);
     }
 
     function onPointerMove(event: PointerEvent) {
@@ -440,7 +494,7 @@ export function createMascotWidget({
 
         if (!isDragging && distance >= 5) {
             isDragging = true;
-            widgetEl.classList.add('is-dragging');
+            widget.classList.add('is-dragging');
             setMascotState('bonked'); // Expressive bonked face while being dragged
             clearRecoveryTimers();
         }
@@ -457,14 +511,14 @@ export function createMascotWidget({
         isPointerDown = false;
 
         try {
-            widgetEl.releasePointerCapture(event.pointerId);
+            widget.releasePointerCapture(event.pointerId);
         } catch {
             // Ignore if pointer capture was already lost
         }
 
         if (isDragging) {
             isDragging = false;
-            widgetEl.classList.remove('is-dragging');
+            widget.classList.remove('is-dragging');
 
             // Save final clamped coordinates
             if (posX !== null && posY !== null) {
@@ -510,7 +564,7 @@ export function createMascotWidget({
         contextMenuEl.style.top = `${top}px`;
 
         // Update persistent bonked counter text
-        const bonkCount = Number.parseInt(localStorage.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
+        const bonkCount = Number.parseInt(store?.getItem('yumeshelf_mascot_bonk_count') || '0', 10);
         const counterEl = contextMenuEl.querySelector('#mascot-menu-counter');
         if (counterEl) {
             const strings = typeof getStrings === 'function' ? getStrings() : null;
@@ -547,7 +601,7 @@ export function createMascotWidget({
 
     function onDocumentClick(event: MouseEvent) {
         if (contextMenuEl && contextMenuEl.style.display !== 'none') {
-            if (!contextMenuEl.contains(event.target as Node) && !widgetEl.contains(event.target as Node)) {
+            if (!contextMenuEl.contains(event.target as Node) && !widget.contains(event.target as Node)) {
                 closeContextMenu();
             }
         }
@@ -564,11 +618,11 @@ export function createMascotWidget({
     }
 
     function show() {
-        widgetEl.classList.remove('hidden');
+        widget.classList.remove('hidden');
     }
 
     function hide() {
-        widgetEl.classList.add('hidden');
+        widget.classList.add('hidden');
         closeContextMenu();
     }
 
@@ -583,7 +637,7 @@ export function createMascotWidget({
     function setScale(scalePercent: number | string) {
         const parsed = Number(scalePercent);
         currentScale = Number.isFinite(parsed) && parsed > 0 ? Math.min(100, Math.max(25, parsed)) : 100;
-        widgetEl.style.setProperty('--mascot-scale', String(currentScale / 100));
+        widget.style.setProperty('--mascot-scale', String(currentScale / 100));
 
         // Re-clamp position after scale change to ensure bounds safety
         if (posX !== null && posY !== null) {
@@ -601,7 +655,7 @@ export function createMascotWidget({
     }
 
     function returnFromHideAndSeek(streak: number, accumulatedMs: number) {
-        const isShow = localStorage.getItem('yumeshelf_mascot_show') !== 'off';
+        const isShow = store?.getItem('yumeshelf_mascot_show') !== 'off';
         if (isShow) {
             show();
         }
@@ -621,11 +675,19 @@ export function createMascotWidget({
 
     return {
         init: () => {
-            // Set initial state from localStorage
-            const initialShow = localStorage.getItem('yumeshelf_mascot_show') !== 'off';
-            const initialScale = localStorage.getItem('yumeshelf_mascot_scale') || '30';
-            const initialSound = localStorage.getItem('yumeshelf_mascot_sound') || 'squeaker';
-            const initialVolume = localStorage.getItem('yumeshelf_mascot_volume') ?? '20';
+            // Defer image preloading to explicit init() call
+            if (typeof Image !== 'undefined') {
+                [...Object.values(IMAGES), bonkEffectImg].forEach((src) => {
+                    const preloader = new Image();
+                    preloader.src = src;
+                });
+            }
+
+            // Set initial state from storage
+            const initialShow = store?.getItem('yumeshelf_mascot_show') !== 'off';
+            const initialScale = store?.getItem('yumeshelf_mascot_scale') || '30';
+            const initialSound = store?.getItem('yumeshelf_mascot_sound') || 'squeaker';
+            const initialVolume = store?.getItem('yumeshelf_mascot_volume') ?? '20';
 
             setVisible(initialShow);
             setScale(initialScale);
@@ -635,11 +697,11 @@ export function createMascotWidget({
             restoreSavedPosition();
             setMascotState('smug');
 
-            widgetEl.addEventListener('pointerdown', onPointerDown);
-            widgetEl.addEventListener('pointermove', onPointerMove);
-            widgetEl.addEventListener('pointerup', onPointerUp);
-            widgetEl.addEventListener('pointercancel', onPointerUp);
-            widgetEl.addEventListener('contextmenu', onContextMenu);
+            widget.addEventListener('pointerdown', onPointerDown);
+            widget.addEventListener('pointermove', onPointerMove);
+            widget.addEventListener('pointerup', onPointerUp);
+            widget.addEventListener('pointercancel', onPointerUp);
+            widget.addEventListener('contextmenu', onContextMenu);
 
             window.addEventListener('resize', handleWindowResize);
             document.addEventListener('click', onDocumentClick);
@@ -647,32 +709,45 @@ export function createMascotWidget({
 
             // Context menu reset button
             if (contextMenuEl) {
-                const resetBtn = contextMenuEl.querySelector('#mascot-menu-reset-btn');
-                if (resetBtn) {
-                    resetBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        resetPosition();
-                    });
+                resetBtnEl = contextMenuEl.querySelector('#mascot-menu-reset-btn');
+                if (resetBtnEl) {
+                    resetBtnEl.addEventListener('click', onResetBtnClick);
                 }
             }
         },
         destroy: () => {
             clearRecoveryTimers();
-            if (animEndTimer) clearTimeout(animEndTimer);
+            if (animEndTimer) {
+                clearTimeout(animEndTimer);
+                animEndTimer = null;
+            }
             if (activeAudio) {
                 try {
                     activeAudio.pause();
                 } catch {}
+                activeAudio = null;
             }
-            widgetEl.removeEventListener('pointerdown', onPointerDown);
-            widgetEl.removeEventListener('pointermove', onPointerMove);
-            widgetEl.removeEventListener('pointerup', onPointerUp);
-            widgetEl.removeEventListener('pointercancel', onPointerUp);
-            widgetEl.removeEventListener('contextmenu', onContextMenu);
+            isPointerDown = false;
+            isDragging = false;
+            currentStreak = 0;
+            stage2EndTime = 0;
+            rapidClicksDuringCooldown = [];
+            closeContextMenu();
+
+            widget.removeEventListener('pointerdown', onPointerDown);
+            widget.removeEventListener('pointermove', onPointerMove);
+            widget.removeEventListener('pointerup', onPointerUp);
+            widget.removeEventListener('pointercancel', onPointerUp);
+            widget.removeEventListener('contextmenu', onContextMenu);
 
             window.removeEventListener('resize', handleWindowResize);
             document.removeEventListener('click', onDocumentClick);
             document.removeEventListener('keydown', onDocumentKeyDown);
+
+            if (resetBtnEl) {
+                resetBtnEl.removeEventListener('click', onResetBtnClick);
+                resetBtnEl = null;
+            }
         },
         show,
         hide,

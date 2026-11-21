@@ -80,16 +80,16 @@ todo
 - Unit tests asserting cards and search items do not have `draggable="true"` or native drag listeners attached.
 
 ## Acceptance Criteria
-- [ ] Strip drag-math and flip-animation imports and module dependencies from `src/renderer/drag-drop-grid.ts`.
-- [ ] Remove all `getBoundingClientRect()` layout-thrashing loops and inline transform style mutations in `src/renderer/drag-drop-grid.ts`.
-- [ ] Stub legacy drag coordinator as a safe no-op with clear TODO referencing Epic 09 (@dnd-kit).
-- [ ] Permanently delete `src/renderer/utils/drag-math.ts` and `src/renderer/utils/flip-animation.ts`.
-- [ ] Delete secondary Web Animations API FLIP engine in `library-grid.ts` (`captureCardRects`, `animateReorderedCards`).
-- [ ] Remove native HTML5 drag event listeners and `draggable` attributes from `src/renderer/game-cards.ts`.
-- [ ] Remove native HTML5 drag event listeners, `draggable` attributes, and `suppressNextClick` hack from `src/renderer/stack-cards.ts`.
-- [ ] Remove `item.draggable` and native `ondragstart`/`ondragend` listeners from search result items in `src/renderer/search.ts`.
-- [ ] Execute automated verification `npm run test:vitest -- src/renderer/game-cards-cleanup.test.ts`.
-- [ ] Unit tests in `src/renderer/game-cards-cleanup.test.ts` pass verifying clean card and search item markup.
+- [x] Strip drag-math and flip-animation imports and module dependencies from `src/renderer/drag-drop-grid.ts`.
+- [x] Remove all `getBoundingClientRect()` layout-thrashing loops and inline transform style mutations in `src/renderer/drag-drop-grid.ts`.
+- [x] Stub legacy drag coordinator as a safe no-op with clear TODO referencing Epic 09 (@dnd-kit).
+- [x] Permanently delete `src/renderer/utils/drag-math.ts` and `src/renderer/utils/flip-animation.ts`.
+- [x] Delete secondary Web Animations API FLIP engine in `library-grid.ts` (`captureCardRects`, `animateReorderedCards`).
+- [x] Remove native HTML5 drag event listeners and `draggable` attributes from `src/renderer/game-cards.ts`.
+- [x] Remove native HTML5 drag event listeners, `draggable` attributes, and `suppressNextClick` hack from `src/renderer/stack-cards.ts`.
+- [x] Remove `item.draggable` and native `ondragstart`/`ondragend` listeners from search result items in `src/renderer/search.ts`.
+- [x] Execute automated verification `npm run test:vitest -- src/renderer/game-cards-cleanup.test.ts`.
+- [x] Unit tests in `src/renderer/game-cards-cleanup.test.ts` pass verifying clean card and search item markup.
 - [ ] Verify `npm run typecheck` and `npm run test:vitest` pass cleanly with zero broken imports.
 
 ## Verification Command

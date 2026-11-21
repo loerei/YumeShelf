@@ -150,7 +150,8 @@ export class TincDoubleAesJsonSaveCodec {
     } catch (err: any) {
       throw new SaveCodecError(
         `Failed to decode base64 outer payload: ${err.message}`,
-        'PARSE_FAILED'
+        'PARSE_FAILED',
+        { cause: err }
       );
     }
 
@@ -168,7 +169,8 @@ export class TincDoubleAesJsonSaveCodec {
     } catch (err: any) {
       throw new SaveCodecError(
         `Failed to decrypt outer AES-256-CBC: ${err.message}`,
-        'PARSE_FAILED'
+        'PARSE_FAILED',
+        { cause: err }
       );
     }
 
@@ -178,7 +180,8 @@ export class TincDoubleAesJsonSaveCodec {
     } catch (err: any) {
       throw new SaveCodecError(
         `Failed to parse outer JSON payload: ${err.message}`,
-        'PARSE_FAILED'
+        'PARSE_FAILED',
+        { cause: err }
       );
     }
 
@@ -206,7 +209,8 @@ export class TincDoubleAesJsonSaveCodec {
       } catch (err: any) {
         throw new SaveCodecError(
           `Failed to decrypt inner string field: ${err.message}`,
-          'PARSE_FAILED'
+          'PARSE_FAILED',
+          { cause: err }
         );
       }
     }
@@ -280,7 +284,8 @@ export class TincDoubleAesJsonSaveCodec {
       } catch (err: any) {
         throw new SaveCodecError(
           `Failed to encrypt inner string field: ${err.message}`,
-          'PARSE_FAILED'
+          'PARSE_FAILED',
+          { cause: err }
         );
       }
     }
@@ -342,7 +347,8 @@ export class TincDoubleAesJsonSaveCodec {
     } catch (err: any) {
       throw new SaveCodecError(
         `Failed to encrypt outer AES-256-CBC: ${err.message}`,
-        'PARSE_FAILED'
+        'PARSE_FAILED',
+        { cause: err }
       );
     }
 

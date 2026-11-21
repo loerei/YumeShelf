@@ -41,7 +41,8 @@
     "compile:release-notes": "node scripts/compile-release-notes.js",
     "compile:release-notes:release": "node scripts/compile-release-notes.js --release",
     "typecheck": "tsc --noEmit",
-    "test:vitest": "npx vitest run",
+    "test:vitest": "vitest run",
+    "verify:no-ts-nocheck": "node -e \"try { const out = require('child_process').execSync('git grep -n @ts-nocheck src/').toString(); console.error('Found @ts-nocheck:\\n' + out); process.exit(1); } catch (e) { if (e.status === 1) process.exit(0); throw e; }\"",
     "test:node": "node --test \"tests/*.test.js\"",
     "test:single": "node --test",
     "test:icon-sim": "electron .devutil/icon-pipeline-sim",
@@ -141,10 +142,18 @@
     }
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.5.2",
     "@types/dotenv": "^6.1.1",
     "@types/electron": "^1.4.38",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.9.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/use-sync-external-store": "^1.7.0",
+    "@vitejs/plugin-react": "^6.0.0",
     "builder-util-runtime": "^9.7.0",
     "concurrently": "^9.2.1",
     "copyfiles": "^2.4.1",
@@ -152,13 +161,16 @@
     "electron": "^29.0.0",
     "electron-builder": "^26.8.1",
     "esbuild": "^0.28.0",
+    "happy-dom": "^21.0.4",
     "nodemon": "^3.1.14",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.13",
+    "vitest": "^5.1.1",
     "web-tree-sitter": "^0.20.8"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.26",
     "@yumeshelf/engine": "workspace:*",
     "argparse": "^2.0.1",
     "builder-util-runtime": "^9.2.9",
@@ -174,9 +186,12 @@
     "lodash.escaperegexp": "^4.1.2",
     "lodash.isequal": "^4.5.0",
     "ms": "^2.1.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "sax": "^1.4.1",
     "semver": "^7.7.4",
     "tiny-typed-emitter": "^2.1.0",
-    "universalify": "^2.0.1"
+    "universalify": "^2.0.1",
+    "use-sync-external-store": "^1.7.0"
   }
 }

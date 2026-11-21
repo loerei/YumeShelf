@@ -1,6 +1,8 @@
 import * as path from 'node:path';
 import * as fsSync from 'node:fs';
-import { BrowserWindow, Tray, Menu, ipcMain, session } from 'electron';
+import { fileURLToPath } from 'node:url';
+import { BrowserWindow, Tray, Menu, ipcMain, session, shell, dialog } from 'electron';
+import { sanitizeUserPaths } from '../../shared/path-sanitizer';
 
 let tray: Tray | null = null;
 let minimizeToTray = false;
@@ -8,6 +10,15 @@ let isQuitting = false;
 let mainWindow: BrowserWindow | null = null;
 let pathsConfig: any = null;
 let electronApp: any = null;
+
+export function _resetMainWindowStateForTesting(): void {
+    isQuitting = false;
+    minimizeToTray = false;
+    tray = null;
+    mainWindow = null;
+    pathsConfig = null;
+    electronApp = null;
+}
 
 function createTrayIcon(): void {
     if (tray) return;
@@ -49,7 +60,7 @@ function createTrayIcon(): void {
             }
         });
     } catch (e) {
-        console.error('[TRAY] Failed to initialize tray:', e);
+        console.error('[TRAY] Failed to initialize tray:', sanitizeUserPaths(e instanceof Error ? (e.stack || e.message) : e));
     }
 }
 
@@ -58,7 +69,7 @@ function destroyTrayIcon(): void {
         try {
             tray.destroy();
         } catch (e) {
-            console.error('[TRAY] Failed to destroy tray:', e);
+            console.error('[TRAY] Failed to destroy tray:', sanitizeUserPaths(e instanceof Error ? (e.stack || e.message) : e));
         }
         tray = null;
     }
@@ -113,7 +124,10 @@ export function probeWritableDir(dirPath: string) {
 
 export function logStartupDiagnostics(app: any): void {
     const summary = startupPathSummary(app);
-    console.log(`[MAIN][STARTUP] path summary=${JSON.stringify(summary)}`);
+    const sanitizedSummary = Object.fromEntries(
+        Object.entries(summary).map(([key, val]) => [key, sanitizeUserPaths(val)])
+    );
+    console.log(`[MAIN][STARTUP] path summary=${JSON.stringify(sanitizedSummary)}`);
 
     const dirsToProbe: [string, string][] = [
         ['userData', summary.userData],
@@ -124,7 +138,10 @@ export function logStartupDiagnostics(app: any): void {
     for (const [label, dirPath] of dirsToProbe) {
         const exists = fsSync.existsSync(dirPath);
         const probe = probeWritableDir(dirPath);
-        console.log(`[MAIN][STARTUP] dir probe ${label} exists=${exists} result=${JSON.stringify(probe)} path=${dirPath}`);
+        const sanitizedProbe = probe.ok
+            ? probe
+            : { ok: false, error: sanitizeUserPaths(probe.error) };
+        console.log(`[MAIN][STARTUP] dir probe ${label} exists=${exists} result=${JSON.stringify(sanitizedProbe)} path=${sanitizeUserPaths(dirPath)}`);
     }
 }
 
@@ -132,13 +149,19 @@ export interface CreateMainWindowOptions {
     app: any;
     paths: any;
     launchedAfterUpdate: boolean;
+    platform?: NodeJS.Platform;
 }
 
 export function createMainWindow({
     app,
     paths,
-    launchedAfterUpdate
+    launchedAfterUpdate,
+    platform
 }: CreateMainWindowOptions): BrowserWindow {
+    isQuitting = false;
+    minimizeToTray = false;
+    tray = null;
+
     // Read initial DB config for minimizeToTray
     try {
         if (paths?.dbFile && fsSync.existsSync(paths.dbFile)) {
@@ -148,7 +171,7 @@ export function createMainWindow({
             }
         }
     } catch (e) {
-        console.error('[TRAY] Failed to read initial minimizeToTray config:', e);
+        console.error('[TRAY] Failed to read initial minimizeToTray config:', sanitizeUserPaths(e instanceof Error ? (e.stack || e.message) : e));
     }
 
     const startMinimized = process.argv.includes('--minimized');
@@ -162,7 +185,8 @@ export function createMainWindow({
         webPreferences: {
             preload: paths.preloadPath,
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            sandbox: true
         }
     });
 
@@ -175,7 +199,7 @@ export function createMainWindow({
             responseHeaders: {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
-                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://yumeshelf-telemetry.sayusumat.workers.dev https://translate.googleapis.com"
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
                 ]
             }
         });
@@ -186,8 +210,124 @@ export function createMainWindow({
             win.setTitle('YumeShelf (Develop)');
         }
     });
-    win.webContents.on('console-message', (_event, _level, message) => {
-        console.log(`[RENDERER-LOG] ${message}`);
+    win.webContents.on('console-message', (event, _level, message) => {
+        if (win.isDestroyed() || (event as any)?.sender?.isDestroyed?.()) return;
+        console.log(`[RENDERER-LOG] ${sanitizeUserPaths(message)}`);
+    });
+
+    const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+    let appOrigin: string | null = null;
+    if (devServerUrl) {
+        try {
+            appOrigin = new URL(devServerUrl).origin;
+        } catch {
+            appOrigin = null;
+        }
+    }
+
+    win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+        try {
+            const parsed = new URL(targetUrl);
+            if (['https:', 'http:'].includes(parsed.protocol)) {
+                void shell?.openExternal(parsed.href);
+            }
+        } catch (err) {
+            const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
+            console.warn('[MainWindow] Blocked malformed window open URL:', sanitizeUserPaths(targetUrl), sanitizedError);
+        }
+        return { action: 'deny' };
+    });
+
+    win.webContents.on('will-navigate', (event, navigationUrl) => {
+        try {
+            const parsed = new URL(navigationUrl);
+            if (appOrigin && parsed.origin === appOrigin) {
+                return;
+            }
+            if (parsed.protocol === 'file:' && pathsConfig?.indexHtmlPath) {
+                const rawTarget = path.normalize(fileURLToPath(parsed.href));
+                const rawAllowed = path.normalize(pathsConfig.indexHtmlPath);
+                const rawAllowedDir = path.dirname(rawAllowed);
+
+                const targetPlatform = platform ?? process.platform;
+                const isCaseInsensitive = targetPlatform === 'win32' || targetPlatform === 'darwin';
+                const targetPath = isCaseInsensitive ? rawTarget.toLowerCase() : rawTarget;
+                const allowedPath = isCaseInsensitive ? rawAllowed.toLowerCase() : rawAllowed;
+                const allowedDir = isCaseInsensitive ? rawAllowedDir.toLowerCase() : rawAllowedDir;
+
+                const boundary = allowedDir.endsWith(path.sep) ? allowedDir : `${allowedDir}${path.sep}`;
+                if (targetPath === allowedPath || targetPath.startsWith(boundary)) {
+                    return;
+                }
+            }
+            event.preventDefault();
+            if (['https:', 'http:'].includes(parsed.protocol)) {
+                void shell?.openExternal(parsed.href);
+            } else {
+                console.warn('[MainWindow] Blocked unauthorized navigation:', sanitizeUserPaths(navigationUrl));
+            }
+        } catch (err) {
+            event.preventDefault();
+            const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
+            console.warn('[MainWindow] Blocked malformed navigation URL:', sanitizeUserPaths(navigationUrl), sanitizedError);
+        }
+    });
+
+    win.webContents.on('render-process-gone', (_event, details) => {
+        const reason = details?.reason ?? 'unknown';
+        const exitCode = details?.exitCode ?? -1;
+        console.error('[MainWindow] Render process gone:', { reason, exitCode });
+
+        // 1. Normal shutdown suppression
+        if (isQuitting) {
+            return;
+        }
+
+        // 2. Clean exit handling
+        if (reason === 'clean-exit') {
+            app.quit();
+            return;
+        }
+
+        // 3. Unexpected crash handling
+        destroyTrayIcon();
+        mainWindow = null;
+        try {
+            if (!win.isDestroyed()) {
+                win.destroy();
+            }
+        } catch (destroyErr) {
+            console.error('[MainWindow] Error destroying crashed window:', {
+                error: sanitizeUserPaths(destroyErr instanceof Error ? destroyErr.message : destroyErr),
+                stack: destroyErr instanceof Error && destroyErr.stack ? sanitizeUserPaths(destroyErr.stack) : undefined,
+            });
+        }
+
+        try {
+            const choice = dialog.showMessageBoxSync({
+                type: 'error',
+                title: 'YumeShelf Renderer Crash',
+                message: 'The YumeShelf display process terminated unexpectedly.',
+                detail: `Reason: ${reason} (Exit Code: ${exitCode})\n\nWould you like to relaunch the application or exit?`,
+                buttons: ['Relaunch', 'Exit'],
+                defaultId: 0,
+                cancelId: 1,
+                noLink: true
+            });
+
+            if (choice === 0) {
+                app.relaunch();
+                app.exit(0);
+            } else {
+                app.quit();
+            }
+        } catch (dialogErr) {
+            console.error('[MainWindow] Failed to display crash recovery dialog:', {
+                error: sanitizeUserPaths(dialogErr instanceof Error ? dialogErr.message : dialogErr),
+                stack: dialogErr instanceof Error && dialogErr.stack ? sanitizeUserPaths(dialogErr.stack) : undefined,
+            });
+            app.quit();
+        }
     });
 
     mainWindow = win;

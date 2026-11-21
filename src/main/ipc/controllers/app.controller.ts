@@ -1,5 +1,6 @@
 import * as fsSync from 'node:fs';
 import { RegisterIpcOptions } from '../types';
+import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
 
 export type DevAutoLaunchState = 'off' | 'on' | 'minimized';
 
@@ -89,11 +90,33 @@ export class AppIpcController {
 
         ipcMain.handle('open-external-url', async (_event, url: unknown) => {
             const normalizedUrl = typeof url === 'string' ? url.trim() : '';
-            if (!/^https?:\/\//i.test(normalizedUrl)) {
+            if (!normalizedUrl) {
                 return { ok: false, reason: 'invalid-url' };
             }
-            await shell?.openExternal(normalizedUrl);
-            return { ok: true };
+
+            let parsed: URL;
+            try {
+                parsed = new URL(normalizedUrl);
+            } catch {
+                console.warn('[IPC][app:open-external-url] Blocked malformed URL:', sanitizeUserPaths(normalizedUrl));
+                return { ok: false, reason: 'invalid-url' };
+            }
+
+            if (!['https:', 'http:'].includes(parsed.protocol)) {
+                console.warn('[IPC][app:open-external-url] Blocked unauthorized protocol:', sanitizeUserPaths(normalizedUrl));
+                return { ok: false, reason: 'unauthorized-protocol' };
+            }
+
+            try {
+                await shell?.openExternal(parsed.href);
+                return { ok: true };
+            } catch (openErr) {
+                console.warn(
+                    '[IPC][app:open-external-url] Failed to open external URL:',
+                    sanitizeUserPaths(openErr instanceof Error ? openErr.message : String(openErr))
+                );
+                return { ok: false, reason: 'open-failed' };
+            }
         });
 
         ipcMain.handle('update:check', async () => appUpdateServices?.checkForAppUpdate());

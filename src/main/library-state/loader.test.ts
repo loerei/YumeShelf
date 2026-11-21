@@ -546,7 +546,7 @@ describe('loader.ts - Canonical Loader Subsumption Reconciliation & Continuity (
             'D:/Games/Game1/Game.exe': { isDir: false, content: 'exe' }
         });
 
-        const saveFn = vi.fn(async () => {});
+        const saveFn = vi.fn(async (_db: any) => {});
         const context = {
             fs,
             fsSync,
@@ -809,7 +809,7 @@ describe('loader.ts - Canonical Loader Subsumption Reconciliation & Continuity (
             }
         };
 
-        const saveFn = vi.fn(async () => {});
+        const saveFn = vi.fn(async (_db: any) => {});
         const context = {
             fs,
             fsSync,
@@ -841,7 +841,7 @@ describe('loader.ts - Canonical Loader Subsumption Reconciliation & Continuity (
         });
 
         let degraded = false;
-        const saveFn = vi.fn(async () => {});
+        const saveFn = vi.fn(async (_db: any) => {});
         let loadCount = 0;
         const context = {
             fs,
@@ -889,7 +889,8 @@ describe('loader.ts - Canonical Loader Subsumption Reconciliation & Continuity (
 
         const sizeSpy = vi.spyOn(YumeEngine, 'calculateDirectorySize').mockResolvedValue({
             sizeBytes: 12345,
-            mtimeMs: 2000
+            mtimeMs: 2000,
+            fileCount: 1
         });
 
         const context = {

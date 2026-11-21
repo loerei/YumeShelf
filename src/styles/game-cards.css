@@ -335,3 +335,75 @@ body.light-theme .fav-btn:hover {
     opacity: 0.2;
     mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
 }
+
+.game-card:focus-within .menu-btn,
+.menu-btn:focus-visible {
+    opacity: 1;
+}
+
+.fav-btn,
+.menu-btn {
+    border: none;
+    padding: 0;
+    font-family: inherit;
+}
+
+.fav-btn:focus-visible,
+.menu-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    opacity: 1;
+}
+
+/* EMPTY STATES (CLS = 0) */
+.library-empty-state,
+.filtered-empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 280px;
+    padding: 32px 24px;
+    gap: 12px;
+    color: var(--text-main);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.library-empty-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.library-empty-description {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-sub);
+    max-width: 440px;
+}
+
+.library-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.library-empty-error {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--hover-bg);
+    border: 1px solid var(--danger-btn-bg);
+    color: var(--text-main);
+    font-size: 13px;
+    max-width: 520px;
+}

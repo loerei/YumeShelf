@@ -1,96 +1,67 @@
-// @ts-nocheck
-import { createRendererComposition } from './renderer/bootstrap/app-composition.js';
-import { buildRendererRefs } from './renderer/bootstrap/dom-refs.js';
-import { bindControlEvents, bindGlobalUiEvents, bindWindowStatusEvents } from './renderer/events/global-events.js';
-import { bindIpcEvents } from './renderer/events/ipc-events.js';
-import { runRendererBootstrap } from './renderer/lifecycle/bootstrap.js';
-import { createUiRuntimeState } from './renderer/state/ui-runtime-state.js';
-import { initSaveEditorUI } from './renderer/save-editor-ui.js';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './renderer/App';
+import { bindIpcEvents } from './renderer/events/ipc-events';
+import {
+  createUiRuntimeState,
+  type UiStorageAdapter,
+} from './renderer/state/ui-runtime-state';
+import { migrateUiPreferences } from './renderer/state/ui-storage-migrations';
+import { registerGlobalErrorSanitizer } from './shared/path-sanitizer';
+import type { ElectronAPI } from './shared/types/ipc';
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const isStandaloneSaveEditor = urlParams.get('mode') === 'save-editor';
-    if (isStandaloneSaveEditor) {
-        document.body.classList.add('standalone-save-editor');
-        const gameKey = urlParams.get('gameKey');
-        const loadingEl = document.getElementById('loading');
-        if (loadingEl) {
-            loadingEl.style.display = 'none';
-        }
-        initSaveEditorUI();
-        window.showSaveEditor(gameKey, { isStandaloneWindow: true });
-        return;
-    }
+export interface InitRendererOptions {
+  container?: HTMLElement | null;
+  storage?: UiStorageAdapter;
+  electronAPI?: ElectronAPI;
+  targetWindow?: Window;
+}
 
-    const refs = buildRendererRefs(document);
-    const state = createUiRuntimeState();
-    const composition = createRendererComposition({
-        refs,
-        state,
-        electronAPI: window.electronAPI,
-        builtInLanguageOrder: ['en', 'ja', 'zh'],
-        dragRowTolerance: 15,
-        dragPointerSlop: 18
-    });
+export function initRenderer(options: InitRendererOptions = {}): () => void {
+  const targetWin =
+    options.targetWindow ?? (typeof window !== 'undefined' ? window : undefined);
+  const unregisterSanitizer = targetWin
+    ? registerGlobalErrorSanitizer(targetWin, '[Renderer]')
+    : undefined;
 
-    bindIpcEvents({
-        electronAPI: window.electronAPI,
-        bootController: composition.bootController,
-        updateNotificationFeature: composition.updateNotificationFeature,
-        getAllGames: () => state.getAllGames(),
-        getCurrentSort: () => state.getCurrentSort(),
-        setAllGames: composition.libraryRuntime.setAllGames,
-        setRunningFlag: (gameKey, isRunning) => {
-            const target = state.getAllGames().find((game) => (
-                game.gameId === gameKey
-                || game.gameKey === gameKey
-                || (Array.isArray(game.instances) && game.instances.some((instance) => (
-                    instance.gameId === gameKey
-                    || instance.gameKey === gameKey
-                )))
-            ));
-            if (target) {
-                target.isRunning = isRunning;
-            }
-        },
-        sortGames: (type) => composition.libraryRuntime.sortGames(type),
-        getStrings: composition.getStrings
-    });
+  const defaultStorage =
+    options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  if (defaultStorage) {
+    migrateUiPreferences(defaultStorage);
+  }
+  const store = createUiRuntimeState(defaultStorage);
+  const container =
+    options.container ??
+    (typeof document !== 'undefined' ? document.getElementById('react-root') : null);
+  if (!container) throw new Error('Failed to find #react-root container');
 
-    bindControlEvents({
-        refs,
-        settingsController: composition.settingsController,
-        localeController: composition.localeController,
-        languagePackController: composition.languagePackController,
-        startupController: composition.startupController,
-        quickFolderController: composition.quickFolderController,
-        searchController: composition.searchController,
-        sortGames: (type) => composition.libraryRuntime.sortGames(type),
-        reannotateGames: () => composition.libraryRuntime.reannotateGames(),
-        currentSort: () => state.getCurrentSort(),
-        setCurrentLanguage: (code) => composition.localeController.setCurrentLanguage(code)
-    });
-    bindGlobalUiEvents({
-        categoryFilterController: composition.categoryFilterController,
-        refs,
-        settingsController: composition.settingsController,
-        quickFolderController: composition.quickFolderController,
-        duplicateStackOverlayController: composition.duplicateStackOverlayController,
-        closeLanguagePackModal: () => composition.languagePackController.closeLanguagePackModal()
-    });
-    bindWindowStatusEvents(composition.uiTextController);
-    initSaveEditorUI();
+  const root = createRoot(container);
+  root.render(
+    React.createElement(App, {
+      store,
+      storage: defaultStorage,
+      electronAPI: options.electronAPI,
+    })
+  );
 
-    await runRendererBootstrap({
-        refs,
-        bootController: composition.bootController,
-        settingsController: composition.settingsController,
-        localeController: composition.localeController,
-        searchController: composition.searchController,
-        startupController: composition.startupController,
-        appUpdateController: composition.appUpdateController,
-        updateNotificationFeature: composition.updateNotificationFeature,
-        uiTextController: composition.uiTextController,
-        initApp: composition.initApp
-    });
-});
+  const unbindIpc = bindIpcEvents(store, options.electronAPI);
+
+  const beforeUnloadHandler = () => {
+    unbindIpc();
+  };
+  targetWin?.addEventListener('beforeunload', beforeUnloadHandler);
+
+  let disposed = false;
+  return () => {
+    if (disposed) return;
+    disposed = true;
+    targetWin?.removeEventListener('beforeunload', beforeUnloadHandler);
+    unbindIpc();
+    unregisterSanitizer?.();
+    root.unmount();
+  };
+}
+
+if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
+  initRenderer();
+}

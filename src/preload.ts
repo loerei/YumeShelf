@@ -27,8 +27,8 @@ const api: ElectronAPI = {
     getSaveFolder: (gameKey: string) => ipcRenderer.invoke('get-save-folder', gameKey),
     openSaveFolder: (gameKey: string) => ipcRenderer.invoke('save-folder:open', gameKey),
     selectSaveFolder: () => ipcRenderer.invoke('save-editor:select-directory'),
-    setSaveFolderOverride: (data: { gameKey: string; folderPath: string }) =>
-        ipcRenderer.invoke('save-editor:set-save-folder-override', data),
+    setSaveFolderOverride: (params: { gameKey: string; folderPath: string | null }) =>
+        ipcRenderer.invoke('save-editor:set-save-folder-override', params),
     toggleFavorite: (gameKey: string, targetFavorite?: boolean) =>
         ipcRenderer.invoke('toggle-favorite', gameKey, targetFavorite),
     toggleRunInBackground: (gameKey: string) => ipcRenderer.invoke('toggle-run-in-background', gameKey),
@@ -52,27 +52,47 @@ const api: ElectronAPI = {
     getLanguagePackManifest: () => ipcRenderer.invoke('get-language-pack-manifest'),
     installLanguagePack: (code: string) => ipcRenderer.invoke('install-language-pack', code),
     onBootStatus: (callback: (payload: any) => void) => {
-        ipcRenderer.on('boot-status', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('boot-status', handler);
+        return () => {
+            ipcRenderer.removeListener('boot-status', handler);
+        };
     },
     onAppUpdateStatus: (callback: (payload: any) => void) => {
-        ipcRenderer.on('app-update-status', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('app-update-status', handler);
+        return () => {
+            ipcRenderer.removeListener('app-update-status', handler);
+        };
     },
     onGameStopped: (callback: (payload: any) => void) => {
-        ipcRenderer.on('game-stopped', (_event, payload) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => {
             console.log(`[PRELOAD] Received game-stopped IPC for ${payload ? payload.gameKey : 'unknown'}`);
             callback(payload);
-        });
+        };
+        ipcRenderer.on('game-stopped', handler);
+        return () => {
+            ipcRenderer.removeListener('game-stopped', handler);
+        };
     },
     onGamePlaytimeUpdated: (callback: (payload: any) => void) => {
-        ipcRenderer.on('game-playtime-updated', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('game-playtime-updated', handler);
+        return () => {
+            ipcRenderer.removeListener('game-playtime-updated', handler);
+        };
     },
     onTranslationStatus: (callback: (payload: any) => void) => {
-        ipcRenderer.on('translation-status', (_event, payload) => callback(payload));
+        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+        ipcRenderer.on('translation-status', handler);
+        return () => {
+            ipcRenderer.removeListener('translation-status', handler);
+        };
     },
     // Save Editor
     listSaveFiles: (gameKey: string) => ipcRenderer.invoke('save-editor:list-files', gameKey),
-    loadSaveData: (data: any) => ipcRenderer.invoke('save-editor:load-data', data),
-    cancelLoadSaveData: (data: { gameKey: string; fileName: string }) => ipcRenderer.invoke('save-editor:cancel-load', data),
+    loadSaveData: (data: Parameters<ElectronAPI['loadSaveData']>[0]) => ipcRenderer.invoke('save-editor:load-data', data),
+    cancelLoadSaveData: (params: { gameKey: string; fileName: string }) => ipcRenderer.invoke('save-editor:cancel-load', params),
     onSaveLoadProgress: (callback: (payload: { gameKey: string; fileName: string; percent: number; current: number; total: number; unit: string; pos?: number; totalBytes?: number }) => void) => {
         const handler = (_event: any, payload: any) => callback(payload);
         ipcRenderer.on('save-editor:load-progress', handler);
@@ -80,13 +100,18 @@ const api: ElectronAPI = {
             ipcRenderer.removeListener('save-editor:load-progress', handler);
         };
     },
-    writeSaveData: (data: any) => ipcRenderer.invoke('save-editor:write-data', data),
+    writeSaveData: (data: Parameters<ElectronAPI['writeSaveData']>[0]) => ipcRenderer.invoke('save-editor:write-data', data),
     renameSaveFile: (data: any) => ipcRenderer.invoke('save-editor:rename-file', data),
     deleteSaveFile: (data: any) => ipcRenderer.invoke('save-editor:delete-file', data),
-    updateMapping: (data: any) => ipcRenderer.invoke('save-editor:update-mapping', data),
-    openSaveEditorWindow: (gameKey: string) => ipcRenderer.send('open-save-editor-window', gameKey),
+    openSaveEditorWindow: async (gameKey: string): Promise<void> => {
+        ipcRenderer.send('save-editor:open-window', gameKey);
+    },
+    translateBatch: (texts: string[], targetLang: string, options?: { timeoutMs?: number; maxBatchSize?: number; jobId?: string }) =>
+        ipcRenderer.invoke('save-editor:translate-batch', { texts, targetLang, options }),
+    cancelTranslateBatch: (params: { jobId: string }) =>
+        ipcRenderer.invoke('save-editor:cancel-translate', params),
     loadTranslations: (lang: string) => ipcRenderer.invoke('save-editor:load-translations', lang),
-    saveTranslations: (lang: string, translations: any) => ipcRenderer.invoke('save-editor:save-translations', { lang, translations }),
+    saveTranslations: (lang: string, translations: Record<string, string>) => ipcRenderer.invoke('save-editor:save-translations', { lang, translations }),
     // System Startup & Tray Settings
     isDev: () => ipcRenderer.invoke('is-dev'),
     setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke('set-auto-launch', enabled),

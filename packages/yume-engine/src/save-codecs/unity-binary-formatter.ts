@@ -49,7 +49,8 @@ export class UnityBinaryFormatterSaveCodec {
       if (err instanceof SaveCodecError) throw err;
       throw new SaveCodecError(
         `Failed to decode Unity binary save: ${err?.message || String(err)}`,
-        'PARSE_FAILED'
+        'PARSE_FAILED',
+        { cause: err }
       );
     } finally {
       await Promise.allSettled([
@@ -84,8 +85,9 @@ export class UnityBinaryFormatterSaveCodec {
     try {
       if (context?.options?.originalBuffer) {
         await fs.writeFile(tempBin, context.options.originalBuffer);
-      } else if (context?.options?.originalBinPath) {
-        await fs.copyFile(context.options.originalBinPath, tempBin);
+      } else if (context?.options?.originalBinPath || context?.options?.originalSavePath) {
+        const binPath = (context.options.originalBinPath ?? context.options.originalSavePath)!;
+        await fs.copyFile(binPath, tempBin);
       } else {
         await fs.writeFile(tempBin, Buffer.alloc(0));
       }
@@ -107,7 +109,8 @@ export class UnityBinaryFormatterSaveCodec {
       if (err instanceof SaveCodecError) throw err;
       throw new SaveCodecError(
         `Failed to encode Unity binary save: ${err?.message || String(err)}`,
-        'PARSE_FAILED'
+        'PARSE_FAILED',
+        { cause: err }
       );
     } finally {
       await Promise.allSettled([

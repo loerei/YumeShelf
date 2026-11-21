@@ -1,7 +1,8 @@
 .loading-overlay {
     position: fixed;
     inset: 0;
-    z-index: 6000;
+    z-index: var(--zIndex-overlay);
+    isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -116,5 +117,18 @@
 
     .loading-overlay[data-mode="update"] .loading-copy {
         min-width: 0;
+    }
+}
+
+.loading-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-spinner,
+    .loading-progress-bar {
+        animation: none;
     }
 }

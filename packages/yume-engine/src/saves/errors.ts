@@ -14,10 +14,13 @@ export type SaveCodecErrorCode =
 export class SaveCodecError extends Error {
   readonly code: SaveCodecErrorCode;
 
-  constructor(message: string, code: SaveCodecErrorCode) {
-    super(message);
+  constructor(message: string, code: SaveCodecErrorCode, options?: { cause?: unknown }) {
+    super(message, options);
     this.name = 'SaveCodecError';
     this.code = code;
+    if (options && 'cause' in options && this.cause === undefined) {
+      this.cause = options.cause;
+    }
     Object.setPrototypeOf(this, SaveCodecError.prototype);
   }
 }

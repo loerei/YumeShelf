@@ -2,7 +2,8 @@
     position: fixed;
     right: 28px;
     bottom: 28px;
-    z-index: 1600;
+    z-index: var(--zIndex-notification, 1800);
+    isolation: isolate;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -222,4 +223,110 @@
     .update-notification-actions .small-btn {
         width: 100%;
     }
+}
+
+.update-notification-actions .small-btn[aria-disabled="true"],
+.update-notification-dismiss[aria-disabled="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: default;
+}
+
+.update-notification-message.update-notification-error {
+    color: #ff6b6b;
+    font-size: 12px;
+    line-height: 1.4;
+    margin-top: 2px;
+}
+
+/* Translation Sync Banner */
+.translation-sync-banner {
+    pointer-events: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(352px, calc(100vw - 32px));
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    color: var(--text-main);
+    transition: border-color 0.2s ease;
+}
+
+.translation-sync-banner.is-error {
+    border-left: 3px solid #d32f2f;
+}
+
+.translation-sync-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.translation-sync-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.translation-sync-dismiss {
+    border: 0;
+    background: transparent;
+    color: var(--text-sub);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+}
+
+.translation-sync-dismiss:hover {
+    color: var(--text-main);
+}
+
+.translation-sync-dismiss:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.translation-progress-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.translation-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.2s ease;
+}
+
+.translation-sync-error {
+    margin: 0;
+    font-size: 12px;
+    color: #ff6b6b;
+    line-height: 1.4;
+}
+
+.translation-sync-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.translation-sync-actions .small-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
 }

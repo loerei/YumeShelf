@@ -1,0 +1,1457 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { ElectronAPI } from '../../../shared/types/ipc';
+import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
+import type { CategoryNode } from '../../domain/category-tree';
+import { flattenCategoryTree } from '../../domain/category-tree';
+import { annotateGamesForDisplay } from '../../game-annotations';
+import { useLibrarySelector, useLibraryStore } from '../../hooks/useLibraryState';
+import { useNotification } from '../../providers/NotificationProvider';
+import type { UiStorageAdapter } from '../../state/ui-runtime-state';
+import type { LibraryConfig } from '../../types/game';
+import { applyTheme } from '../../utils/theme';
+import { Modal } from './Modal';
+
+export interface MascotPreferences {
+  show: boolean;
+  scale: number;
+  sound: string;
+  volume: number;
+}
+
+export interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  fallbackFocusRef?: React.RefObject<HTMLElement | null>;
+  electronAPI?: ElectronAPI;
+  storage?: UiStorageAdapter;
+  /** Optional timeout in ms for rescan inactivity watchdog (default: 30000ms; 0 disables) */
+  rescanInactivityTimeoutMs?: number;
+  /** Optional callback when library directories are modified */
+  onLibraryPathsUpdated?: (paths: string[]) => void;
+  /** Optional callback when category hierarchy is modified */
+  onCategoryTreeUpdated?: (tree: readonly CategoryNode[]) => void;
+  /** Declarative callback when mascot widget preferences are modified */
+  onMascotSettingsChanged?: (settings: MascotPreferences) => void;
+  /** Callback to open language pack modal */
+  onOpenLanguagePack?: () => void;
+  /** Callback to open about modal */
+  onOpenAbout?: () => void;
+}
+
+type SettingsTabId = 'general' | 'library' | 'updates' | 'system';
+type AsyncStatus = 'idle' | 'submitting' | 'success' | 'error';
+
+const SETTINGS_TABS: readonly { id: SettingsTabId; label: string }[] = [
+  { id: 'general', label: 'General' },
+  { id: 'library', label: 'Library & Categories' },
+  { id: 'updates', label: 'Updates' },
+  { id: 'system', label: 'System & Mascot' },
+];
+
+function getDefaultStorage(): UiStorageAdapter | undefined {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return window.localStorage;
+  }
+  return undefined;
+}
+
+function MaxDepthStepper({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const skipBlurCommitRef = useRef(false);
+
+  useEffect(() => {
+    skipBlurCommitRef.current = false;
+    setDraft(String(value));
+  }, [value]);
+
+  const handleCommit = (fromEnter = false) => {
+    const parsed = parseInt(draft, 10);
+    if (Number.isFinite(parsed)) {
+      skipBlurCommitRef.current = fromEnter;
+      const clamped = Math.min(12, Math.max(0, parsed));
+      setDraft(String(clamped));
+      if (clamped !== value) {
+        onChange(clamped);
+      }
+    } else {
+      skipBlurCommitRef.current = false;
+      setDraft(String(value));
+    }
+  };
+
+  const atMin = value <= 0;
+  const atMax = value >= 12;
+  return (
+    <div className="max-depth-stepper">
+      <button
+        type="button"
+        className="max-depth-stepper-btn"
+        title="Decrease max depth"
+        aria-label="Decrease max depth"
+        aria-disabled={atMin}
+        style={atMin ? { pointerEvents: 'none' } : undefined}
+        onClick={() => {
+          if (!atMin) onChange(Math.max(0, value - 1));
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 12h12" />
+        </svg>
+      </button>
+      <input
+        id="max-depth-input"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={2}
+        value={draft}
+        aria-label="Max scan depth"
+        onChange={(e) => {
+          skipBlurCommitRef.current = false;
+          setDraft(e.target.value);
+        }}
+        onBlur={() => {
+          if (skipBlurCommitRef.current) {
+            skipBlurCommitRef.current = false;
+            return;
+          }
+          handleCommit(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            handleCommit(true);
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="max-depth-stepper-btn"
+        title="Increase max depth"
+        aria-label="Increase max depth"
+        aria-disabled={atMax}
+        style={atMax ? { pointerEvents: 'none' } : undefined}
+        onClick={() => {
+          if (!atMax) onChange(Math.min(12, value + 1));
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 6v12" />
+          <path d="M6 12h12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+export function SettingsModal({
+  isOpen,
+  onClose,
+  fallbackFocusRef,
+  electronAPI,
+  storage,
+  rescanInactivityTimeoutMs,
+  onLibraryPathsUpdated,
+  onCategoryTreeUpdated,
+  onMascotSettingsChanged,
+  onOpenLanguagePack,
+  onOpenAbout,
+}: SettingsModalProps): React.JSX.Element {
+  const api = electronAPI ?? (typeof window !== 'undefined' ? window.electronAPI : undefined);
+  const resolvedStorage = storage ?? getDefaultStorage();
+
+  const store = useLibraryStore();
+  const config = useLibrarySelector((s) => s.currentLibraryConfig);
+  const categoryTree = useLibrarySelector((s) => s.categoryTree);
+  const locationDisplayMode = useLibrarySelector((s) => s.locationDisplayMode);
+  const { showToast } = useNotification();
+
+  const [activeTab, setActiveTab] = useState<SettingsTabId>('general');
+  const [appVersion, setAppVersion] = useState<string>('');
+
+  // General / Interface preferences
+  const [theme, setTheme] = useState<string>(() => resolvedStorage?.getItem('yumeshelf_theme') || 'system');
+  const [language, setLanguage] = useState<string>('en');
+  const [isUpdatingConfig, setIsUpdatingConfig] = useState(false);
+
+  // Updates preferences
+  const [appUpdateMode, setAppUpdateMode] = useState<string>(
+    () => resolvedStorage?.getItem('yumeshelf_app_updates_pref') || 'notify'
+  );
+  const [langPackUpdateMode, setLangPackUpdateMode] = useState<string>(
+    () => resolvedStorage?.getItem('yumeshelf_language_pack_updates_pref') || 'automatic'
+  );
+
+  // Mascot preferences
+  const [mascotShow, setMascotShow] = useState<boolean>(
+    () => (resolvedStorage?.getItem('yumeshelf_mascot_show') || 'on') === 'on'
+  );
+  const [mascotScale, setMascotScale] = useState<number>(() => {
+    const raw = Number(resolvedStorage?.getItem('yumeshelf_mascot_scale') || '30');
+    return Number.isFinite(raw) ? Math.min(100, Math.max(25, raw)) : 30;
+  });
+  const [mascotSound, setMascotSound] = useState<string>(
+    () => resolvedStorage?.getItem('yumeshelf_mascot_sound') || 'squeaker'
+  );
+  const [mascotVolume, setMascotVolume] = useState<number>(() => {
+    const raw = Number(resolvedStorage?.getItem('yumeshelf_mascot_volume') || '20');
+    return Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : 20;
+  });
+
+  // Library path & scan state
+  const [isMutating, setIsMutating] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isAddingGame, setIsAddingGame] = useState(false);
+
+  // Category creation state
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryCreateStatus, setCategoryCreateStatus] = useState<AsyncStatus>('idle');
+  const [categoryCreateError, setCategoryCreateError] = useState<string | null>(null);
+  const newCategoryInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Category rename state
+  const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
+  const [renameCategoryDraft, setRenameCategoryDraft] = useState('');
+  const [categoryRenameStatus, setCategoryRenameStatus] = useState<AsyncStatus>('idle');
+  const [categoryRenameError, setCategoryRenameError] = useState<string | null>(null);
+
+  // Category deletion confirmation state
+  const [pendingDeleteCategoryId, setPendingDeleteCategoryId] = useState<string | null>(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+  const [categoryDeleteError, setCategoryDeleteError] = useState<string | null>(null);
+
+  // Refs for deterministic focus retention & lifecycle guards
+  const categoryItemRefs = useRef(new Map<string, HTMLElement>());
+  const categoryListContainerRef = useRef<HTMLDivElement | null>(null);
+  const deleteTriggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const pathItemRefs = useRef(new Map<string, HTMLElement>());
+  const pathListContainerRef = useRef<HTMLDivElement | null>(null);
+  const rescanWatchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rescanTokenRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (rescanWatchdogTimerRef.current) {
+        clearTimeout(rescanWatchdogTimerRef.current);
+        rescanWatchdogTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    if (api?.getAppVersion) {
+      Promise.resolve(api.getAppVersion())
+        .then((ver) => {
+          if (active && isMountedRef.current && typeof ver === 'string') {
+            setAppVersion(ver);
+          }
+        })
+        .catch(() => {
+          // Non-critical metadata fetch
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [isOpen, api]);
+
+  useEffect(() => {
+    if (isCreatingCategory) {
+      newCategoryInputRef.current?.focus();
+    }
+  }, [isCreatingCategory]);
+
+  const flattenedCategories = useMemo(() => flattenCategoryTree(categoryTree), [categoryTree]);
+
+  const libraryPaths = config?.libraryPaths ?? [];
+  const maxDepth = typeof config?.maxDepth === 'number' ? config.maxDepth : 2;
+  const titleDisplayMode = config?.titleDisplayMode ?? 'metadata';
+  const displayProductCodes = Boolean(config?.displayProductCodes);
+  const autoLaunchValue =
+    config?.autoLaunch === 'minimized' ? 'minimized' : config?.autoLaunch ? 'on' : 'off';
+  const minimizeToTray = Boolean(config?.minimizeToTray);
+  const exposeBetaOptions = Boolean(config?.exposeBetaOptions);
+
+  // --- Handlers: General / Interface ---
+
+  const handleThemeChange = (nextTheme: string) => {
+    const resolved = applyTheme(nextTheme, resolvedStorage);
+    setTheme(resolved);
+    showToast('Theme updated');
+  };
+
+  const handleLocationDisplayModeChange = (nextMode: 'parent' | 'full') => {
+    resolvedStorage?.setItem('yumeshelf_location_display_mode', nextMode);
+    store.setLocationDisplayMode(nextMode);
+    const snapshot = store.getSnapshot();
+    store.setAllGames(
+      annotateGamesForDisplay(
+        [...snapshot.allGames],
+        snapshot.currentLibraryConfig ?? '',
+        nextMode
+      )
+    );
+    showToast('Location display updated');
+  };
+
+  const handleUpdateDisplayConfig = async (updates: {
+    titleDisplayMode?: 'metadata' | 'legacy_folder';
+    displayProductCodes?: boolean;
+  }) => {
+    if (isUpdatingConfig) return;
+    setIsUpdatingConfig(true);
+    try {
+      const updatedConfig = await api?.updateLibraryConfig?.(updates);
+      const nextConfig: LibraryConfig = updatedConfig ?? {
+        ...(config ?? {
+          libraryPaths: [],
+          libraryPath: '',
+          maxDepth: 2,
+          autoLaunch: false,
+          minimizeToTray: false,
+        }),
+        ...updates,
+      };
+      store.setCurrentLibraryConfig(nextConfig);
+      const rawGames = await api?.getGames?.();
+      if (Array.isArray(rawGames)) {
+        store.setAllGames(
+          annotateGamesForDisplay(
+            rawGames,
+            nextConfig,
+            store.getSnapshot().locationDisplayMode
+          )
+        );
+      }
+      showToast('Display settings updated');
+    } catch (err) {
+      console.error('[SettingsModal] Failed to update display config:', {
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      showToast('Failed to update display settings');
+    } finally {
+      if (isMountedRef.current) {
+        setIsUpdatingConfig(false);
+      }
+    }
+  };
+
+  const handleMaxDepthChange = async (nextDepth: number) => {
+    if (isUpdatingConfig) return;
+    setIsUpdatingConfig(true);
+    try {
+      const updatedConfig = await api?.updateLibraryConfig?.({ maxDepth: nextDepth });
+      const nextConfig: LibraryConfig = updatedConfig ?? {
+        ...(config ?? {
+          libraryPaths: [],
+          libraryPath: '',
+          maxDepth: nextDepth,
+          autoLaunch: false,
+          minimizeToTray: false,
+        }),
+        maxDepth: nextDepth,
+      };
+      store.setCurrentLibraryConfig(nextConfig);
+      showToast('Max scan depth updated');
+    } catch (err) {
+      console.error('[SettingsModal] Failed to update max depth:', {
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      showToast('Failed to update max scan depth');
+    } finally {
+      if (isMountedRef.current) {
+        setIsUpdatingConfig(false);
+      }
+    }
+  };
+
+  // --- Handlers: Library Paths & Rescan Watchdog ---
+
+  const handleAddLibraryPath = async () => {
+    if (isMutating || isScanning) return;
+    let updatedConfig: LibraryConfig | null = null;
+    setIsMutating(true);
+    try {
+      // 1. Native OS picker runs in Main process; returns null if cancelled
+      updatedConfig = (await api?.addLibraryPath?.()) ?? null;
+    } catch (err) {
+      console.error('[SettingsModal] Failed to add library path:', {
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      showToast('Failed to add library path');
+      return;
+    } finally {
+      if (isMountedRef.current) setIsMutating(false);
+    }
+
+    if (!updatedConfig) return; // User cancelled OS picker; zero timer armed
+
+    // 2. Arm watchdog timer & loading state strictly for subsequent scan
+    setIsScanning(true);
+    const token = ++rescanTokenRef.current;
+    const timeoutMs =
+      typeof rescanInactivityTimeoutMs === 'number'
+        ? rescanInactivityTimeoutMs <= 0
+          ? 0
+          : rescanInactivityTimeoutMs
+        : 30000;
+
+    if (timeoutMs > 0) {
+      rescanWatchdogTimerRef.current = setTimeout(() => {
+        if (isMountedRef.current && rescanTokenRef.current === token) {
+          setIsScanning(false);
+          showToast('Library scan taking longer than expected. Continuing in background...');
+        }
+      }, timeoutMs);
+    }
+
+    try {
+      const [games, checkedConfig] = await Promise.all([
+        api?.getGames?.() ?? [],
+        api?.checkConfig?.() ?? updatedConfig,
+      ]);
+      const resolvedConfig = checkedConfig ?? updatedConfig;
+      if (rescanTokenRef.current === token) {
+        store.setCurrentLibraryConfig(resolvedConfig);
+        store.setAllGames(
+          annotateGamesForDisplay(
+            games,
+            resolvedConfig,
+            store.getSnapshot().locationDisplayMode
+          )
+        );
+        onLibraryPathsUpdated?.(resolvedConfig.libraryPaths);
+      }
+    } catch (err) {
+      if (rescanTokenRef.current === token) {
+        console.error('[SettingsModal] Library scan failed:', {
+          error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
+        showToast('Library scan failed');
+      }
+    } finally {
+      if (rescanWatchdogTimerRef.current) {
+        clearTimeout(rescanWatchdogTimerRef.current);
+        rescanWatchdogTimerRef.current = null;
+      }
+      if (isMountedRef.current && rescanTokenRef.current === token) {
+        setIsScanning(false);
+      }
+    }
+  };
+
+  const handleRemovePath = async (pathToRemove: string) => {
+    if (isMutating || isScanning) return;
+    setIsMutating(true);
+
+    const currentPaths = config?.libraryPaths || [];
+    const idx = currentPaths.indexOf(pathToRemove);
+    const neighbor = currentPaths[idx + 1] ?? currentPaths[idx - 1] ?? null;
+
+    try {
+      const updatedConfig = await api?.removeLibraryPath?.(pathToRemove);
+      if (updatedConfig) {
+        if (isMountedRef.current) {
+          if (neighbor && pathItemRefs.current.get(neighbor)) {
+            pathItemRefs.current.get(neighbor)?.focus();
+          } else {
+            pathListContainerRef.current?.focus();
+          }
+        }
+        const [games, tree] = await Promise.all([
+          api?.getGames?.() ?? [],
+          api?.getCategoryTree?.() ?? [],
+        ]);
+        store.setCurrentLibraryConfig(updatedConfig);
+        store.setCategoryTree(tree);
+        store.setAllGames(
+          annotateGamesForDisplay(
+            games,
+            updatedConfig,
+            store.getSnapshot().locationDisplayMode
+          )
+        );
+        onLibraryPathsUpdated?.(updatedConfig.libraryPaths);
+      }
+    } catch (err) {
+      console.error('[SettingsModal] Failed to remove library path:', {
+        pathToRemove: sanitizeUserPaths(pathToRemove),
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      showToast('Failed to remove library path');
+    } finally {
+      if (isMountedRef.current) {
+        setIsMutating(false);
+      }
+    }
+  };
+
+  const handleAddManualGame = async () => {
+    if (isMutating || isScanning) return;
+    setIsMutating(true);
+    setIsAddingGame(true);
+    try {
+      const res = await api?.addManualGame?.();
+      if (!res || res.canceled) return;
+      if (!res.ok) {
+        const sanitized = res.error ? sanitizeUserPaths(String(res.error)) : 'Failed to add game';
+        console.error('[SettingsModal] Failed to add manual game:', { error: sanitized });
+        showToast(sanitized);
+        return;
+      }
+      const games = await api?.getGames?.();
+      const snapshot = store.getSnapshot();
+      if (Array.isArray(games)) {
+        store.setAllGames(
+          annotateGamesForDisplay(
+            games,
+            snapshot.currentLibraryConfig ?? '',
+            snapshot.locationDisplayMode
+          )
+        );
+      }
+      showToast('Game added to library');
+    } catch (err) {
+      console.error('[SettingsModal] Failed to add manual game:', {
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      showToast('Failed to add game');
+    } finally {
+      if (isMountedRef.current) {
+        setIsAddingGame(false);
+        setIsMutating(false);
+      }
+    }
+  };
+
+  // --- Handlers: Categories ---
+
+  const validateCategoryName = (rawName: string, excludeId?: string): string | null => {
+    const trimmed = rawName.trim();
+    if (!trimmed) {
+      return 'Category name cannot be empty';
+    }
+    const lower = trimmed.toLowerCase();
+    const isDuplicate = flattenedCategories.some(
+      (cat) => cat.id !== excludeId && cat.name.trim().toLowerCase() === lower
+    );
+    if (isDuplicate) {
+      return 'A category with this name already exists';
+    }
+    return null;
+  };
+
+  const handleCreateCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (categoryCreateStatus === 'submitting') return;
+
+    const validationError = validateCategoryName(newCategoryName);
+    if (validationError) {
+      setCategoryCreateError(validationError);
+      setCategoryCreateStatus('error');
+      showToast(validationError);
+      return;
+    }
+
+    setCategoryCreateStatus('submitting');
+    setCategoryCreateError(null);
+    const trimmedName = newCategoryName.trim();
+
+    try {
+      const res = await api?.createCategory?.({ name: trimmedName });
+      if (!res?.ok) {
+        const reason = sanitizeUserPaths(res?.reason || res?.error || 'Failed to create category');
+        if (isMountedRef.current) {
+          setCategoryCreateStatus('error');
+          setCategoryCreateError(reason);
+        }
+        showToast(reason);
+        return;
+      }
+      const updatedTree = res.tree ?? res.categoryTree;
+      if (Array.isArray(updatedTree)) {
+        store.setCategoryTree(updatedTree);
+        onCategoryTreeUpdated?.(updatedTree);
+      }
+      if (isMountedRef.current) {
+        setCategoryCreateStatus('success');
+        setNewCategoryName('');
+        setIsCreatingCategory(false);
+      }
+      showToast('Category created');
+    } catch (err) {
+      const reason = sanitizeUserPaths(err instanceof Error ? err.message : String(err));
+      console.error('[SettingsModal] Failed to create category:', {
+        error: reason,
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      if (isMountedRef.current) {
+        setCategoryCreateStatus('error');
+        setCategoryCreateError(reason || 'Failed to create category');
+      }
+      showToast(reason || 'Failed to create category');
+    }
+  };
+
+  const handleRenameCategorySubmit = async (e: React.FormEvent, categoryId: string) => {
+    e.preventDefault();
+    if (categoryRenameStatus === 'submitting') return;
+
+    const validationError = validateCategoryName(renameCategoryDraft, categoryId);
+    if (validationError) {
+      setCategoryRenameError(validationError);
+      setCategoryRenameStatus('error');
+      showToast(validationError);
+      return;
+    }
+
+    setCategoryRenameStatus('submitting');
+    setCategoryRenameError(null);
+    const trimmedName = renameCategoryDraft.trim();
+
+    try {
+      const res = await api?.renameCategory?.({ id: categoryId, name: trimmedName });
+      if (!res?.ok) {
+        const reason = sanitizeUserPaths(res?.reason || res?.error || 'Failed to rename category');
+        if (isMountedRef.current) {
+          setCategoryRenameStatus('error');
+          setCategoryRenameError(reason);
+        }
+        showToast(reason);
+        return;
+      }
+      const updatedTree = res.tree ?? res.categoryTree;
+      if (Array.isArray(updatedTree)) {
+        store.setCategoryTree(updatedTree);
+        onCategoryTreeUpdated?.(updatedTree);
+      }
+      if (isMountedRef.current) {
+        setCategoryRenameStatus('success');
+        setRenamingCategoryId(null);
+        setRenameCategoryDraft('');
+      }
+      showToast('Category renamed');
+    } catch (err) {
+      const reason = sanitizeUserPaths(err instanceof Error ? err.message : String(err));
+      console.error('[SettingsModal] Failed to rename category:', {
+        categoryId,
+        error: reason,
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      if (isMountedRef.current) {
+        setCategoryRenameStatus('error');
+        setCategoryRenameError(reason || 'Failed to rename category');
+      }
+      showToast(reason || 'Failed to rename category');
+    }
+  };
+
+  const handleRequestDeleteCategory = (categoryId: string) => {
+    setPendingDeleteCategoryId(categoryId);
+    setCategoryDeleteError(null);
+  };
+
+  const handleCancelDeleteCategory = (categoryId: string) => {
+    if (isDeletingCategory) return;
+    setPendingDeleteCategoryId(null);
+    setCategoryDeleteError(null);
+    // Restore focus to delete trigger button that opened prompt
+    deleteTriggerRefs.current.get(categoryId)?.focus();
+  };
+
+  const handleConfirmDeleteCategory = async (categoryId: string, index: number) => {
+    if (isDeletingCategory) return;
+    setIsDeletingCategory(true);
+    setCategoryDeleteError(null);
+
+    // Resolve adjacent surviving category before deletion mutation
+    const survivingCategory = flattenedCategories[index + 1] ?? flattenedCategories[index - 1];
+
+    try {
+      const res = await api?.deleteCategory?.(categoryId);
+      if (!res?.ok) {
+        throw new Error(res?.reason || 'Failed to delete category');
+      }
+      const updatedTree = res?.tree ?? res?.categoryTree;
+      if (updatedTree) {
+        store.setCategoryTree(updatedTree);
+        onCategoryTreeUpdated?.(updatedTree);
+      }
+      setPendingDeleteCategoryId(null);
+      // Symmetrical focus handoff to adjacent surviving row or container fallback
+      queueMicrotask(() => {
+        if (survivingCategory && categoryItemRefs.current.get(survivingCategory.id)) {
+          categoryItemRefs.current.get(survivingCategory.id)?.focus();
+        } else {
+          categoryListContainerRef.current?.focus();
+        }
+      });
+    } catch (err) {
+      console.error('[SettingsModal] Failed to delete category:', {
+        categoryId,
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      setCategoryDeleteError(
+        sanitizeUserPaths(err instanceof Error ? err.message : 'Failed to delete category')
+      );
+    } finally {
+      setIsDeletingCategory(false);
+    }
+  };
+
+  // --- Handlers: Updates & System / Mascot ---
+
+  const handleAppUpdateModeChange = (nextMode: string) => {
+    setAppUpdateMode(nextMode);
+    resolvedStorage?.setItem('yumeshelf_app_updates_pref', nextMode);
+    showToast('App update preference saved');
+  };
+
+  const handleLangPackUpdateModeChange = (nextMode: string) => {
+    setLangPackUpdateMode(nextMode);
+    resolvedStorage?.setItem('yumeshelf_language_pack_updates_pref', nextMode);
+    showToast('Language pack update preference saved');
+  };
+
+  const handleAutoLaunchChange = async (value: string) => {
+    const nextAutoLaunch: boolean | 'minimized' =
+      value === 'minimized' ? 'minimized' : value === 'on';
+    try {
+      await api?.setAutoLaunch?.(nextAutoLaunch as boolean);
+      const updatedConfig = await api?.updateLibraryConfig?.({ autoLaunch: nextAutoLaunch });
+      if (updatedConfig) {
+        store.setCurrentLibraryConfig(updatedConfig);
+      }
+      showToast('Startup setting updated');
+    } catch (err) {
+      console.error('[SettingsModal] Failed to update auto-launch:', {
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+      });
+      showToast('Failed to update startup setting');
+    }
+  };
+
+  const handleMinimizeToTrayChange = async (enabled: boolean) => {
+    try {
+      api?.setMinimizeToTray?.(enabled);
+      const updatedConfig = await api?.updateLibraryConfig?.({ minimizeToTray: enabled });
+      if (updatedConfig) {
+        store.setCurrentLibraryConfig(updatedConfig);
+      }
+      showToast('Tray setting updated');
+    } catch (err) {
+      console.error('[SettingsModal] Failed to update minimize to tray:', {
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+      });
+      showToast('Failed to update tray setting');
+    }
+  };
+
+  const handleExposeBetaChange = async (enabled: boolean) => {
+    try {
+      const updatedConfig = await api?.updateLibraryConfig?.({ exposeBetaOptions: enabled });
+      if (updatedConfig) {
+        store.setCurrentLibraryConfig(updatedConfig);
+      }
+      showToast('Beta options setting updated');
+    } catch (err) {
+      console.error('[SettingsModal] Failed to update beta options:', {
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+      });
+      showToast('Failed to update beta options');
+    }
+  };
+
+  const updateMascotPreferences = (patch: Partial<MascotPreferences>) => {
+    const next: MascotPreferences = {
+      show: patch.show ?? mascotShow,
+      scale: patch.scale ?? mascotScale,
+      sound: patch.sound ?? mascotSound,
+      volume: patch.volume ?? mascotVolume,
+    };
+    setMascotShow(next.show);
+    setMascotScale(next.scale);
+    setMascotSound(next.sound);
+    setMascotVolume(next.volume);
+
+    resolvedStorage?.setItem('yumeshelf_mascot_show', next.show ? 'on' : 'off');
+    resolvedStorage?.setItem('yumeshelf_mascot_scale', String(next.scale));
+    resolvedStorage?.setItem('yumeshelf_mascot_sound', next.sound);
+    resolvedStorage?.setItem('yumeshelf_mascot_volume', String(next.volume));
+
+    onMascotSettingsChanged?.(next);
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      id="settings-modal"
+      className="settings-overlay"
+      panelClassName="settings-panel"
+      fallbackFocusRef={fallbackFocusRef}
+    >
+      <Modal.Header title="Settings" className="settings-header" />
+
+      <div className="settings-tabs-nav" role="tablist" aria-label="Settings sections">
+        {SETTINGS_TABS.map((tab) => {
+          const isSelected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              id={`settings-tab-${tab.id}`}
+              type="button"
+              role="tab"
+              className={`settings-tab-btn${isSelected ? ' active' : ''}`}
+              aria-selected={isSelected}
+              aria-controls={`settings-panel-${tab.id}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <Modal.Body className="settings-body">
+        {activeTab === 'general' && (
+          <div
+            id="settings-panel-general"
+            role="tabpanel"
+            aria-labelledby="settings-tab-general"
+            className="settings-tab-panel"
+          >
+            <div className="setting-item">
+              <label htmlFor="theme-select">Theme</label>
+              <div className="setting-control-zone">
+                <select
+                  id="theme-select"
+                  value={theme}
+                  onChange={(e) => handleThemeChange(e.target.value)}
+                >
+                  <option value="system">System</option>
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="language-select">Language</label>
+              <div className="setting-control-zone setting-field-group">
+                <select
+                  id="language-select"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                >
+                  <option value="en">English</option>
+                </select>
+                <button
+                  type="button"
+                  className="small-btn text-btn"
+                  onClick={() => onOpenLanguagePack?.()}
+                >
+                  More languages...
+                </button>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="location-display-select">Location Display</label>
+              <div className="setting-control-zone">
+                <select
+                  id="location-display-select"
+                  value={locationDisplayMode}
+                  onChange={(e) =>
+                    handleLocationDisplayModeChange(e.target.value as 'parent' | 'full')
+                  }
+                >
+                  <option value="parent">Parent Folder</option>
+                  <option value="full">Full Path</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="title-display-select">Title Display</label>
+              <div className="setting-control-zone">
+                <select
+                  id="title-display-select"
+                  value={titleDisplayMode}
+                  aria-disabled={isUpdatingConfig}
+                  style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+                  onChange={(e) =>
+                    handleUpdateDisplayConfig({
+                      titleDisplayMode: e.target.value as 'metadata' | 'legacy_folder',
+                    })
+                  }
+                >
+                  <option value="metadata">Metadata Title</option>
+                  <option value="legacy_folder">Folder Name</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="product-codes-select">Product Codes</label>
+              <div className="setting-control-zone">
+                <select
+                  id="product-codes-select"
+                  value={displayProductCodes ? 'on' : 'off'}
+                  aria-disabled={isUpdatingConfig}
+                  style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+                  onChange={(e) =>
+                    handleUpdateDisplayConfig({
+                      displayProductCodes: e.target.value === 'on',
+                    })
+                  }
+                >
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="max-depth-input">Max Scan Depth</label>
+              <div className="setting-control-zone">
+                <MaxDepthStepper value={maxDepth} onChange={handleMaxDepthChange} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'library' && (
+          <div
+            id="settings-panel-library"
+            role="tabpanel"
+            aria-labelledby="settings-tab-library"
+            className="settings-tab-panel"
+          >
+            <div className="setting-section">
+              <div className="setting-item">
+                <span className="setting-label">Library Paths</span>
+                <div className="setting-field-group">
+                  <button
+                    id="btn-add-library-path"
+                    type="button"
+                    className="small-btn text-btn"
+                    aria-disabled={isMutating || isScanning}
+                    style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
+                    onClick={handleAddLibraryPath}
+                  >
+                    + Add Path
+                  </button>
+                  <button
+                    id="btn-add-manual-game"
+                    type="button"
+                    className="small-btn text-btn"
+                    aria-disabled={isMutating || isScanning}
+                    style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
+                    onClick={handleAddManualGame}
+                  >
+                    {isAddingGame ? 'Adding...' : '+ Add Game'}
+                  </button>
+                </div>
+              </div>
+
+              {isScanning && (
+                <div className="library-scan-status" role="status" aria-live="polite">
+                  <span className="scan-spinner" aria-hidden="true" />
+                  <span>Scanning library directories...</span>
+                </div>
+              )}
+
+              <div
+                ref={pathListContainerRef}
+                tabIndex={-1}
+                className="library-paths-list"
+                aria-label="Configured library paths"
+              >
+                {libraryPaths.length === 0 ? (
+                  <p className="empty-list-hint">No library directories configured.</p>
+                ) : (
+                  libraryPaths.map((dirPath) => (
+                    <div
+                      key={dirPath}
+                      ref={(el) => {
+                        if (el) {
+                          pathItemRefs.current.set(dirPath, el);
+                        } else {
+                          pathItemRefs.current.delete(dirPath);
+                        }
+                      }}
+                      tabIndex={-1}
+                      className="library-path-row"
+                    >
+                      <span className="library-path-text">{dirPath}</span>
+                      <button
+                        type="button"
+                        className="library-path-action-btn"
+                        aria-label={`Remove path ${dirPath}`}
+                        aria-disabled={isMutating || isScanning}
+                        style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
+                        onClick={() => handleRemovePath(dirPath)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="setting-section">
+              <div className="setting-item">
+                <span className="setting-label">Categories</span>
+                <button
+                  type="button"
+                  className="small-btn text-btn"
+                  onClick={() => {
+                    setIsCreatingCategory(true);
+                    setCategoryCreateError(null);
+                    setCategoryCreateStatus('idle');
+                  }}
+                >
+                  + Add Category
+                </button>
+              </div>
+
+              {isCreatingCategory && (
+                <form className="category-create-form" onSubmit={handleCreateCategorySubmit}>
+                  <input
+                    ref={newCategoryInputRef}
+                    type="text"
+                    value={newCategoryName}
+                    aria-label="New category name"
+                    aria-invalid={categoryCreateError ? 'true' : undefined}
+                    aria-describedby={categoryCreateError ? 'category-create-error' : undefined}
+                    placeholder="Category name"
+                    onChange={(e) => {
+                      setNewCategoryName(e.target.value);
+                      if (categoryCreateError) setCategoryCreateError(null);
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    className="small-btn"
+                    aria-disabled={categoryCreateStatus === 'submitting'}
+                    style={
+                      categoryCreateStatus === 'submitting'
+                        ? { pointerEvents: 'none', opacity: 0.6 }
+                        : undefined
+                    }
+                  >
+                    {categoryCreateStatus === 'submitting' ? 'Saving...' : 'Create'}
+                  </button>
+                  <button
+                    type="button"
+                    className="small-btn secondary-btn"
+                    aria-disabled={categoryCreateStatus === 'submitting'}
+                    onClick={() => {
+                      if (categoryCreateStatus === 'submitting') return;
+                      setIsCreatingCategory(false);
+                      setNewCategoryName('');
+                      setCategoryCreateError(null);
+                      setCategoryCreateStatus('idle');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  {categoryCreateError && (
+                    <p id="category-create-error" className="category-validation-error" role="alert">
+                      {categoryCreateError}
+                    </p>
+                  )}
+                </form>
+              )}
+
+              <div
+                ref={categoryListContainerRef}
+                tabIndex={-1}
+                className="category-list"
+                aria-label="Categories list"
+              >
+                {flattenedCategories.length === 0 ? (
+                  <p className="empty-list-hint">No categories created.</p>
+                ) : (
+                  flattenedCategories.map((category, index) => (
+                    <div
+                      key={category.id}
+                      ref={(el) => {
+                        if (el) {
+                          categoryItemRefs.current.set(category.id, el);
+                        } else {
+                          categoryItemRefs.current.delete(category.id);
+                        }
+                      }}
+                      tabIndex={-1}
+                      className="category-row"
+                    >
+                      {renamingCategoryId === category.id ? (
+                        <form
+                          className="category-rename-form"
+                          onSubmit={(e) => handleRenameCategorySubmit(e, category.id)}
+                        >
+                          <input
+                            type="text"
+                            value={renameCategoryDraft}
+                            aria-label={`Rename category ${category.name}`}
+                            aria-invalid={categoryRenameError ? 'true' : undefined}
+                            aria-describedby={
+                              categoryRenameError ? `category-rename-error-${category.id}` : undefined
+                            }
+                            onChange={(e) => {
+                              setRenameCategoryDraft(e.target.value);
+                              if (categoryRenameError) setCategoryRenameError(null);
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            className="small-btn"
+                            aria-disabled={categoryRenameStatus === 'submitting'}
+                            style={
+                              categoryRenameStatus === 'submitting'
+                                ? { pointerEvents: 'none', opacity: 0.6 }
+                                : undefined
+                            }
+                          >
+                            {categoryRenameStatus === 'submitting' ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            type="button"
+                            className="small-btn secondary-btn"
+                            aria-disabled={categoryRenameStatus === 'submitting'}
+                            onClick={() => {
+                              if (categoryRenameStatus === 'submitting') return;
+                              setRenamingCategoryId(null);
+                              setRenameCategoryDraft('');
+                              setCategoryRenameError(null);
+                              setCategoryRenameStatus('idle');
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          {categoryRenameError && (
+                            <p
+                              id={`category-rename-error-${category.id}`}
+                              className="category-validation-error"
+                              role="alert"
+                            >
+                              {categoryRenameError}
+                            </p>
+                          )}
+                        </form>
+                      ) : (
+                        <>
+                          <span className="category-name">{category.trailLabel}</span>
+                          <div className="category-actions">
+                            <button
+                              type="button"
+                              className="small-btn"
+                              aria-label={`Rename ${category.name}`}
+                              onClick={() => {
+                                setRenamingCategoryId(category.id);
+                                setRenameCategoryDraft(category.name);
+                                setCategoryRenameError(null);
+                                setCategoryRenameStatus('idle');
+                              }}
+                            >
+                              Rename
+                            </button>
+                            <button
+                              ref={(el) => {
+                                if (el) {
+                                  deleteTriggerRefs.current.set(category.id, el);
+                                } else {
+                                  deleteTriggerRefs.current.delete(category.id);
+                                }
+                              }}
+                              type="button"
+                              className="small-btn danger-btn"
+                              aria-label={`Delete ${category.name}`}
+                              onClick={() => handleRequestDeleteCategory(category.id)}
+                            >
+                              Delete
+                            </button>
+
+                            {pendingDeleteCategoryId === category.id && (
+                              <div
+                                className="category-delete-confirm-popover"
+                                role="dialog"
+                                aria-label={`Confirm deletion of ${category.name}`}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleCancelDeleteCategory(category.id);
+                                  }
+                                }}
+                              >
+                                <p className="confirm-text">
+                                  Delete this category? Games in it will become uncategorized.
+                                </p>
+                                {categoryDeleteError && (
+                                  <p className="category-delete-error" role="alert">
+                                    {categoryDeleteError}
+                                  </p>
+                                )}
+                                <div className="confirm-actions">
+                                  <button
+                                    type="button"
+                                    className="small-btn danger-btn"
+                                    aria-disabled={isDeletingCategory}
+                                    style={
+                                      isDeletingCategory
+                                        ? { pointerEvents: 'none', opacity: 0.6 }
+                                        : undefined
+                                    }
+                                    onClick={() => handleConfirmDeleteCategory(category.id, index)}
+                                  >
+                                    {isDeletingCategory ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="small-btn secondary-btn"
+                                    aria-disabled={isDeletingCategory}
+                                    style={
+                                      isDeletingCategory
+                                        ? { pointerEvents: 'none', opacity: 0.6 }
+                                        : undefined
+                                    }
+                                    onClick={() => handleCancelDeleteCategory(category.id)}
+                                    autoFocus
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'updates' && (
+          <div
+            id="settings-panel-updates"
+            role="tabpanel"
+            aria-labelledby="settings-tab-updates"
+            className="settings-tab-panel"
+          >
+            <div className="setting-item">
+              <label htmlFor="app-updates-select">App Updates</label>
+              <div className="setting-control-zone">
+                <select
+                  id="app-updates-select"
+                  value={appUpdateMode}
+                  onChange={(e) => handleAppUpdateModeChange(e.target.value)}
+                >
+                  <option value="automatic">Automatic</option>
+                  <option value="notify">Notify Only</option>
+                  <option value="off">Off</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="lang-pack-updates-select">Language Pack Updates</label>
+              <div className="setting-control-zone">
+                <select
+                  id="lang-pack-updates-select"
+                  value={langPackUpdateMode}
+                  onChange={(e) => handleLangPackUpdateModeChange(e.target.value)}
+                >
+                  <option value="automatic">Automatic</option>
+                  <option value="notify">Notify Only</option>
+                  <option value="off">Off</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'system' && (
+          <div
+            id="settings-panel-system"
+            role="tabpanel"
+            aria-labelledby="settings-tab-system"
+            className="settings-tab-panel"
+          >
+            <div className="setting-item">
+              <label htmlFor="auto-launch-select">Launch on Startup</label>
+              <div className="setting-control-zone">
+                <select
+                  id="auto-launch-select"
+                  value={autoLaunchValue}
+                  onChange={(e) => handleAutoLaunchChange(e.target.value)}
+                >
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                  <option value="minimized">Minimized</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="minimize-tray-select">Minimize to Tray</label>
+              <div className="setting-control-zone">
+                <select
+                  id="minimize-tray-select"
+                  value={minimizeToTray ? 'on' : 'off'}
+                  onChange={(e) => handleMinimizeToTrayChange(e.target.value === 'on')}
+                >
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="expose-beta-select">Expose Beta Options</label>
+              <div className="setting-control-zone">
+                <select
+                  id="expose-beta-select"
+                  value={exposeBetaOptions ? 'on' : 'off'}
+                  onChange={(e) => handleExposeBetaChange(e.target.value === 'on')}
+                >
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="mascot-show-select">Show Mascot</label>
+              <div className="setting-control-zone">
+                <select
+                  id="mascot-show-select"
+                  value={mascotShow ? 'on' : 'off'}
+                  onChange={(e) =>
+                    updateMascotPreferences({ show: e.target.value === 'on' })
+                  }
+                >
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="mascot-scale-slider">Mascot Scale</label>
+              <div className="setting-control-zone">
+                <div className="volume-slider-container">
+                  <input
+                    id="mascot-scale-slider"
+                    type="range"
+                    min={25}
+                    max={100}
+                    value={mascotScale}
+                    aria-valuetext={`${mascotScale}%`}
+                    onChange={(e) =>
+                      updateMascotPreferences({ scale: Number(e.target.value) })
+                    }
+                  />
+                  <span id="mascot-scale-value">{mascotScale}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="mascot-sound-select">Bonk Sound</label>
+              <div className="setting-control-zone">
+                <select
+                  id="mascot-sound-select"
+                  value={mascotSound}
+                  onChange={(e) => updateMascotPreferences({ sound: e.target.value })}
+                >
+                  <option value="squeaker">Squeaker</option>
+                  <option value="bonk">Bonk</option>
+                  <option value="none">None</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <label htmlFor="mascot-volume-slider">Mascot Volume</label>
+              <div className="setting-control-zone">
+                <div className="volume-slider-container">
+                  <input
+                    id="mascot-volume-slider"
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={mascotVolume}
+                    aria-valuetext={`${mascotVolume}%`}
+                    onChange={(e) =>
+                      updateMascotPreferences({ volume: Number(e.target.value) })
+                    }
+                  />
+                  <span id="mascot-volume-value">{mascotVolume}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal.Body>
+
+      <Modal.Footer className="settings-footer">
+        <div className="settings-footer-info">
+          <span className="settings-version">
+            YumeShelf{appVersion ? ` v${appVersion}` : ''}
+          </span>
+          <span className="settings-tagline">Local-first game library</span>
+        </div>
+        <button
+          type="button"
+          className="small-btn text-btn"
+          onClick={() => onOpenAbout?.()}
+        >
+          About & Credits
+        </button>
+      </Modal.Footer>
+    </Modal>
+  );
+}

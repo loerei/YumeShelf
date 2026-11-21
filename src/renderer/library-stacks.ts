@@ -1,92 +1,260 @@
-// @ts-nocheck
-import { getGameKey, normalizeCustomOrder } from './library-order';
+import type { GameEntry } from './types/game';
+import { getGameKey, resolveCustomOrder } from './library-order';
 
-function compareGames(a, b, type, customOrder) {
-    let result = 0;
-    if (type === 'custom') {
-        const order = Array.isArray(customOrder) ? customOrder : normalizeCustomOrder([a, b]);
-        const indexA = order.indexOf(getGameKey(a));
-        const indexB = order.indexOf(getGameKey(b));
-        result = (indexA > -1 ? indexA : 99999) - (indexB > -1 ? indexB : 99999);
-    } else if (type === 'az') {
-        result = a.name.localeCompare(b.name);
-    } else if (type === 'date') {
-        result = (b.dateAdded || 0) - (a.dateAdded || 0);
-    } else if (type === 'played') {
-        result = (b.lastPlayed || 0) - (a.lastPlayed || 0);
-    }
-
-    if (result !== 0) return result;
-
-    const depthA = (a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
-    const depthB = (b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
-    if (depthA !== depthB) return depthA - depthB;
-
-    return (a.relativePath || '').localeCompare(b.relativePath || '');
+export interface LibraryViewItemCommon {
+  readonly representativeKey: string;
+  readonly groupKey: string;
+  readonly favorite: boolean;
+  readonly isStack: boolean;
+  readonly primaryGame: GameEntry;
+  readonly games: readonly GameEntry[];
+  readonly stackSize: number;
 }
 
-function choosePrimaryGame(games, sortedGames) {
-    const recents = games.filter((game) => (game.lastPlayed || 0) > 0)
+export interface SingleLibraryViewItem extends LibraryViewItemCommon {
+  readonly type: 'single';
+  readonly isStack: false;
+  readonly stackSize: 1;
+  readonly games: readonly [GameEntry];
+}
+
+export interface StackLibraryViewItem extends LibraryViewItemCommon {
+  readonly type: 'stack';
+  readonly isStack: true;
+  readonly groupKey: string;
+  readonly games: readonly GameEntry[];
+  readonly stackSize: number;
+}
+
+export type LibraryViewItem = SingleLibraryViewItem | StackLibraryViewItem;
+
+function compareByRelativePath(a: GameEntry, b: GameEntry): number {
+  const depthA = (a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+  const depthB = (b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
+  if (depthA !== depthB) return depthA - depthB;
+  return (a.relativePath || '').localeCompare(b.relativePath || '');
+}
+
+function compareGames(
+  a: GameEntry,
+  b: GameEntry,
+  type: string,
+  orderIndex: ReadonlyMap<string, number> | null
+): number {
+  let result = 0;
+  if (type === 'custom' && orderIndex) {
+    const indexA = orderIndex.get(getGameKey(a)) ?? 99999;
+    const indexB = orderIndex.get(getGameKey(b)) ?? 99999;
+    result = indexA - indexB;
+  } else if (type === 'az') {
+    result = (a.name || '').localeCompare(b.name || '');
+  } else if (type === 'date') {
+    result = (b.dateAdded || 0) - (a.dateAdded || 0);
+  } else if (type === 'played') {
+    result = (b.lastPlayed || 0) - (a.lastPlayed || 0);
+  }
+
+  if (result !== 0) return result;
+  return compareByRelativePath(a, b);
+}
+
+export function findGameEntryByKey(games: readonly GameEntry[], targetKey: string): GameEntry | undefined {
+  return games.find((g) => {
+    const primary = getGameKey(g);
+    if (
+      primary === targetKey ||
+      g.gameId === targetKey ||
+      `game:${primary}` === targetKey ||
+      (g.gameId && `game:${g.gameId}` === targetKey)
+    ) {
+      return true;
+    }
+    return (
+      Array.isArray(g.instances) &&
+      g.instances.some((inst) => getGameKey(inst) === targetKey || inst.instanceId === targetKey)
+    );
+  });
+}
+
+export function resolveFavoriteLockKey(targetKey: string, games: readonly GameEntry[]): string {
+  const entry = findGameEntryByKey(games, targetKey);
+  if (entry?.gameId) {
+    return entry.gameId.startsWith('game:') ? entry.gameId : `game:${entry.gameId}`;
+  }
+  if (entry) return getGameKey(entry);
+  return targetKey;
+}
+
+export function buildGroupKey(game: GameEntry): string {
+  const key = getGameKey(game) || '';
+  return key.startsWith('game:') ? key : `game:${key}`;
+}
+
+export function buildLibraryViewItems(
+  games: readonly GameEntry[],
+  type: string,
+  customOrder?: readonly string[] | null
+): {
+  items: readonly LibraryViewItem[];
+  customOrder?: readonly string[] | null;
+} {
+  const resolvedCustomOrder =
+    type === 'custom' ? (Array.isArray(customOrder) ? customOrder : resolveCustomOrder(games)) : null;
+  const orderIndex = resolvedCustomOrder
+    ? new Map<string, number>(resolvedCustomOrder.map((key, i) => [key, i]))
+    : null;
+
+  const sortedGames = [...games].sort((a, b) => compareGames(a, b, type, orderIndex));
+  const grouped = new Map<string, GameEntry[]>();
+
+  for (const game of sortedGames) {
+    const groupKey = buildGroupKey(game);
+    const nextGroup = grouped.get(groupKey) || [];
+    nextGroup.push(game);
+    grouped.set(groupKey, nextGroup);
+  }
+
+  const items: LibraryViewItem[] = [...grouped.entries()].map(([groupKey, groupGames]) => {
+    const logicalGame = groupGames[0];
+    const representativeKey = getGameKey(logicalGame);
+    const favorite = !!logicalGame.favorite;
+
+    if (Array.isArray(logicalGame.instances) && logicalGame.instances.length > 1) {
+      const orderedGames = [...logicalGame.instances].sort(compareByRelativePath);
+      const recents = orderedGames
+        .filter((g) => (g.lastPlayed || 0) > 0)
         .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
-    if (recents.length > 0) {
-        return recents[0];
+      const primaryGame = logicalGame.primaryInstance || (recents.length > 0 ? recents[0] : orderedGames[0]);
+
+      return {
+        type: 'stack',
+        isStack: true,
+        groupKey,
+        favorite,
+        primaryGame,
+        games: orderedGames,
+        representativeKey,
+        stackSize: orderedGames.length,
+      };
     }
 
-    const sortedKeySet = new Set(games.map((game) => getGameKey(game)));
-    return sortedGames.find((game) => sortedKeySet.has(getGameKey(game))) || games[0];
-}
-
-function buildGroupKey(game) {
-    return `game:${getGameKey(game)}`;
-}
-
-export function buildLibraryViewItems(games, type) {
-    const customOrder = type === 'custom' ? normalizeCustomOrder(games) : null;
-    const sortedGames = [...games].sort((a, b) => compareGames(a, b, type, customOrder));
-    const grouped = new Map();
-
-    sortedGames.forEach((game) => {
-        const groupKey = buildGroupKey(game);
-        const nextGroup = grouped.get(groupKey) || [];
-        nextGroup.push(game);
-        grouped.set(groupKey, nextGroup);
-    });
+    const singleGame =
+      Array.isArray(logicalGame.instances) && logicalGame.instances.length === 1
+        ? logicalGame.instances[0]
+        : logicalGame;
 
     return {
-        customOrder,
-        items: [...grouped.entries()].map(([groupKey, groupGames]) => {
-            const logicalGame = groupGames[0];
-            const orderedGames = Array.isArray(logicalGame.instances)
-                ? [...logicalGame.instances].sort((a, b) => {
-                    const depthA = (a.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
-                    const depthB = (b.relativePath || '').split(/[\\/]+/).filter(Boolean).length;
-                    if (depthA !== depthB) return depthA - depthB;
-                    return (a.relativePath || '').localeCompare(b.relativePath || '');
-                })
-                : [logicalGame];
-            if (!logicalGame.primaryInstance) {
-                logicalGame.primaryInstance = choosePrimaryGame(orderedGames, sortedGames);
-            }
-            const groupFavorite = !!logicalGame.favorite;
-            const representativeKey = getGameKey(logicalGame);
-
-            return {
-                favorite: groupFavorite,
-                games: orderedGames,
-                groupKey,
-                isStack: orderedGames.length > 1,
-                primaryGame: logicalGame,
-                representativeKey,
-                stackSize: orderedGames.length
-            };
-        })
+      type: 'single',
+      isStack: false,
+      groupKey,
+      favorite,
+      primaryGame: logicalGame.primaryInstance || singleGame,
+      games: [singleGame] as const,
+      representativeKey,
+      stackSize: 1,
     };
+  });
+
+  return {
+    customOrder: resolvedCustomOrder,
+    items,
+  };
 }
 
-export function getGroupedKeysForGame(allGames, gameKey, order = normalizeCustomOrder(allGames)) {
-    const targetGame = allGames.find((game) => getGameKey(game) === gameKey);
-    if (!targetGame) return [];
-    return [targetGame]
-        .sort((a, b) => order.indexOf(getGameKey(a)) - order.indexOf(getGameKey(b)))
-        .map((game) => getGameKey(game));
+export function resolveStackByGroupKey(
+  games: readonly GameEntry[],
+  groupKey: string
+): StackLibraryViewItem | null {
+  if (!groupKey) return null;
+
+  const targetGame = games.find(
+    (g) =>
+      g.gameId === groupKey ||
+      g.gameKey === groupKey ||
+      buildGroupKey(g) === groupKey ||
+      (Array.isArray(g.instances) &&
+        g.instances.some((i) => i && (i.gameKey === groupKey || i.instanceId === groupKey)))
+  );
+  if (!targetGame) return null;
+
+  const rawInstances = Array.isArray(targetGame.instances) ? targetGame.instances : [targetGame];
+  if (rawInstances.length <= 1) return null;
+
+  const orderedGames = [...rawInstances].sort(compareByRelativePath);
+
+  const recents = orderedGames
+    .filter((g) => (g.lastPlayed || 0) > 0)
+    .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+  const primaryGame = targetGame.primaryInstance || (recents.length > 0 ? recents[0] : orderedGames[0]);
+
+  return {
+    type: 'stack',
+    isStack: true,
+    groupKey: buildGroupKey(targetGame),
+    favorite: !!targetGame.favorite,
+    primaryGame,
+    games: orderedGames,
+    representativeKey: getGameKey(targetGame),
+    stackSize: orderedGames.length,
+  };
+}
+
+export function patchRunningGameViewItem(
+  prevItems: readonly LibraryViewItem[],
+  changedGame: GameEntry
+): readonly LibraryViewItem[] {
+  if (!changedGame) return prevItems;
+  const changedKey = getGameKey(changedGame);
+  if (!changedKey) return prevItems;
+  const changedGroupKey = buildGroupKey(changedGame);
+  let didMutate = false;
+
+  const nextItems = prevItems.map((item) => {
+    const matchesRepresentative = item.representativeKey === changedKey;
+    const matchesGroup = item.groupKey === changedGroupKey;
+    const matchesAnyChild = item.isStack && item.games.some((g) => getGameKey(g) === changedKey);
+
+    if (!matchesRepresentative && !matchesGroup && !matchesAnyChild) {
+      return item;
+    }
+
+    didMutate = true;
+    if (item.type === 'single') {
+      return {
+        ...item,
+        primaryGame: changedGame,
+        games: [changedGame] as const,
+      };
+    }
+
+    const instanceMap =
+      Array.isArray(changedGame.instances) && changedGame.instances.length > 0
+        ? new Map(changedGame.instances.map((inst) => [getGameKey(inst), inst]))
+        : null;
+
+    const nextGames = instanceMap
+      ? item.games.map((g) => instanceMap.get(getGameKey(g)) ?? g)
+      : item.games.map((g) => (getGameKey(g) === changedKey ? changedGame : g));
+
+    const recents = nextGames
+      .filter((g) => (g.lastPlayed || 0) > 0)
+      .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
+
+    const explicitPrimaryKey = changedGame.primaryInstance ? getGameKey(changedGame.primaryInstance) : null;
+
+    const primaryGame =
+      (explicitPrimaryKey ? nextGames.find((g) => getGameKey(g) === explicitPrimaryKey) : null) ??
+      (recents.length > 0 ? recents[0] : null) ??
+      (item.primaryGame ? nextGames.find((g) => getGameKey(g) === getGameKey(item.primaryGame)) : null) ??
+      nextGames[0];
+
+    return {
+      ...item,
+      primaryGame,
+      games: nextGames,
+      stackSize: nextGames.length,
+    };
+  });
+
+  return didMutate ? nextItems : prevItems;
 }

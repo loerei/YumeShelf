@@ -1,23 +1,26 @@
-// @ts-nocheck
+import type { GameEntry, LibraryPathsInput } from './types/game';
+
 export const LOCATION_DISPLAY_MODES = {
     FULL: 'full',
     PARENT: 'parent'
-};
+} as const;
 
-function normalizePathSegment(value) {
+export type LocationDisplayMode = typeof LOCATION_DISPLAY_MODES[keyof typeof LOCATION_DISPLAY_MODES];
+
+function normalizePathSegment(value: unknown): string {
     let s = String(value || '').replaceAll('\\', '/').replace(/\/+/g, '/');
     if (s.startsWith('/')) s = s.slice(1);
     if (s.endsWith('/')) s = s.slice(0, -1);
     return s;
 }
 
-function getLibraryRootName(libraryPath) {
+function getLibraryRootName(libraryPath: string): string {
     const normalized = normalizePathSegment(libraryPath);
     const parts = normalized.split('/').filter(Boolean);
     return parts.at(-1) ?? '';
 }
 
-function getParentLocationLabel(relativePathDisplay) {
+function getParentLocationLabel(relativePathDisplay: string): string {
     const normalized = normalizePathSegment(relativePathDisplay);
     const parts = normalized.split('/').filter(Boolean);
     if (parts.length === 0) return '';
@@ -25,7 +28,7 @@ function getParentLocationLabel(relativePathDisplay) {
     return parts.slice(0, -1).join('/');
 }
 
-function normalizeComparableText(value) {
+function normalizeComparableText(value: unknown): string {
     return String(value || '')
         .toLowerCase()
         .replace(/\[[^\]]*\]/g, ' ')
@@ -37,13 +40,13 @@ function normalizeComparableText(value) {
         .replace(/\s+/g, ' ');
 }
 
-function getExecutableStem(exePath) {
+function getExecutableStem(exePath: unknown): string {
     const normalized = String(exePath || '').replace(/[\\/]+/g, '/');
     const baseName = normalized.split('/').pop() || '';
     return baseName.replace(/\.(exe|x86_64|x86|appimage|sh)$/i, '');
 }
 
-export function buildDuplicateSignature(game) {
+export function buildDuplicateSignature(game: Partial<GameEntry>): string | null {
     if (game?.duplicateSignature) {
         return game.duplicateSignature;
     }
@@ -62,7 +65,7 @@ export function buildDuplicateSignature(game) {
     return `name:${normalizedName}|exe:${normalizedExeStem}`;
 }
 
-function normalizeForPathMatching(value) {
+function normalizeForPathMatching(value: unknown): string {
     return String(value || '')
         .trim()
         .replaceAll('\\', '/')
@@ -71,7 +74,11 @@ function normalizeForPathMatching(value) {
         .toLowerCase();
 }
 
-export function annotateGamesForDisplay(games, libraryPathsInput = '', locationDisplayMode = LOCATION_DISPLAY_MODES.PARENT) {
+export function annotateGamesForDisplay(
+    games: GameEntry[],
+    libraryPathsInput: LibraryPathsInput = '',
+    locationDisplayMode: LocationDisplayMode = LOCATION_DISPLAY_MODES.PARENT
+): GameEntry[] {
     if (!Array.isArray(games)) return [];
 
     const rawPaths = Array.isArray(libraryPathsInput)
@@ -84,7 +91,7 @@ export function annotateGamesForDisplay(games, libraryPathsInput = '', locationD
         .filter((p) => typeof p === 'string' && p.trim() !== '')
         .sort((a, b) => normalizePathSegment(b).length - normalizePathSegment(a).length);
 
-    function annotateRecord(game) {
+    function annotateRecord(game: GameEntry): GameEntry {
         if (game == null) return game;
 
         const rawGameFolder = game.folderPath || game.relativePath || game.gameKey || game.folderName || '';
@@ -133,4 +140,12 @@ export function annotateGamesForDisplay(games, libraryPathsInput = '', locationD
             primaryInstance: game.primaryInstance ? annotateRecord(game.primaryInstance) : game.primaryInstance
         };
     });
+}
+
+export function buildDuplicateChipLabel(duplicateCount?: number): string | null {
+    return duplicateCount && duplicateCount > 1 ? `${duplicateCount}x` : null;
+}
+
+export function buildPathSubtitle(game: GameEntry): string {
+    return game.relativePathDisplay || '';
 }

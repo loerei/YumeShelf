@@ -7,6 +7,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 ## [2.3.0] - working
 
 ### What Changed
+- Versioning: YumeShelf follows Semantic Versioning (SemVer) from 2.3.0 onward.
 - Smoother library and Save Editor UI: rebuilt the main interface and Save Editor so large game libraries and save files with thousands of variables scroll and filter without UI freezes.
 - Standalone Save Editor window: the Save Editor now runs in its own dedicated window with unsaved-change protection and instant search filtering, so editing saves does not block or clutter the main library.
 - Safer save editing and translation: save file parsing and delta writes now happen outside the UI thread, and batch variable translation runs in background chunks with progress and cancellation instead of locking up the screen.

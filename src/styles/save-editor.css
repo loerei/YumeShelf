@@ -1137,12 +1137,16 @@
 }
 
 .save-editor-footer {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
     padding: 16px 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 12px;
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--bg-color, #121212);
 }
 
 .save-editor-panel .primary-btn,
@@ -1156,6 +1160,56 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+}
+
+.save-editor-footer .primary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.save-editor-footer .primary-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.save-editor-footer .primary-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.save-editor-footer .primary-btn.is-saving svg {
+    animation: spin 1s linear infinite;
+}
+
+.save-editor-footer-status {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text-sub, #b3b3b3);
+}
+
+.save-editor-footer .save-editor-error-box {
+    margin-bottom: 0;
+    margin-right: auto;
+    padding: 8px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-main, #ffffff);
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .save-editor-footer .primary-btn svg {
+        animation: none;
+    }
 }
 
 .save-editor-panel .secondary-btn,

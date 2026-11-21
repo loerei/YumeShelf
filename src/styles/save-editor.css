@@ -1043,10 +1043,30 @@
 @media (prefers-reduced-motion: reduce) {
     .save-editor-popover,
     .input-error,
-    .translate-btn.loading svg {
+    .translate-btn.loading svg,
+    .save-editor-loaded-stage,
+    .save-editor-tabs-wrapper.is-loaded {
         animation: none;
         transition: none;
     }
+}
+
+@keyframes save-editor-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.save-editor-tabs-wrapper.is-loaded {
+    animation: save-editor-fade-in 0.18s ease-out;
+}
+
+.save-editor-loaded-stage {
+    width: 100%;
+    animation: save-editor-fade-in 0.18s ease-out;
 }
 
 .save-editor-content {

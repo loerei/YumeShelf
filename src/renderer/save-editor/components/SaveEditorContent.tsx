@@ -281,7 +281,7 @@ export function SaveEditorContent({
       );
   } else {
     content = (
-      <>
+      <div key={activeFileName ?? 'loaded'} className="save-editor-loaded-stage">
         {activeTabId === 'all' && sectionTabIds.length > 0 && (
           <div className="all-tab-controls">
             <button
@@ -412,7 +412,7 @@ export function SaveEditorContent({
             );
           })}
         </div>
-      </>
+      </div>
     );
   }
 

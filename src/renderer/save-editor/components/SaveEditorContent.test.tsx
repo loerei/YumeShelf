@@ -920,6 +920,12 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     );
     expect(css).toMatch(/\.save-editor-content\s+\.loading\s*\{[^}]*height:\s*100%/s);
     expect(css).not.toMatch(/^\.loading\s*\{/m);
+    expect(css).toMatch(/@keyframes\s+save-editor-fade-in\s*\{/);
+    expect(css).toMatch(/\.save-editor-loaded-stage\s*\{[^}]*animation:\s*save-editor-fade-in/s);
+    expect(css).toMatch(/\.save-editor-tabs-wrapper\.is-loaded\s*\{[^}]*animation:\s*save-editor-fade-in/s);
+    expect(css).toMatch(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[^}]*\.save-editor-loaded-stage,\s*\.save-editor-tabs-wrapper\.is-loaded\s*\{[^}]*animation:\s*none;/s
+    );
 
     const rowBlock = css.match(/\.save-field-row\s*\{([^}]+)\}/);
     expect(rowBlock).not.toBeNull();

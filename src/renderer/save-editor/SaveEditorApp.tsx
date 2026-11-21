@@ -126,7 +126,11 @@ export function SaveEditorShell({
           />
           <main className="save-editor-main">
             <div
-              className="save-editor-top-bar save-editor-tabs-wrapper"
+              className={
+                fileStatus.state === 'loaded'
+                  ? 'save-editor-top-bar save-editor-tabs-wrapper is-loaded'
+                  : 'save-editor-top-bar save-editor-tabs-wrapper'
+              }
               style={fileStatus.state === 'loaded' ? undefined : { display: 'none' }}
             >
               <SaveEditorTabs />

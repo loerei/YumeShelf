@@ -1,15 +1,17 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ElectronAPI } from '../../shared/types/ipc';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import {
   SaveEditorStoreProvider,
   useSaveEditorDispatch,
+  useSaveEditorStore,
   useSaveFileStatus,
   type ObservableSaveEditorStore,
 } from './store/save-editor-store';
 import { SaveEditorSidebar } from './components/sidebar/SaveEditorSidebar';
 import { SaveEditorTabs } from './components/SaveEditorTabs';
 import { SaveEditorSearchBar } from './components/SaveEditorSearchBar';
+import { SaveEditorFilterBar } from './components/SaveEditorFilterBar';
 import { SaveEditorContent } from './components/SaveEditorContent';
 import { SaveEditorFooter } from './components/SaveEditorFooter';
 
@@ -32,12 +34,77 @@ export function SaveEditorShell({
 }: SaveEditorShellProps): React.JSX.Element {
   const fileStatus = useSaveFileStatus();
   const dispatch = useSaveEditorDispatch();
+  const store = useSaveEditorStore();
   const retryCounterRef = useRef(0);
   const sidebarListFocusRef = useRef<HTMLDivElement | null>(null);
   const [retryRequest, setRetryRequest] = useState<{
     fileName: string;
     requestId: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const isTextTypingTarget = (target: EventTarget | null): boolean => {
+      const el =
+        target instanceof HTMLElement
+          ? target
+          : document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+      if (!el) return false;
+      if (el.closest('[role="dialog"]')) return true;
+      if (el.tagName === 'TEXTAREA' || el.isContentEditable) return true;
+      if (el.tagName === 'INPUT') {
+        const inputType = (el as HTMLInputElement).type;
+        return [
+          'text',
+          'search',
+          'number',
+          'password',
+          'email',
+          'tel',
+          'url',
+        ].includes(inputType);
+      }
+      return false;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (store.getSnapshot().fileStatus.state !== 'loaded') return;
+      if (isTextTypingTarget(e.target)) return;
+
+      if (e.shiftKey && e.key === 'Enter') {
+        const saveBtn = document.querySelector(
+          '.save-editor-footer .save-btn'
+        ) as HTMLButtonElement | null;
+        if (saveBtn && saveBtn.getAttribute('aria-disabled') !== 'true') {
+          e.preventDefault();
+          saveBtn.click();
+        }
+        return;
+      }
+
+      if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      const currentFilters = store.getSnapshot().filters;
+      if (key === 'e') {
+        e.preventDefault();
+        dispatch.setFilter({ showEmpty: !currentFilters.showEmpty });
+      } else if (key === 'i') {
+        e.preventDefault();
+        dispatch.setFilter({ showImportant: !currentFilters.showImportant });
+      } else if (key === 'x') {
+        e.preventDefault();
+        dispatch.setFilter({ exactMatch: !currentFilters.exactMatch });
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [store, dispatch]);
 
   const handleRetryLoad = (fileName: string) => {
     setRetryRequest({ fileName, requestId: ++retryCounterRef.current });
@@ -64,7 +131,10 @@ export function SaveEditorShell({
             >
               <SaveEditorTabs />
               <div className="save-editor-actions">
-                <SaveEditorSearchBar />
+                <div className="save-editor-search-row">
+                  <SaveEditorSearchBar />
+                </div>
+                <SaveEditorFilterBar />
               </div>
             </div>
             <SaveEditorContent

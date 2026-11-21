@@ -7,8 +7,10 @@ export interface SaveFieldRowProps {
   value: number | string | boolean;
   isDirty: boolean;
   isTranslated?: boolean;
+  isPinned?: boolean;
   label: string;
   onChange: (fieldId: string, nextValue: number | string | boolean) => void;
+  onTogglePin?: (fieldId: string) => void;
 }
 
 function renderDelta(
@@ -50,8 +52,10 @@ export const SaveFieldRow = React.memo(
     value,
     isDirty,
     isTranslated = false,
+    isPinned = false,
     label,
     onChange,
+    onTogglePin,
   }: SaveFieldRowProps): React.JSX.Element {
     const inputId = `field-${field.id}`;
     const rowClassName = isDirty ? 'save-field-row is-dirty' : 'save-field-row';
@@ -61,6 +65,21 @@ export const SaveFieldRow = React.memo(
     const isBooleanField = field.type === 'boolean' || typeof field.value === 'boolean';
     const idBadge = field.key ? <span className="data-id">#{field.key}</span> : null;
     const deltaNode = renderDelta(field, value, isDirty);
+    const pinButton = onTogglePin ? (
+      <button
+        type="button"
+        className={isPinned ? 'data-pin-btn active' : 'data-pin-btn'}
+        aria-label={isPinned ? `Unpin ${label}` : `Pin ${label}`}
+        aria-pressed={isPinned}
+        title={isPinned ? 'Unpin field' : 'Pin field'}
+        onClick={(e) => {
+          e.stopPropagation();
+          onTogglePin(field.id);
+        }}
+      >
+        ★
+      </button>
+    ) : null;
 
     if (isBooleanField) {
       return (
@@ -68,6 +87,7 @@ export const SaveFieldRow = React.memo(
           className={rowClassName}
           data-dirty={isDirty ? 'true' : undefined}
         >
+          {pinButton}
           <CheckboxSwitch
             id={inputId}
             label={label}
@@ -95,6 +115,7 @@ export const SaveFieldRow = React.memo(
           className={rowClassName}
           data-dirty={isDirty ? 'true' : undefined}
         >
+          {pinButton}
           <div className="save-field-header">
             {idBadge}
             <label htmlFor={inputId} className={labelClassName}>
@@ -120,6 +141,7 @@ export const SaveFieldRow = React.memo(
         className={rowClassName}
         data-dirty={isDirty ? 'true' : undefined}
       >
+        {pinButton}
         <div className="save-field-header">
           {idBadge}
           <label htmlFor={inputId} className={labelClassName}>
@@ -145,6 +167,8 @@ export const SaveFieldRow = React.memo(
     prev.value === next.value &&
     prev.isDirty === next.isDirty &&
     prev.isTranslated === next.isTranslated &&
+    prev.isPinned === next.isPinned &&
     prev.label === next.label &&
-    prev.onChange === next.onChange
+    prev.onChange === next.onChange &&
+    prev.onTogglePin === next.onTogglePin
 );

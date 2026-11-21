@@ -118,7 +118,7 @@ describe('SaveEditorTabs (Connected Container)', () => {
     expect(nav).toHaveClass('save-editor-tabs', 'save-editor-tabs--empty');
   });
 
-  it('derives tabs and activeTabId from SaveEditorStore and dispatches setActiveTab on selection', async () => {
+  it('derives All, conditional Pinned, and category tabs from SaveEditorStore and dispatches setActiveTab on selection', async () => {
     const user = userEvent.setup();
     const store = createSaveEditorStore('game-1');
     const dto: NormalizedSaveDto = {
@@ -126,7 +126,16 @@ describe('SaveEditorTabs (Connected Container)', () => {
       fileName: 'file1.rpgsave',
       strategy: 'rpg-maker-mv',
       tabs: [...MOCK_TABS],
-      fields: [],
+      fields: [
+        {
+          id: 'variables:1',
+          tabId: 'variables',
+          key: '1',
+          label: 'Gold',
+          value: 100,
+          type: 'number',
+        },
+      ],
     };
     store.setFileLoaded(dto);
 
@@ -136,20 +145,32 @@ describe('SaveEditorTabs (Connected Container)', () => {
       </SaveEditorStoreProvider>
     );
 
+    const allBtn = screen.getByRole('button', { name: /^All/i });
     const varBtn = screen.getByRole('button', { name: /Variables/i });
     const switchBtn = screen.getByRole('button', { name: /Switches/i });
 
-    expect(varBtn).toHaveClass('save-tab', 'active');
-    expect(varBtn).toHaveAttribute('aria-current', 'page');
+    expect(allBtn).toHaveClass('save-tab', 'active');
+    expect(allBtn).toHaveAttribute('aria-current', 'page');
+    expect(varBtn).not.toHaveClass('active');
     expect(switchBtn).not.toHaveClass('active');
+    expect(screen.queryByRole('button', { name: /Pinned/i })).toBeNull();
 
     await user.click(switchBtn);
 
     expect(store.getSnapshot().activeTabId).toBe('switches');
     expect(switchBtn).toHaveClass('save-tab', 'active');
     expect(switchBtn).toHaveAttribute('aria-current', 'page');
-    expect(varBtn).not.toHaveClass('active');
-    expect(varBtn).not.toHaveAttribute('aria-current');
+    expect(allBtn).not.toHaveClass('active');
+    expect(allBtn).not.toHaveAttribute('aria-current');
+
+    await user.click(varBtn);
+    expect(store.getSnapshot().activeTabId).toBe('variables');
+    expect(varBtn).toHaveClass('save-tab', 'active');
+
+    act(() => {
+      store.togglePin('variables:1');
+    });
+    expect(screen.getByRole('button', { name: /Pinned/i })).toBeInTheDocument();
   });
 });
 

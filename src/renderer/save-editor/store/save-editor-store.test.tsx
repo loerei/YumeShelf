@@ -521,6 +521,14 @@ describe('SaveEditorStoreProvider & Granular Selectors', () => {
     act(() => {
       store.setFileLoaded(dto);
     });
+    const snap = store.getSnapshot();
+    expect(snap.activeTabId).toBe('all');
+    expect(result.current).toHaveLength(3);
+    expect(snap.fileStatus.state === 'loaded' ? result.current === snap.fileStatus.dto.fields : false).toBe(true);
+
+    act(() => {
+      store.setActiveTab('variables');
+    });
     expect(result.current).toHaveLength(2);
     expect(result.current[0].id).toBe('variables:1');
     expect(result.current[1].id).toBe('variables:2');
@@ -636,5 +644,53 @@ describe('SaveEditorStoreProvider & Granular Selectors', () => {
 
     addSpy.mockRestore();
     removeSpy.mockRestore();
+  });
+
+  it('persists pinnedIds via storage adapter, manages switchFilter & section collapse, and leaves Pinned tab when empty', () => {
+    const map = new Map<string, string>();
+    const storage = {
+      getItem: vi.fn((k: string) => map.get(k) ?? null),
+      setItem: vi.fn((k: string, v: string) => {
+        map.set(k, v);
+      }),
+      removeItem: vi.fn((k: string) => {
+        map.delete(k);
+      }),
+    };
+
+    const store = createSaveEditorStore('game-pin-test', storage);
+    store.setFileLoaded(createMockSaveDto());
+
+    store.togglePin('variables:1');
+    expect(store.getSnapshot().pinnedIds.has('variables:1')).toBe(true);
+    expect(map.get('yumeshelf_pinned_game-pin-test')).toBe('["variables:1"]');
+
+    // Fresh store hydrates saved pins
+    const rehydrated = createSaveEditorStore('game-pin-test', storage);
+    expect(rehydrated.getSnapshot().pinnedIds.has('variables:1')).toBe(true);
+
+    store.setActiveTab('pinned');
+    expect(store.getSnapshot().activeTabId).toBe('pinned');
+
+    // Removing the last pin on Pinned tab transitions cleanly back to All
+    store.togglePin('variables:1');
+    expect(store.getSnapshot().pinnedIds.size).toBe(0);
+    expect(store.getSnapshot().activeTabId).toBe('all');
+
+    // Switch filter auto-resets when navigating away from switches tab
+    store.setActiveTab('switches');
+    store.setFilter({ switchFilter: 'true' });
+    expect(store.getSnapshot().filters.switchFilter).toBe('true');
+    store.setActiveTab('variables');
+    expect(store.getSnapshot().filters.switchFilter).toBe('all');
+
+    // Section collapse/expand helpers
+    store.collapseAllSections(['variables', 'switches']);
+    expect(store.getSnapshot().collapsedSections.has('variables')).toBe(true);
+    expect(store.getSnapshot().collapsedSections.has('switches')).toBe(true);
+    store.toggleSection('variables');
+    expect(store.getSnapshot().collapsedSections.has('variables')).toBe(false);
+    store.expandAllSections();
+    expect(store.getSnapshot().collapsedSections.size).toBe(0);
   });
 });

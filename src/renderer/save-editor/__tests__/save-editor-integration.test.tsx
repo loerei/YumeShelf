@@ -472,11 +472,13 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
         gameKey: 'test-game',
         fileName: 'save01.sav',
       });
-      expect(screen.getByRole('button', { name: /Variables/i })).toHaveAttribute(
+      const tabsNav = screen.getByRole('navigation', { name: 'Save categories' });
+      expect(within(tabsNav).getByRole('button', { name: /^All/i })).toHaveAttribute(
         'aria-current',
         'page'
       );
-      expect(screen.getByRole('button', { name: /Switches/i })).toBeInTheDocument();
+      expect(within(tabsNav).getByRole('button', { name: /Variables/i })).toBeInTheDocument();
+      expect(within(tabsNav).getByRole('button', { name: /Switches/i })).toBeInTheDocument();
     });
 
     // 3. Verify virtualized row rendering via initialRect { width: 800, height: 600 }
@@ -498,7 +500,8 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     expect(store.getSnapshot().dirtyKeys.has('variables:2')).toBe(true);
 
     // Switch tab to Switches and toggle boolean switch
-    await user.click(screen.getByRole('button', { name: /Switches/i }));
+    const tabsNav = screen.getByRole('navigation', { name: 'Save categories' });
+    await user.click(within(tabsNav).getByRole('button', { name: /Switches/i }));
     const introSwitch = screen.getByRole('switch', { name: 'Intro Watched' });
     await user.click(introSwitch);
     expect(store.getSnapshot().dirtyKeys.has('switches:1')).toBe(true);
@@ -508,7 +511,7 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     expect(dirtyUnloadEvent.defaultPrevented).toBe(true);
 
     // 5. Filter variables across labels, keys, and effective scalar values
-    await user.click(screen.getByRole('button', { name: /Variables/i }));
+    await user.click(within(tabsNav).getByRole('button', { name: /Variables/i }));
     const searchInput = screen.getByRole('searchbox', { name: /search variables/i });
 
     // Filter by label
@@ -634,6 +637,11 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
       setMutatingFile: (isMutating) => baseStore.setMutatingFile(isMutating),
       setActiveTab: (tabId) => baseStore.setActiveTab(tabId),
       setSearchQuery: (query) => baseStore.setSearchQuery(query),
+      setFilter: (patch) => baseStore.setFilter(patch),
+      togglePin: (fieldId) => baseStore.togglePin(fieldId),
+      toggleSection: (tabId) => baseStore.toggleSection(tabId),
+      expandAllSections: () => baseStore.expandAllSections(),
+      collapseAllSections: (tabIds) => baseStore.collapseAllSections(tabIds),
       setTranslations: (t) => baseStore.setTranslations(t),
       hydrateTranslations: (t) => baseStore.hydrateTranslations(t),
       setTranslating: (v) => baseStore.setTranslating(v),
@@ -729,5 +737,57 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     expect(document.activeElement).toBe(rootEl);
 
     expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('supports pre-310 filter keyboard shortcuts (e, i, x) and Shift+Enter save when not typing in an input', async () => {
+    const user = userEvent.setup();
+    const mockApi = createMockElectronAPI();
+    const store = createSaveEditorStore('test-game');
+
+    render(
+      <SaveEditorApp
+        gameKey="test-game"
+        initialFile="save01.sav"
+        store={store}
+        electronAPI={mockApi}
+      />
+    );
+
+    const goldInput = await screen.findByRole('textbox', { name: 'Gold' });
+
+    // Single-key shortcuts toggle filters when focus is outside text inputs
+    fireEvent.keyDown(document.body, { key: 'e' });
+    fireEvent.keyDown(document.body, { key: 'i' });
+    fireEvent.keyDown(document.body, { key: 'x' });
+    expect(store.getSnapshot().filters).toMatchObject({
+      showEmpty: true,
+      showImportant: false,
+      exactMatch: true,
+    });
+
+    // Shortcuts must NOT trigger while typing inside searchbox or field inputs
+    const searchInput = screen.getByRole('searchbox', { name: /search variables/i });
+    searchInput.focus();
+    fireEvent.keyDown(searchInput, { key: 'e' });
+    expect(store.getSnapshot().filters.showEmpty).toBe(true);
+
+    // Edit Gold -> blur input -> Shift+Enter saves changes
+    await user.clear(goldInput);
+    await user.type(goldInput, '888{Enter}');
+    expect(store.getSnapshot().dirtyKeys.has('variables:1')).toBe(true);
+    fireEvent.blur(goldInput);
+    (document.body as HTMLElement).focus();
+
+    await act(async () => {
+      fireEvent.keyDown(document.body, { key: 'Enter', shiftKey: true });
+      await flushPromises();
+    });
+
+    expect(mockApi.writeSaveData).toHaveBeenCalledTimes(1);
+    expect(mockApi.writeSaveData).toHaveBeenCalledWith({
+      gameKey: 'test-game',
+      fileName: 'save01.sav',
+      updates: { 'variables:1': 888 },
+    });
   });
 });

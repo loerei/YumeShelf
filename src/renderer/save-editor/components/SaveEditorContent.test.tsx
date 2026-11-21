@@ -449,7 +449,7 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     // Idle state: clear slot-selection guidance without mounting virtualizer rows
     const status = screen.getByRole('status');
     expect(status).toHaveAttribute('aria-live', 'polite');
-    expect(status.textContent).toMatch(/Select a save file from the sidebar/i);
+    expect(status.textContent).toMatch(/Select Save File|Select a save file from the sidebar/i);
     expect(container.querySelectorAll('[data-index]')).toHaveLength(0);
     expect(screen.queryByRole('searchbox')).toBeNull();
 
@@ -495,21 +495,22 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     expect(screen.getByRole('textbox', { name: 'Gold' })).toHaveValue('500');
   });
 
-  it('virtualizes 10,000+ fields deterministically in HappyDOM via initialRect with calibrated estimateSize (48 boolean / 88 variable) and getItemKey', () => {
+  it('virtualizes 10,000+ fields deterministically in HappyDOM via initialRect with calibrated estimateSize (48 section / 64 boolean / 104 number row) and getItemKey', () => {
     const store = createSaveEditorStore('game-1');
     const fields: SaveFieldDto[] = [];
     for (let i = 0; i < 10000; i++) {
-      const isBool = i % 2 === 1;
+      const isBool = i >= 5000;
       fields.push({
         id: `variables:${i}`,
         tabId: 'variables',
         key: String(i),
         label: `Field ${i}`,
-        value: isBool ? i % 4 === 1 : i * 10,
+        value: isBool ? i % 2 === 1 : i * 10,
         type: isBool ? 'boolean' : 'number',
       });
     }
     store.setFileLoaded(createSaveDto('huge.sav', fields));
+    store.setActiveTab('variables');
 
     const { container } = render(
       <SaveEditorStoreProvider store={store}>
@@ -518,23 +519,22 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     );
 
     const renderedRows = container.querySelectorAll('[data-index]');
-    // 600px initialRect + overscan 8 yields ~17-25 rows rather than all 10,000
+    // 600px initialRect + overscan 8 yields ~15-25 virtual 2-column rows rather than 5,000
     expect(renderedRows.length).toBeGreaterThan(0);
     expect(renderedRows.length).toBeLessThan(40);
 
-    // 5000 numbers * 88 + 5000 booleans * 48 = 680,000px total height
-    const spacer = container.querySelector('.save-editor-content > div') as HTMLElement;
+    // 2500 2-col number rows * 104 + 2500 2-col boolean rows * 64 = 420,000px total height
+    const spacer = container.querySelector('.save-editor-virtual-spacer') as HTMLElement;
     expect(spacer).not.toBeNull();
-    expect(spacer.style.height).toBe('680000px');
+    expect(spacer.style.height).toBe('420000px');
 
-    // First item (number -> 88px) starts at 0px; second item (boolean -> 48px) starts at 88px; third starts at 136px
     const row0 = container.querySelector('[data-index="0"]') as HTMLElement;
     const row1 = container.querySelector('[data-index="1"]') as HTMLElement;
     const row2 = container.querySelector('[data-index="2"]') as HTMLElement;
     expect(row0.style.transform).toBe('translateY(0px)');
     expect(row0.style.isolation).toBe('isolate');
-    expect(row1.style.transform).toBe('translateY(88px)');
-    expect(row2.style.transform).toBe('translateY(136px)');
+    expect(row1.style.transform).toBe('translateY(104px)');
+    expect(row2.style.transform).toBe('translateY(208px)');
   });
 
   it('renders accessible empty-state feedback for empty categories and empty search queries, transferring focus to scroll container before clearing search', async () => {
@@ -572,7 +572,7 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     });
     const emptyCategory = screen.getByRole('status');
     expect(emptyCategory).toHaveAttribute('aria-live', 'polite');
-    expect(emptyCategory.textContent).toMatch(/no variables/i);
+    expect(emptyCategory.textContent).toMatch(/No data found in this category|no variables/i);
     expect(screen.queryByRole('button', { name: /clear search filter/i })).toBeNull();
 
     // Empty search query result -> Clear search filter button transfers focus to .save-editor-content (tabIndex=-1) across pointer click, Enter, and Space
@@ -773,8 +773,11 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
         createSaveDto('slot1.sav', [
           { id: 'variables:1', tabId: 'variables', key: '1', label: 'Row 0', value: 1, type: 'number' },
           { id: 'variables:2', tabId: 'variables', key: '2', label: 'Row 1', value: 2, type: 'number' },
+          { id: 'variables:3', tabId: 'variables', key: '3', label: 'Row 2', value: 3, type: 'number' },
+          { id: 'variables:4', tabId: 'variables', key: '4', label: 'Row 3', value: 4, type: 'number' },
         ])
       );
+      store.setActiveTab('variables');
 
       const { container, unmount } = render(
         <SaveEditorStoreProvider store={store}>
@@ -784,7 +787,7 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
 
       const row0 = container.querySelector('[data-index="0"]') as HTMLElement;
       const row1 = container.querySelector('[data-index="1"]') as HTMLElement;
-      expect(row1.style.transform).toBe('translateY(88px)');
+      expect(row1.style.transform).toBe('translateY(104px)');
 
       // Simulate row 0 label wrapping to 140px height without relying on browser layout engine
       vi.spyOn(row0, 'getBoundingClientRect').mockReturnValue({
@@ -806,8 +809,8 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
         }
       });
 
-      const spacer = container.querySelector('.save-editor-content > div') as HTMLElement;
-      expect(spacer.style.height).toBe('228px');
+      const spacer = container.querySelector('.save-editor-virtual-spacer') as HTMLElement;
+      expect(spacer.style.height).toBe('244px');
       expect(row1.style.transform).toBe('translateY(140px)');
 
       unmount();
@@ -822,10 +825,12 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     store.setFileLoaded(
       createSaveDto('slot1.sav', [
         { id: 'variables:10', tabId: 'variables', key: '10', label: 'Alpha', value: 'one', type: 'string' },
+        { id: 'variables:15', tabId: 'variables', key: '15', label: 'Mid', value: 'mid', type: 'string' },
         { id: 'variables:20', tabId: 'variables', key: '20', label: 'Beta', value: 'two', type: 'string' },
         { id: 'switches:10', tabId: 'switches', key: '10', label: 'Gamma', value: false, type: 'boolean' },
       ])
     );
+    store.setActiveTab('variables');
 
     const { container } = render(
       <SaveEditorStoreProvider store={store}>
@@ -855,6 +860,49 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     const switchRow0 = container.querySelector('[data-index="0"]') as HTMLElement;
     expect(switchRow0).not.toBe(row0After);
     expect(screen.getByRole('switch', { name: 'Gamma' })).toBeInTheDocument();
+  });
+
+  it('supports Expand All / Collapse All sections in All tab and interactive pin button (★) with Pinned tab view', () => {
+    const store = createSaveEditorStore('game-1');
+    store.setFileLoaded(
+      createSaveDto('slot1.sav', [
+        { id: 'variables:1', tabId: 'variables', key: '1', label: 'Gold', value: 100, type: 'number' },
+        { id: 'switches:1', tabId: 'switches', key: '1', label: 'Boss', value: true, type: 'boolean' },
+      ])
+    );
+
+    render(
+      <SaveEditorStoreProvider store={store}>
+        <SaveEditorContent />
+      </SaveEditorStoreProvider>
+    );
+
+    const expandAllBtn = screen.getByRole('button', { name: 'Expand All' });
+    const collapseAllBtn = screen.getByRole('button', { name: 'Collapse All' });
+    expect(screen.getByRole('textbox', { name: 'Gold' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Boss' })).toBeInTheDocument();
+
+    fireEvent.click(collapseAllBtn);
+    expect(screen.queryByRole('textbox', { name: 'Gold' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Boss' })).toBeNull();
+
+    fireEvent.click(expandAllBtn);
+    expect(screen.getByRole('textbox', { name: 'Gold' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Variables/i }));
+    expect(screen.queryByRole('textbox', { name: 'Gold' })).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Boss' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Variables/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pin Gold' }));
+    expect(store.getSnapshot().pinnedIds.has('variables:1')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Unpin Gold' })).toHaveClass('data-pin-btn', 'active');
+
+    act(() => {
+      store.setActiveTab('pinned');
+    });
+    expect(screen.getByRole('textbox', { name: 'Gold' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Boss' })).toBeNull();
   });
 });
 

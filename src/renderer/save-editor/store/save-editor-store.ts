@@ -7,6 +7,12 @@ import type {
   SaveUpdatesPayload,
 } from '@yumeshelf/engine/types';
 import type { ElectronAPI } from '../../../shared/types/ipc';
+import type { UiStorageAdapter } from '../../state/ui-runtime-state';
+import {
+  DEFAULT_SAVE_EDITOR_FILTERS,
+  matchesSaveFieldFilter,
+  type SaveEditorFilterState,
+} from '../domain/save-view-model';
 
 export type SaveFileStatus =
   | { readonly state: 'idle' }
@@ -26,6 +32,9 @@ export interface SaveEditorStoreState {
   saveStatus: SaveOperationStatus;
   activeTabId: string;
   searchQuery: string;
+  filters: SaveEditorFilterState;
+  pinnedIds: Set<string>;
+  collapsedSections: Set<string>;
   translations: Record<string, string>;
   isTranslating: boolean;
   isMutatingFile: boolean;
@@ -41,6 +50,9 @@ export interface SaveEditorStoreSnapshot {
   readonly saveStatus: SaveOperationStatus;
   readonly activeTabId: string;
   readonly searchQuery: string;
+  readonly filters: SaveEditorFilterState;
+  readonly pinnedIds: ReadonlySet<string>;
+  readonly collapsedSections: ReadonlySet<string>;
   readonly translations: Readonly<Record<string, string>>;
   readonly isTranslating: boolean;
   readonly isMutatingFile: boolean;
@@ -62,6 +74,11 @@ export interface ObservableSaveEditorStore {
   setMutatingFile(isMutating: boolean): void;
   setActiveTab(tabId: string): void;
   setSearchQuery(query: string): void;
+  setFilter(patch: Partial<SaveEditorFilterState>): void;
+  togglePin(fieldId: string): void;
+  toggleSection(tabId: string): void;
+  expandAllSections(): void;
+  collapseAllSections(tabIds: readonly string[]): void;
   setTranslations(newTranslations: Record<string, string>): void;
   hydrateTranslations(translations: Record<string, string>): void;
   setTranslating(isTranslating: boolean): void;
@@ -83,6 +100,11 @@ export interface SaveEditorActionDispatchers {
   setMutatingFile: (isMutating: boolean) => void;
   setActiveTab: (tabId: string) => void;
   setSearchQuery: (query: string) => void;
+  setFilter: (patch: Partial<SaveEditorFilterState>) => void;
+  togglePin: (fieldId: string) => void;
+  toggleSection: (tabId: string) => void;
+  expandAllSections: () => void;
+  collapseAllSections: (tabIds: readonly string[]) => void;
   setTranslations: (translations: Record<string, string>) => void;
   hydrateTranslations: (translations: Record<string, string>) => void;
   setTranslating: (isTranslating: boolean) => void;
@@ -113,12 +135,46 @@ function sanitizeTranslationsMap(input: Record<string, string>): Record<string, 
   return clean;
 }
 
+function readPinnedIds(gameKey: string, storage?: UiStorageAdapter): Set<string> {
+  if (!gameKey) return new Set();
+  try {
+    const targetStorage =
+      storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+    const raw = targetStorage?.getItem(`yumeshelf_pinned_${gameKey}`);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((entry): entry is string => typeof entry === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+function writePinnedIds(
+  gameKey: string,
+  pinnedIds: ReadonlySet<string>,
+  storage?: UiStorageAdapter
+): void {
+  if (!gameKey) return;
+  try {
+    const targetStorage =
+      storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+    targetStorage?.setItem(`yumeshelf_pinned_${gameKey}`, JSON.stringify(Array.from(pinnedIds)));
+  } catch {
+    // Ignore storage write quota/security failures cleanly
+  }
+}
+
 class SaveEditorStore implements ObservableSaveEditorStore {
   private readonly gameKey: string;
+  private readonly storage?: UiStorageAdapter;
   private fileStatus: SaveFileStatus = { state: 'idle' };
   private saveStatus: SaveOperationStatus = { state: 'idle' };
   private activeTabId = '';
   private searchQuery = '';
+  private filters: SaveEditorFilterState = DEFAULT_SAVE_EDITOR_FILTERS;
+  private pinnedIds: Set<string>;
+  private collapsedSections: Set<string> = new Set();
   private translations: Record<string, string> = {};
   private isTranslating = false;
   private isMutatingFile = false;
@@ -129,8 +185,10 @@ class SaveEditorStore implements ObservableSaveEditorStore {
   private readonly listeners = new Set<() => void>();
   private currentSnapshot: SaveEditorStoreSnapshot;
 
-  constructor(gameKey: string) {
+  constructor(gameKey: string, storage?: UiStorageAdapter) {
     this.gameKey = gameKey;
+    this.storage = storage;
+    this.pinnedIds = readPinnedIds(gameKey, storage);
     this.currentSnapshot = this.buildSnapshot();
     this.subscribe = this.subscribe.bind(this);
     this.getSnapshot = this.getSnapshot.bind(this);
@@ -143,7 +201,10 @@ class SaveEditorStore implements ObservableSaveEditorStore {
       saveStatus: this.saveStatus,
       activeTabId: this.activeTabId,
       searchQuery: this.searchQuery,
-      translations: { ...this.translations },
+      filters: this.filters,
+      pinnedIds: this.pinnedIds,
+      collapsedSections: this.collapsedSections,
+      translations: this.translations,
       isTranslating: this.isTranslating,
       isMutatingFile: this.isMutatingFile,
       dirtyKeys: new Set(this.dirtyKeys),
@@ -212,12 +273,19 @@ class SaveEditorStore implements ObservableSaveEditorStore {
     this.searchQuery = '';
     this.isTranslating = false;
     this.isMutatingFile = false;
+    if (this.collapsedSections.size > 0) {
+      this.collapsedSections = new Set();
+    }
 
     const tabs = dto.tabs || [];
+    const hasMatchingPins =
+      this.pinnedIds.size > 0 && normalizedFields.some((f) => this.pinnedIds.has(f.id));
     const hasValidActiveTab =
-      Boolean(this.activeTabId) && tabs.some((t) => t.id === this.activeTabId);
+      (this.activeTabId === 'all' && tabs.length > 0) ||
+      (this.activeTabId === 'pinned' && hasMatchingPins) ||
+      tabs.some((t) => t.id === this.activeTabId);
     if (!hasValidActiveTab) {
-      this.activeTabId = tabs[0]?.id || '';
+      this.activeTabId = tabs.length > 0 ? 'all' : '';
     }
 
     this.fileStatus = {
@@ -290,6 +358,9 @@ class SaveEditorStore implements ObservableSaveEditorStore {
       return;
     }
     this.activeTabId = tabId;
+    if (tabId !== 'switches' && this.filters.switchFilter !== 'all') {
+      this.filters = { ...this.filters, switchFilter: 'all' };
+    }
     this.invalidateSnapshot();
   }
 
@@ -298,6 +369,68 @@ class SaveEditorStore implements ObservableSaveEditorStore {
       return;
     }
     this.searchQuery = query;
+    this.invalidateSnapshot();
+  }
+
+  setFilter(patch: Partial<SaveEditorFilterState>): void {
+    const next: SaveEditorFilterState = { ...this.filters, ...patch };
+    const changed = (Object.keys(next) as Array<keyof SaveEditorFilterState>).some(
+      (k) => next[k] !== this.filters[k]
+    );
+    if (!changed) {
+      return;
+    }
+    this.filters = next;
+    this.invalidateSnapshot();
+  }
+
+  togglePin(fieldId: string): void {
+    const nextPins = new Set(this.pinnedIds);
+    if (nextPins.has(fieldId)) {
+      nextPins.delete(fieldId);
+    } else {
+      nextPins.add(fieldId);
+    }
+    this.pinnedIds = nextPins;
+    writePinnedIds(this.gameKey, nextPins, this.storage);
+
+    if (this.activeTabId === 'pinned') {
+      const hasRemaining =
+        this.fileStatus.state === 'loaded' &&
+        this.fileStatus.dto.fields.some((f) => nextPins.has(f.id));
+      if (!hasRemaining) {
+        this.activeTabId = this.fileStatus.state === 'loaded' && this.fileStatus.dto.tabs.length > 0 ? 'all' : '';
+      }
+    }
+    this.invalidateSnapshot();
+  }
+
+  toggleSection(tabId: string): void {
+    const next = new Set(this.collapsedSections);
+    if (next.has(tabId)) {
+      next.delete(tabId);
+    } else {
+      next.add(tabId);
+    }
+    this.collapsedSections = next;
+    this.invalidateSnapshot();
+  }
+
+  expandAllSections(): void {
+    if (this.collapsedSections.size === 0) {
+      return;
+    }
+    this.collapsedSections = new Set();
+    this.invalidateSnapshot();
+  }
+
+  collapseAllSections(tabIds: readonly string[]): void {
+    const next = new Set(tabIds);
+    const sameSize = next.size === this.collapsedSections.size;
+    if (sameSize && Array.from(next).every((id) => this.collapsedSections.has(id))) {
+      return;
+    }
+    this.collapsedSections = next;
     this.invalidateSnapshot();
   }
 
@@ -442,8 +575,11 @@ class SaveEditorStore implements ObservableSaveEditorStore {
   }
 }
 
-export function createSaveEditorStore(gameKey: string): ObservableSaveEditorStore {
-  return new SaveEditorStore(gameKey);
+export function createSaveEditorStore(
+  gameKey: string,
+  storage?: UiStorageAdapter
+): ObservableSaveEditorStore {
+  return new SaveEditorStore(gameKey, storage);
 }
 
 export const SaveEditorStoreContext = createContext<ObservableSaveEditorStore | null>(null);
@@ -453,6 +589,7 @@ export const SaveEditorElectronApiContext = createContext<ElectronAPI | undefine
 export interface SaveEditorStoreProviderProps {
   gameKey?: string;
   store?: ObservableSaveEditorStore;
+  storage?: UiStorageAdapter;
   electronAPI?: ElectronAPI;
   children: React.ReactNode;
 }
@@ -460,12 +597,13 @@ export interface SaveEditorStoreProviderProps {
 export function SaveEditorStoreProvider({
   gameKey,
   store,
+  storage,
   electronAPI,
   children,
 }: SaveEditorStoreProviderProps): React.JSX.Element {
   const resolvedStore = useMemo(
-    () => store ?? createSaveEditorStore(gameKey ?? ''),
-    [store, gameKey]
+    () => store ?? createSaveEditorStore(gameKey ?? '', storage),
+    [store, gameKey, storage]
   );
   const dispatchers: SaveEditorActionDispatchers = useMemo(
     () => ({
@@ -477,6 +615,11 @@ export function SaveEditorStoreProvider({
       setFileIdle: () => resolvedStore.setFileIdle(),
       setActiveTab: (tabId) => resolvedStore.setActiveTab(tabId),
       setSearchQuery: (query) => resolvedStore.setSearchQuery(query),
+      setFilter: (patch) => resolvedStore.setFilter(patch),
+      togglePin: (fieldId) => resolvedStore.togglePin(fieldId),
+      toggleSection: (tabId) => resolvedStore.toggleSection(tabId),
+      expandAllSections: () => resolvedStore.expandAllSections(),
+      collapseAllSections: (tabIds) => resolvedStore.collapseAllSections(tabIds),
       setTranslations: (translations) => resolvedStore.setTranslations(translations),
       hydrateTranslations: (translations) => resolvedStore.hydrateTranslations(translations),
       setTranslating: (isTranslating) => resolvedStore.setTranslating(isTranslating),
@@ -555,6 +698,18 @@ export function useSaveSearchQuery(): string {
   return useSaveEditorSelector((s) => s.searchQuery);
 }
 
+export function useSaveFilters(): SaveEditorFilterState {
+  return useSaveEditorSelector((s) => s.filters);
+}
+
+export function useSavePinnedIds(): ReadonlySet<string> {
+  return useSaveEditorSelector((s) => s.pinnedIds);
+}
+
+export function useSaveCollapsedSections(): ReadonlySet<string> {
+  return useSaveEditorSelector((s) => s.collapsedSections);
+}
+
 export function useSaveTranslations(): Readonly<Record<string, string>> {
   return useSaveEditorSelector((s) => s.translations);
 }
@@ -612,12 +767,22 @@ export function useSaveEditorDispatch(): SaveEditorActionDispatchers {
 const EMPTY_PRISTINE_FIELDS: readonly SaveFieldDto[] = [];
 
 export function useActiveTabPristineFields(): readonly SaveFieldDto[] {
-  return useSaveEditorSelector((s) => {
+  const activeTabId = useActiveSaveTabId();
+  const pinnedIds = useSavePinnedIds();
+  const tabOrAllFields = useSaveEditorSelector((s) => {
     if (s.fileStatus.state !== 'loaded' || !s.pristineFieldsByTab) {
       return EMPTY_PRISTINE_FIELDS;
     }
+    if (s.activeTabId === 'all' || s.activeTabId === 'pinned') {
+      return s.fileStatus.dto.fields ?? EMPTY_PRISTINE_FIELDS;
+    }
     return s.pristineFieldsByTab.get(s.activeTabId) ?? EMPTY_PRISTINE_FIELDS;
   });
+
+  return useMemo(() => {
+    if (activeTabId !== 'pinned') return tabOrAllFields;
+    return tabOrAllFields.filter((f) => pinnedIds.has(f.id));
+  }, [activeTabId, pinnedIds, tabOrAllFields]);
 }
 
 export function getTranslation(
@@ -632,28 +797,30 @@ export function getTranslation(
 }
 
 export function useActiveTabFields(): readonly SaveFieldDto[] {
+  const activeTabId = useActiveSaveTabId();
   const tabFields = useActiveTabPristineFields();
   const query = useSaveSearchQuery().trim().toLowerCase().normalize('NFC');
+  const filters = useSaveFilters();
+  const pinnedIds = useSavePinnedIds();
   const translations = useSaveTranslations();
 
   return useMemo(() => {
-    if (!query) return tabFields;
+    const isPinnedTab = activeTabId === 'pinned';
+    const isDefaultBypass =
+      !query &&
+      filters.showEmpty &&
+      filters.switchFilter === 'all';
+    if (isDefaultBypass) return tabFields;
 
-    return tabFields.filter((f) => {
-      const normLabel = (f.label || '').normalize('NFC');
-      const effectiveLabel = (getTranslation(translations, normLabel) || normLabel).toLowerCase();
-      const rawLabel = normLabel.toLowerCase();
-      const key = (f.key || '').normalize('NFC').toLowerCase();
-      const valStr =
-        f.value !== null && f.value !== undefined
-          ? String(f.value).toLowerCase().normalize('NFC')
-          : '';
-      return (
-        effectiveLabel.includes(query) ||
-        rawLabel.includes(query) ||
-        key.includes(query) ||
-        valStr.includes(query)
-      );
-    });
-  }, [tabFields, query, translations]);
+    return tabFields.filter((f) =>
+      matchesSaveFieldFilter(
+        f,
+        query,
+        filters,
+        translations,
+        isPinnedTab || pinnedIds.has(f.id),
+        getTranslation
+      )
+    );
+  }, [activeTabId, tabFields, query, filters, pinnedIds, translations]);
 }

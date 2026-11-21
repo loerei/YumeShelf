@@ -649,7 +649,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
       <input
         type="search"
         className="save-editor-search"
-        placeholder="Search variables..."
+        placeholder={strings.save_editor_search_placeholder || 'Search variables, switches, items...'}
         value={draftQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
         onKeyDown={handleSearchKeyDown}
@@ -660,7 +660,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
           type="button"
           className="refresh-save-btn"
           aria-label="Reload from disk"
-          title="Reload from disk"
+          title={strings.save_editor_reload_title || 'Reload from disk'}
           aria-disabled={isReloadDisabled}
           style={{
             pointerEvents: isReloadDisabled ? 'none' : undefined,
@@ -686,7 +686,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
           type="button"
           className={isTranslating ? 'translate-btn loading' : 'translate-btn'}
           aria-label="Translate save fields"
-          title="Translate save fields"
+          title={strings.save_editor_translate_title || 'Translate to app language'}
           aria-disabled={isTranslateDisabled}
           style={{
             pointerEvents: isTranslateDisabled ? 'none' : undefined,
@@ -723,7 +723,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
                 aria-label="Cancel batch translation"
                 onClick={handleCancel}
               >
-                Cancel
+                {strings.save_editor_cancel || 'Cancel'}
               </button>
             </>
           )}

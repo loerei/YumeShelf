@@ -1,17 +1,34 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   observeElementRect as defaultObserveElementRect,
   useVirtualizer,
 } from '@tanstack/react-virtual';
 import type { SaveFieldScalar } from '@yumeshelf/engine/types';
+import { useLocaleStrings } from '../../i18n/locale-strings';
+import {
+  buildVirtualRows,
+  computeGridColumnCount,
+  type SaveVirtualRow,
+} from '../domain/save-view-model';
 import {
   getTranslation,
   useActiveSaveTabId,
-  useActiveTabFields,
+  useSaveCollapsedSections,
   useSaveDirtyKeys,
   useSaveEditorDispatch,
+  useSaveEditorSelector,
+  useSaveElectronAPI,
   useSaveFileStatus,
+  useSaveFilters,
   useSaveModifiedFields,
+  useSavePinnedIds,
   useSaveSearchQuery,
   useSaveTranslations,
 } from '../store/save-editor-store';
@@ -22,9 +39,12 @@ export interface SaveEditorContentProps {
   onChangeFile?: () => void;
 }
 
+const EMPTY_VIRTUAL_ROWS: readonly SaveVirtualRow[] = [];
+const EMPTY_SECTION_TAB_IDS: readonly string[] = [];
+
 /**
- * Pure virtualized table container consuming NormalizedSaveDto fields from
- * SaveEditorStore and delegating row rendering to memoized SaveFieldRow items.
+ * Pure virtualized responsive grid container consuming NormalizedSaveDto fields from
+ * SaveEditorStore and delegating card rendering to memoized SaveFieldRow items.
  */
 export function SaveEditorContent({
   onRetryLoad,
@@ -32,17 +52,32 @@ export function SaveEditorContent({
 }: SaveEditorContentProps): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const fileStatus = useSaveFileStatus();
-  const activeFields = useActiveTabFields();
+  const pristineFieldsByTab = useSaveEditorSelector((s) => s.pristineFieldsByTab);
   const activeTabId = useActiveSaveTabId();
   const searchQuery = useSaveSearchQuery();
+  const filters = useSaveFilters();
+  const pinnedIds = useSavePinnedIds();
+  const collapsedSections = useSaveCollapsedSections();
   const modifiedFields = useSaveModifiedFields();
   const dirtyKeys = useSaveDirtyKeys();
   const translations = useSaveTranslations();
   const dispatch = useSaveEditorDispatch();
+  const contextApi = useSaveElectronAPI();
+  const strings = useLocaleStrings(undefined, contextApi ?? null);
+
+  const [containerWidth, setContainerWidth] = useState<number>(800);
+  const columnCount = computeGridColumnCount(containerWidth);
 
   const handleChange = useCallback(
     (id: string, val: SaveFieldScalar) => {
       dispatch.updateField(id, val);
+    },
+    [dispatch]
+  );
+
+  const handleTogglePin = useCallback(
+    (id: string) => {
+      dispatch.togglePin(id);
     },
     [dispatch]
   );
@@ -53,17 +88,52 @@ export function SaveEditorContent({
     dispatch.setSearchQuery('');
   };
 
+  const { rows, totalFilteredFields, sectionTabIds } = useMemo(() => {
+    if (fileStatus.state !== 'loaded') {
+      return {
+        rows: EMPTY_VIRTUAL_ROWS,
+        totalFilteredFields: 0,
+        sectionTabIds: EMPTY_SECTION_TAB_IDS,
+      };
+    }
+    return buildVirtualRows({
+      dto: fileStatus.dto,
+      pristineFieldsByTab,
+      activeTabId,
+      query: searchQuery,
+      filters,
+      pinnedIds,
+      collapsedSections,
+      translations,
+      strings,
+      columnCount,
+      getTranslationFn: getTranslation,
+    });
+  }, [
+    fileStatus,
+    pristineFieldsByTab,
+    activeTabId,
+    searchQuery,
+    filters,
+    pinnedIds,
+    collapsedSections,
+    translations,
+    strings,
+    columnCount,
+  ]);
+
   const rowVirtualizer = useVirtualizer({
-    count: activeFields.length,
+    count: rows.length,
     enabled: fileStatus.state === 'loaded',
     getScrollElement: () => parentRef.current,
     estimateSize: (index: number) => {
-      const field = activeFields[index];
-      if (!field) return 88;
-      return field.type === 'boolean' || typeof field.value === 'boolean' ? 48 : 88;
+      const row = rows[index];
+      if (!row) return 104;
+      if (row.kind === 'section-header') return 48;
+      return row.isBooleanRow ? 64 : 104;
     },
     overscan: 8,
-    getItemKey: (index: number) => activeFields[index]?.id ?? index,
+    getItemKey: (index: number) => rows[index]?.key ?? index,
     initialRect: { width: 800, height: 600 },
     observeElementRect: (instance, cb) =>
       defaultObserveElementRect(instance, (rect) => {
@@ -93,14 +163,33 @@ export function SaveEditorContent({
     if (fileStatus.state === 'loaded') {
       rowVirtualizer.scrollToOffset(0);
     }
-  }, [activeFileName, activeTabId, searchQuery, rowVirtualizer, fileStatus.state]);
+  }, [activeFileName, activeTabId, searchQuery, filters, rowVirtualizer, fileStatus.state]);
 
   useEffect(() => {
     const el = parentRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') {
+    if (!el) return;
+
+    const updateContainerWidth = () => {
+      const measured = el.clientWidth;
+      if (measured <= 0) return;
+      const computed =
+        typeof window !== 'undefined' ? window.getComputedStyle(el) : null;
+      const padLeft = computed ? Number.parseFloat(computed.paddingLeft) || 0 : 0;
+      const padRight = computed ? Number.parseFloat(computed.paddingRight) || 0 : 0;
+      const innerWidth = Math.max(0, measured - padLeft - padRight);
+      if (innerWidth > 0) {
+        setContainerWidth((prev) => (prev === innerWidth ? prev : innerWidth));
+      }
+    };
+
+    updateContainerWidth();
+
+    if (typeof ResizeObserver === 'undefined') {
       return;
     }
+
     const observer = new ResizeObserver(() => {
+      updateContainerWidth();
       rowVirtualizer.measure();
       for (const itemEl of rowVirtualizer.elementsCache.values()) {
         rowVirtualizer.measureElement(itemEl);
@@ -113,7 +202,7 @@ export function SaveEditorContent({
   }, [rowVirtualizer]);
 
   const virtualRows =
-    fileStatus.state === 'loaded' && activeFields.length > 0
+    fileStatus.state === 'loaded' && rows.length > 0
       ? rowVirtualizer.getVirtualItems()
       : [];
 
@@ -134,7 +223,7 @@ export function SaveEditorContent({
         >
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />
         </svg>
-        <p>Select a save file from the sidebar to view and edit its contents</p>
+        <p>{strings.save_editor_select_title || 'Select a save file from the sidebar to view and edit its contents'}</p>
       </div>
     );
   } else if (fileStatus.state === 'loading') {
@@ -160,7 +249,7 @@ export function SaveEditorContent({
             className="primary-btn"
             onClick={() => onRetryLoad?.(fileStatus.fileName)}
           >
-            Retry
+            {strings.save_editor_retry || 'Retry'}
           </button>
           <button
             type="button"
@@ -172,11 +261,11 @@ export function SaveEditorContent({
         </div>
       </div>
     );
-  } else if (activeFields.length === 0) {
+  } else if (totalFilteredFields === 0) {
     content =
       searchQuery.trim().length > 0 ? (
         <div className="empty-state" role="status" aria-live="polite">
-          <p>No matching variables found for &ldquo;{searchQuery.trim()}&rdquo;.</p>
+          <p>{strings.save_editor_no_results || `No matching variables found for "${searchQuery.trim()}".`}</p>
           <button
             type="button"
             className="secondary-btn"
@@ -187,62 +276,143 @@ export function SaveEditorContent({
         </div>
       ) : (
         <div className="empty-state" role="status" aria-live="polite">
-          No variables exist in the selected category.
+          {strings.save_editor_no_data_in_category || 'No variables exist in the selected category.'}
         </div>
       );
   } else {
     content = (
-      <div
-        style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
-          width: '100%',
-          position: 'relative',
-        }}
-      >
-        {virtualRows.map((virtualRow) => {
-          const field = activeFields[virtualRow.index];
-          if (!field) return null;
-
-          const rawModified = Object.hasOwn(modifiedFields, field.id)
-            ? modifiedFields[field.id]
-            : undefined;
-          const value: number | string | boolean =
-            rawModified !== undefined && rawModified !== null
-              ? rawModified
-              : field.value;
-          const isDirty = dirtyKeys.has(field.id);
-          const normLabel = (field.label || '').normalize('NFC');
-          const translatedLabel = getTranslation(translations, normLabel);
-          const isTranslated = Boolean(translatedLabel && translatedLabel !== field.label);
-          const label = translatedLabel ?? field.label;
-
-          return (
-            <div
-              key={virtualRow.key}
-              ref={rowVirtualizer.measureElement}
-              data-index={virtualRow.index}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualRow.start}px)`,
-                isolation: 'isolate',
-                overflow: 'hidden',
-              }}
+      <>
+        {activeTabId === 'all' && sectionTabIds.length > 0 && (
+          <div className="all-tab-controls">
+            <button
+              type="button"
+              className="all-tab-btn"
+              onClick={() => dispatch.expandAllSections()}
             >
-              <SaveFieldRow
-                field={field}
-                value={value}
-                isDirty={isDirty}
-                isTranslated={isTranslated}
-                label={label}
-                onChange={handleChange}
-              />
-            </div>
-          );
-        })}
-      </div>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+              <span>{strings.save_editor_expand_all || 'Expand All'}</span>
+            </button>
+            <button
+              type="button"
+              className="all-tab-btn"
+              onClick={() => dispatch.collapseAllSections(sectionTabIds)}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="4 14 10 14 10 20" />
+                <polyline points="20 10 14 10 14 4" />
+                <line x1="14" y1="10" x2="21" y2="3" />
+                <line x1="10" y1="14" x2="3" y2="21" />
+              </svg>
+              <span>{strings.save_editor_collapse_all || 'Collapse All'}</span>
+            </button>
+          </div>
+        )}
+        <div
+          className="save-editor-virtual-spacer"
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualRows.map((virtualRow) => {
+            const row = rows[virtualRow.index];
+            if (!row) return null;
+
+            return (
+              <div
+                key={virtualRow.key}
+                ref={rowVirtualizer.measureElement}
+                data-index={virtualRow.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                  isolation: 'isolate',
+                  overflow: 'hidden',
+                }}
+              >
+                {row.kind === 'section-header' ? (
+                  <button
+                    type="button"
+                    className={
+                      row.isCollapsed ? 'save-section-header collapsed' : 'save-section-header'
+                    }
+                    aria-expanded={!row.isCollapsed}
+                    onClick={() => dispatch.toggleSection(row.tabId)}
+                  >
+                    <span className="save-section-title">{row.label}</span>
+                    <span className="save-section-count">({row.count})</span>
+                  </button>
+                ) : (
+                  <div
+                    className="save-grid-virtual-row"
+                    style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+                  >
+                    {row.fields.map((field) => {
+                      const rawModified = Object.hasOwn(modifiedFields, field.id)
+                        ? modifiedFields[field.id]
+                        : undefined;
+                      const value: number | string | boolean =
+                        rawModified !== undefined && rawModified !== null
+                          ? rawModified
+                          : field.value;
+                      const isDirty = dirtyKeys.has(field.id);
+                      const normLabel = (field.label || '').normalize('NFC');
+                      const translatedLabel = getTranslation(translations, normLabel);
+                      const isTranslated = Boolean(
+                        translatedLabel && translatedLabel !== field.label
+                      );
+                      const label = translatedLabel ?? field.label;
+
+                      return (
+                        <SaveFieldRow
+                          key={field.id}
+                          field={field}
+                          value={value}
+                          isDirty={isDirty}
+                          isTranslated={isTranslated}
+                          isPinned={pinnedIds.has(field.id)}
+                          label={label}
+                          onChange={handleChange}
+                          onTogglePin={handleTogglePin}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </>
     );
   }
 

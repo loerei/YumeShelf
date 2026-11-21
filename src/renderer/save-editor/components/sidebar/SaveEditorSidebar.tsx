@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ElectronAPI } from '../../../../shared/types/ipc';
 import { sanitizeUserPaths } from '../../../../shared/path-sanitizer';
 import { Modal } from '../../../components/modals/Modal';
+import { useLocaleStrings } from '../../../i18n/locale-strings';
 import {
   useIsMutatingFile,
   useSaveDirtyKeys,
@@ -33,6 +34,7 @@ export function SaveEditorSidebar(props: SaveEditorSidebarProps) {
   const contextApi = useSaveElectronAPI();
   const electronAPI =
     props.electronAPI ?? contextApi ?? (typeof window !== 'undefined' ? window.electronAPI : undefined);
+  const strings = useLocaleStrings(undefined, props.electronAPI ?? contextApi ?? null);
 
   const saveStatus = useSaveOperationStatus();
   const isMutatingFile = useIsMutatingFile();
@@ -223,12 +225,7 @@ export function SaveEditorSidebar(props: SaveEditorSidebarProps) {
       >
         <Modal.Header>Unsaved Changes</Modal.Header>
         <Modal.Body>
-          <p>
-            You have unsaved changes. Discard them and{' '}
-            {pendingFolderAction === 'reset'
-              ? 'reset the save directory?'
-              : 'change the save directory?'}
-          </p>
+          <p>{strings.save_editor_unsaved_confirm || 'You have unsaved changes. Discard them?'}</p>
         </Modal.Body>
         <Modal.Footer>
           <button
@@ -236,7 +233,7 @@ export function SaveEditorSidebar(props: SaveEditorSidebarProps) {
             className="secondary-btn"
             onClick={handleCancelPendingFolderAction}
           >
-            Cancel
+            {strings.save_editor_cancel || 'Cancel'}
           </button>
           <button
             type="button"

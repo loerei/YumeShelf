@@ -1,4 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useContext, useRef, useState } from 'react';
+import { useLocaleStrings } from '../../../i18n/locale-strings';
+import { SaveEditorElectronApiContext } from '../../store/save-editor-store';
 
 export interface SaveFolderBarProps {
   saveDir: string | null;
@@ -24,6 +26,8 @@ export function SaveFolderBar({
   onResetDirectory,
 }: SaveFolderBarProps) {
   const [isActionPending, setIsActionPending] = useState(false);
+  const contextApi = useContext(SaveEditorElectronApiContext) ?? null;
+  const strings = useLocaleStrings(undefined, contextApi);
   const changeBtnRef = useRef<HTMLButtonElement | null>(null);
   const retryBtnRef = useRef<HTMLButtonElement | null>(null);
   const displayPath = isLoading ? 'Resolving save folder...' : (saveDir || 'Default Save Directory');
@@ -80,14 +84,14 @@ export function SaveFolderBar({
               aria-disabled={isControlsDisabled}
               style={isControlsDisabled ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
             >
-              Retry
+              {strings.save_editor_retry || 'Retry'}
             </button>
           )}
         </div>
       ) : (
         isMissing && !isLoading && (
           <div className="save-folder-missing-alert" role="alert">
-            Configured save folder not found
+            {strings.save_editor_override_missing || 'Configured save folder not found'}
           </div>
         )
       )}

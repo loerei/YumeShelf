@@ -91,13 +91,18 @@
     cursor: pointer;
     z-index: 10;
     font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    border: none;
+    font-family: inherit;
     color: rgba(255, 255, 255, 0.15);
     background: transparent;
     transition: all 0.2s;
     user-select: none;
 }
 
-.data-row:hover .data-pin-btn {
+.data-row:hover .data-pin-btn,
+.save-field-row:hover .data-pin-btn {
     color: rgba(255, 255, 255, 0.4);
 }
 
@@ -106,18 +111,27 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
+.data-pin-btn:focus-visible {
+    outline: 2px solid var(--accent, #0078d4);
+    outline-offset: 2px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
 .data-pin-btn.active {
     color: #ffd700 !important; /* Gold shining */
     text-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
     opacity: 1 !important;
 }
 
-.checkbox-row .data-pin-btn {
+.checkbox-row .data-pin-btn,
+.save-field-row:has(.checkbox-row) .data-pin-btn {
     top: 50%;
     transform: translateY(-50%);
 }
 
-.checkbox-row:hover .data-pin-btn:hover {
+.checkbox-row:hover .data-pin-btn:hover,
+.save-field-row:has(.checkbox-row):hover .data-pin-btn:hover {
     transform: translateY(-50%) scale(1.2);
 }
 
@@ -266,8 +280,8 @@
     font-size: 0.7rem;
     padding: 2px 6px;
     border-radius: 4px;
-    background: rgba(99, 102, 241, 0.15);
-    color: var(--accent, #6366f1);
+    background: rgba(0, 120, 212, 0.15);
+    color: var(--accent, #0078d4);
     font-weight: 500;
     flex-shrink: 0;
 }
@@ -685,7 +699,8 @@
 .save-editor-tabs-wrapper {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-end;
+    gap: 12px;
     padding: 0 24px;
     background: rgba(0, 0, 0, 0.1);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -751,15 +766,22 @@
 }
 
 .save-editor-tabs::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-color, #4f46e5);
+    background: var(--accent, #0078d4);
 }
 
 .save-editor-actions {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 8px 0;
+    flex-shrink: 0;
+}
+
+.save-editor-search-row {
+    display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 0;
-    flex-shrink: 0;
 }
 
 .save-editor-search-actions {
@@ -782,7 +804,9 @@
 
 .save-editor-filters {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
 }
 
@@ -815,7 +839,7 @@
     bottom: 0;
     left: 0;
     height: 2px;
-    background: var(--accent-color, #4f46e5);
+    background: var(--accent, #0078d4);
     width: 0%;
     transition: width 0.3s ease;
 }
@@ -838,6 +862,7 @@
 .save-editor-filter-check input {
     margin: 0;
     cursor: pointer;
+    accent-color: var(--accent, #0078d4);
 }
 
 .translate-btn:hover,
@@ -902,7 +927,7 @@
     width: 320px;
     background: rgba(255, 255, 255, 0.06);
     border-color: var(--accent, #0078d4);
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 0 0 4px rgba(0, 120, 212, 0.15);
     outline: none;
 }
 
@@ -1052,7 +1077,15 @@
     gap: 8px;
 }
 
+.save-grid-virtual-row {
+    display: grid;
+    gap: 16px;
+    padding-bottom: 16px;
+    box-sizing: border-box;
+}
+
 .save-field-row {
+    position: relative;
     box-sizing: border-box;
     min-height: 88px;
     background: rgba(255, 255, 255, 0.02);
@@ -1083,6 +1116,14 @@
     gap: 12px;
     width: 100%;
     padding-right: 0;
+}
+
+.save-field-row:has(.data-pin-btn) .save-field-header {
+    padding-right: 24px;
+}
+
+.save-field-row:has(.data-pin-btn) .checkbox-row {
+    padding-right: 28px;
 }
 
 .save-field-row.is-dirty {
@@ -1157,9 +1198,9 @@
 .virtualized-table-number-input:focus,
 .virtualized-table-text-input:focus {
     outline: none;
-    border-color: var(--accent, #4f46e5);
+    border-color: var(--accent, #0078d4);
     background: #000;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.15);
 }
 
 .virtualized-table-number-input[aria-invalid="true"] {
@@ -1181,10 +1222,11 @@
 .data-id {
     font-size: 0.7rem;
     font-weight: 700;
-    color: var(--accent-color, #4f46e5);
-    opacity: 0.8;
+    color: var(--accent, #0078d4);
+    opacity: 0.85;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    flex-shrink: 0;
 }
 
 .data-label {
@@ -1209,9 +1251,9 @@
 }
 
 .data-value:focus {
-    border-color: var(--accent-color, #4f46e5);
+    border-color: var(--accent, #0078d4);
     background: #000;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.15);
     outline: none;
 }
 
@@ -1231,7 +1273,7 @@
 .checkbox-row input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    accent-color: var(--accent-color, #4f46e5);
+    accent-color: var(--accent, #0078d4);
     cursor: pointer;
 }
 
@@ -1425,17 +1467,19 @@ body.standalone-save-editor {
 }
 
 .save-section-header {
-    position: sticky;
-    top: -24px; /* Perfectly floats to the top edge of .save-editor-content padding */
-    z-index: 10;
-    background: #121212;
+    position: relative;
+    width: 100%;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    text-align: left;
     font-size: 0.95rem;
     font-weight: 700;
     color: #eee;
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin: 0 0 16px 0;
-    padding: 16px 8px 8px 8px;
+    margin: 0;
+    padding: 10px 8px 8px 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     align-items: center;
@@ -1443,6 +1487,12 @@ body.standalone-save-editor {
     cursor: pointer;
     user-select: none;
     transition: background-color 0.2s, color 0.2s;
+}
+
+.save-section-count {
+    font-size: 0.78em;
+    opacity: 0.65;
+    font-weight: 500;
 }
 
 .save-section-header:hover {
@@ -1455,7 +1505,7 @@ body.standalone-save-editor {
     display: inline-block;
     width: 4px;
     height: 14px;
-    background: var(--accent-color, #4f46e5);
+    background: var(--accent, #0078d4);
     border-radius: 2px;
 }
 
@@ -1477,8 +1527,15 @@ body.standalone-save-editor {
     border-color: #eee;
 }
 
-.save-section.collapsed .save-section-header::after {
+.save-section.collapsed .save-section-header::after,
+.save-section-header.collapsed::after {
     transform: rotate(-45deg); /* Right chevron */
+}
+
+.save-section-header:focus-visible,
+.all-tab-btn:focus-visible {
+    outline: 2px solid var(--accent, #0078d4);
+    outline-offset: 2px;
 }
 
 .save-section.collapsed .save-grid {

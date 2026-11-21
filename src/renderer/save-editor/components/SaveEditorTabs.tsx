@@ -5,8 +5,10 @@ import {
   useActiveSaveTabId,
   useSaveEditorDispatch,
   useSaveElectronAPI,
+  useSavePinnedIds,
 } from '../store/save-editor-store';
 import { useLocaleStrings } from '../../i18n/locale-strings';
+import { buildVisibleTabs } from '../domain/save-view-model';
 
 export interface SaveEditorTabsViewProps {
   tabs?: readonly SaveTabDto[];
@@ -98,18 +100,26 @@ export const SaveEditorTabs: React.FC<SaveEditorTabsProps> = ({
 }) => {
   const fileStatus = useSaveFileStatus();
   const storeActiveTabId = useActiveSaveTabId();
+  const pinnedIds = useSavePinnedIds();
   const dispatch = useSaveEditorDispatch();
   const contextApi = useSaveElectronAPI();
   const strings = useLocaleStrings(undefined, contextApi ?? null);
 
-  const rawTabs =
-    propTabs ?? (fileStatus.state === 'loaded' ? fileStatus.dto.tabs ?? [] : []);
-  const tabs = rawTabs.map((tab) => {
-    const localized = strings[`save_editor_${tab.id}`];
-    return typeof localized === 'string' && localized
-      ? { ...tab, label: localized }
-      : tab;
-  });
+  const tabs = propTabs
+    ? propTabs.map((tab) => {
+        const localized = strings[`save_editor_${tab.id}`];
+        return typeof localized === 'string' && localized
+          ? { ...tab, label: localized }
+          : tab;
+      })
+    : fileStatus.state === 'loaded'
+      ? buildVisibleTabs(
+          fileStatus.dto.tabs ?? [],
+          fileStatus.dto.fields ?? [],
+          pinnedIds,
+          strings
+        )
+      : [];
   const activeTabId = propActiveTabId ?? storeActiveTabId;
   const onSelectTab =
     propOnSelectTab ?? ((tabId: string) => dispatch.setActiveTab(tabId));

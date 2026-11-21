@@ -19,4 +19,5 @@ export interface RegisterIpcOptions {
     paths: any;
     diagnosticBufferCapacity?: number;
     platform?: NodeJS.Platform;
+    fetchFn?: typeof fetch;
 }

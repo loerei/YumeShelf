@@ -107,6 +107,10 @@ const api: ElectronAPI = {
     openSaveEditorWindow: async (gameKey: string): Promise<void> => {
         ipcRenderer.send('save-editor:open-window', gameKey);
     },
+    translateBatch: (texts: string[], targetLang: string, options?: { timeoutMs?: number; maxBatchSize?: number; jobId?: string }) =>
+        ipcRenderer.invoke('save-editor:translate-batch', { texts, targetLang, options }),
+    cancelTranslateBatch: (params: { jobId: string }) =>
+        ipcRenderer.invoke('save-editor:cancel-translate', params),
     loadTranslations: (lang: string) => ipcRenderer.invoke('save-editor:load-translations', lang),
     saveTranslations: (lang: string, translations: Record<string, string>) => ipcRenderer.invoke('save-editor:save-translations', { lang, translations }),
     // System Startup & Tray Settings

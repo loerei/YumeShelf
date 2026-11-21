@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { BrowserWindow, BrowserWindow as electronBrowserWindow, dialog as electronDialog, shell as electronShell } from 'electron';
 import { RegisterIpcOptions } from '../types';
 import { CircularRingBuffer } from '../../../shared/ring-buffer';
-import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
+import { sanitizeLoneSurrogates, sanitizeUserPaths } from '../../../shared/path-sanitizer';
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const SAFE_FILENAME_REGEX = /^(?!(?:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\..*)?$)[^\\/:*?"<>|\x00-\x1f]+(?<![. ])$/i;
@@ -54,6 +54,7 @@ function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
 
 export class SaveEditorIpcController {
     private readonly openWindows = new Map<string, BrowserWindow>();
+    private readonly activeTranslations = new Map<string, AbortController>();
     private readonly logBuffer: CircularRingBuffer<string>;
     private isQuitting = false;
     private beforeQuitBound = false;
@@ -78,7 +79,7 @@ export class SaveEditorIpcController {
     }
 
     public registerHandlers(): void {
-        const { ipcMain, libraryState, saveFolderResolver, saveEditorService } = this.options;
+        const { ipcMain, libraryState, saveFolderResolver, saveEditorService, fetchFn } = this.options;
         if (!ipcMain) return;
 
         this.isQuitting = false;
@@ -508,6 +509,439 @@ export class SaveEditorIpcController {
         ipcMain.handle('save-editor:update-mapping', async (_event, { gameKey, name, offset, dataType }) => {
             console.log(`[IPC] save-editor:update-mapping gameKey: ${gameKey}`);
             return saveEditorService?.updateMapping(gameKey, name, offset, dataType);
+        });
+
+        ipcMain.handle('save-editor:translate-batch', async (event, texts, targetLang, opts) => {
+            const [rawTexts, rawTargetLang, rawOpts] = (
+                texts !== null &&
+                typeof texts === 'object' &&
+                !Array.isArray(texts) &&
+                'texts' in (texts as Record<string, unknown>)
+            )
+                ? [
+                    (texts as Record<string, unknown>).texts,
+                    (texts as Record<string, unknown>).targetLang,
+                    ((texts as Record<string, unknown>).options ?? (texts as Record<string, unknown>).opts) as { timeoutMs?: number; maxBatchSize?: number; jobId?: string } | undefined
+                ]
+                : [texts, targetLang, opts];
+
+            const jobId = typeof rawOpts?.jobId === 'string' ? rawOpts.jobId.trim() : undefined;
+
+            if (!Array.isArray(rawTexts) || !rawTexts.every((t) => typeof t === 'string')) {
+                console.warn('[save-editor:translate-batch] Ingress validation failed: texts must be an array of strings');
+                throw new Error('invalid-texts-array');
+            }
+
+            if (rawTexts.length === 0) {
+                return {};
+            }
+
+            if (typeof rawTargetLang !== 'string' || !BCP47_REGEX.test(rawTargetLang.trim())) {
+                throw new Error('invalid-target-lang');
+            }
+            const cleanTargetLang = rawTargetLang.trim();
+
+            const maxBatch = typeof rawOpts?.maxBatchSize === 'number' && rawOpts.maxBatchSize > 0 ? Math.min(rawOpts.maxBatchSize, 100) : 100;
+            const totalChars = rawTexts.reduce((sum: number, t: string) => sum + t.length, 0);
+            if (rawTexts.length > maxBatch || rawTexts.some((t: string) => t.length > 300) || totalChars > 2000) {
+                throw new Error('batch-query-too-large');
+            }
+
+            const timeoutMs = (typeof rawOpts?.timeoutMs === 'number' &&
+                               Number.isFinite(rawOpts.timeoutMs) &&
+                               rawOpts.timeoutMs > 0 &&
+                               rawOpts.timeoutMs <= 300_000)
+                ? Math.max(1, Math.floor(rawOpts.timeoutMs))
+                : 10_000;
+
+            const validEntries = (rawTexts as string[])
+                .map((raw) => ({ raw, sanitized: sanitizeLoneSurrogates(raw.replace(/[\r\n]+/g, ' ').trim()) }))
+                .filter((entry) => entry.sanitized.length > 0 && encodeURIComponent(entry.sanitized).length <= 1500);
+            if (validEntries.length === 0) {
+                return {};
+            }
+
+            // Sub-partition validEntries so each chunk's encodeURIComponent(combined).length <= 1500 bytes (URL <= 2048 chars)
+            const chunks: (typeof validEntries)[] = [];
+            let curChunk: typeof validEntries = [];
+            let curEncodedLen = 0;
+            for (const entry of validEntries) {
+                const prospectiveLen = encodeURIComponent((curChunk.length > 0 ? '\n' : '') + entry.sanitized).length;
+                if (curChunk.length > 0 && curEncodedLen + prospectiveLen > 1500) {
+                    chunks.push(curChunk);
+                    curChunk = [entry];
+                    curEncodedLen = encodeURIComponent(entry.sanitized).length;
+                } else {
+                    curChunk.push(entry);
+                    curEncodedLen += prospectiveLen;
+                }
+            }
+            if (curChunk.length > 0) chunks.push(curChunk);
+
+            const controller = new AbortController();
+            if (jobId) {
+                const existing = this.activeTranslations.get(jobId);
+                if (existing) {
+                    existing.abort();
+                }
+                this.activeTranslations.set(jobId, controller);
+            }
+            const onDestroyed = () => controller.abort();
+            if (event?.sender?.isDestroyed?.()) {
+                controller.abort();
+            } else {
+                try {
+                    event?.sender?.once?.('destroyed', onDestroyed);
+                } catch {
+                    controller.abort();
+                }
+            }
+
+            function cancellableSleep(ms: number, signal: AbortSignal): Promise<void> {
+                if (signal.aborted) {
+                    return Promise.reject(new DOMException('Translation batch cancelled by client', 'AbortError'));
+                }
+                return new Promise((resolve, reject) => {
+                    let timer: ReturnType<typeof setTimeout> | null = null;
+                    const onAbort = () => {
+                        if (timer) clearTimeout(timer);
+                        signal.removeEventListener('abort', onAbort);
+                        reject(new DOMException('Translation batch cancelled by client', 'AbortError'));
+                    };
+                    timer = setTimeout(() => {
+                        signal.removeEventListener('abort', onAbort);
+                        resolve();
+                    }, ms);
+                    signal.addEventListener('abort', onAbort, { once: true });
+                });
+            }
+
+            const results: Record<string, string> = Object.create(null);
+            let processedChunks = 0;
+            try {
+                const overallDeadline = performance.now() + timeoutMs;
+                const actualFetch = fetchFn ?? globalThis.fetch;
+
+                async function fetchWithRetry(url: string, chunkIdx: number): Promise<Response> {
+                    const maxRetries = 2;
+                    let lastErr: unknown;
+                    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                        if (controller.signal.aborted) {
+                            throw new DOMException('Translation batch cancelled by client', 'AbortError');
+                        }
+                        const currentRemaining = overallDeadline - performance.now();
+                        if (currentRemaining <= 0) {
+                            throw new Error(`Translation batch timed out: overall deadline of ${timeoutMs}ms exceeded`);
+                        }
+                        const chunkTimeoutMs = Math.max(1, Math.floor(Math.min(currentRemaining, 5000)));
+                        try {
+                            const response = await actualFetch(url, {
+                                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(chunkTimeoutMs)]),
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                                }
+                            });
+                            if (response.status === 429) {
+                                // Immediate circuit break on rate limit
+                                throw new Error('HTTP 429: Too Many Requests');
+                            }
+                            const isTransient = response.status >= 500 && response.status <= 599;
+                            if (isTransient && attempt < maxRetries) {
+                                let retryAfterMs = 250 * Math.pow(2, attempt) + Math.floor(Math.random() * 50);
+                                const retryAfterHeader = response.headers?.get('Retry-After');
+                                if (retryAfterHeader) {
+                                    const parsedSec = Number.parseInt(retryAfterHeader, 10);
+                                    if (Number.isFinite(parsedSec) && parsedSec > 0) {
+                                        retryAfterMs = parsedSec * 1000;
+                                    }
+                                }
+                                if (performance.now() + retryAfterMs >= overallDeadline) {
+                                    throw new Error(`HTTP ${response.status}: ${response.statusText} (retry would exceed deadline)`);
+                                }
+                                console.warn('[save-editor:translate-batch] Transient network error encountered, retrying:', {
+                                    attempt: attempt + 1,
+                                    maxRetries,
+                                    status: response.status,
+                                    retryAfterMs,
+                                    chunkIndex: chunkIdx,
+                                    remainingDeadlineMs: Math.max(0, Math.floor(overallDeadline - performance.now()))
+                                });
+                                await cancellableSleep(retryAfterMs, controller.signal);
+                                continue;
+                            }
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            return response;
+                        } catch (err: any) {
+                            lastErr = err;
+                            if (controller.signal.aborted) {
+                                throw err;
+                            }
+                            if (err?.message?.includes('HTTP 429') || attempt >= maxRetries) {
+                                break;
+                            }
+                            const isTimeout =
+                                err?.name === 'TimeoutError' ||
+                                err?.name === 'AbortError' ||
+                                err?.code === 'ETIMEDOUT';
+                            const errCode = err?.cause?.code ?? err?.code;
+                            const isTransientNetworkError =
+                                ['ENOTFOUND', 'ECONNRESET', 'ECONNREFUSED', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT'].includes(errCode) ||
+                                (err?.name === 'TypeError' && err?.message === 'fetch failed');
+                            const isRetryable = (isTimeout || isTransientNetworkError) && attempt < maxRetries;
+                            if (isRetryable) {
+                                const backoffMs = 250 * Math.pow(2, attempt) + Math.floor(Math.random() * 50);
+                                if (performance.now() + backoffMs >= overallDeadline) {
+                                    break;
+                                }
+                                const rawMsg = err instanceof Error ? err.message : String(err);
+                                console.warn('[save-editor:translate-batch] Transient network error encountered, retrying:', {
+                                    attempt: attempt + 1,
+                                    maxRetries,
+                                    error: sanitizeUserPaths(rawMsg),
+                                    errorCode: errCode,
+                                    chunkIndex: chunkIdx,
+                                    remainingDeadlineMs: Math.max(0, Math.floor(overallDeadline - performance.now()))
+                                });
+                                await cancellableSleep(backoffMs, controller.signal);
+                                continue;
+                            }
+                            break;
+                        }
+                    }
+                    if (controller.signal.aborted) {
+                        throw lastErr;
+                    }
+                    const lastErrMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+                    console.warn('[save-editor:translate-batch] Translation request failed after retries:', {
+                        chunkIndex: chunkIdx,
+                        error: sanitizeUserPaths(lastErrMsg),
+                        stack: lastErr instanceof Error && lastErr.stack ? sanitizeUserPaths(lastErr.stack) : undefined,
+                    });
+                    throw lastErr;
+                }
+
+                async function runBoundedFallback(
+                    chunk: Array<{ raw: string; sanitized: string }>,
+                    targetLanguage: string,
+                    deadline: number,
+                    totalTimeoutMs: number,
+                    fetchImpl: typeof fetch,
+                    outResults: Record<string, string>,
+                    cancelSignal: AbortSignal
+                ): Promise<void> {
+                    const CONCURRENCY_LIMIT = 4;
+                    const fallbackAbort = new AbortController();
+                    let cursor = 0;
+                    let circuitBrokenError: Error | null = null;
+                    let deadlineExceeded = false;
+
+                    async function worker(): Promise<void> {
+                        while (cursor < chunk.length) {
+                            if (cancelSignal.aborted) {
+                                throw new DOMException('Translation batch cancelled by client', 'AbortError');
+                            }
+                            if (circuitBrokenError || deadlineExceeded || fallbackAbort.signal.aborted) {
+                                return;
+                            }
+                            if (performance.now() >= deadline) {
+                                deadlineExceeded = true;
+                                fallbackAbort.abort();
+                                return;
+                            }
+                            const index = cursor++;
+                            const entry = chunk[index];
+                            const trimmed = entry.sanitized.trim();
+                            if (!trimmed) {
+                                if (!DANGEROUS_KEYS.has(entry.sanitized)) outResults[entry.sanitized] = entry.sanitized;
+                                if (!DANGEROUS_KEYS.has(entry.raw)) outResults[entry.raw] = entry.raw;
+                                continue;
+                            }
+
+                            const remainingBudget = deadline - performance.now();
+                            if (remainingBudget <= 0) {
+                                deadlineExceeded = true;
+                                fallbackAbort.abort();
+                                return;
+                            }
+                            const isDeadlineBoundCall = remainingBudget <= 5000;
+                            const callTimeout = Math.max(1, Math.floor(Math.min(remainingBudget, 5000)));
+                            const itemTimeoutSignal = AbortSignal.timeout(callTimeout);
+                            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(
+                                targetLanguage
+                            )}&dt=t&q=${encodeURIComponent(entry.sanitized)}`;
+
+                            try {
+                                const res = await fetchImpl(url, {
+                                    signal: AbortSignal.any([cancelSignal, fallbackAbort.signal, itemTimeoutSignal]),
+                                    headers: {
+                                        'User-Agent':
+                                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                                    }
+                                });
+
+                                if (res.status === 429) {
+                                    circuitBrokenError = new Error('HTTP 429: Too Many Requests');
+                                    fallbackAbort.abort();
+                                    return;
+                                }
+
+                                if (res.ok) {
+                                    const rawJson = await res.json();
+                                    if (Array.isArray(rawJson?.[0])) {
+                                        const fullTrans = rawJson[0].map((item: any) => (Array.isArray(item) ? item[0] ?? '' : '')).join('');
+                                        const resolvedTrans = fullTrans.trim().length === 0 ? entry.sanitized : fullTrans;
+                                        if (!DANGEROUS_KEYS.has(entry.sanitized)) {
+                                            outResults[entry.sanitized] = resolvedTrans;
+                                        }
+                                        if (!DANGEROUS_KEYS.has(entry.raw)) {
+                                            outResults[entry.raw] = resolvedTrans;
+                                        }
+                                    }
+                                } else {
+                                    console.warn(`[SaveEditor:Translate] Bounded fallback item failed with HTTP ${res.status}:`, {
+                                        segment: sanitizeUserPaths(entry.sanitized.slice(0, 40)),
+                                        status: res.status,
+                                        statusText: res.statusText,
+                                    });
+                                }
+                            } catch (err: any) {
+                                if (cancelSignal.aborted) {
+                                    throw new DOMException('Translation batch cancelled by client', 'AbortError');
+                                }
+                                if (err?.message?.includes('HTTP 429')) {
+                                    circuitBrokenError = err instanceof Error ? err : new Error('HTTP 429 Rate Limited');
+                                    fallbackAbort.abort();
+                                    return;
+                                }
+                                if (fallbackAbort.signal.aborted) {
+                                    return;
+                                }
+                                const isOverallBudgetTimeout =
+                                    performance.now() >= deadline ||
+                                    (isDeadlineBoundCall && (itemTimeoutSignal.aborted || err?.name === 'TimeoutError'));
+                                if (isOverallBudgetTimeout) {
+                                    deadlineExceeded = true;
+                                    fallbackAbort.abort();
+                                    return;
+                                }
+                                const rawFallbackMsg: unknown = err instanceof Error ? err.message : err;
+                                console.warn(
+                                    `[SaveEditor:Translate] Bounded fallback item translation failed for segment "${sanitizeUserPaths(entry.sanitized.slice(0, 40))}":`,
+                                    {
+                                        error: sanitizeUserPaths(rawFallbackMsg),
+                                        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                                    }
+                                );
+                            }
+                        }
+                    }
+
+                    const pool = Array.from({ length: Math.min(CONCURRENCY_LIMIT, chunk.length) }, () => worker());
+                    await Promise.all(pool);
+
+                    if (cancelSignal.aborted) {
+                        throw new DOMException('Translation batch cancelled by client', 'AbortError');
+                    }
+                    if (circuitBrokenError) {
+                        throw circuitBrokenError;
+                    }
+                    if (deadlineExceeded) {
+                        throw new Error(`Translation batch timed out: overall deadline of ${totalTimeoutMs}ms exceeded`);
+                    }
+                }
+
+                for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+                    if (controller.signal.aborted) {
+                        throw new DOMException('Translation batch cancelled by client', 'AbortError');
+                    }
+                    const chunk = chunks[chunkIdx];
+                    const remainingMs = overallDeadline - performance.now();
+                    if (remainingMs <= 0) {
+                        throw new Error(`Translation batch timed out: overall deadline of ${timeoutMs}ms exceeded`);
+                    }
+                    const combinedText = chunk.map((e) => e.sanitized).join('\n');
+                    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(cleanTargetLang)}&dt=t&q=${encodeURIComponent(combinedText)}`;
+                    const response = await fetchWithRetry(url, chunkIdx);
+                    let rawJson: unknown;
+                    try {
+                        rawJson = await response.json();
+                    } catch (err) {
+                        if (controller.signal.aborted) {
+                            throw err;
+                        }
+                        console.warn('[save-editor] Received invalid upstream non-JSON response from translation service; captive portal or upstream block suspected');
+                        throw new Error('invalid-upstream-response', { cause: err });
+                    }
+                    if (!Array.isArray(rawJson) || !Array.isArray(rawJson[0])) {
+                        console.warn('[save-editor:translate-batch] Invalid upstream response structure from translation service:', {
+                            chunkIndex: chunkIdx,
+                            receivedType: typeof rawJson,
+                            isRootArray: Array.isArray(rawJson),
+                        });
+                        throw new Error('invalid-upstream-response');
+                    }
+                    const translatedFull = (rawJson[0] as unknown[])
+                        .filter((segment): segment is [string, ...unknown[]] => Array.isArray(segment) && typeof segment[0] === 'string')
+                        .map((segment) => segment[0])
+                        .join('');
+                    const translatedLines = translatedFull.split('\n');
+                    if (translatedLines.length !== chunk.length) {
+                        console.warn('[save-editor:translate-batch] Line count drift detected between response and chunk entries; falling back to item-by-item translation:', { chunkIndex: chunkIdx, expected: chunk.length, received: translatedLines.length });
+                        await runBoundedFallback(chunk, cleanTargetLang, overallDeadline, timeoutMs, actualFetch, results, controller.signal);
+                        processedChunks++;
+                        continue;
+                    }
+                    for (let i = 0; i < chunk.length; i++) {
+                        const { raw, sanitized } = chunk[i];
+                        const translated = translatedLines[i];
+                        if (translated !== undefined) {
+                            if (!DANGEROUS_KEYS.has(sanitized)) {
+                                results[sanitized] = translated;
+                            }
+                            if (!DANGEROUS_KEYS.has(raw)) {
+                                results[raw] = translated;
+                            }
+                        }
+                    }
+                    processedChunks++;
+                }
+            } catch (err: unknown) {
+                if (controller.signal.aborted) {
+                    console.log('[save-editor:translate-batch] Translation job cancelled:', {
+                        jobId: jobId ?? 'unassigned',
+                        processedChunks,
+                        totalChunks: chunks.length,
+                        reason: event?.sender?.isDestroyed?.() ? 'window-destroyed' : 'client-cancelled',
+                    });
+                    throw new DOMException('Translation batch cancelled by client', 'AbortError');
+                }
+                throw err;
+            } finally {
+                try {
+                    if (!event?.sender?.isDestroyed?.()) {
+                        event?.sender?.removeListener?.('destroyed', onDestroyed);
+                    }
+                } catch {
+                    // Ignore destroyed WebContents object error during cleanup
+                }
+                if (jobId && this.activeTranslations.get(jobId) === controller) {
+                    this.activeTranslations.delete(jobId);
+                }
+            }
+
+            return { ...results };
+        });
+
+        ipcMain.handle('save-editor:cancel-translate', async (_event, payload) => {
+            const jobId = typeof payload?.jobId === 'string' ? payload.jobId.trim() : '';
+            if (jobId && this.activeTranslations.has(jobId)) {
+                this.activeTranslations.get(jobId)?.abort();
+                this.activeTranslations.delete(jobId);
+                return { cancelled: true };
+            }
+            return { cancelled: false };
         });
 
         ipcMain.handle('save-editor:load-translations', async (_event, lang: unknown) => {

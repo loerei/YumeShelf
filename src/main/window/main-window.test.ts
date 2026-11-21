@@ -200,7 +200,8 @@ describe('main-window hardening and crash recovery', () => {
     headersCb({ responseHeaders: {} }, cspCallback);
     const cspHeader = cspCallback.mock.calls[0][0].responseHeaders['Content-Security-Policy'][0];
     expect(cspHeader).not.toContain('yumeshelf-telemetry.sayusumat.workers.dev');
-    expect(cspHeader).toContain("connect-src 'self' https://translate.googleapis.com;");
+    expect(cspHeader).not.toContain('https://translate.googleapis.com');
+    expect(cspHeader).toContain("connect-src 'self'");
 
     const consoleHandler = mocks.webContentsListeners.get('console-message')!;
     consoleHandler({ sender: { isDestroyed: () => false } }, 1, 'Error in C:\\Users\\alice\\save.dat');

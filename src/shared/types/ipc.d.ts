@@ -132,6 +132,8 @@ export interface ElectronAPI {
     deleteSaveFile: (data: { gameKey: string, fileName: string }) => Promise<{ ok: boolean }>;
     updateMapping: (data: any) => Promise<any>;
     openSaveEditorWindow: (gameKey: string) => Promise<void>;
+    translateBatch: (texts: string[], targetLang: string, options?: { timeoutMs?: number; maxBatchSize?: number; jobId?: string }) => Promise<Record<string, string>>;
+    cancelTranslateBatch: (params: { jobId: string }) => Promise<{ cancelled: boolean }>;
     loadTranslations: (lang: string) => Promise<Record<string, string>>;
     saveTranslations: (lang: string, translations: Record<string, string>) => Promise<{ ok: boolean; error?: string }>;
     

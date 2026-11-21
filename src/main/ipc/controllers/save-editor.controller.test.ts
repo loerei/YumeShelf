@@ -1003,4 +1003,394 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             }
         });
     });
+
+    describe('save-editor:translate-batch & save-editor:cancel-translate', () => {
+        function createJsonResponse(body: unknown, init: { status?: number; statusText?: string; headers?: Record<string, string> } = {}): Response {
+            const status = init.status ?? 200;
+            const ok = status >= 200 && status < 300;
+            return {
+                ok,
+                status,
+                statusText: init.statusText ?? (ok ? 'OK' : 'Error'),
+                headers: new Headers(init.headers ?? {}),
+                json: vi.fn(async () => body),
+            } as unknown as Response;
+        }
+
+        function createEventSender() {
+            const listeners = new Map<string, Set<(...args: any[]) => void>>();
+            let destroyed = false;
+            return {
+                sender: {
+                    isDestroyed: vi.fn(() => destroyed),
+                    once: vi.fn((ev: string, fn: (...args: any[]) => void) => {
+                        if (!listeners.has(ev)) listeners.set(ev, new Set());
+                        listeners.get(ev)!.add(fn);
+                    }),
+                    removeListener: vi.fn((ev: string, fn: (...args: any[]) => void) => {
+                        listeners.get(ev)?.delete(fn);
+                    }),
+                },
+                destroy: () => {
+                    destroyed = true;
+                    const set = listeners.get('destroyed');
+                    if (set) {
+                        for (const fn of [...set]) {
+                            set.delete(fn);
+                            fn();
+                        }
+                    }
+                },
+                listenerCount: (ev: string) => listeners.get(ev)?.size ?? 0,
+            };
+        }
+
+        it('returns {} immediately on empty or empty-after-sanitization texts without calling fetchFn', async () => {
+            const fetchFn = vi.fn();
+            const { handlers } = createIpcHarness({ fetchFn });
+            const handler = handlers.get('save-editor:translate-batch')!;
+
+            expect(await handler({}, [], 'ja')).toEqual({});
+            expect(await handler({}, { texts: ['   \r\n  ', '\t'], targetLang: 'ja' })).toEqual({});
+            expect(fetchFn).not.toHaveBeenCalled();
+        });
+
+        it('validates ingress types, dual-format payloads, BCP-47 targetLang, and batch bounds', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const fetchFn = vi.fn(async () => createJsonResponse([[['こんにちは', 'hello']]]));
+            const { handlers } = createIpcHarness({ fetchFn });
+            const handler = handlers.get('save-editor:translate-batch')!;
+
+            try {
+                for (const bad of [null, 123, 'hello', ['ok', 42]]) {
+                    await expect(handler({}, bad, 'ja')).rejects.toThrow('invalid-texts-array');
+                }
+
+                for (const badLang of ['', 'english', '123', 'ja/en', null, undefined]) {
+                    await expect(handler({}, ['hello'], badLang)).rejects.toThrow('invalid-target-lang');
+                }
+
+                // > 100 items
+                await expect(handler({}, Array.from({ length: 101 }, () => 'a'), 'ja')).rejects.toThrow('batch-query-too-large');
+                // custom maxBatchSize
+                await expect(handler({}, ['a', 'b', 'c'], 'ja', { maxBatchSize: 2 })).rejects.toThrow('batch-query-too-large');
+                // single string > 300 chars
+                await expect(handler({}, ['x'.repeat(301)], 'ja')).rejects.toThrow('batch-query-too-large');
+                // aggregate > 2000 chars
+                await expect(handler({}, Array.from({ length: 7 }, () => 'x'.repeat(290)), 'ja')).rejects.toThrow('batch-query-too-large');
+
+                expect(fetchFn).not.toHaveBeenCalled();
+
+                // Dual-format object payload works
+                const res = await handler({}, { texts: ['hello'], targetLang: 'ja' });
+                expect(res).toEqual({ hello: 'こんにちは' });
+                expect(fetchFn).toHaveBeenCalledTimes(1);
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('sanitizes embedded newlines and lone UTF-16 surrogates, preserves raw keys, and blocks prototype pollution', async () => {
+            const fetchFn = vi.fn(async (url: string) => {
+                const parsed = new URL(url);
+                const q = parsed.searchParams.get('q') ?? '';
+                const lines = q.split('\n');
+                const translated = lines.map((l) => `T:${l}`).join('\n');
+                return createJsonResponse([[[translated, q]]]);
+            });
+            const { handlers } = createIpcHarness({ fetchFn });
+            const handler = handlers.get('save-editor:translate-batch')!;
+
+            const rawNewline = 'hello\r\nworld';
+            const rawLoneSurrogate = 'bad\uD800surrogate';
+            const res = await handler({}, [rawNewline, rawLoneSurrogate, '__proto__', 'constructor', 'prototype'], 'ja');
+
+            expect(res[rawNewline]).toBe('T:hello world');
+            expect(res['hello world']).toBe('T:hello world');
+            expect(res[rawLoneSurrogate]).toBe('T:bad\uFFFDsurrogate');
+            expect(res['bad\uFFFDsurrogate']).toBe('T:bad\uFFFDsurrogate');
+            expect(Object.prototype.hasOwnProperty.call(res, '__proto__')).toBe(false);
+            expect(Object.prototype.hasOwnProperty.call(res, 'constructor')).toBe(false);
+            expect(Object.prototype.hasOwnProperty.call(res, 'prototype')).toBe(false);
+            expect(({} as any).polluted).toBeUndefined();
+        });
+
+        it('sub-partitions chunks by encoded byte length <= 1500 so GET URLs <= 2048 chars', async () => {
+            const urls: string[] = [];
+            const fetchFn = vi.fn(async (url: string) => {
+                urls.push(url);
+                const q = new URL(url).searchParams.get('q') ?? '';
+                const lines = q.split('\n').map((s) => `t(${s})`).join('\n');
+                return createJsonResponse([[[lines, q]]]);
+            });
+            const { handlers } = createIpcHarness({ fetchFn });
+            const handler = handlers.get('save-editor:translate-batch')!;
+
+            // 10 strings of 200 chars -> 2000 total chars (<= 2000 limit), but encoded > 1500 bytes when combined
+            const texts = Array.from({ length: 10 }, (_, i) => `k${i}_` + 'a'.repeat(197));
+            const res = await handler({}, texts, 'ja');
+
+            expect(urls.length).toBeGreaterThan(1);
+            for (const u of urls) {
+                expect(u.length).toBeLessThanOrEqual(2048);
+            }
+            for (const t of texts) {
+                expect(res[t]).toBe(`t(${t})`);
+            }
+        });
+
+        it('retries transient socket errors and 5xx within deadline, sanitizing user paths in console.warn', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            let calls = 0;
+            const fetchFn = vi.fn(async () => {
+                calls++;
+                if (calls === 1) {
+                    const err: any = new TypeError('fetch failed');
+                    err.cause = { code: 'ENOTFOUND' };
+                    throw err;
+                }
+                if (calls === 2) {
+                    return createJsonResponse({}, { status: 503, statusText: 'Service Unavailable' });
+                }
+                return createJsonResponse([[['成功', 'success']]]);
+            });
+            const { handlers } = createIpcHarness({ fetchFn });
+            const handler = handlers.get('save-editor:translate-batch')!;
+
+            try {
+                const res = await handler({}, ['success'], 'ja', { timeoutMs: 10_000 });
+                expect(res).toEqual({ success: '成功' });
+                expect(fetchFn).toHaveBeenCalledTimes(3);
+                expect(warnSpy).toHaveBeenCalledTimes(2);
+
+                // Terminal failure with local user path in error & stack is sanitized
+                const pathErr = Object.assign(
+                    new Error('ECONNRESET reading C:\\Users\\John Doe\\cache.json'),
+                    { code: 'ECONNRESET', stack: 'Error: at C:\\Users\\John Doe\\net.ts:10' }
+                );
+                const alwaysFailFetch = vi.fn(async () => {
+                    throw pathErr;
+                });
+                const { handlers: failHandlers } = createIpcHarness({ fetchFn: alwaysFailFetch });
+                const failHandler = failHandlers.get('save-editor:translate-batch')!;
+
+                warnSpy.mockClear();
+                await expect(failHandler({}, ['hello'], 'ja', { timeoutMs: 10_000 })).rejects.toThrow('ECONNRESET');
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[save-editor:translate-batch] Translation request failed after retries:',
+                    expect.objectContaining({
+                        error: expect.not.stringContaining('John Doe'),
+                        stack: expect.not.stringContaining('John Doe'),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('circuit-breaks immediately on HTTP 429 and rejects on non-200 or invalid upstream JSON', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            try {
+                const fetch429 = vi.fn(async () => createJsonResponse({}, { status: 429, statusText: 'Too Many Requests' }));
+                const { handlers: h429 } = createIpcHarness({ fetchFn: fetch429 });
+                await expect(h429.get('save-editor:translate-batch')!({}, ['hello'], 'ja')).rejects.toThrow('HTTP 429: Too Many Requests');
+                expect(fetch429).toHaveBeenCalledTimes(1);
+
+                const fetch400 = vi.fn(async () => createJsonResponse({}, { status: 400, statusText: 'Bad Request' }));
+                const { handlers: h400 } = createIpcHarness({ fetchFn: fetch400 });
+                await expect(h400.get('save-editor:translate-batch')!({}, ['hello'], 'ja')).rejects.toThrow('HTTP 400: Bad Request');
+
+                const fetchNonJson = vi.fn(async () => ({
+                    ok: true,
+                    status: 200,
+                    statusText: 'OK',
+                    headers: new Headers(),
+                    json: vi.fn(async () => {
+                        throw new SyntaxError('Unexpected token <');
+                    }),
+                }) as unknown as Response);
+                const { handlers: hJson } = createIpcHarness({ fetchFn: fetchNonJson });
+                await expect(hJson.get('save-editor:translate-batch')!({}, ['hello'], 'ja')).rejects.toThrow('invalid-upstream-response');
+
+                const fetchBadShape = vi.fn(async () => createJsonResponse({ error: 'unexpected' }));
+                const { handlers: hShape } = createIpcHarness({ fetchFn: fetchBadShape });
+                await expect(hShape.get('save-editor:translate-batch')!({}, ['hello'], 'ja')).rejects.toThrow('invalid-upstream-response');
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('handles line-count drift via bounded concurrent fallback (<= 4) with sanitized warnings and 429 circuit break', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            try {
+                let inFlight = 0;
+                let maxInFlight = 0;
+                let callCount = 0;
+                const fetchFn = vi.fn(async (url: string) => {
+                    callCount++;
+                    if (callCount === 1) {
+                        // Batch call returns wrong number of lines (1 instead of 6)
+                        return createJsonResponse([[['only one line', 'batch']]]);
+                    }
+                    inFlight++;
+                    maxInFlight = Math.max(maxInFlight, inFlight);
+                    await new Promise((r) => setTimeout(r, 10));
+                    inFlight--;
+                    const q = new URL(url).searchParams.get('q') ?? '';
+                    if (q === 'item2') {
+                        return createJsonResponse({}, { status: 500, statusText: 'Internal Server Error' });
+                    }
+                    if (q === 'C:\\Users\\John Doe\\secret') {
+                        throw new Error('ECONNREFUSED C:\\Users\\John Doe\\proxy');
+                    }
+                    return createJsonResponse([[[`T:${q}`, q]]]);
+                });
+
+                const { handlers } = createIpcHarness({ fetchFn });
+                const texts = ['item0', 'item1', 'item2', 'C:\\Users\\John Doe\\secret', 'item4', 'item5'];
+                const res = await handlers.get('save-editor:translate-batch')!({}, texts, 'ja');
+
+                expect(maxInFlight).toBeLessThanOrEqual(4);
+                expect(res['item0']).toBe('T:item0');
+                expect(res['item1']).toBe('T:item1');
+                expect(res['item4']).toBe('T:item4');
+                expect(res['item5']).toBe('T:item5');
+                expect(res['item2']).toBeUndefined();
+
+                const warnJson = JSON.stringify(warnSpy.mock.calls);
+                expect(warnJson).not.toContain('John Doe');
+
+                // HTTP 429 during fallback circuit-breaks immediately
+                let fbCalls = 0;
+                const fetch429Fallback = vi.fn(async () => {
+                    fbCalls++;
+                    if (fbCalls === 1) {
+                        return createJsonResponse([[['wrong', 'batch']]]);
+                    }
+                    return createJsonResponse({}, { status: 429, statusText: 'Too Many Requests' });
+                });
+                const { handlers: h429 } = createIpcHarness({ fetchFn: fetch429Fallback });
+                await expect(
+                    h429.get('save-editor:translate-batch')!({}, ['a', 'b', 'c', 'd', 'e'], 'ja')
+                ).rejects.toThrow('HTTP 429: Too Many Requests');
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('supports save-editor:cancel-translate, duplicate jobId replacement, fake-timer cancellableSleep, fallback abort, and sender cleanup', async () => {
+            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            try {
+                const { handlers } = createIpcHarness();
+                const cancelHandler = handlers.get('save-editor:cancel-translate')!;
+
+                // Invalid / unknown jobIds resolve { cancelled: false }
+                expect(await cancelHandler({}, {})).toEqual({ cancelled: false });
+                expect(await cancelHandler({}, { jobId: '' })).toEqual({ cancelled: false });
+                expect(await cancelHandler({}, { jobId: 123 })).toEqual({ cancelled: false });
+                expect(await cancelHandler({}, { jobId: 'unknown-job' })).toEqual({ cancelled: false });
+
+                // Cancel mid-fetch + duplicate jobId replacement preserves replacement controller
+                const signals: AbortSignal[] = [];
+                const fetchHanging = vi.fn((_url: string, init?: RequestInit) => {
+                    const sig = init?.signal!;
+                    signals.push(sig);
+                    return new Promise<Response>((_resolve, reject) => {
+                        if (sig.aborted) {
+                            reject(new DOMException('Aborted', 'AbortError'));
+                            return;
+                        }
+                        sig.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+                    });
+                });
+
+                const { handlers: hHang } = createIpcHarness({ fetchFn: fetchHanging });
+                const translate = hHang.get('save-editor:translate-batch')!;
+                const cancel = hHang.get('save-editor:cancel-translate')!;
+                const ev1 = createEventSender();
+                const ev2 = createEventSender();
+
+                const job1 = translate({ sender: ev1.sender }, ['hello'], 'ja', { jobId: 'job-dup' });
+                await vi.waitFor(() => expect(signals.length).toBe(1));
+
+                // Second call with same jobId aborts job1, but replacement remains cancellable
+                const job2 = translate({ sender: ev2.sender }, ['world'], 'ja', { jobId: 'job-dup' });
+                await vi.waitFor(() => expect(signals.length).toBe(2));
+
+                expect(signals[0].aborted).toBe(true);
+                await expect(job1).rejects.toMatchObject({ name: 'AbortError' });
+                expect(ev1.listenerCount('destroyed')).toBe(0);
+
+                // Replacement job2 is still active and cancellable
+                expect(signals[1].aborted).toBe(false);
+                expect(await cancel({}, { jobId: 'job-dup' })).toEqual({ cancelled: true });
+                expect(signals[1].aborted).toBe(true);
+                await expect(job2).rejects.toMatchObject({ name: 'AbortError' });
+                expect(ev2.listenerCount('destroyed')).toBe(0);
+                expect(await cancel({}, { jobId: 'job-dup' })).toEqual({ cancelled: false });
+
+                // Cancel during runBoundedFallback aborts in-flight worker without false warnings
+                warnSpy.mockClear();
+                let fbStep = 0;
+                const fbSignals: AbortSignal[] = [];
+                const fetchFallbackAbort = vi.fn((_url: string, init?: RequestInit) => {
+                    fbStep++;
+                    if (fbStep === 1) {
+                        return Promise.resolve(createJsonResponse([[['drift', 'batch']]]));
+                    }
+                    const sig = init?.signal!;
+                    fbSignals.push(sig);
+                    return new Promise<Response>((_resolve, reject) => {
+                        sig.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+                    });
+                });
+                const { handlers: hFb } = createIpcHarness({ fetchFn: fetchFallbackAbort });
+                const fbJob = hFb.get('save-editor:translate-batch')!({}, ['a', 'b'], 'ja', { jobId: 'job-fb' });
+                await vi.waitFor(() => expect(fbSignals.length).toBeGreaterThan(0));
+                expect(await hFb.get('save-editor:cancel-translate')!({}, { jobId: 'job-fb' })).toEqual({ cancelled: true });
+                await expect(fbJob).rejects.toMatchObject({ name: 'AbortError' });
+                // Only the line-count drift warning should have been logged, no false fallback item warnings
+                expect(warnSpy).toHaveBeenCalledTimes(1);
+
+                // Window destruction mid-flight aborts and cleans up without throwing
+                const evDestroy = createEventSender();
+                const fetchDestroy = vi.fn((_url: string, init?: RequestInit) => {
+                    const sig = init?.signal!;
+                    return new Promise<Response>((_resolve, reject) => {
+                        sig.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+                    });
+                });
+                const { handlers: hDestroy } = createIpcHarness({ fetchFn: fetchDestroy });
+                const destroyJob = hDestroy.get('save-editor:translate-batch')!({ sender: evDestroy.sender }, ['hi'], 'ja', { jobId: 'job-win' });
+                await vi.waitFor(() => expect(fetchDestroy).toHaveBeenCalledTimes(1));
+                evDestroy.destroy();
+                await expect(destroyJob).rejects.toMatchObject({ name: 'AbortError' });
+                expect(await hDestroy.get('save-editor:cancel-translate')!({}, { jobId: 'job-win' })).toEqual({ cancelled: false });
+
+                // Fake timers: cancellableSleep aborts retry delay immediately without stalling
+                vi.useFakeTimers();
+                try {
+                    const fetch503 = vi.fn(async () => createJsonResponse({}, { status: 503, statusText: 'Busy', headers: { 'Retry-After': '30' } }));
+                    const { handlers: hSleep } = createIpcHarness({ fetchFn: fetch503 });
+                    const sleepJob = hSleep.get('save-editor:translate-batch')!({}, ['hi'], 'ja', { jobId: 'job-sleep', timeoutMs: 60_000 });
+                    await Promise.resolve();
+                    await Promise.resolve();
+                    expect(fetch503).toHaveBeenCalledTimes(1);
+                    expect(await hSleep.get('save-editor:cancel-translate')!({}, { jobId: 'job-sleep' })).toEqual({ cancelled: true });
+                    await expect(sleepJob).rejects.toMatchObject({ name: 'AbortError' });
+                } finally {
+                    vi.useRealTimers();
+                }
+
+                expect(logSpy).toHaveBeenCalledWith(
+                    '[save-editor:translate-batch] Translation job cancelled:',
+                    expect.objectContaining({ totalChunks: 1 })
+                );
+            } finally {
+                logSpy.mockRestore();
+                warnSpy.mockRestore();
+            }
+        });
+    });
 });

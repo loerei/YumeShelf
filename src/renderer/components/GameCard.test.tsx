@@ -161,7 +161,7 @@ describe('GameCard', () => {
 
     // Open Save Editor restores focus and invokes callback
     fireEvent.click(menuBtn);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Save Editor' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open Save Editor' }));
     expect(onOpenSaveEditor).toHaveBeenCalledWith('main::rpg/alpha');
     expect(document.activeElement).toBe(menuBtn);
 

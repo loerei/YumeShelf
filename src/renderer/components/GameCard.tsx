@@ -353,7 +353,7 @@ export const GameCard = React.memo(
               >
                 <path d="M3 7h5l2 2h11v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2" />
               </svg>
-              <span>Reveal in Folder</span>
+              <span>Reveal</span>
             </button>
 
             <div
@@ -416,7 +416,7 @@ export const GameCard = React.memo(
                     <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   </svg>
-                  <span>Save Editor</span>
+                  <span>Open Save Editor</span>
                 </button>
 
                 <button
@@ -462,7 +462,7 @@ export const GameCard = React.memo(
                     <polyline points="17 21 17 13 7 13 7 21" />
                     <polyline points="7 3 7 8 15 8" />
                   </svg>
-                  <span>Set Custom Save Folder</span>
+                  <span>Set Save Folder Path</span>
                 </button>
 
                 {Boolean(game.saveFolderOverride) && (
@@ -486,7 +486,7 @@ export const GameCard = React.memo(
                       <polyline points="1 4 1 10 7 10" />
                       <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                     </svg>
-                    <span>Reset Save Folder</span>
+                    <span>Reset to Auto-detect</span>
                   </button>
                 )}
               </div>
@@ -645,7 +645,7 @@ export const GameCard = React.memo(
               >
                 <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" />
               </svg>
-              <span>Delete Game</span>
+              <span>Delete</span>
             </button>
           </div>
         )}

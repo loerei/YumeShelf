@@ -292,7 +292,7 @@ export const StackCard = React.memo(
               >
                 <path d="M3 7h5l2 2h11v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2" />
               </svg>
-              <span>Reveal in Folder</span>
+              <span>Reveal</span>
             </button>
 
             <button

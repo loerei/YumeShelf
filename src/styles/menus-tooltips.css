@@ -210,11 +210,13 @@
 }
 
 .dropdown-item {
+    box-sizing: border-box;
     width: 100%;
     background: transparent;
     border: none;
     font-family: inherit;
     text-align: left;
+    white-space: nowrap;
 }
 
 .dropdown-item:focus-visible {

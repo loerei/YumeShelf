@@ -537,7 +537,7 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
 
     // 4. Reveal in folder
     openCardMenu();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Reveal in Folder' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Reveal' }));
     expect(api.revealGame).toHaveBeenCalledWith('C:\\Games\\g1\\Alpha.exe');
 
     // 5. Open Save Folder failure (AC 23 path sanitization in toast)
@@ -552,7 +552,7 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     // 6. Set Custom Save Folder failure (AC 23 path sanitization in toast) & success
     openCardMenu();
     await act(async () => {
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Set Custom Save Folder' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Set Save Folder Path' }));
     });
     const setSavesToast = screen.getByText(/Failed to set save folder:/i).textContent ?? '';
     expect(setSavesToast).toContain('<USER_DIR>');
@@ -560,14 +560,14 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
 
     openCardMenu();
     await act(async () => {
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Set Custom Save Folder' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Set Save Folder Path' }));
     });
     expect(store.getSnapshot().allGames[0]?.saveFolderOverride).toBe('C:\\Users\\Alice\\NewSaves');
 
     // 7. Reset Save Folder
     openCardMenu();
     await act(async () => {
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Reset Save Folder' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Reset to Auto-detect' }));
     });
     expect(store.getSnapshot().allGames[0]?.saveFolderOverride).toBeNull();
 
@@ -600,7 +600,7 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     // 10. Save Editor rejection toast
     openCardMenu();
     await act(async () => {
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Save Editor' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Open Save Editor' }));
     });
     expect(launcher.open).toHaveBeenCalledWith('g1');
     const saveEditorToast = screen.getByText(/Failed to open save editor:/i).textContent ?? '';
@@ -683,7 +683,7 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     const openDeleteForFirstCard = () => {
       const menuBtns = screen.getAllByRole('button', { name: 'Game options' });
       fireEvent.click(menuBtns[0]);
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Delete Game' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     };
 
     // 1. Open Delete modal and Cancel -> restores focus to g1 card in LibraryGrid
@@ -813,7 +813,7 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     // Delete inst-1 from inside DuplicateStackModal (3 -> 2 instances: modal stays open, focus moves to inst-2 inside modal, gridEl.focus NOT called)
     const instanceMenus = within(modalDialog).getAllByRole('button', { name: 'Game options' });
     fireEvent.click(instanceMenus[0]);
-    fireEvent.click(within(modalDialog).getByRole('menuitem', { name: 'Delete Game' }));
+    fireEvent.click(within(modalDialog).getByRole('menuitem', { name: 'Delete' }));
 
     // Confirm delete dialog is stacked on top of DuplicateStackModal
     const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
@@ -831,7 +831,7 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     // Now delete inst-2 (2 -> 1 instance: stack dissolves, DuplicateStackModal auto-closes and passes 'inst-3' via onClose(targetKey) to LibraryGrid)
     const remainingMenus = within(modalDialog).getAllByRole('button', { name: 'Game options' });
     fireEvent.click(remainingMenus[0]);
-    fireEvent.click(within(modalDialog).getByRole('menuitem', { name: 'Delete Game' }));
+    fireEvent.click(within(modalDialog).getByRole('menuitem', { name: 'Delete' }));
 
     const deleteBtn2 = await screen.findByRole('button', { name: 'Delete' });
     await act(async () => {

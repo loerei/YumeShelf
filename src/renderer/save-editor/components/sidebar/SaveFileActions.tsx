@@ -125,9 +125,6 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
     <div
       className="save-file-actions"
       data-interactive="true"
-      onClick={(e) => {
-        if (e.defaultPrevented) return;
-      }}
     >
       {onStartRename && (
         <button

@@ -758,4 +758,41 @@ describe('SaveEditorSearchBar', () => {
       jobId: expect.stringContaining('file1.rpgsave_'),
     });
   });
+
+  it('renders Translate label inside .translate-btn and reloads active save file from disk via .refresh-save-btn', async () => {
+    const store = createSaveEditorStore('game-1');
+    const dto = createMockDto('slot1.sav', [
+      { id: 'variables:1', tabId: 'variables', key: '1', label: 'Gold', value: 100, type: 'number' },
+    ]);
+    store.setFileLoaded(dto);
+
+    const reloadedDto = createMockDto('slot1.sav', [
+      { id: 'variables:1', tabId: 'variables', key: '1', label: 'Gold', value: 999, type: 'number' },
+    ]);
+    const mockApi = createMockElectronAPI({
+      loadSaveData: vi.fn().mockResolvedValue(reloadedDto),
+    });
+
+    render(
+      <SaveEditorStoreProvider store={store} electronAPI={mockApi}>
+        <SaveEditorSearchBar />
+      </SaveEditorStoreProvider>
+    );
+
+    const translateBtn = screen.getByRole('button', { name: /translate save fields/i });
+    expect(translateBtn).toHaveTextContent('Translate');
+
+    const reloadBtn = screen.getByRole('button', { name: /reload from disk/i });
+    expect(reloadBtn).toHaveClass('refresh-save-btn');
+    await act(async () => {
+      fireEvent.click(reloadBtn);
+      await flushPromises();
+    });
+
+    expect(mockApi.loadSaveData).toHaveBeenCalledWith({
+      gameKey: 'game-1',
+      fileName: 'slot1.sav',
+    });
+    expect(store.getSnapshot().pristineFieldsById.get('variables:1')?.value).toBe(999);
+  });
 });

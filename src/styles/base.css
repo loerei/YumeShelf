@@ -100,6 +100,11 @@ body {
     background: var(--hover-bg);
 }
 
+.small-btn.secondary-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+}
+
 .primary-btn[aria-disabled="true"],
 .secondary-btn[aria-disabled="true"] {
     opacity: 0.5;

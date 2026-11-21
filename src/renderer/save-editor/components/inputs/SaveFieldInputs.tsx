@@ -136,6 +136,9 @@ export interface CheckboxSwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  isTranslated?: boolean;
+  badge?: React.ReactNode;
+  delta?: React.ReactNode;
 }
 
 /**
@@ -147,12 +150,20 @@ export function CheckboxSwitch({
   checked,
   onChange,
   disabled = false,
+  isTranslated = false,
+  badge,
+  delta,
 }: CheckboxSwitchProps): React.JSX.Element {
   return (
     <div className="checkbox-row">
-      <label htmlFor={id} className="data-label">
+      {badge}
+      <label
+        htmlFor={id}
+        className={isTranslated ? 'data-label is-translated' : 'data-label'}
+      >
         {label}
       </label>
+      {delta}
       <input
         id={id}
         type="checkbox"

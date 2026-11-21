@@ -6,8 +6,38 @@ export interface SaveFieldRowProps {
   field: SaveFieldDto;
   value: number | string | boolean;
   isDirty: boolean;
+  isTranslated?: boolean;
   label: string;
   onChange: (fieldId: string, nextValue: number | string | boolean) => void;
+}
+
+function renderDelta(
+  field: SaveFieldDto,
+  value: number | string | boolean,
+  isDirty: boolean
+): React.ReactNode {
+  if (!isDirty || value === field.value) return null;
+
+  if (typeof value === 'number' && typeof field.value === 'number') {
+    const diff = value - field.value;
+    if (diff > 0) {
+      return <span className="data-delta data-delta--positive">+{diff}</span>;
+    }
+    if (diff < 0) {
+      return <span className="data-delta data-delta--negative">{diff}</span>;
+    }
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return (
+      <span className="data-delta data-delta--changed">
+        (was: {String(field.value)})
+      </span>
+    );
+  }
+
+  return <span className="data-delta data-delta--changed">(changed)</span>;
 }
 
 /**
@@ -19,12 +49,18 @@ export const SaveFieldRow = React.memo(
     field,
     value,
     isDirty,
+    isTranslated = false,
     label,
     onChange,
   }: SaveFieldRowProps): React.JSX.Element {
     const inputId = `field-${field.id}`;
     const rowClassName = isDirty ? 'save-field-row is-dirty' : 'save-field-row';
+    const labelClassName = isTranslated
+      ? 'save-field-label is-translated'
+      : 'save-field-label';
     const isBooleanField = field.type === 'boolean' || typeof field.value === 'boolean';
+    const idBadge = field.key ? <span className="data-id">#{field.key}</span> : null;
+    const deltaNode = renderDelta(field, value, isDirty);
 
     if (isBooleanField) {
       return (
@@ -37,6 +73,9 @@ export const SaveFieldRow = React.memo(
             label={label}
             checked={Boolean(value)}
             disabled={field.readOnly}
+            isTranslated={isTranslated}
+            badge={idBadge}
+            delta={deltaNode}
             onChange={(checked) => onChange(field.id, checked)}
           />
         </div>
@@ -56,16 +95,22 @@ export const SaveFieldRow = React.memo(
           className={rowClassName}
           data-dirty={isDirty ? 'true' : undefined}
         >
-          <label htmlFor={inputId} className="save-field-label">
-            {label}
-          </label>
-          <NumberInput
-            id={inputId}
-            label={label}
-            value={numericValue}
-            disabled={field.readOnly}
-            onChange={(val) => onChange(field.id, val)}
-          />
+          <div className="save-field-header">
+            {idBadge}
+            <label htmlFor={inputId} className={labelClassName}>
+              {label}
+            </label>
+          </div>
+          <div className="data-value-wrapper">
+            <NumberInput
+              id={inputId}
+              label={label}
+              value={numericValue}
+              disabled={field.readOnly}
+              onChange={(val) => onChange(field.id, val)}
+            />
+            {deltaNode}
+          </div>
         </div>
       );
     }
@@ -75,16 +120,22 @@ export const SaveFieldRow = React.memo(
         className={rowClassName}
         data-dirty={isDirty ? 'true' : undefined}
       >
-        <label htmlFor={inputId} className="save-field-label">
-          {label}
-        </label>
-        <TextInput
-          id={inputId}
-          label={label}
-          value={value !== null && value !== undefined ? String(value) : ''}
-          disabled={field.readOnly}
-          onChange={(val) => onChange(field.id, val)}
-        />
+        <div className="save-field-header">
+          {idBadge}
+          <label htmlFor={inputId} className={labelClassName}>
+            {label}
+          </label>
+        </div>
+        <div className="data-value-wrapper">
+          <TextInput
+            id={inputId}
+            label={label}
+            value={value !== null && value !== undefined ? String(value) : ''}
+            disabled={field.readOnly}
+            onChange={(val) => onChange(field.id, val)}
+          />
+          {deltaNode}
+        </div>
       </div>
     );
   },
@@ -93,6 +144,7 @@ export const SaveFieldRow = React.memo(
     prev.field.id === next.field.id &&
     prev.value === next.value &&
     prev.isDirty === next.isDirty &&
+    prev.isTranslated === next.isTranslated &&
     prev.label === next.label &&
     prev.onChange === next.onChange
 );

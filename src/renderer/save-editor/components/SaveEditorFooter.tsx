@@ -13,6 +13,7 @@ import {
 
 export interface SaveEditorFooterProps {
   electronAPI?: ElectronAPI;
+  onClose?: () => void;
 }
 
 /**
@@ -21,6 +22,7 @@ export interface SaveEditorFooterProps {
  */
 export function SaveEditorFooter({
   electronAPI,
+  onClose,
 }: SaveEditorFooterProps): React.JSX.Element {
   const store = useSaveEditorStore();
   const saveStatus = useSaveOperationStatus();
@@ -124,6 +126,14 @@ export function SaveEditorFooter({
   const isActionDisabled =
     !isDirty || isSaving || isMutatingFile || fileStatus.state !== 'loaded';
 
+  const handleCancel = () => {
+    if (onClose) {
+      onClose();
+    } else if (typeof window !== 'undefined') {
+      window.close();
+    }
+  };
+
   return (
     <div className="save-editor-footer">
       {saveStatus.state === 'error' && (
@@ -144,6 +154,13 @@ export function SaveEditorFooter({
       >
         {saveStatus.state === 'saved' && <span>Saved</span>}
       </div>
+      <button
+        type="button"
+        className="secondary-btn cancel-btn"
+        onClick={handleCancel}
+      >
+        Cancel
+      </button>
       <button
         type="button"
         className={

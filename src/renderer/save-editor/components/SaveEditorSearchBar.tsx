@@ -617,6 +617,30 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
   };
 
   const isTranslateDisabled = isTranslating || fileStatus.state !== 'loaded';
+  const isReloadDisabled = isTranslating || fileStatus.state !== 'loaded';
+
+  const handleReload = async () => {
+    if (isReloadDisabled || fileStatus.state !== 'loaded') return;
+    const currentApi = apiRef.current ?? api;
+    if (typeof currentApi?.loadSaveData !== 'function') return;
+    const targetFileName = fileStatus.dto.fileName;
+    const targetGameKey = gameKey || fileStatus.dto.gameKey;
+    dispatch.setFileLoading(targetFileName);
+    try {
+      const reloaded = await currentApi.loadSaveData({
+        gameKey: targetGameKey,
+        fileName: targetFileName,
+      });
+      dispatch.setFileLoaded(reloaded);
+    } catch (err) {
+      if (isCancellationError(err)) {
+        dispatch.setFileIdle();
+      } else {
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        dispatch.setFileError(targetFileName, sanitizeUserPaths(rawMsg));
+      }
+    }
+  };
 
   return (
     <>
@@ -630,6 +654,31 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
         aria-label="Search variables"
       />
       <div className="save-editor-search-actions">
+        <button
+          type="button"
+          className="refresh-save-btn"
+          aria-label="Reload from disk"
+          title="Reload from disk"
+          aria-disabled={isReloadDisabled}
+          style={{
+            pointerEvents: isReloadDisabled ? 'none' : undefined,
+          }}
+          onClick={handleReload}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </button>
         <button
           ref={translateBtnRef}
           type="button"
@@ -653,6 +702,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
           >
             <path d="M5 8l6 6M11 8L5 14M2 5h12M7 2v3M22 22l-5-10-5 10M14 18h6" />
           </svg>
+          <span>Translate</span>
         </button>
         <div
           className="translation-progress-container"

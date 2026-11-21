@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { SaveTabDto } from '@yumeshelf/engine/types';
 import {
   useSaveFileStatus,
@@ -23,26 +23,63 @@ export const SaveEditorTabsView: React.FC<SaveEditorTabsViewProps> = ({
       ? 'save-editor-tabs save-editor-tabs--empty'
       : 'save-editor-tabs';
 
+  const tabsRef = useRef<HTMLElement | null>(null);
+  const [shadows, setShadows] = useState({ left: false, right: false });
+
+  const updateShadows = useCallback(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 2;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setShadows((prev) =>
+      prev.left === left && prev.right === right ? prev : { left, right }
+    );
+  }, []);
+
+  useEffect(() => {
+    updateShadows();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', updateShadows);
+      return () => window.removeEventListener('resize', updateShadows);
+    }
+    return undefined;
+  }, [safeTabs, updateShadows]);
+
   return (
-    <nav className={containerClassName} aria-label="Save categories">
-      {safeTabs.map((tab) => {
-        const isActive = tab.id === activeTabId;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            className={isActive ? 'save-tab active' : 'save-tab'}
-            onClick={() => onSelectTab?.(tab.id)}
-            aria-current={isActive ? 'page' : undefined}
-          >
-            <span className="save-tab-label">{tab.label}</span>
-            {typeof tab.count === 'number' && (
-              <span className="save-tab-count">({tab.count})</span>
-            )}
-          </button>
-        );
-      })}
-    </nav>
+    <div className="save-editor-tabs-container">
+      <nav
+        ref={tabsRef}
+        className={containerClassName}
+        aria-label="Save categories"
+        onScroll={updateShadows}
+      >
+        {safeTabs.map((tab) => {
+          const isActive = tab.id === activeTabId;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={isActive ? 'save-tab active' : 'save-tab'}
+              onClick={() => onSelectTab?.(tab.id)}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <span className="save-tab-label">{tab.label}</span>
+              {typeof tab.count === 'number' && (
+                <span className="save-tab-count">({tab.count})</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+      <div
+        className={`tabs-shadow tabs-shadow-left${shadows.left ? ' visible' : ''}`}
+        aria-hidden="true"
+      />
+      <div
+        className={`tabs-shadow tabs-shadow-right${shadows.right ? ' visible' : ''}`}
+        aria-hidden="true"
+      />
+    </div>
   );
 };
 

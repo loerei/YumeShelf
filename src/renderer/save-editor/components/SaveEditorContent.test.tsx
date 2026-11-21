@@ -875,8 +875,8 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     expect(rowBlock).not.toBeNull();
     expect(rowBlock![1]).toMatch(/box-sizing:\s*border-box/);
     expect(rowBlock![1]).toMatch(/min-height:\s*88px/);
-    expect(rowBlock![1]).toMatch(/background:\s*var\(--card-bg\)/);
-    expect(rowBlock![1]).toMatch(/border:\s*1px solid var\(--border-color\)/);
+    expect(rowBlock![1]).toMatch(/background:\s*rgba\(255,\s*255,\s*255,\s*0\.02\)/);
+    expect(rowBlock![1]).toMatch(/border:\s*1px solid rgba\(255,\s*255,\s*255,\s*0\.05\)/);
     expect(rowBlock![1]).toMatch(/isolation:\s*isolate/);
 
     const boolRowBlock = css.match(/\.save-field-row:has\(\.checkbox-row\)\s*\{([^}]+)\}/);
@@ -890,12 +890,67 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
 
     expect(css).toMatch(/\.virtualized-table-number-input-wrapper\s*\{[^}]*\}/);
     expect(css).toMatch(
-      /\.virtualized-table-number-input,\s*\.virtualized-table-text-input\s*\{[^}]*var\(--field-bg\)[^}]*var\(--text-main\)/s
+      /\.virtualized-table-number-input,\s*\.virtualized-table-text-input\s*\{[^}]*#0a0a0a[^}]*var\(--text-main/s
     );
     expect(css).toMatch(
-      /\.virtualized-table-number-input:focus,\s*\.virtualized-table-text-input:focus\s*\{[^}]*var\(--accent\)[^}]*var\(--field-hover-bg\)/s
+      /\.virtualized-table-number-input:focus,\s*\.virtualized-table-text-input:focus\s*\{[^}]*var\(--accent[^}]*#000[^}]*box-shadow:/s
     );
     expect(css).toMatch(/\.virtualized-table-number-input\[aria-invalid="true"\]\s*\{[^}]*#ef4444/i);
     expect(css).toMatch(/\.number-input-error\s*\{[^}]*#ff6b6b/i);
+  });
+
+  it('renders .data-id, .data-delta, .is-translated, and idle .empty-state SVG icon', () => {
+    const onChange = vi.fn();
+    const { container, rerender } = render(
+      <SaveFieldRow
+        field={{
+          id: 'variables:1',
+          tabId: 'variables',
+          key: '1',
+          label: 'ゴールド',
+          value: 100,
+          type: 'number',
+        }}
+        value={250}
+        isDirty={true}
+        isTranslated={true}
+        label="Gold"
+        onChange={onChange}
+      />
+    );
+
+    expect(container.querySelector('.data-id')?.textContent).toBe('#1');
+    expect(container.querySelector('.data-delta')?.textContent).toBe('+150');
+    expect(container.querySelector('.save-field-label.is-translated')).not.toBeNull();
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'switches:2',
+          tabId: 'switches',
+          key: '2',
+          label: 'Boss',
+          value: false,
+          type: 'boolean',
+        }}
+        value={true}
+        isDirty={true}
+        isTranslated={false}
+        label="Boss"
+        onChange={onChange}
+      />
+    );
+    expect(container.querySelector('.data-delta')?.textContent).toBe('(was: false)');
+
+    const store = createSaveEditorStore('game-1');
+    const { container: idleContainer } = render(
+      <SaveEditorStoreProvider store={store}>
+        <SaveEditorContent />
+      </SaveEditorStoreProvider>
+    );
+    const idleSvg = idleContainer.querySelector('.empty-state svg');
+    expect(idleSvg).not.toBeNull();
+    expect(idleSvg?.getAttribute('width')).toBe('48');
+    expect(idleSvg?.getAttribute('height')).toBe('48');
   });
 });

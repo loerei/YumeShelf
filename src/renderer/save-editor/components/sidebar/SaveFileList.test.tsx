@@ -1015,4 +1015,20 @@ describe('SaveFileList (Connected Container Mode)', () => {
     expect(store.getSnapshot().fileStatus).toEqual({ state: 'idle' });
     expect(store.getSnapshot().dirtyKeys.size).toBe(0);
   });
+
+  it('renders 12x12 .action-icon SVGs and orders delete popover buttons [Cancel] [Confirm]', () => {
+    render(<SaveFileListView files={['slot1.sav']} />);
+
+    const actionIcons = document.querySelectorAll('.action-icon');
+    expect(actionIcons.length).toBe(2);
+    for (const icon of actionIcons) {
+      expect(icon.getAttribute('width')).toBe('12');
+      expect(icon.getAttribute('height')).toBe('12');
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete slot1.sav' }));
+    const dialog = screen.getByRole('dialog', { name: 'Confirm deletion of slot1.sav' });
+    const buttons = Array.from(dialog.querySelectorAll('button'));
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Cancel', 'Confirm']);
+  });
 });

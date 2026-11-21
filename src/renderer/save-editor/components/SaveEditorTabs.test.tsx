@@ -154,7 +154,7 @@ describe('SaveEditorTabs (Connected Container)', () => {
 });
 
 describe('Save Editor Stylesheet Contract (AC-UXUI-4)', () => {
-  it('enforces button reset, var(--accent) active/focus bindings, fixed search width, and reduced-motion rules in save-editor.css', () => {
+  it('enforces button reset, var(--accent) active/focus bindings, search width expansion without double outline, and reduced-motion rules in save-editor.css', () => {
     const cssPath = path.resolve(__dirname, '../../../styles/save-editor.css');
     const css = fs.readFileSync(cssPath, 'utf-8');
 
@@ -172,14 +172,26 @@ describe('Save Editor Stylesheet Contract (AC-UXUI-4)', () => {
       /\.save-tab\.active,\s*\.save-tab\[aria-current="page"\]\s*\{[^}]*var\(--accent/
     );
 
+    const searchMatch = css.match(/\.save-editor-search\s*\{([^}]+)\}/);
+    expect(searchMatch).not.toBeNull();
+    expect(searchMatch![1]).toMatch(/\bwidth:\s*240px/);
+
     const searchFocusMatch = css.match(/\.save-editor-search:focus\s*\{([^}]+)\}/);
     expect(searchFocusMatch).not.toBeNull();
-    expect(searchFocusMatch![1]).not.toMatch(/\bwidth\s*:/);
+    expect(searchFocusMatch![1]).toMatch(/\bwidth:\s*320px/);
+    expect(searchFocusMatch![1]).toMatch(/outline:\s*none/);
 
-    expect(css).toMatch(/\.save-editor-search:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--accent/);
+    expect(css).toMatch(/\.save-editor-search:focus-visible\s*\{[^}]*outline:\s*none/);
     expect(css).toMatch(
-      /\.translate-btn:focus-visible,\s*\.translate-cancel-btn:focus-visible,\s*\.save-tab:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--accent/
+      /\.refresh-save-btn:focus-visible,\s*\.translate-btn:focus-visible,\s*\.translate-cancel-btn:focus-visible,\s*\.save-tab:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--accent/
     );
     expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  });
+
+  it('wraps tabs in .save-editor-tabs-container with .tabs-shadow-left and .tabs-shadow-right', () => {
+    const { container } = render(<SaveEditorTabsView tabs={MOCK_TABS} activeTabId="variables" />);
+    expect(container.querySelector('.save-editor-tabs-container')).not.toBeNull();
+    expect(container.querySelector('.tabs-shadow.tabs-shadow-left')).not.toBeNull();
+    expect(container.querySelector('.tabs-shadow.tabs-shadow-right')).not.toBeNull();
   });
 });

@@ -142,6 +142,8 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
         >
           <svg
             className="action-icon"
+            width="12"
+            height="12"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -170,6 +172,8 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
       >
         <svg
           className="action-icon"
+          width="12"
+          height="12"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -214,15 +218,6 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
             <div className="save-editor-popover-actions">
               <button
                 type="button"
-                className="save-editor-popover-btn danger-btn"
-                onClick={handleConfirmDelete}
-                aria-disabled={isDeleting}
-                style={isDeleting ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
-              >
-                {isDeleting ? 'Deleting...' : 'Confirm'}
-              </button>
-              <button
-                type="button"
                 className="save-editor-popover-btn cancel-btn"
                 onClick={handleCancelDelete}
                 aria-disabled={isDeleting}
@@ -230,6 +225,15 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
                 autoFocus
               >
                 Cancel
+              </button>
+              <button
+                type="button"
+                className="save-editor-popover-btn danger-btn"
+                onClick={handleConfirmDelete}
+                aria-disabled={isDeleting}
+                style={isDeleting ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
+              >
+                {isDeleting ? 'Deleting...' : 'Confirm'}
               </button>
             </div>
           </div>,

@@ -587,4 +587,20 @@ describe('SaveEditorFooter (Persistent Footer & Focus Continuity)', () => {
     expect(source).not.toMatch(/@yumeshelf\/engine(?!\/types)/);
     expect(source).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
   });
+
+  it('renders .cancel-btn and invokes onClose when clicked', () => {
+    const store = createSaveEditorStore('game-1');
+    const onClose = vi.fn();
+
+    render(
+      <SaveEditorStoreProvider store={store}>
+        <SaveEditorFooter onClose={onClose} />
+      </SaveEditorStoreProvider>
+    );
+
+    const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
+    expect(cancelBtn).toHaveClass('secondary-btn', 'cancel-btn');
+    fireEvent.click(cancelBtn);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

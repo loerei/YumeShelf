@@ -121,7 +121,20 @@ export function SaveEditorContent({
   if (fileStatus.state === 'idle') {
     content = (
       <div className="empty-state" role="status" aria-live="polite">
-        Select a save file from the sidebar to view and edit its contents
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />
+        </svg>
+        <p>Select a save file from the sidebar to view and edit its contents</p>
       </div>
     );
   } else if (fileStatus.state === 'loading') {
@@ -199,7 +212,9 @@ export function SaveEditorContent({
               : field.value;
           const isDirty = dirtyKeys.has(field.id);
           const normLabel = (field.label || '').normalize('NFC');
-          const label = getTranslation(translations, normLabel) ?? field.label;
+          const translatedLabel = getTranslation(translations, normLabel);
+          const isTranslated = Boolean(translatedLabel && translatedLabel !== field.label);
+          const label = translatedLabel ?? field.label;
 
           return (
             <div
@@ -220,6 +235,7 @@ export function SaveEditorContent({
                 field={field}
                 value={value}
                 isDirty={isDirty}
+                isTranslated={isTranslated}
                 label={label}
                 onChange={handleChange}
               />

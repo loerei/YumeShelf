@@ -4,6 +4,7 @@ import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import {
   SaveEditorStoreProvider,
   useSaveEditorDispatch,
+  useSaveFileStatus,
   type ObservableSaveEditorStore,
 } from './store/save-editor-store';
 import { SaveEditorSidebar } from './components/sidebar/SaveEditorSidebar';
@@ -26,9 +27,10 @@ export interface SaveEditorShellProps {
 }
 
 export function SaveEditorShell({
-  onClose: _onClose,
+  onClose,
   initialFile,
 }: SaveEditorShellProps): React.JSX.Element {
+  const fileStatus = useSaveFileStatus();
   const dispatch = useSaveEditorDispatch();
   const retryCounterRef = useRef(0);
   const sidebarListFocusRef = useRef<HTMLDivElement | null>(null);
@@ -56,9 +58,14 @@ export function SaveEditorShell({
             listFocusRef={sidebarListFocusRef}
           />
           <main className="save-editor-main">
-            <div className="save-editor-top-bar">
+            <div
+              className="save-editor-top-bar save-editor-tabs-wrapper"
+              style={fileStatus.state === 'loaded' ? undefined : { display: 'none' }}
+            >
               <SaveEditorTabs />
-              <SaveEditorSearchBar />
+              <div className="save-editor-actions">
+                <SaveEditorSearchBar />
+              </div>
             </div>
             <SaveEditorContent
               onRetryLoad={handleRetryLoad}
@@ -66,7 +73,7 @@ export function SaveEditorShell({
             />
           </main>
         </div>
-        <SaveEditorFooter />
+        <SaveEditorFooter onClose={onClose} />
       </div>
     </div>
   );

@@ -955,6 +955,11 @@ export function SettingsModal({
                     const nextLang = e.target.value;
                     setLanguage(nextLang);
                     resolvedStorage?.setItem('yumeshelf_lang', nextLang);
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(
+                        new CustomEvent('yumeshelf:language-changed', { detail: { code: nextLang } })
+                      );
+                    }
                     showToast('Language updated');
                   }}
                 >

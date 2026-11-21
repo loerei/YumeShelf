@@ -12,6 +12,16 @@ export interface SearchableGameItem {
   readonly gameKey: string;
   readonly name: string;
   readonly iconUrl?: string;
+  readonly iconData?: string;
+  readonly iconFit?: string;
+  readonly iconSource?: string;
+  readonly exePath?: string;
+  readonly folderName?: string;
+  readonly relativePath?: string;
+  readonly relativePathDisplay?: string;
+  readonly relativePathFullDisplay?: string;
+  readonly engine?: string;
+  readonly sizeBytes?: number;
 }
 
 export interface UiRuntimeSnapshot {
@@ -39,12 +49,47 @@ export interface ObservableUiRuntimeStore {
 
 export const CANONICAL_SORT_OPTIONS = new Set(['az', 'date', 'played', 'custom']);
 
-export function selectSearchableGames(snapshot: UiRuntimeSnapshot): readonly SearchableGameItem[] {
-  return snapshot.allGames.map((g) => ({
-    gameKey: g.primaryInstance?.gameKey || g.gameKey,
+type GameEntryWithRuntimeExtras = GameEntry & {
+  iconData?: string;
+  iconFit?: string;
+  iconSource?: string;
+  engine?: string;
+  sizeBytes?: number;
+};
+
+function toSearchableGameItem(raw: GameEntry): SearchableGameItem {
+  const g = raw as GameEntryWithRuntimeExtras;
+  const primary = g.primaryInstance as GameEntryWithRuntimeExtras | undefined;
+  const exePath = primary?.exePath ?? g.exePath;
+  const folderName = primary?.folderName ?? g.folderName;
+  const relativePath = primary?.relativePath ?? g.relativePath;
+  const relativePathDisplay = primary?.relativePathDisplay ?? g.relativePathDisplay;
+  const relativePathFullDisplay = primary?.relativePathFullDisplay ?? g.relativePathFullDisplay;
+  const iconData = primary?.iconData ?? g.iconData;
+  const iconFit = primary?.iconFit ?? g.iconFit;
+  const iconSource = primary?.iconSource ?? g.iconSource;
+  const engine = primary?.engine ?? g.engine;
+  const sizeBytes = primary?.sizeBytes ?? g.sizeBytes;
+
+  return {
+    gameKey: primary?.gameKey || g.gameKey,
     name: g.name,
-    iconUrl: g.iconUrl,
-  }));
+    iconUrl: primary?.iconUrl ?? g.iconUrl,
+    ...(iconData !== undefined ? { iconData } : {}),
+    ...(iconFit !== undefined ? { iconFit } : {}),
+    ...(iconSource !== undefined ? { iconSource } : {}),
+    ...(exePath !== undefined ? { exePath } : {}),
+    ...(folderName !== undefined ? { folderName } : {}),
+    ...(relativePath !== undefined ? { relativePath } : {}),
+    ...(relativePathDisplay !== undefined ? { relativePathDisplay } : {}),
+    ...(relativePathFullDisplay !== undefined ? { relativePathFullDisplay } : {}),
+    ...(engine !== undefined ? { engine } : {}),
+    ...(sizeBytes !== undefined ? { sizeBytes } : {}),
+  };
+}
+
+export function selectSearchableGames(snapshot: UiRuntimeSnapshot): readonly SearchableGameItem[] {
+  return snapshot.allGames.map(toSearchableGameItem);
 }
 
 function createInMemoryStorage(): UiStorageAdapter {

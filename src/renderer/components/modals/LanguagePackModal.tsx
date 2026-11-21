@@ -263,6 +263,11 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
     }
     try {
       store?.setItem('yumeshelf_lang', code);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('yumeshelf:language-changed', { detail: { code } })
+        );
+      }
     } catch (err) {
       console.warn('[LanguagePackModal] Failed to persist active language to storage:', {
         code,

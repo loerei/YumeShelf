@@ -251,7 +251,7 @@ describe('SearchBar', () => {
     const status = screen.getByRole('status');
     expect(status.classList.contains('empty-search')).toBe(true);
     expect(status.getAttribute('aria-live')).toBe('polite');
-    expect(status.textContent).toBe('No matching games found');
+    expect(status.textContent).toBe('Nobody here but us chickens!');
   });
 
   it('halts #search-placeholder rotation when prefers-reduced-motion: reduce is active', () => {
@@ -332,5 +332,66 @@ describe('SearchBar', () => {
     act(() => {
       window.dispatchEvent(new CustomEvent('yumeshelf:mascot-recover'));
     });
+  });
+
+  it('matches games by folderName or relativePath, renders GameIcon, and attaches tooltip metadata', () => {
+    vi.useFakeTimers();
+    const games: SearchBarGameItem[] = [
+      {
+        gameKey: 'jp-1',
+        name: 'すやすやエルフシミュレーション',
+        folderName: 'suyasuya_elf',
+        relativePath: 'RPG/suyasuya_elf',
+        relativePathDisplay: 'RPG/suyasuya_elf',
+        iconUrl: 'yume-icon://jp-1',
+        engine: 'RPG Maker MV',
+        sizeBytes: 1024 * 1024,
+      },
+    ];
+
+    render(<ControlledSearchHarness games={games} debounceMs={100} />);
+    const input = screen.getByRole('textbox', { name: 'Search library games' });
+
+    fireEvent.change(input, { target: { value: 'elf' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    const item = screen.getByRole('listitem');
+    expect(item.getAttribute('data-tooltip')).toBe('すやすやエルフシミュレーション');
+    expect(item.getAttribute('data-tooltip-meta')).toBe('RPG Maker MV • 1.00 MB');
+    expect(item.getAttribute('data-tooltip-subtitle')).toBe('RPG/suyasuya_elf');
+    const img = item.querySelector('.search-item-icon img') as HTMLImageElement;
+    expect(img).toBeTruthy();
+    expect(img.getAttribute('src')).toBe('yume-icon://jp-1');
+  });
+
+  it('uses localized placeholders and no_results from locale strings and updates on language change', () => {
+    vi.useFakeTimers();
+    window.localStorage.setItem('yumeshelf_lang', 'ja');
+
+    const { container } = render(
+      <ControlledSearchHarness games={[{ gameKey: 'g1', name: 'Clannad' }]} debounceMs={100} />
+    );
+
+    const placeholder = container.querySelector('#search-placeholder') as HTMLElement;
+    expect(placeholder.textContent).not.toBe('Filter by game title...');
+    expect(placeholder.textContent?.length).toBeGreaterThan(0);
+
+    const input = screen.getByRole('textbox', { name: 'Search library games' });
+    fireEvent.change(input, { target: { value: 'NoSuchGame' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(screen.getByRole('status').textContent).toBe('なーにも見つからないわよ！');
+
+    act(() => {
+      window.localStorage.setItem('yumeshelf_lang', 'en');
+      window.dispatchEvent(new CustomEvent('yumeshelf:language-changed', { detail: { code: 'en' } }));
+    });
+
+    expect(screen.getByRole('status').textContent).toBe('Nobody here but us chickens!');
+    window.localStorage.removeItem('yumeshelf_lang');
   });
 });

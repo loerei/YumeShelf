@@ -1,21 +1,27 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { GameEntry } from '../types/game';
+import { GameIcon } from './GameIcon';
+import { useLocaleStrings } from '../i18n/locale-strings';
+import { formatBytes } from '../utils/formatting';
 
 export const MAX_DROPDOWN_RESULTS = 50;
-
-const DEFAULT_PLACEHOLDERS = [
-  'Search library games...',
-  'Filter by game title...',
-];
+export const PLACEHOLDER_ROTATION_MS = 60000;
 
 export interface SearchBarGameItem {
   gameKey: string;
   name: string;
   iconUrl?: string;
+  iconData?: string;
+  iconFit?: string;
+  iconSource?: string;
+  exePath?: string;
+  folderName?: string;
   subtitle?: string;
   relativePath?: string;
   relativePathDisplay?: string;
   relativePathFullDisplay?: string;
+  engine?: string;
+  sizeBytes?: number;
 }
 
 export interface SearchBarProps {
@@ -75,12 +81,19 @@ export function HighlightedText({
 }
 
 export function useRotatingPlaceholder(
-  placeholderList: readonly string[] = DEFAULT_PLACEHOLDERS,
-  intervalMs = 3500,
+  placeholderList: readonly string[],
+  intervalMs = PLACEHOLDER_ROTATION_MS,
   paused = false
 ): { text: string; isFadingOut: boolean } {
-  const list = placeholderList.length > 0 ? placeholderList : DEFAULT_PLACEHOLDERS;
-  const [index, setIndex] = useState(0);
+  const list = placeholderList;
+  const [index, setIndex] = useState(() => {
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || list.length <= 1) return 0;
+    return Math.floor(Math.random() * list.length);
+  });
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
@@ -113,7 +126,7 @@ export function useRotatingPlaceholder(
   }, [list, intervalMs, paused]);
 
   return {
-    text: list[index % list.length] ?? DEFAULT_PLACEHOLDERS[0],
+    text: list[index % list.length] ?? '',
     isFadingOut,
   };
 }
@@ -123,6 +136,7 @@ interface SearchDropdownProps {
   debouncedQuery: string;
   visibleMatches: readonly SearchBarGameItem[];
   selectedIndex: number;
+  noResultsText: string;
   onSelect: (gameKey: string) => void;
   onLocate: (gameKey: string) => void;
 }
@@ -132,6 +146,7 @@ function SearchDropdown({
   debouncedQuery,
   visibleMatches,
   selectedIndex,
+  noResultsText,
   onSelect,
   onLocate,
 }: SearchDropdownProps): React.ReactElement {
@@ -141,11 +156,14 @@ function SearchDropdown({
     <div className={`search-dropdown ${isOpen ? 'show' : ''}`}>
       {visibleMatches.length === 0 ? (
         <div className="search-item empty-search" role="status" aria-live="polite">
-          No matching games found
+          {noResultsText}
         </div>
       ) : (
         <div role="list">
           {visibleMatches.map((item, i) => {
+            const sizeLabel = item.sizeBytes ? formatBytes(item.sizeBytes) : undefined;
+            const tooltipMeta =
+              [item.engine, sizeLabel].filter(Boolean).join(' • ') || undefined;
             const tooltipSubtitle =
               item.subtitle ||
               item.relativePathFullDisplay ||
@@ -158,14 +176,13 @@ function SearchDropdown({
                 role="listitem"
                 className={`search-item ${selectedIndex === i ? 'active' : ''}`}
                 data-tooltip={item.name}
+                data-tooltip-meta={tooltipMeta}
                 data-tooltip-subtitle={tooltipSubtitle}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => onSelect(item.gameKey)}
               >
                 <div className="search-item-info">
-                  <div className="search-item-icon">
-                    {item.iconUrl ? <img src={item.iconUrl} alt="" /> : '🎮'}
-                  </div>
+                  <GameIcon game={item} className="search-item-icon" />
                   <div className="search-item-title-container">
                     <div className="search-item-title">
                       <HighlightedText text={item.name} highlightRegex={highlightRegex} />
@@ -228,10 +245,16 @@ export function SearchBar({
   debouncedQueryRef.current = debouncedQuery;
   const suppressFocusReopenRef = useRef(false);
 
+  const localeStrings = useLocaleStrings();
+  const effectivePlaceholders =
+    placeholderList && placeholderList.length > 0
+      ? placeholderList
+      : localeStrings.placeholders;
+
   const activeOverridePlaceholder = temporaryPlaceholder ?? bonkQuote;
   const { text: placeholderText, isFadingOut } = useRotatingPlaceholder(
-    placeholderList,
-    3500,
+    effectivePlaceholders,
+    PLACEHOLDER_ROTATION_MS,
     Boolean(activeOverridePlaceholder) || query.trim().length > 0
   );
 
@@ -303,7 +326,14 @@ export function SearchBar({
     if (!normalizedQuery) return [];
     const matched: SearchBarGameItem[] = [];
     for (const g of games) {
-      if ((g.name || '').normalize('NFC').toLowerCase().includes(normalizedQuery)) {
+      const name = (g.name || '').normalize('NFC').toLowerCase();
+      const folderName = (g.folderName || '').normalize('NFC').toLowerCase();
+      const relativePath = String(g.relativePath || '').normalize('NFC').toLowerCase();
+      if (
+        name.includes(normalizedQuery) ||
+        folderName.includes(normalizedQuery) ||
+        relativePath.includes(normalizedQuery)
+      ) {
         matched.push(g);
         if (matched.length >= MAX_DROPDOWN_RESULTS) break;
       }
@@ -463,6 +493,7 @@ export function SearchBar({
           debouncedQuery={debouncedQuery}
           visibleMatches={visibleMatches}
           selectedIndex={selectedIndex}
+          noResultsText={localeStrings.no_results}
           onSelect={handleSelect}
           onLocate={handleLocate}
         />

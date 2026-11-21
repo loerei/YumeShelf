@@ -62,7 +62,21 @@ export function areSearchableGamesEqual(
   for (let i = 0; i < prev.length; i++) {
     const p = prev[i];
     const n = next[i];
-    if (p.gameKey !== n.gameKey || p.name !== n.name || p.iconUrl !== n.iconUrl) {
+    if (
+      p.gameKey !== n.gameKey ||
+      p.name !== n.name ||
+      p.iconUrl !== n.iconUrl ||
+      p.iconData !== n.iconData ||
+      p.iconFit !== n.iconFit ||
+      p.iconSource !== n.iconSource ||
+      p.exePath !== n.exePath ||
+      p.folderName !== n.folderName ||
+      p.relativePath !== n.relativePath ||
+      p.relativePathDisplay !== n.relativePathDisplay ||
+      p.relativePathFullDisplay !== n.relativePathFullDisplay ||
+      p.engine !== n.engine ||
+      p.sizeBytes !== n.sizeBytes
+    ) {
       return false;
     }
   }

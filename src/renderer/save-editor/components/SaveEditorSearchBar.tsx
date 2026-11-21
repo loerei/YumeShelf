@@ -18,6 +18,7 @@ import {
   sanitizeUserPaths,
 } from '../../../shared/path-sanitizer';
 import { isCancellationError } from '../../utils/errors';
+import { useLocaleStrings } from '../../i18n/locale-strings';
 
 export interface SaveEditorSearchBarProps {
   batchSize?: number;
@@ -113,6 +114,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
 
   const resolvedStorage =
     storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  const strings = useLocaleStrings(resolvedStorage, api ?? null);
   const rawLang = targetLang || resolvedStorage?.getItem('yumeshelf_lang') || 'en';
   const currentLang = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/.test(rawLang)
     ? rawLang
@@ -702,7 +704,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
           >
             <path d="M5 8l6 6M11 8L5 14M2 5h12M7 2v3M22 22l-5-10-5 10M14 18h6" />
           </svg>
-          <span>Translate</span>
+          <span>{strings.save_editor_translate || 'Translate'}</span>
         </button>
         <div
           className="translation-progress-container"

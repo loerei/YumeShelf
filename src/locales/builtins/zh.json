@@ -367,6 +367,10 @@
     "about_credit_die_desc": "二进制启发式分析、PE 结构检测与游戏引擎特征码。",
     "about_credit_xunity_desc": "Unity 运行时动态翻译架构与插件 Hook 模型。",
     "about_credit_bepinex_desc": "Unity 与 .NET 模组开发及运行时注入框架。",
-    "about_license_text": "YumeShelf 是遵循 MIT 协议的自由及开源软件。"
+    "about_license_text": "YumeShelf 是遵循 MIT 协议的自由及开源软件。",
+    "settings_tab_general": "常规",
+    "settings_tab_library": "游戏库与分类",
+    "settings_tab_updates": "更新",
+    "settings_tab_system": "系统与吉祥物"
   }
 }

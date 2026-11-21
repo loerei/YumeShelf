@@ -366,6 +366,10 @@
     "about_credit_die_desc": "Binary inspection heuristics, PE structure analysis, and engine signatures.",
     "about_credit_xunity_desc": "Unity runtime translation architecture and plugin hooking models.",
     "about_credit_bepinex_desc": "Unity and .NET modding and runtime injection framework.",
-    "about_license_text": "YumeShelf is free and open-source software under the MIT License."
+    "about_license_text": "YumeShelf is free and open-source software under the MIT License.",
+    "settings_tab_general": "General",
+    "settings_tab_library": "Library & Categories",
+    "settings_tab_updates": "Updates",
+    "settings_tab_system": "System & Mascot"
   }
 }

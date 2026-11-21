@@ -1,4 +1,4 @@
-export type LocalizationDictionary = Record<string, string | undefined>;
+export type LocalizationDictionary = Record<string, unknown>;
 export type LocalizationProvider = (() => LocalizationDictionary) | LocalizationDictionary;
 
 export function timeSince(
@@ -6,7 +6,8 @@ export function timeSince(
   getStrings: LocalizationProvider,
   now: Date | number = new Date()
 ): string {
-  const d = typeof getStrings === 'function' ? getStrings() : (getStrings || {});
+  const raw = typeof getStrings === 'function' ? getStrings() : (getStrings || {});
+  const d = raw as Record<string, string | undefined>;
   if (!date || date === 0) return d.status_never || '';
 
   const past = new Date(date);

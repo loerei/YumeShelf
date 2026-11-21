@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type CategoryNode, flattenCategoryTree } from '../domain/category-tree';
+import { useLocaleStrings } from '../i18n/locale-strings';
 
 export interface CategoryFilterProps {
   categories?: readonly CategoryNode[];
@@ -23,14 +24,17 @@ export function CategoryFilter({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  const strings = useLocaleStrings();
+  const allCategoriesLabel = strings.category_filter_all || 'All categories';
+
   const flattenedCategories = useMemo(
     () => flattenCategoryTree(categories),
     [categories]
   );
 
   const allOptions: FilterOption[] = useMemo(
-    () => [{ id: null, name: 'All categories', depth: 0 }, ...flattenedCategories],
-    [flattenedCategories]
+    () => [{ id: null, name: allCategoriesLabel, depth: 0 }, ...flattenedCategories],
+    [flattenedCategories, allCategoriesLabel]
   );
 
   const activeCategory = useMemo(
@@ -87,8 +91,8 @@ export function CategoryFilter({
     return null;
   }
 
-  const labelText = activeCategory ? activeCategory.name : 'All categories';
-  const triggerTooltip = activeCategory ? activeCategory.trailLabel : 'All categories';
+  const labelText = activeCategory ? activeCategory.name : allCategoriesLabel;
+  const triggerTooltip = activeCategory ? activeCategory.trailLabel : allCategoriesLabel;
 
   return (
     <div

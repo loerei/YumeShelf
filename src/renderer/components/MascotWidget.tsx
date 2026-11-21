@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useLocaleStrings } from '../i18n/locale-strings';
 import { createMascotWidget, type MascotController } from '../mascot-widget';
 import type { UiStorageAdapter } from '../state/ui-runtime-state';
 
@@ -24,6 +25,10 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
   onBonk,
   onRecoverSmug,
 }) => {
+  const strings = useLocaleStrings(storage);
+  const stringsRef = useRef(strings);
+  stringsRef.current = strings;
+
   const widgetRef = useRef<HTMLButtonElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
@@ -49,6 +54,7 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
       imgEl: imgRef.current,
       contextMenuEl: contextMenuRef.current,
       storage,
+      getStrings: () => stringsRef.current,
       onBonk: (quote) => {
         onBonkRef.current?.(quote);
         if (typeof window !== 'undefined') {
@@ -145,7 +151,7 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
             id="mascot-menu-reset-btn"
             data-i18n="mascot_menu_reset_position"
           >
-            Reset Position
+            {strings.mascot_menu_reset_position || 'Reset Position'}
           </button>
         </div>
         <div className="mascot-menu-divider" />
@@ -155,7 +161,7 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
             htmlFor="mascot-menu-sound-select"
             data-i18n="mascot_menu_sound"
           >
-            Bonk Sound
+            {strings.mascot_menu_sound || 'Bonk Sound'}
           </label>
           <select
             id="mascot-menu-sound-select"
@@ -165,13 +171,13 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
             }}
           >
             <option value="squeaker" data-i18n="sound_squeaker">
-              Squeaky
+              {strings.sound_squeaker || 'Squeaky'}
             </option>
             <option value="metal-pipe" data-i18n="sound_metal_pipe">
-              Metal pipe
+              {strings.sound_metal_pipe || 'Metal pipe'}
             </option>
             <option value="none" data-i18n="sound_none">
-              None
+              {strings.sound_none || 'None'}
             </option>
           </select>
         </div>
@@ -181,7 +187,7 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
             htmlFor="mascot-menu-scale-slider"
             data-i18n="mascot_menu_scale"
           >
-            Scale
+            {strings.mascot_menu_scale || 'Scale'}
           </label>
           <div className="volume-slider-container">
             <input
@@ -210,7 +216,7 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
             htmlFor="mascot-menu-volume-slider"
             data-i18n="mascot_menu_volume"
           >
-            Volume
+            {strings.mascot_menu_volume || 'Volume'}
           </label>
           <div className="volume-slider-container">
             <input

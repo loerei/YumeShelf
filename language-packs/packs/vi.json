@@ -327,6 +327,7 @@
     "game_not_found": "Không tìm thấy trò chơi trong thư viện",
     "btn_remove": "Xóa",
     "btn_add_path": "+ Thêm đường dẫn",
+    "btn_add_game": "+ Thêm game",
     "category_filter_all": "Tất cả danh mục",
     "category_clear_filter": "Xóa bộ lọc",
     "category_empty_title": "Không có game nào trong danh mục này",
@@ -369,6 +370,10 @@
     "about_credit_die_desc": "Thuật toán nhận diện nhị phân, phân tích cấu trúc PE và chữ ký engine.",
     "about_credit_xunity_desc": "Kiến trúc dịch thuật thời gian thực và mô hình hook plugin cho Unity.",
     "about_credit_bepinex_desc": "Framework mod và tiêm mã runtime cho Unity & .NET.",
-    "about_license_text": "YumeShelf là phần mềm tự do nguồn mở phát hành theo giấy phép MIT."
+    "about_license_text": "YumeShelf là phần mềm tự do nguồn mở phát hành theo giấy phép MIT.",
+    "settings_tab_general": "Chung",
+    "settings_tab_library": "Thư viện & Danh mục",
+    "settings_tab_updates": "Cập nhật",
+    "settings_tab_system": "Hệ thống & Linh vật"
   }
 }

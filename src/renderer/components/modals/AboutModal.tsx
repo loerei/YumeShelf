@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import type { ElectronAPI } from '../../../shared/types/ipc';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
+import { useLocaleStrings } from '../../i18n/locale-strings';
 
 export interface AboutModalProps {
   isOpen: boolean;
@@ -47,6 +48,21 @@ export const AboutModal: React.FC<AboutModalProps> = ({
   version: propVersion,
 }) => {
   const [appVersion, setAppVersion] = useState<string>(propVersion ?? '');
+  const strings = useLocaleStrings();
+  const localizedCredits: CreditItem[] = [
+    {
+      ...CREDITS[0],
+      description: strings.about_credit_die_desc || CREDITS[0].description,
+    },
+    {
+      ...CREDITS[1],
+      description: strings.about_credit_xunity_desc || CREDITS[1].description,
+    },
+    {
+      ...CREDITS[2],
+      description: strings.about_credit_bepinex_desc || CREDITS[2].description,
+    },
+  ];
 
   const api = electronAPI ?? (typeof window !== 'undefined' ? window.electronAPI : undefined);
 
@@ -92,7 +108,9 @@ export const AboutModal: React.FC<AboutModalProps> = ({
       panelClassName="about-panel"
       title="About YumeShelf"
     >
-      <Modal.Header className="settings-header">About &amp; Credits</Modal.Header>
+      <Modal.Header className="settings-header">
+        {strings.about_modal_title || 'About & Credits'}
+      </Modal.Header>
       <Modal.Body className="about-body">
         <div className="about-brand">
           <img
@@ -103,10 +121,11 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             className="about-icon"
           />
           <div className="about-brand-text">
-            <h3>YumeShelf</h3>
+            <h3>{strings.title || 'YumeShelf'}</h3>
             <p className="about-version">{appVersion ? `Version ${appVersion}` : 'Desktop Library'}</p>
             <p className="about-tagline">
-              A minimalist game library and launcher for your personal collection.
+              {strings.about_tagline ||
+                'A minimalist game library and launcher for your personal collection.'}
             </p>
             <p className="about-author">
               Created by{' '}
@@ -124,12 +143,12 @@ export const AboutModal: React.FC<AboutModalProps> = ({
         </div>
 
         <div className="about-credits-section">
-          <h4>Acknowledgements &amp; Credits</h4>
+          <h4>{strings.about_credits_heading || 'Acknowledgements & Credits'}</h4>
           <p className="about-credits-intro">
-            YumeShelf and the <strong>YumeEngine</strong> core parser are built upon foundational
-            open-source engineering and heuristics from the community:
+            {strings.about_credits_intro ||
+              'YumeShelf and the YumeEngine core parser are built upon foundational open-source engineering and heuristics from the community:'}
           </p>
-          {CREDITS.map((credit) => (
+          {localizedCredits.map((credit) => (
             <div key={credit.title} className="about-credit-card">
               <div className="about-credit-header">
                 <a
@@ -149,7 +168,10 @@ export const AboutModal: React.FC<AboutModalProps> = ({
         </div>
 
         <div className="about-license-note">
-          <p>YumeShelf is free and open-source software under the MIT License.</p>
+          <p>
+            {strings.about_license_text ||
+              'YumeShelf is free and open-source software under the MIT License.'}
+          </p>
         </div>
       </Modal.Body>
     </Modal>

@@ -5,6 +5,11 @@ import type { CategoryNode } from '../../domain/category-tree';
 import { flattenCategoryTree } from '../../domain/category-tree';
 import { annotateGamesForDisplay } from '../../game-annotations';
 import { useLibrarySelector, useLibraryStore } from '../../hooks/useLibraryState';
+import {
+  LANGUAGE_CHANGED_EVENT,
+  sortLanguageOptions,
+  useLocaleStrings,
+} from '../../i18n/locale-strings';
 import { useNotification } from '../../providers/NotificationProvider';
 import type { UiStorageAdapter } from '../../state/ui-runtime-state';
 import type { LibraryConfig } from '../../types/game';
@@ -184,6 +189,7 @@ export function SettingsModal({
   const resolvedStorage = storage ?? getDefaultStorage();
 
   const store = useLibraryStore();
+  const strings = useLocaleStrings(resolvedStorage);
   const config = useLibrarySelector((s) => s.currentLibraryConfig);
   const categoryTree = useLibrarySelector((s) => s.categoryTree);
   const locationDisplayMode = useLibrarySelector((s) => s.locationDisplayMode);
@@ -287,21 +293,12 @@ export function SettingsModal({
           // Non-critical metadata fetch
         });
     }
-    if (api?.getLanguageState) {
+    const loadLanguages = () => {
+      if (!api?.getLanguageState) return;
       Promise.resolve(api.getLanguageState())
         .then((state) => {
           if (!active || !isMountedRef.current || !state) return;
-          const seen = new Set<string>();
-          const items: Array<{ code: string; label: string }> = [];
-          for (const entry of [...(state.builtIn ?? []), ...(state.installed ?? [])]) {
-            const code = String(entry?.code || '').trim();
-            if (!code || seen.has(code)) continue;
-            seen.add(code);
-            items.push({
-              code,
-              label: entry.nativeName || entry.englishName || code,
-            });
-          }
+          const items = sortLanguageOptions(state.builtIn, state.installed);
           if (items.length > 0) {
             setInstalledLanguages(items);
           }
@@ -309,9 +306,27 @@ export function SettingsModal({
         .catch(() => {
           // Non-critical language list fetch
         });
+    };
+
+    loadLanguages();
+
+    const handleLangChanged = (e: Event) => {
+      const code = (e as CustomEvent<{ code?: string }>).detail?.code;
+      if (typeof code === 'string' && code.trim()) {
+        setLanguage(code.trim());
+      }
+      loadLanguages();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(LANGUAGE_CHANGED_EVENT, handleLangChanged);
     }
+
     return () => {
       active = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(LANGUAGE_CHANGED_EVENT, handleLangChanged);
+      }
     };
   }, [isOpen, api]);
 
@@ -893,11 +908,19 @@ export function SettingsModal({
       panelClassName="settings-panel"
       fallbackFocusRef={fallbackFocusRef}
     >
-      <Modal.Header title="Settings" className="settings-header" />
+      <Modal.Header title={strings.settings || 'Settings'} className="settings-header" />
 
       <div className="settings-tabs-nav" role="tablist" aria-label="Settings sections">
         {SETTINGS_TABS.map((tab) => {
           const isSelected = activeTab === tab.id;
+          const tabLabel =
+            tab.id === 'general'
+              ? strings.settings_tab_general || tab.label
+              : tab.id === 'library'
+                ? strings.settings_tab_library || tab.label
+                : tab.id === 'updates'
+                  ? strings.settings_tab_updates || tab.label
+                  : strings.settings_tab_system || tab.label;
           return (
             <button
               key={tab.id}
@@ -909,7 +932,7 @@ export function SettingsModal({
               aria-controls={`settings-panel-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
             >
-              {tab.label}
+              {tabLabel}
             </button>
           );
         })}
@@ -924,29 +947,31 @@ export function SettingsModal({
             className="settings-tab-panel"
           >
             <div className="setting-item">
-              <label htmlFor="theme-select">Theme</label>
+              <label htmlFor="theme-select">
+                {language === 'en' ? 'Theme' : strings.theme || 'Theme'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="theme-select"
                   value={theme}
                   onChange={(e) => handleThemeChange(e.target.value)}
                 >
-                  <option value="system">System</option>
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
+                  <option value="system">{strings.theme_system || 'System'}</option>
+                  <option value="dark">{strings.theme_dark || 'Dark'}</option>
+                  <option value="light">{strings.theme_light || 'Light'}</option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="language-select">Language</label>
+              <label htmlFor="language-select">{strings.lang || 'Language'}</label>
               <div className="setting-control-zone setting-field-group">
                 <button
                   type="button"
                   className="small-btn secondary-btn"
                   onClick={() => onOpenLanguagePack?.()}
                 >
-                  More languages...
+                  {strings.settings_more_languages || 'More languages...'}
                 </button>
                 <select
                   id="language-select"
@@ -1046,7 +1071,9 @@ export function SettingsModal({
           >
             <div className="setting-section">
               <div className="setting-item">
-                <span className="setting-label">Library Paths</span>
+                <span className="setting-label">
+                  {language === 'en' ? 'Library Paths' : strings.path || 'Library Paths'}
+                </span>
                 <div className="setting-field-group">
                   <button
                     id="btn-add-library-path"
@@ -1056,7 +1083,7 @@ export function SettingsModal({
                     style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
                     onClick={handleAddLibraryPath}
                   >
-                    + Add Path
+                    {strings.btn_add_path || '+ Add Path'}
                   </button>
                   <button
                     id="btn-add-manual-game"
@@ -1066,7 +1093,7 @@ export function SettingsModal({
                     style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
                     onClick={handleAddManualGame}
                   >
-                    {isAddingGame ? 'Adding...' : '+ Add Game'}
+                    {isAddingGame ? 'Adding...' : strings.btn_add_game || '+ Add Game'}
                   </button>
                 </div>
               </div>
@@ -1501,7 +1528,9 @@ export function SettingsModal({
             </div>
 
             <div className="setting-item" id="setting-item-hide-and-seek">
-              <label htmlFor="hide-and-seek-select">Hide And Seek?</label>
+              <label htmlFor="hide-and-seek-select">
+                {strings.hide_and_seek_label || 'Hide And Seek?'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="hide-and-seek-select"
@@ -1513,8 +1542,8 @@ export function SettingsModal({
                     resolvedStorage?.setItem('yumeshelf_hide_and_seek', nextVal);
                   }}
                 >
-                  <option value="yeaaa">YEAAA</option>
-                  <option value="out">I&apos;m out</option>
+                  <option value="yeaaa">{strings.hide_and_seek_yeaaa || 'YEAAA'}</option>
+                  <option value="out">{strings.hide_and_seek_out || "I'm out"}</option>
                 </select>
               </div>
             </div>
@@ -1542,16 +1571,18 @@ export function SettingsModal({
             </div>
 
             <div className="setting-item">
-              <label htmlFor="mascot-sound-select">Bonk Sound</label>
+              <label htmlFor="mascot-sound-select">
+                {strings.mascot_menu_sound || 'Bonk Sound'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="mascot-sound-select"
                   value={mascotSound}
                   onChange={(e) => updateMascotPreferences({ sound: e.target.value })}
                 >
-                  <option value="squeaker">Squeaky</option>
-                  <option value="metal-pipe">Metal pipe</option>
-                  <option value="none">None</option>
+                  <option value="squeaker">{strings.sound_squeaker || 'Squeaky'}</option>
+                  <option value="metal-pipe">{strings.sound_metal_pipe || 'Metal pipe'}</option>
+                  <option value="none">{strings.sound_none || 'None'}</option>
                 </select>
               </div>
             </div>
@@ -1584,7 +1615,7 @@ export function SettingsModal({
       <Modal.Footer className="settings-footer">
         <div className="settings-footer-info">
           <span className="settings-version">
-            YumeShelf{appVersion ? ` v${appVersion}` : ''}
+            {strings.title || 'YumeShelf'}{appVersion ? ` v${appVersion}` : ''}
           </span>
           <span className="settings-tagline">Local-first game library</span>
         </div>
@@ -1593,7 +1624,7 @@ export function SettingsModal({
           className="small-btn text-btn"
           onClick={() => onOpenAbout?.()}
         >
-          About & Credits
+          {strings.settings_about_credits || 'About & Credits'}
         </button>
       </Modal.Footer>
     </Modal>

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLocaleStrings } from '../i18n/locale-strings';
 import type { LibraryViewItem } from '../library-stacks';
 import type { GameEntry } from '../types/game';
 import { formatBytes, formatPlaytime, timeSince } from '../utils/formatting';
@@ -180,6 +181,7 @@ export const StackCard = React.memo(
       .filter(Boolean)
       .join(' ');
 
+    const strings = useLocaleStrings();
     const favLabel = isFavorited ? 'Remove from favorites' : 'Add to favorites';
     const uniqueLocations = Array.from(
       new Set(stack.games.map((g) => g.locationLabel).filter(Boolean))
@@ -189,8 +191,8 @@ export const StackCard = React.memo(
         ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
         : uniqueLocations[0] || primaryGame.locationLabel || '';
     const statusLabel = isRunning
-      ? DEFAULT_TIME_STRINGS.status_playing
-      : timeSince(primaryGame.lastPlayed, DEFAULT_TIME_STRINGS);
+      ? strings.status_playing || DEFAULT_TIME_STRINGS.status_playing
+      : timeSince(primaryGame.lastPlayed, strings);
     const playtimeLabel = formatPlaytime(primaryGame.playtime);
     const engineName = (primaryGame as { engine?: string }).engine || '';
     const sizeLabel = formatBytes((primaryGame as { sizeBytes?: number }).sizeBytes);
@@ -270,7 +272,7 @@ export const StackCard = React.memo(
               >
                 <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
               </svg>
-              <span>Rename</span>
+              <span>{strings.rename || 'Rename'}</span>
             </button>
 
             <button
@@ -292,7 +294,7 @@ export const StackCard = React.memo(
               >
                 <path d="M3 7h5l2 2h11v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2" />
               </svg>
-              <span>Reveal</span>
+              <span>{strings.reveal || 'Reveal'}</span>
             </button>
 
             <button
@@ -314,7 +316,7 @@ export const StackCard = React.memo(
               >
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />
               </svg>
-              <span>Open Save Folder</span>
+              <span>{strings.action_save_folder || 'Open Save Folder'}</span>
             </button>
           </div>
         )}

@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LibraryStoreContext } from '../context/LibraryStateContext';
 import { buildDuplicateChipLabel, buildPathSubtitle } from '../game-annotations';
+import { useLocaleStrings } from '../i18n/locale-strings';
 import type { GameEntry } from '../types/game';
 import { formatBytes, formatPlaytime, timeSince } from '../utils/formatting';
 import { GameIcon } from './GameIcon';
@@ -73,6 +74,7 @@ export const GameCard = React.memo(
     forwardedRef
   ) {
     const store = useContext(LibraryStoreContext);
+    const strings = useLocaleStrings();
     const resolvedBetaExposed =
       isBetaExposed ?? Boolean(store?.getSnapshot().currentLibraryConfig?.exposeBetaOptions);
 
@@ -245,8 +247,8 @@ export const GameCard = React.memo(
     const duplicateChip = showDuplicateChip ? buildDuplicateChipLabel(game.duplicateCount) : null;
     const pathSubtitle = showPath ? buildPathSubtitle(game) : '';
     const statusLabel = game.isRunning
-      ? DEFAULT_TIME_STRINGS.status_playing
-      : timeSince(game.lastPlayed, DEFAULT_TIME_STRINGS);
+      ? strings.status_playing || DEFAULT_TIME_STRINGS.status_playing
+      : timeSince(game.lastPlayed, strings);
     const playtimeLabel = formatPlaytime(game.playtime);
     const favLabel = isFavorited ? 'Remove from favorites' : 'Add to favorites';
     const engineName = (game as { engine?: string }).engine || '';
@@ -331,7 +333,7 @@ export const GameCard = React.memo(
               >
                 <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
               </svg>
-              <span>Rename</span>
+              <span>{strings.rename || 'Rename'}</span>
             </button>
 
             <button
@@ -353,7 +355,7 @@ export const GameCard = React.memo(
               >
                 <path d="M3 7h5l2 2h11v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2" />
               </svg>
-              <span>Reveal</span>
+              <span>{strings.reveal || 'Reveal'}</span>
             </button>
 
             <div
@@ -392,7 +394,7 @@ export const GameCard = React.memo(
                 <polyline points="17 21 17 13 7 13 7 21" />
                 <polyline points="7 3 7 8 15 8" />
               </svg>
-              <span>Saves</span>
+              <span>{strings.action_saves_group || 'Saves'}</span>
               <div className={`dropdown-submenu${openSubmenu === 'saves' ? ' show' : ''}`} role="menu" aria-label="Saves">
                 <button
                   type="button"
@@ -416,7 +418,7 @@ export const GameCard = React.memo(
                     <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   </svg>
-                  <span>Open Save Editor</span>
+                  <span>{strings.action_save_editor || 'Open Save Editor'}</span>
                 </button>
 
                 <button
@@ -438,7 +440,7 @@ export const GameCard = React.memo(
                   >
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />
                   </svg>
-                  <span>Open Save Folder</span>
+                  <span>{strings.action_save_folder || 'Open Save Folder'}</span>
                 </button>
 
                 <button
@@ -462,7 +464,7 @@ export const GameCard = React.memo(
                     <polyline points="17 21 17 13 7 13 7 21" />
                     <polyline points="7 3 7 8 15 8" />
                   </svg>
-                  <span>Set Save Folder Path</span>
+                  <span>{strings.action_set_save_folder || 'Set Save Folder Path'}</span>
                 </button>
 
                 {Boolean(game.saveFolderOverride) && (
@@ -486,7 +488,7 @@ export const GameCard = React.memo(
                       <polyline points="1 4 1 10 7 10" />
                       <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                     </svg>
-                    <span>Reset to Auto-detect</span>
+                    <span>{strings.action_reset_save_folder || 'Reset to Auto-detect'}</span>
                   </button>
                 )}
               </div>
@@ -529,7 +531,7 @@ export const GameCard = React.memo(
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                 <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
-              <span>Add-ons</span>
+              <span>{strings.action_addons_group || 'Add-ons'}</span>
               <div className={`dropdown-submenu${openSubmenu === 'addons' ? ' show' : ''}`} role="menu" aria-label="Add-ons">
                 <button
                   type="button"
@@ -562,7 +564,11 @@ export const GameCard = React.memo(
                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     )}
                   </svg>
-                  <span>{translationSupported === false ? 'Not yet supported' : 'Live Translation'}</span>
+                  <span>
+                    {translationSupported === false
+                      ? strings.not_supported || 'Not yet supported'
+                      : strings.action_live_translate || 'Live Translation'}
+                  </span>
                 </button>
 
                 {resolvedBetaExposed && (
@@ -590,7 +596,11 @@ export const GameCard = React.memo(
                       <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                     </svg>
-                    <span>{translationSupported === false ? 'Not yet supported' : 'Pre-Translate Game'}</span>
+                    <span>
+                      {translationSupported === false
+                        ? strings.not_supported || 'Not yet supported'
+                        : strings.action_pre_translate || 'Pre-Translate Game'}
+                    </span>
                   </button>
                 )}
 
@@ -621,7 +631,7 @@ export const GameCard = React.memo(
                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     )}
                   </svg>
-                  <span>Run in Background</span>
+                  <span>{strings.action_background_run || 'Run in Background'}</span>
                 </button>
               </div>
             </div>
@@ -645,7 +655,7 @@ export const GameCard = React.memo(
               >
                 <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" />
               </svg>
-              <span>Delete</span>
+              <span>{strings.delete || 'Delete'}</span>
             </button>
           </div>
         )}

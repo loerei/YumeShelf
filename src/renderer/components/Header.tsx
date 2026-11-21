@@ -8,6 +8,7 @@ import {
   useSearchableGames,
 } from '../hooks/useLibraryState';
 import type { GameEntry } from '../types/game';
+import { useLocaleStrings } from '../i18n/locale-strings';
 import { CategoryFilter } from './CategoryFilter';
 import { SearchBar, type SearchBarGameItem } from './SearchBar';
 
@@ -168,11 +169,22 @@ export function HeaderView({
     };
   }, [isQuickFolderOpen]);
 
-  const activeSortLabel = SORT_OPTIONS.find((opt) => opt.id === currentSort)?.label ?? 'Newest';
+  const strings = useLocaleStrings();
+  const sortOptions = useMemo(
+    () => [
+      { id: 'date', label: strings.sort_date || 'Newest' },
+      { id: 'played', label: strings.sort_played || 'Recently Played' },
+      { id: 'az', label: strings.sort_az || 'Name A-Z' },
+      { id: 'custom', label: strings.sort_custom || 'Custom Order' },
+    ],
+    [strings.sort_date, strings.sort_played, strings.sort_az, strings.sort_custom]
+  );
+  const activeSortLabel =
+    sortOptions.find((opt) => opt.id === currentSort)?.label ?? (strings.sort_date || 'Newest');
 
   return (
     <header className="header">
-      <h1 id="ui-title">YumeShelf</h1>
+      <h1 id="ui-title">{strings.title || 'YumeShelf'}</h1>
 
       <SearchBar
         query={resolvedQuery}
@@ -258,7 +270,7 @@ export function HeaderView({
               role="menu"
               onMouseDown={(e) => e.preventDefault()}
             >
-              {SORT_OPTIONS.map((opt) => (
+              {sortOptions.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"

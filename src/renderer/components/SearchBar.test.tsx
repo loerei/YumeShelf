@@ -366,17 +366,34 @@ describe('SearchBar', () => {
     expect(img.getAttribute('src')).toBe('yume-icon://jp-1');
   });
 
-  it('uses localized placeholders and no_results from locale strings and updates on language change', () => {
+  it('uses localized placeholders and no_results from language pack state and updates on language change', async () => {
     vi.useFakeTimers();
     window.localStorage.setItem('yumeshelf_lang', 'ja');
+    (window as unknown as { electronAPI?: unknown }).electronAPI = {
+      getLanguageState: vi.fn().mockResolvedValue({
+        locales: {
+          en: {
+            no_results: 'Nobody here but us chickens!',
+            placeholders: ['What are you looking for, Dummy?'],
+          },
+          ja: {
+            no_results: 'なーにも見つからないわよ！',
+            placeholders: ['早く入力しなさいよ！'],
+          },
+        },
+      }),
+    };
 
     const { container } = render(
       <ControlledSearchHarness games={[{ gameKey: 'g1', name: 'Clannad' }]} debounceMs={100} />
     );
 
+    await act(async () => {
+      await Promise.resolve();
+    });
+
     const placeholder = container.querySelector('#search-placeholder') as HTMLElement;
-    expect(placeholder.textContent).not.toBe('Filter by game title...');
-    expect(placeholder.textContent?.length).toBeGreaterThan(0);
+    expect(placeholder.textContent).toBe('早く入力しなさいよ！');
 
     const input = screen.getByRole('textbox', { name: 'Search library games' });
     fireEvent.change(input, { target: { value: 'NoSuchGame' } });
@@ -386,12 +403,14 @@ describe('SearchBar', () => {
 
     expect(screen.getByRole('status').textContent).toBe('なーにも見つからないわよ！');
 
-    act(() => {
+    await act(async () => {
       window.localStorage.setItem('yumeshelf_lang', 'en');
       window.dispatchEvent(new CustomEvent('yumeshelf:language-changed', { detail: { code: 'en' } }));
+      await Promise.resolve();
     });
 
     expect(screen.getByRole('status').textContent).toBe('Nobody here but us chickens!');
     window.localStorage.removeItem('yumeshelf_lang');
+    delete (window as unknown as { electronAPI?: unknown }).electronAPI;
   });
 });

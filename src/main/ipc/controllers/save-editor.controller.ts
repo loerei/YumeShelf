@@ -5,6 +5,53 @@ import { RegisterIpcOptions } from '../types';
 import { CircularRingBuffer } from '../../../shared/ring-buffer';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
 
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const SAFE_FILENAME_REGEX = /^(?!(?:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\..*)?$)[^\\/:*?"<>|\x00-\x1f]+(?<![. ])$/i;
+const QUALIFIED_KEY_REGEX = /^[a-zA-Z0-9_-]+:[^\0\r\n\t]+$/;
+const BCP47_REGEX = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
+
+const ALLOWED_SAVE_OPTIONS = new Set([
+    'outerKey',
+    'outerIv',
+    'innerKey',
+    'innerIv',
+    'rawPlaintextFields',
+    'earlyExit',
+    'stalenessTimeoutMs',
+    'isUpdates',
+    'createBackup',
+    'encoding',
+    'maxBufferSizeBytes',
+]);
+
+function isValidGameKey(gameKey: unknown, allowSlashes = false): gameKey is string {
+    if (typeof gameKey !== 'string') return false;
+    const trimmed = gameKey.trim();
+    if (!trimmed || DANGEROUS_KEYS.has(trimmed)) return false;
+    if (!allowSlashes && /[\\/]/.test(gameKey)) return false;
+    return true;
+}
+
+function isValidFileName(fileName: unknown): fileName is string {
+    if (typeof fileName !== 'string' || !fileName) return false;
+    if (DANGEROUS_KEYS.has(fileName)) return false;
+    return SAFE_FILENAME_REGEX.test(fileName);
+}
+
+function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
+    const safeOptions = rawOptions && typeof rawOptions === 'object' && !Array.isArray(rawOptions) ? rawOptions : {};
+    const sanitized: Record<string, any> = {};
+    for (const key of Object.keys(safeOptions)) {
+        if (DANGEROUS_KEYS.has(key)) {
+            continue;
+        }
+        if (ALLOWED_SAVE_OPTIONS.has(key)) {
+            sanitized[key] = safeOptions[key];
+        }
+    }
+    return sanitized;
+}
+
 export class SaveEditorIpcController {
     private readonly openWindows = new Map<string, BrowserWindow>();
     private readonly logBuffer: CircularRingBuffer<string>;
@@ -118,10 +165,10 @@ export class SaveEditorIpcController {
                 if (!gameKey || ['__proto__', 'constructor', 'prototype'].includes(gameKey)) {
                     return { ok: false, error: 'invalid-payload' };
                 }
-                if (typeof payload?.folderPath !== 'string') {
+                if (payload?.folderPath !== null && typeof payload?.folderPath !== 'string') {
                     return { ok: false, error: 'invalid-payload' };
                 }
-                let folderPath = payload.folderPath.trim().replace(/\0|%00/g, '');
+                let folderPath = payload.folderPath === null ? '' : payload.folderPath.trim().replace(/\0|%00/g, '');
                 if (folderPath) {
                     const isUnc = /^(\\\\|\/\/|\\\/|\/\\)/.test(folderPath) || (path.win32.isAbsolute(folderPath) && folderPath.startsWith('\\\\'));
                     const isAbsolute = path.isAbsolute(folderPath) || path.win32.isAbsolute(folderPath) || path.posix.isAbsolute(folderPath) || /^[a-zA-Z]:[\\/]/.test(folderPath);
@@ -149,39 +196,37 @@ export class SaveEditorIpcController {
         ipcMain.handle('save-editor:set-save-folder-override', handleSetSaveFolderOverride);
 
         ipcMain.handle('save-editor:list-files', async (_event, gameKey) => {
-            console.log(`[IPC] save-editor:list-files gameKey: ${gameKey}`);
-            return saveEditorService?.listSaveFiles(gameKey);
+            if (!isValidGameKey(gameKey, true)) {
+                console.warn('[IPC][save-editor:list-files] Invalid gameKey:', {
+                    gameKey: typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey,
+                });
+                throw new Error('invalid-payload');
+            }
+            try {
+                return await saveEditorService?.listSaveFiles(gameKey);
+            } catch (err: unknown) {
+                const rawMsg = err instanceof Error ? err.message : String(err);
+                console.error('[IPC][save-editor:list-files] Failed to list save files:', {
+                    gameKey: sanitizeUserPaths(gameKey),
+                    error: sanitizeUserPaths(rawMsg),
+                    stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                });
+                throw new Error(sanitizeUserPaths(rawMsg));
+            }
         });
 
         const activeLoads = new Map<string, Set<() => void>>();
 
-const ALLOWED_SAVE_OPTIONS = new Set([
-    'outerKey',
-    'outerIv',
-    'innerKey',
-    'innerIv',
-    'rawPlaintextFields',
-    'earlyExit',
-    'stalenessTimeoutMs'
-]);
-
-function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
-    const safeOptions = rawOptions && typeof rawOptions === 'object' && !Array.isArray(rawOptions) ? rawOptions : {};
-    const sanitized: Record<string, any> = {};
-    for (const key of Object.keys(safeOptions)) {
-        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-            continue;
-        }
-        if (ALLOWED_SAVE_OPTIONS.has(key)) {
-            sanitized[key] = safeOptions[key];
-        }
-    }
-    return sanitized;
-}
-
         ipcMain.handle('save-editor:load-data', async (event, payload: any) => {
-            const { gameKey, fileName, earlyExit, stalenessTimeoutMs, options } = payload || {};
-            console.log(`[IPC] save-editor:load-data gameKey: ${gameKey}, fileName: ${fileName}`);
+            const { gameKey, fileName, earlyExit, stalenessTimeoutMs, options } =
+                payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+            if (!isValidGameKey(gameKey) || !isValidFileName(fileName)) {
+                console.warn('[IPC][save-editor:load-data] Invalid payload:', {
+                    gameKey: typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey,
+                    fileName: typeof fileName === 'string' ? sanitizeUserPaths(fileName) : typeof fileName,
+                });
+                throw new Error('invalid-payload');
+            }
             const key = `${gameKey}:${fileName}`;
             let cancelled = false;
             const cancelFn = () => {
@@ -236,6 +281,15 @@ function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
 
             try {
                 return await saveEditorService?.loadSaveData(gameKey, fileName, mergedOptions);
+            } catch (err: unknown) {
+                const rawMsg = err instanceof Error ? err.message : String(err);
+                console.error('[IPC][save-editor:load-data] Failed to load save file:', {
+                    gameKey: sanitizeUserPaths(gameKey),
+                    fileName: sanitizeUserPaths(fileName),
+                    error: sanitizeUserPaths(rawMsg),
+                    stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                });
+                throw new Error(sanitizeUserPaths(rawMsg));
             } finally {
                 const currentSet = activeLoads.get(key);
                 if (currentSet) {
@@ -247,8 +301,12 @@ function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
             }
         });
 
-        ipcMain.handle('save-editor:cancel-load', async (_event, { gameKey, fileName }) => {
-            console.log(`[IPC] save-editor:cancel-load gameKey: ${gameKey}, fileName: ${fileName}`);
+        ipcMain.handle('save-editor:cancel-load', async (_event, payload: any) => {
+            const { gameKey, fileName } =
+                payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+            if (!isValidGameKey(gameKey) || !isValidFileName(fileName)) {
+                return { cancelled: false };
+            }
             const key = `${gameKey}:${fileName}`;
             const cancelFns = activeLoads.get(key);
             if (cancelFns && cancelFns.size > 0) {
@@ -262,20 +320,189 @@ function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
         });
 
         ipcMain.handle('save-editor:write-data', async (_event, payload: any) => {
-            const { gameKey, fileName, data, options } = payload || {};
-            console.log(`[IPC] save-editor:write-data gameKey: ${gameKey}, fileName: ${fileName}`);
+            const { gameKey, fileName, updates, data, options } =
+                payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+
+            if (updates === undefined && data === undefined) {
+                console.warn('[IPC][save-editor:write-data] Rejecting payload with neither updates nor data:', {
+                    gameKey: typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey,
+                    fileName: typeof fileName === 'string' ? sanitizeUserPaths(fileName) : typeof fileName,
+                });
+                return { ok: false, error: 'invalid-payload' };
+            }
+
+            if (updates !== undefined) {
+                if (!isValidGameKey(gameKey) || !isValidFileName(fileName)) {
+                    console.warn('[IPC][save-editor:write-data] Invalid gameKey or fileName:', {
+                        gameKey: typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey,
+                        fileName: typeof fileName === 'string' ? sanitizeUserPaths(fileName) : typeof fileName,
+                    });
+                    return { ok: false, error: 'invalid-payload' };
+                }
+
+                if (updates === null || typeof updates !== 'object' || Array.isArray(updates)) {
+                    console.warn('[IPC][save-editor:write-data] Invalid updates payload type:', {
+                        gameKey: sanitizeUserPaths(gameKey),
+                        fileName: sanitizeUserPaths(fileName),
+                        updatesType: updates === null ? 'null' : Array.isArray(updates) ? 'array' : typeof updates,
+                    });
+                    return { ok: false, error: 'invalid-payload' };
+                }
+
+                const sanitizedOptions = sanitizeSaveOptions(options);
+                if (sanitizedOptions.isUpdates === false) {
+                    console.warn('[IPC][save-editor:write-data] Rejecting mismatched write envelope and isUpdates option:', {
+                        abort_reason: 'ENVELOPE_OPTION_MISMATCH',
+                        envelope: 'updates',
+                        optionIsUpdates: sanitizedOptions.isUpdates,
+                        gameKey: sanitizeUserPaths(gameKey),
+                        fileName: sanitizeUserPaths(fileName),
+                    });
+                    return { ok: false, error: 'invalid-payload' };
+                }
+                sanitizedOptions.isUpdates = true;
+
+                const rawEntries = Object.entries(updates);
+                if (rawEntries.length === 0) {
+                    return { ok: true };
+                }
+
+                const sanitizedUpdates: Record<string, any> = Object.create(null);
+                for (const [rawKey, value] of rawEntries) {
+                    if (typeof rawKey !== 'string' || !QUALIFIED_KEY_REGEX.test(rawKey)) {
+                        continue;
+                    }
+
+                    const colonIdx = rawKey.indexOf(':');
+                    const tabId = rawKey.slice(0, colonIdx);
+                    const fieldKey = rawKey.slice(colonIdx + 1);
+
+                    if (
+                        DANGEROUS_KEYS.has(tabId) ||
+                        DANGEROUS_KEYS.has(fieldKey) ||
+                        fieldKey.split('.').some((seg) => DANGEROUS_KEYS.has(seg))
+                    ) {
+                        continue;
+                    }
+
+                    const isScalar =
+                        value === null ||
+                        typeof value === 'boolean' ||
+                        typeof value === 'string' ||
+                        (typeof value === 'number' && Number.isFinite(value));
+
+                    if (!isScalar) {
+                        continue;
+                    }
+
+                    sanitizedUpdates[rawKey] = value;
+                }
+
+                if (Object.keys(sanitizedUpdates).length === 0) {
+                    console.warn('[IPC][save-editor:write-data] All update keys stripped during sanitization:', {
+                        abort_reason: 'ALL_KEYS_STRIPPED',
+                        gameKey: sanitizeUserPaths(gameKey),
+                        fileName: sanitizeUserPaths(fileName),
+                    });
+                    return { ok: false, error: 'invalid-payload' };
+                }
+
+                try {
+                    return await saveEditorService?.writeSaveData(gameKey, fileName, sanitizedUpdates, sanitizedOptions);
+                } catch (err: unknown) {
+                    const rawMsg = err instanceof Error ? err.message : String(err);
+                    const errorCode =
+                        err && typeof err === 'object' && 'code' in err && typeof (err as any).code === 'string'
+                            ? (err as any).code
+                            : undefined;
+                    const sanitizedErrorMsg = sanitizeUserPaths(rawMsg);
+                    console.error('[IPC][save-editor:write-data] Write save data failed:', {
+                        gameKey: sanitizeUserPaths(gameKey),
+                        fileName: sanitizeUserPaths(fileName),
+                        error: sanitizedErrorMsg,
+                        code: errorCode,
+                        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                    });
+                    return {
+                        ok: false,
+                        error: sanitizedErrorMsg,
+                        ...(errorCode ? { code: errorCode } : {}),
+                    };
+                }
+            }
+
+            if (!isValidGameKey(gameKey) || !isValidFileName(fileName)) {
+                console.warn('[IPC][save-editor:write-data] Invalid legacy payload:', {
+                    gameKey: typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey,
+                    fileName: typeof fileName === 'string' ? sanitizeUserPaths(fileName) : typeof fileName,
+                });
+                throw new Error('invalid-payload');
+            }
+
             const sanitizedOptions = sanitizeSaveOptions(options);
-            return saveEditorService?.writeSaveData(gameKey, fileName, data, sanitizedOptions);
+            if (sanitizedOptions.isUpdates === true) {
+                console.warn('[IPC][save-editor:write-data] Rejecting mismatched write envelope and isUpdates option:', {
+                    abort_reason: 'ENVELOPE_OPTION_MISMATCH',
+                    envelope: 'data',
+                    optionIsUpdates: sanitizedOptions.isUpdates,
+                    gameKey: sanitizeUserPaths(gameKey),
+                    fileName: sanitizeUserPaths(fileName),
+                });
+                throw new Error('invalid-payload');
+            }
+            sanitizedOptions.isUpdates = false;
+
+            return await saveEditorService?.writeSaveData(gameKey, fileName, data, sanitizedOptions);
         });
 
-        ipcMain.handle('save-editor:rename-file', async (_event, { gameKey, oldFileName, newFileName, overwrite }) => {
-            console.log(`[IPC] save-editor:rename-file gameKey: ${gameKey}, oldFileName: ${oldFileName}, newFileName: ${newFileName}, overwrite: ${overwrite}`);
-            return saveEditorService?.renameSaveFile(gameKey, oldFileName, newFileName, overwrite);
+        ipcMain.handle('save-editor:rename-file', async (_event, payload: any) => {
+            const { gameKey, oldFileName, newFileName, overwrite } =
+                payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+            if (!isValidGameKey(gameKey) || !isValidFileName(oldFileName) || !isValidFileName(newFileName)) {
+                console.warn('[IPC][save-editor:rename-file] Invalid payload:', {
+                    gameKey: typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey,
+                    oldFileName: typeof oldFileName === 'string' ? sanitizeUserPaths(oldFileName) : typeof oldFileName,
+                    newFileName: typeof newFileName === 'string' ? sanitizeUserPaths(newFileName) : typeof newFileName,
+                });
+                return { ok: false, error: 'invalid-payload' };
+            }
+            try {
+                return await saveEditorService?.renameSaveFile(gameKey, oldFileName, newFileName, overwrite);
+            } catch (err: unknown) {
+                const rawMsg = err instanceof Error ? err.message : String(err);
+                console.error('[IPC][save-editor:rename-file] Failed to rename save file:', {
+                    gameKey: sanitizeUserPaths(gameKey),
+                    oldFileName: sanitizeUserPaths(oldFileName),
+                    newFileName: sanitizeUserPaths(newFileName),
+                    error: sanitizeUserPaths(rawMsg),
+                    stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                });
+                throw new Error(sanitizeUserPaths(rawMsg));
+            }
         });
 
-        ipcMain.handle('save-editor:delete-file', async (_event, { gameKey, fileName }) => {
-            console.log(`[IPC] save-editor:delete-file gameKey: ${gameKey}, fileName: ${fileName}`);
-            return saveEditorService?.deleteSaveFile(gameKey, fileName);
+        ipcMain.handle('save-editor:delete-file', async (_event, payload: any) => {
+            const { gameKey, fileName } =
+                payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+            if (!isValidGameKey(gameKey) || !isValidFileName(fileName)) {
+                console.warn('[IPC][save-editor:delete-file] Invalid payload:', {
+                    gameKey: typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey,
+                    fileName: typeof fileName === 'string' ? sanitizeUserPaths(fileName) : typeof fileName,
+                });
+                return { ok: false, error: 'invalid-payload' };
+            }
+            try {
+                return await saveEditorService?.deleteSaveFile(gameKey, fileName);
+            } catch (err: unknown) {
+                const rawMsg = err instanceof Error ? err.message : String(err);
+                console.error('[IPC][save-editor:delete-file] Failed to delete save file:', {
+                    gameKey: sanitizeUserPaths(gameKey),
+                    fileName: sanitizeUserPaths(fileName),
+                    error: sanitizeUserPaths(rawMsg),
+                    stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                });
+                throw new Error(sanitizeUserPaths(rawMsg));
+            }
         });
 
         ipcMain.handle('save-editor:update-mapping', async (_event, { gameKey, name, offset, dataType }) => {
@@ -283,14 +510,87 @@ function sanitizeSaveOptions(rawOptions: any): Record<string, any> {
             return saveEditorService?.updateMapping(gameKey, name, offset, dataType);
         });
 
-        ipcMain.handle('save-editor:load-translations', async (_event, lang) => {
-            console.log(`[IPC] save-editor:load-translations for lang: ${lang}`);
-            return saveEditorService?.loadTranslations(lang);
+        ipcMain.handle('save-editor:load-translations', async (_event, lang: unknown) => {
+            if (typeof lang !== 'string' || !BCP47_REGEX.test(lang)) {
+                console.warn('[IPC][save-editor:load-translations] Invalid BCP-47 language tag:', {
+                    lang: typeof lang === 'string' ? sanitizeUserPaths(lang) : typeof lang,
+                });
+                return {};
+            }
+            if (!saveEditorService?.loadTranslations) {
+                return {};
+            }
+            try {
+                return await saveEditorService.loadTranslations(lang);
+            } catch (err: unknown) {
+                const rawMsg = err instanceof Error ? err.message : String(err);
+                console.error('[IPC][save-editor:load-translations] Load translations failed:', {
+                    lang: sanitizeUserPaths(lang),
+                    error: sanitizeUserPaths(rawMsg),
+                    stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                });
+                return {};
+            }
         });
 
-        ipcMain.handle('save-editor:save-translations', async (_event, { lang, translations }) => {
-            console.log(`[IPC] save-editor:save-translations for lang: ${lang} (${Object.keys(translations || {}).length} keys)`);
-            return saveEditorService?.saveTranslations(lang, translations);
+        ipcMain.handle('save-editor:save-translations', async (_event, payload: any) => {
+            const { lang, translations } =
+                payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+            if (typeof lang !== 'string' || !BCP47_REGEX.test(lang)) {
+                console.warn('[IPC][save-editor:save-translations] Invalid BCP-47 language tag:', {
+                    lang: typeof lang === 'string' ? sanitizeUserPaths(lang) : typeof lang,
+                });
+                return { ok: false, error: 'invalid-payload' };
+            }
+            if (translations === null || typeof translations !== 'object' || Array.isArray(translations)) {
+                console.warn('[IPC][save-editor:save-translations] Invalid translations payload:', {
+                    lang: sanitizeUserPaths(lang),
+                });
+                return { ok: false, error: 'invalid-payload' };
+            }
+            const entries = Object.entries(translations);
+            if (entries.length > 10000) {
+                console.warn('[IPC][save-editor:save-translations] Translations entry limit exceeded:', {
+                    lang: sanitizeUserPaths(lang),
+                    count: entries.length,
+                });
+                return { ok: false, error: 'invalid-payload' };
+            }
+            if (entries.length === 0) {
+                return { ok: true };
+            }
+            const sanitizedTranslations: Record<string, string> = Object.create(null);
+            for (const [k, v] of entries) {
+                if (typeof k !== 'string' || DANGEROUS_KEYS.has(k) || k.length === 0 || k.length > 300) {
+                    continue;
+                }
+                if (typeof v !== 'string' || v.length > 4096) {
+                    continue;
+                }
+                sanitizedTranslations[k] = v;
+            }
+            if (Object.keys(sanitizedTranslations).length === 0) {
+                console.warn('[IPC][save-editor:save-translations] All translation entries stripped:', {
+                    abort_reason: 'ALL_KEYS_STRIPPED',
+                    lang: sanitizeUserPaths(lang),
+                });
+                return { ok: false, error: 'invalid-payload' };
+            }
+            if (!saveEditorService?.saveTranslations) {
+                return { ok: false, error: 'service-unavailable' };
+            }
+            try {
+                return await saveEditorService.saveTranslations(lang, sanitizedTranslations);
+            } catch (err: unknown) {
+                const rawMsg = err instanceof Error ? err.message : String(err);
+                const sanitizedErrorMsg = sanitizeUserPaths(rawMsg);
+                console.error('[IPC][save-editor:save-translations] Save translations failed:', {
+                    lang: sanitizeUserPaths(lang),
+                    error: sanitizedErrorMsg,
+                    stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+                });
+                return { ok: false, error: sanitizedErrorMsg };
+            }
         });
 
         ipcMain.on('save-editor:open-window', (_event, gameKey) => {

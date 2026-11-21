@@ -27,8 +27,8 @@ const api: ElectronAPI = {
     getSaveFolder: (gameKey: string) => ipcRenderer.invoke('get-save-folder', gameKey),
     openSaveFolder: (gameKey: string) => ipcRenderer.invoke('save-folder:open', gameKey),
     selectSaveFolder: () => ipcRenderer.invoke('save-editor:select-directory'),
-    setSaveFolderOverride: (data: { gameKey: string; folderPath: string }) =>
-        ipcRenderer.invoke('save-editor:set-save-folder-override', data),
+    setSaveFolderOverride: (params: { gameKey: string; folderPath: string | null }) =>
+        ipcRenderer.invoke('save-editor:set-save-folder-override', params),
     toggleFavorite: (gameKey: string, targetFavorite?: boolean) =>
         ipcRenderer.invoke('toggle-favorite', gameKey, targetFavorite),
     toggleRunInBackground: (gameKey: string) => ipcRenderer.invoke('toggle-run-in-background', gameKey),
@@ -92,7 +92,7 @@ const api: ElectronAPI = {
     // Save Editor
     listSaveFiles: (gameKey: string) => ipcRenderer.invoke('save-editor:list-files', gameKey),
     loadSaveData: (data: any) => ipcRenderer.invoke('save-editor:load-data', data),
-    cancelLoadSaveData: (data: { gameKey: string; fileName: string }) => ipcRenderer.invoke('save-editor:cancel-load', data),
+    cancelLoadSaveData: (params: { gameKey: string; fileName: string }) => ipcRenderer.invoke('save-editor:cancel-load', params),
     onSaveLoadProgress: (callback: (payload: { gameKey: string; fileName: string; percent: number; current: number; total: number; unit: string; pos?: number; totalBytes?: number }) => void) => {
         const handler = (_event: any, payload: any) => callback(payload);
         ipcRenderer.on('save-editor:load-progress', handler);
@@ -100,7 +100,7 @@ const api: ElectronAPI = {
             ipcRenderer.removeListener('save-editor:load-progress', handler);
         };
     },
-    writeSaveData: (data: any) => ipcRenderer.invoke('save-editor:write-data', data),
+    writeSaveData: (data: { gameKey: string; fileName: string; updates?: any; data?: any; options?: any }) => ipcRenderer.invoke('save-editor:write-data', data),
     renameSaveFile: (data: any) => ipcRenderer.invoke('save-editor:rename-file', data),
     deleteSaveFile: (data: any) => ipcRenderer.invoke('save-editor:delete-file', data),
     updateMapping: (data: any) => ipcRenderer.invoke('save-editor:update-mapping', data),
@@ -108,7 +108,7 @@ const api: ElectronAPI = {
         ipcRenderer.send('save-editor:open-window', gameKey);
     },
     loadTranslations: (lang: string) => ipcRenderer.invoke('save-editor:load-translations', lang),
-    saveTranslations: (lang: string, translations: any) => ipcRenderer.invoke('save-editor:save-translations', { lang, translations }),
+    saveTranslations: (lang: string, translations: Record<string, string>) => ipcRenderer.invoke('save-editor:save-translations', { lang, translations }),
     // System Startup & Tray Settings
     isDev: () => ipcRenderer.invoke('is-dev'),
     setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke('set-auto-launch', enabled),

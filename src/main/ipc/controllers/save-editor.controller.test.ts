@@ -408,8 +408,8 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             expect(res).toEqual({ ok: true, saveFolderOverride: validAbsolute });
         });
 
-        it('clears override when folderPath is empty string or whitespace', async () => {
-            const { handlers } = createIpcHarness();
+        it('clears override when folderPath is empty string, whitespace, or null', async () => {
+            const { handlers, mockLibraryState } = createIpcHarness();
             const handler = handlers.get('save-editor:set-save-folder-override')!;
 
             const resEmpty = await handler({}, { gameKey: 'valid-game', folderPath: '' });
@@ -417,6 +417,10 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
 
             const resWhitespace = await handler({}, { gameKey: 'valid-game', folderPath: '   ' });
             expect(resWhitespace).toEqual({ ok: true, saveFolderOverride: null });
+
+            const resNull = await handler({}, { gameKey: 'valid-game', folderPath: null });
+            expect(resNull).toEqual({ ok: true, saveFolderOverride: null });
+            expect(mockLibraryState.setSaveFolderOverride).toHaveBeenLastCalledWith('valid-game', '');
         });
 
         it('sanitizes null bytes (\0 or %00) without throwing', async () => {
@@ -448,11 +452,11 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             }
         });
 
-        it('rejects non-string or missing folderPath with invalid-payload', async () => {
+        it('rejects non-string/non-null or missing folderPath with invalid-payload', async () => {
             const { handlers } = createIpcHarness();
             const handler = handlers.get('save-editor:set-save-folder-override')!;
 
-            for (const badPath of [null, undefined, 123, true, {}, []]) {
+            for (const badPath of [undefined, 123, true, {}, []]) {
                 const res = await handler({}, { gameKey: 'valid-game', folderPath: badPath });
                 expect(res).toEqual({ ok: false, error: 'invalid-payload' });
             }
@@ -611,6 +615,392 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             expect(sanitizedOpts.innerKey).toBe('writeInnerKey');
             expect(sanitizedOpts.injectedEvil).toBeUndefined();
             expect(sanitizedOpts.__proto__?.hacked).toBeUndefined();
+        });
+
+        it('whitelists isUpdates, createBackup, encoding, and maxBufferSizeBytes in ALLOWED_SAVE_OPTIONS', async () => {
+            const mockSaveEditorService: any = {
+                writeSaveData: vi.fn(async () => ({ ok: true })),
+            };
+            const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+            const handler = handlers.get('save-editor:write-data')!;
+
+            await handler(
+                {},
+                {
+                    gameKey: 'valid-game',
+                    fileName: 'save01.json',
+                    updates: { 'variables:1': 42 },
+                    options: {
+                        isUpdates: true,
+                        createBackup: true,
+                        encoding: 'utf8',
+                        maxBufferSizeBytes: 1024 * 1024,
+                        unknownOpt: 'stripped',
+                    },
+                }
+            );
+
+            expect(mockSaveEditorService.writeSaveData).toHaveBeenCalledTimes(1);
+            const [, , , sanitizedOpts] = mockSaveEditorService.writeSaveData.mock.calls[0];
+            expect(sanitizedOpts.isUpdates).toBe(true);
+            expect(sanitizedOpts.createBackup).toBe(true);
+            expect(sanitizedOpts.encoding).toBe('utf8');
+            expect(sanitizedOpts.maxBufferSizeBytes).toBe(1024 * 1024);
+            expect(sanitizedOpts.unknownOpt).toBeUndefined();
+        });
+    });
+
+    describe('Channel-differentiated ingress validation, dual-envelope bridge, and error sanitization', () => {
+        const BAD_FILENAMES = [
+            '__proto__',
+            'constructor',
+            'prototype',
+            '../evil.json',
+            'sub/save.json',
+            'sub\\save.json',
+            'CON',
+            'PRN.txt',
+            'AUX',
+            'NUL',
+            'COM1',
+            'LPT9.sav',
+            'save.json:ads',
+            'save\x00.json',
+            'save\x07.json',
+            'save.json.',
+            'save.json ',
+            '',
+        ];
+
+        it('save-editor:load-data throws invalid-payload on malformed gameKey or unsafe fileName and sanitizes service errors', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            try {
+                const mockSaveEditorService = {
+                    loadSaveData: vi.fn(async () => {
+                        const err = new Error('ENOENT: C:\\Users\\John Doe\\AppData\\Local\\Saves\\save01.json missing');
+                        err.stack = 'Error: ENOENT\n    at C:\\Users\\John Doe\\app\\main.js:10:5';
+                        throw err;
+                    }),
+                };
+                const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+                const handler = handlers.get('save-editor:load-data')!;
+
+                for (const badKey of ['', '  ', '__proto__', 'constructor', 'prototype', 'a/b', 'a\\b', null]) {
+                    await expect(handler({}, { gameKey: badKey, fileName: 'save01.json' })).rejects.toThrow('invalid-payload');
+                }
+                for (const badFile of BAD_FILENAMES) {
+                    await expect(handler({}, { gameKey: 'valid-game', fileName: badFile })).rejects.toThrow('invalid-payload');
+                }
+                expect(mockSaveEditorService.loadSaveData).not.toHaveBeenCalled();
+
+                await expect(handler({}, { gameKey: 'valid-game', fileName: 'save01.json' })).rejects.toSatisfy((e: Error) => {
+                    expect(e.message).not.toContain('John Doe');
+                    expect(e.message).toContain('<USER_DIR>');
+                    return true;
+                });
+                expect(errSpy).toHaveBeenCalledWith(
+                    '[IPC][save-editor:load-data] Failed to load save file:',
+                    expect.objectContaining({
+                        gameKey: 'valid-game',
+                        fileName: 'save01.json',
+                        error: expect.not.stringContaining('John Doe'),
+                        stack: expect.not.stringContaining('John Doe'),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+                errSpy.mockRestore();
+            }
+        });
+
+        it('save-editor:list-files throws invalid-payload on malformed gameKey and sanitizes service errors', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            try {
+                const mockSaveEditorService = {
+                    listSaveFiles: vi.fn(async () => {
+                        throw new Error('EACCES: C:\\Users\\John Doe\\AppData\\Roaming\\Saves denied');
+                    }),
+                };
+                const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+                const handler = handlers.get('save-editor:list-files')!;
+
+                for (const badKey of ['', '  ', '__proto__', 'constructor', 'prototype', null, 123]) {
+                    await expect(handler({}, badKey)).rejects.toThrow('invalid-payload');
+                }
+                expect(mockSaveEditorService.listSaveFiles).not.toHaveBeenCalled();
+
+                await expect(handler({}, 'valid-game')).rejects.toSatisfy((e: Error) => {
+                    expect(e.message).not.toContain('John Doe');
+                    expect(e.message).toContain('<USER_DIR>');
+                    return true;
+                });
+                expect(errSpy).toHaveBeenCalledWith(
+                    '[IPC][save-editor:list-files] Failed to list save files:',
+                    expect.objectContaining({
+                        error: expect.not.stringContaining('John Doe'),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+                errSpy.mockRestore();
+            }
+        });
+
+        it('save-editor:cancel-load resolves { cancelled: false } on malformed parameters', async () => {
+            const { handlers } = createIpcHarness();
+            const handler = handlers.get('save-editor:cancel-load')!;
+
+            expect(await handler({}, null)).toEqual({ cancelled: false });
+            expect(await handler({}, { gameKey: '__proto__', fileName: 'save01.json' })).toEqual({ cancelled: false });
+            expect(await handler({}, { gameKey: 'valid-game', fileName: '../evil.json' })).toEqual({ cancelled: false });
+            expect(await handler({}, { gameKey: 'valid-game', fileName: 'save01.json' })).toEqual({ cancelled: false });
+        });
+
+        it('save-editor:rename-file and save-editor:delete-file validate filenames/gameKey and sanitize rethrown errors', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            try {
+                const mockSaveEditorService = {
+                    renameSaveFile: vi.fn(async () => {
+                        throw new Error('EBUSY: C:\\Users\\John Doe\\Saves\\old.json locked');
+                    }),
+                    deleteSaveFile: vi.fn(async () => {
+                        throw new Error('EPERM: C:\\Users\\John Doe\\Saves\\del.json denied');
+                    }),
+                };
+                const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+                const renameHandler = handlers.get('save-editor:rename-file')!;
+                const deleteHandler = handlers.get('save-editor:delete-file')!;
+
+                for (const badFile of BAD_FILENAMES) {
+                    expect(await renameHandler({}, { gameKey: 'valid-game', oldFileName: badFile, newFileName: 'ok.json' })).toEqual({
+                        ok: false,
+                        error: 'invalid-payload',
+                    });
+                    expect(await renameHandler({}, { gameKey: 'valid-game', oldFileName: 'ok.json', newFileName: badFile })).toEqual({
+                        ok: false,
+                        error: 'invalid-payload',
+                    });
+                    expect(await deleteHandler({}, { gameKey: 'valid-game', fileName: badFile })).toEqual({
+                        ok: false,
+                        error: 'invalid-payload',
+                    });
+                }
+                expect(await deleteHandler({}, { gameKey: 'a/b', fileName: 'ok.json' })).toEqual({
+                    ok: false,
+                    error: 'invalid-payload',
+                });
+                expect(mockSaveEditorService.renameSaveFile).not.toHaveBeenCalled();
+                expect(mockSaveEditorService.deleteSaveFile).not.toHaveBeenCalled();
+
+                await expect(
+                    renameHandler({}, { gameKey: 'valid-game', oldFileName: 'old.json', newFileName: 'new.json' })
+                ).rejects.toSatisfy((e: Error) => {
+                    expect(e.message).not.toContain('John Doe');
+                    expect(e.message).toContain('<USER_DIR>');
+                    return true;
+                });
+
+                await expect(deleteHandler({}, { gameKey: 'valid-game', fileName: 'del.json' })).rejects.toSatisfy((e: Error) => {
+                    expect(e.message).not.toContain('John Doe');
+                    expect(e.message).toContain('<USER_DIR>');
+                    return true;
+                });
+            } finally {
+                warnSpy.mockRestore();
+                errSpy.mockRestore();
+            }
+        });
+
+        it('save-editor:write-data handles terminal guard, null/array updates, empty no-op, prototype pollution, and envelope mismatch', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            try {
+                const mockSaveEditorService = {
+                    writeSaveData: vi.fn(async () => ({ ok: true })),
+                };
+                const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+                const handler = handlers.get('save-editor:write-data')!;
+
+                // Terminal guard: neither updates nor data
+                expect(await handler({}, { gameKey: 'valid-game', fileName: 'save01.json' })).toEqual({
+                    ok: false,
+                    error: 'invalid-payload',
+                });
+                expect(await handler({}, null)).toEqual({ ok: false, error: 'invalid-payload' });
+
+                // Invalid updates type (null, array, primitive)
+                for (const badUpdates of [null, [], 'str', 123, true]) {
+                    expect(
+                        await handler({}, { gameKey: 'valid-game', fileName: 'save01.json', updates: badUpdates })
+                    ).toEqual({ ok: false, error: 'invalid-payload' });
+                }
+
+                // Envelope/option mismatch
+                expect(
+                    await handler(
+                        {},
+                        { gameKey: 'valid-game', fileName: 'save01.json', updates: { 'variables:1': 5 }, options: { isUpdates: false } }
+                    )
+                ).toEqual({ ok: false, error: 'invalid-payload' });
+
+                await expect(
+                    handler(
+                        {},
+                        { gameKey: 'valid-game', fileName: 'save01.json', data: { gold: 5 }, options: { isUpdates: true } }
+                    )
+                ).rejects.toThrow('invalid-payload');
+
+                // Legacy data with invalid gameKey/fileName throws
+                await expect(
+                    handler({}, { gameKey: '../evil', fileName: 'save01.json', data: { gold: 5 } })
+                ).rejects.toThrow('invalid-payload');
+
+                // Truly empty updates -> safe no-op { ok: true } without calling service
+                expect(await handler({}, { gameKey: 'valid-game', fileName: 'save01.json', updates: {} })).toEqual({ ok: true });
+                expect(mockSaveEditorService.writeSaveData).not.toHaveBeenCalled();
+
+                // Non-empty updates where all keys are stripped -> { ok: false, error: 'invalid-payload' }
+                const allBadUpdates = JSON.parse(
+                    '{"__proto__:1":1,"variables:__proto__":2,"variables:a.prototype.b":3,"variables:constructor":4,"badkey":5,"variables:nan":null,"variables:obj":{}}'
+                );
+                delete allBadUpdates['variables:nan'];
+                allBadUpdates['variables:nan'] = Number.NaN;
+                expect(
+                    await handler({}, { gameKey: 'valid-game', fileName: 'save01.json', updates: allBadUpdates })
+                ).toEqual({ ok: false, error: 'invalid-payload' });
+                expect(mockSaveEditorService.writeSaveData).not.toHaveBeenCalled();
+
+                // Mixed valid + dangerous updates -> null-prototype dict with only valid scalars
+                const mixedUpdates = JSON.parse(
+                    '{"__proto__:x":1,"variables:a.__proto__.b":2,"variables:1":99,"switches:2":true,"strings:3":"hero","flags:4":null,"bad:arr":[1]}'
+                );
+                expect(
+                    await handler({}, { gameKey: 'valid-game', fileName: 'save01.json', updates: mixedUpdates })
+                ).toEqual({ ok: true });
+                expect(mockSaveEditorService.writeSaveData).toHaveBeenCalledTimes(1);
+                const [, , forwardedUpdates, forwardedOpts] = mockSaveEditorService.writeSaveData.mock.calls[0] as any[];
+                expect(Object.getPrototypeOf(forwardedUpdates)).toBeNull();
+                expect(forwardedUpdates).toEqual({
+                    'variables:1': 99,
+                    'switches:2': true,
+                    'strings:3': 'hero',
+                    'flags:4': null,
+                });
+                expect(forwardedOpts.isUpdates).toBe(true);
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('save-editor:write-data preserves EBUSY code and sanitizes paths on updates failure, and re-throws on legacy data failure', async () => {
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            try {
+                const busyErr: any = new Error('EBUSY: resource busy, open C:\\Users\\John Doe\\Saves\\save01.json');
+                busyErr.code = 'EBUSY';
+                busyErr.stack = 'Error: EBUSY\n    at C:\\Users\\John Doe\\app\\fs.js:1:1';
+
+                const mockSaveEditorService = {
+                    writeSaveData: vi.fn(async () => {
+                        throw busyErr;
+                    }),
+                };
+                const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+                const handler = handlers.get('save-editor:write-data')!;
+
+                const res = await handler(
+                    {},
+                    { gameKey: 'valid-game', fileName: 'save01.json', updates: { 'variables:1': 10 } }
+                );
+                expect(res.ok).toBe(false);
+                expect(res.code).toBe('EBUSY');
+                expect(res.error).not.toContain('John Doe');
+                expect(res.error).toContain('<USER_DIR>');
+                expect(errSpy).toHaveBeenCalledWith(
+                    '[IPC][save-editor:write-data] Write save data failed:',
+                    expect.objectContaining({
+                        code: 'EBUSY',
+                        error: expect.not.stringContaining('John Doe'),
+                        stack: expect.not.stringContaining('John Doe'),
+                    })
+                );
+
+                // Legacy data path re-throws
+                await expect(
+                    handler({}, { gameKey: 'valid-game', fileName: 'save01.json', data: { gold: 10 } })
+                ).rejects.toThrow('EBUSY');
+            } finally {
+                errSpy.mockRestore();
+            }
+        });
+
+        it('save-editor:load-translations and save-editor:save-translations validate BCP-47, limits, prototype keys, and sanitize errors', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            try {
+                const mockSaveEditorService = {
+                    loadTranslations: vi.fn(async () => ({ 'hero/name': 'Hero' })),
+                    saveTranslations: vi.fn(async () => ({ ok: true })),
+                };
+                const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+                const loadHandler = handlers.get('save-editor:load-translations')!;
+                const saveHandler = handlers.get('save-editor:save-translations')!;
+
+                // Invalid BCP-47 returns {} cleanly with sanitized warn
+                expect(await loadHandler({}, 'C:\\Users\\John Doe\\bad')).toEqual({});
+                expect(warnSpy).toHaveBeenCalledWith(
+                    '[IPC][save-editor:load-translations] Invalid BCP-47 language tag:',
+                    expect.objectContaining({ lang: expect.not.stringContaining('John Doe') })
+                );
+                expect(await loadHandler({}, 'en-US')).toEqual({ 'hero/name': 'Hero' });
+
+                // Empty translations -> { ok: true } without calling service
+                expect(await saveHandler({}, { lang: 'en', translations: {} })).toEqual({ ok: true });
+                expect(mockSaveEditorService.saveTranslations).not.toHaveBeenCalled();
+
+                // > 10,000 entries rejected
+                const huge: Record<string, string> = {};
+                for (let i = 0; i < 10001; i++) huge[`k${i}`] = 'v';
+                expect(await saveHandler({}, { lang: 'en', translations: huge })).toEqual({
+                    ok: false,
+                    error: 'invalid-payload',
+                });
+
+                // All entries stripped (prototype keys / oversized key or value)
+                const allBad = JSON.parse('{"__proto__":"x","constructor":"y"}');
+                allBad['k'.repeat(301)] = 'ok';
+                allBad['ok'] = 'v'.repeat(4097);
+                expect(await saveHandler({}, { lang: 'en', translations: allBad })).toEqual({
+                    ok: false,
+                    error: 'invalid-payload',
+                });
+
+                // Slashes allowed in variable keys
+                expect(
+                    await saveHandler({}, { lang: 'ja', translations: { 'hero/hp': 'HP', constructor: 'bad' } })
+                ).toEqual({ ok: true });
+                expect(mockSaveEditorService.saveTranslations).toHaveBeenCalledWith('ja', { 'hero/hp': 'HP' });
+
+                // Service rejection is caught, logged, and sanitized
+                mockSaveEditorService.saveTranslations.mockRejectedValueOnce(
+                    new Error('EACCES: C:\\Users\\John Doe\\translations.json denied')
+                );
+                const failRes = await saveHandler({}, { lang: 'ja', translations: { 'hero/hp': 'HP' } });
+                expect(failRes.ok).toBe(false);
+                expect(failRes.error).not.toContain('John Doe');
+                expect(failRes.error).toContain('<USER_DIR>');
+                expect(errSpy).toHaveBeenCalledWith(
+                    '[IPC][save-editor:save-translations] Save translations failed:',
+                    expect.objectContaining({
+                        lang: 'ja',
+                        error: expect.not.stringContaining('John Doe'),
+                    })
+                );
+            } finally {
+                warnSpy.mockRestore();
+                errSpy.mockRestore();
+            }
         });
     });
 });

@@ -4,6 +4,22 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.3.0] - working
+
+### What Changed
+- Smoother library and Save Editor UI: rebuilt the main interface and Save Editor so large game libraries and save files with thousands of variables scroll and filter without UI freezes.
+- Standalone Save Editor window: the Save Editor now runs in its own dedicated window with unsaved-change protection and instant search filtering, so editing saves does not block or clutter the main library.
+- Safer save editing and translation: save file parsing and delta writes now happen outside the UI thread, and batch variable translation runs in background chunks with progress and cancellation instead of locking up the screen.
+
+### For the Nerds
+- [renderer] Rebuilt the main renderer (`src/renderer/`) in React 19 with strict TypeScript, replacing imperative DOM modules and legacy dual-FLIP animations with declarative components, `useSyncExternalStore` state bridging, portal overlays, and a multi-page Vite build (`index.html`, `save-editor.html`).
+- [engine] Extracted headless save schema discovery and surgical delta application (`NormalizedSaveDto`, `SaveUpdatesPayload`) into `@yumeshelf/engine`, enforcing a build-time guard (`ban-engine-runtime-in-renderer`) so renderer bundles import engine types only.
+- [save-editor] Migrated the Save Editor to a standalone Electron window (`SaveEditorApp`) with virtualized table rendering (`@tanstack/react-virtual`), typed draft inputs with focus continuity, chunked translation batching, and a persistent save footer.
+- [ipc] Contracted `save-editor:load-data` and `save-editor:write-data` IPC boundaries to pure DTO/delta payloads, moved translation network calls behind a main-process membrane, removed `save-editor:update-mapping`, and tightened CSP in both HTML entrypoints to `connect-src 'self'`.
+- [tooling] Decommissioned 22 legacy procedural Save Editor files (69 legacy frontend files removed across the migration), eliminated all `@ts-nocheck` directives across `src/` (enforced by zero-tolerance `verify:no-ts-nocheck`), and expanded Vitest + Testing Library coverage across renderer and main-process modules.
+
+---
+
 ## [L.O.E] - 2026-11-19
 
 My calendar is packed lately, I just finished GCI World so I guess I'll have more time soon. School is still heavy so don't expect much until Jan tho.

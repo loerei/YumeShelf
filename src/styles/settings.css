@@ -14,6 +14,10 @@
     animation: fadeIn 0.3s ease;
 }
 
+.modal-backdrop.settings-overlay {
+    display: flex;
+}
+
 .settings-panel {
     background: var(--card-bg);
     width: 80%;
@@ -352,6 +356,11 @@
     text-decoration: none;
     transition: color 0.15s ease;
     user-select: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    text-align: left;
+    font-family: inherit;
 }
 
 .library-path-link:hover {
@@ -684,4 +693,27 @@
     font-size: 11px;
     line-height: 1.4;
     margin: 0 0 8px 0;
+}
+
+.settings-footer {
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 30px;
+}
+
+.settings-footer-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-sub);
+}
+
+.settings-version {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.settings-tagline {
+    color: var(--text-sub);
 }

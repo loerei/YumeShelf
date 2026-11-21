@@ -31,13 +31,14 @@ describe('AboutModal', () => {
       <AboutModal isOpen={true} onClose={onClose} electronAPI={electronAPI} />
     );
 
-    const dialog = screen.getByRole('dialog', { name: 'About YumeShelf' });
+    const dialog = screen.getByRole('dialog', { name: 'About & Credits' });
     expect(dialog.className).toContain('about-panel');
 
     await waitFor(() => {
       expect(screen.getByText('Version 2.4.1')).toBeTruthy();
     });
     expect(document.querySelector('.about-version')?.textContent).toBe('Version 2.4.1');
+    expect(document.querySelector('.about-icon')).toBeTruthy();
     expect(document.querySelector('.about-body')).toBeTruthy();
     expect(document.querySelector('.about-brand')).toBeTruthy();
     expect(document.querySelector('.about-brand-text')).toBeTruthy();
@@ -79,15 +80,15 @@ describe('AboutModal', () => {
       <AboutModal isOpen={true} onClose={vi.fn()} electronAPI={electronAPI} version="2.2.9" />
     );
 
-    const reactLink = screen.getByRole('link', { name: 'React' }) as HTMLAnchorElement;
-    expect(reactLink.getAttribute('rel')).toBe('noopener noreferrer');
+    const creditLink = screen.getByRole('link', { name: 'Detect-It-Easy / XPEViewer' }) as HTMLAnchorElement;
+    expect(creditLink.getAttribute('rel')).toBe('noopener noreferrer');
 
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     const preventSpy = vi.spyOn(event, 'preventDefault');
-    reactLink.dispatchEvent(event);
+    creditLink.dispatchEvent(event);
 
     expect(preventSpy).toHaveBeenCalledTimes(1);
-    expect(electronAPI.openExternalUrl).toHaveBeenCalledWith('https://react.dev');
+    expect(electronAPI.openExternalUrl).toHaveBeenCalledWith('https://github.com/horsicq/Detect-It-Easy');
   });
 
   it('catches openExternalUrl rejections and logs sanitized url, error, and stack to console.warn', async () => {
@@ -101,14 +102,14 @@ describe('AboutModal', () => {
       <AboutModal isOpen={true} onClose={vi.fn()} electronAPI={electronAPI} version="2.2.9" />
     );
 
-    fireEvent.click(screen.getByRole('link', { name: 'Electron' }));
+    fireEvent.click(screen.getByRole('link', { name: 'XUnity.AutoTranslator' }));
 
     await waitFor(() => {
       expect(warnSpy).toHaveBeenCalled();
     });
     const logged = JSON.stringify(warnSpy.mock.calls[0]);
     expect(logged).toContain('[AboutModal]');
-    expect(logged).toContain('https://www.electronjs.org');
+    expect(logged).toContain('https://github.com/bbepis/XUnity.AutoTranslator');
     expect(logged).not.toContain('John Doe');
   });
 
@@ -150,7 +151,7 @@ describe('AboutModal', () => {
     fireEvent.click(openBtn);
     fireEvent.click(screen.getByRole('button', { name: 'Disconnect Trigger' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Fallback Target' }));
   });
 });

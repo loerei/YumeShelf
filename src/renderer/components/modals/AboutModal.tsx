@@ -20,22 +20,22 @@ interface CreditItem {
 
 const CREDITS: CreditItem[] = [
   {
-    title: 'React',
-    author: 'Meta Open Source',
-    url: 'https://react.dev',
-    description: 'The library for web and native user interfaces.',
+    title: 'Detect-It-Easy / XPEViewer',
+    author: 'by horsicq',
+    url: 'https://github.com/horsicq/Detect-It-Easy',
+    description: 'Binary inspection heuristics, PE structure analysis, and engine signatures.',
   },
   {
-    title: 'Electron',
-    author: 'OpenJS Foundation',
-    url: 'https://www.electronjs.org',
-    description: 'Build cross-platform desktop apps with JavaScript, HTML, and CSS.',
+    title: 'XUnity.AutoTranslator',
+    author: 'by bbepis',
+    url: 'https://github.com/bbepis/XUnity.AutoTranslator',
+    description: 'Unity runtime translation architecture and plugin hooking models.',
   },
   {
-    title: 'TanStack Virtual',
-    author: 'Tanner Linsley',
-    url: 'https://tanstack.com/virtual',
-    description: 'Headless UI for virtualizing scrollable elements.',
+    title: 'BepInEx',
+    author: 'by BepInEx Team',
+    url: 'https://github.com/BepInEx/BepInEx',
+    description: 'Unity and .NET modding and runtime injection framework.',
   },
 ];
 
@@ -88,24 +88,46 @@ export const AboutModal: React.FC<AboutModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       fallbackFocusRef={fallbackFocusRef}
+      className="settings-overlay"
       panelClassName="about-panel"
       title="About YumeShelf"
     >
-      <Modal.Header>About YumeShelf</Modal.Header>
+      <Modal.Header className="settings-header">About &amp; Credits</Modal.Header>
       <Modal.Body className="about-body">
         <div className="about-brand">
+          <img
+            src="./assets/yumeshelf_icon.png"
+            alt="YumeShelf"
+            width={64}
+            height={64}
+            className="about-icon"
+          />
           <div className="about-brand-text">
             <h3>YumeShelf</h3>
             <p className="about-version">{appVersion ? `Version ${appVersion}` : 'Desktop Library'}</p>
-            <p className="about-tagline">A pragmatic visual novel & RPG desktop launcher and save manager.</p>
-            <p className="about-author">Created with care for visual novel enthusiasts.</p>
+            <p className="about-tagline">
+              A minimalist game library and launcher for your personal collection.
+            </p>
+            <p className="about-author">
+              Created by{' '}
+              <a
+                href="https://github.com/loerei"
+                className="about-external-link"
+                onClick={(e) => handleOpenLink(e, 'https://github.com/loerei')}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                loerei
+              </a>
+            </p>
           </div>
         </div>
 
         <div className="about-credits-section">
-          <h4>Open Source Credits & Dependencies</h4>
+          <h4>Acknowledgements &amp; Credits</h4>
           <p className="about-credits-intro">
-            YumeShelf is powered by these remarkable open-source projects:
+            YumeShelf and the <strong>YumeEngine</strong> core parser are built upon foundational
+            open-source engineering and heuristics from the community:
           </p>
           {CREDITS.map((credit) => (
             <div key={credit.title} className="about-credit-card">
@@ -119,7 +141,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
                 >
                   {credit.title}
                 </a>
-                <span className="about-credit-author">— {credit.author}</span>
+                <span className="about-credit-author">{credit.author}</span>
               </div>
               <p className="about-credit-desc">{credit.description}</p>
             </div>
@@ -127,14 +149,9 @@ export const AboutModal: React.FC<AboutModalProps> = ({
         </div>
 
         <div className="about-license-note">
-          <p>Released under the MIT License.</p>
+          <p>YumeShelf is free and open-source software under the MIT License.</p>
         </div>
       </Modal.Body>
-      <Modal.Footer>
-        <button type="button" className="small-btn secondary-btn" onClick={onClose}>
-          Close
-        </button>
-      </Modal.Footer>
     </Modal>
   );
 };

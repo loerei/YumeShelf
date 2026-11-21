@@ -33,7 +33,7 @@
     border-color: var(--text-sub);
 }
 
-.text-btn {
+.update-notification-host .text-btn {
     border: 0;
     background: transparent;
     cursor: pointer;
@@ -247,6 +247,7 @@
     flex-direction: column;
     gap: 8px;
     width: min(352px, calc(100vw - 32px));
+    box-sizing: border-box;
     padding: 14px 16px;
     border-radius: 12px;
     border: 1px solid var(--border-color);

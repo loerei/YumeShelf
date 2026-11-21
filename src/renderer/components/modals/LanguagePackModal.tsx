@@ -42,7 +42,6 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
   const isMountedRef = useRef(true);
   const isOpenRef = useRef(isOpen);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const packCardRefs = useRef(new Map<string, HTMLDivElement>());
   const actionBtnRefs = useRef(new Map<string, HTMLButtonElement>());
   const pendingInstallFocusCodeRef = useRef<string | null>(null);
@@ -193,7 +192,7 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
       active === document.documentElement ||
       !active.isConnected;
     if (!isOwnedOrEvicted) return;
-    (targetBtn ?? searchInputRef.current ?? closeBtnRef.current)?.focus();
+    (targetBtn ?? searchInputRef.current)?.focus();
   }, [packs, isOpen, isBusy]);
 
   const filteredPacks = useMemo(() => {
@@ -282,22 +281,84 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       fallbackFocusRef={fallbackFocusRef}
+      className="settings-overlay"
       panelClassName="language-pack-panel"
       title="Language Packs"
     >
-      <Modal.Header>Language Packs</Modal.Header>
+      <Modal.Header className="settings-header">Language Packs</Modal.Header>
       <Modal.Body className="language-pack-body">
-        <div className="language-pack-toolbar">
+        <section
+          className="app-update-review-card"
+          id="app-update-review-section"
+          style={{ display: 'none' }}
+        >
+          <div className="app-update-review-copy">
+            <div className="app-update-review-eyebrow" id="app-update-review-eyebrow">
+              App update
+            </div>
+            <h3 id="app-update-review-title">YumeShelf</h3>
+            <p id="app-update-review-status">Review the latest release before you update.</p>
+            <div className="app-update-review-meta" id="app-update-review-meta" />
+          </div>
+          <div className="app-update-review-notes" id="app-update-review-notes" />
+          <div className="app-update-review-actions">
+            <button
+              type="button"
+              className="text-btn app-update-review-opt-out-btn"
+              id="app-update-review-opt-out-btn"
+              style={{ display: 'none' }}
+            >
+              Don&apos;t show again
+            </button>
+            <button type="button" className="small-btn" id="app-update-review-action-btn">
+              Update
+            </button>
+          </div>
+        </section>
+
+        <div className="language-pack-toolbar" id="language-pack-toolbar">
           <input
             ref={searchInputRef}
             type="search"
+            id="language-pack-search"
             className="language-pack-search"
-            placeholder="Search language packs..."
+            placeholder="Search by code, language, or alias"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search language packs"
           />
+          <div className="language-pack-actions">
+            <button
+              type="button"
+              id="language-pack-list-btn"
+              className="small-btn secondary-btn"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+            >
+              See available language packs
+            </button>
+            <button
+              type="button"
+              id="language-pack-refresh-btn"
+              className="small-btn secondary-btn"
+              aria-disabled={isBusy || status === 'loading' ? 'true' : undefined}
+              onClick={() => {
+                if (!isBusy && status !== 'loading') {
+                  void loadManifest();
+                }
+              }}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
+
+        <p className="language-pack-hint" id="language-pack-hint">
+          Search for a language pack or browse what is available.
+        </p>
+        <div className="language-pack-source" id="language-pack-source" />
 
         {status === 'loading' && (
           <div className="language-pack-placeholder" role="status" aria-live="polite">
@@ -320,11 +381,21 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
         )}
 
         {status !== 'loading' && status !== 'error' && (
-          <div className="language-pack-results" role="list">
+          <div className="language-pack-results" id="language-pack-results" role="list">
             {filteredPacks.length === 0 ? (
-              <div className="language-pack-empty">
-                <h3>No language packs found</h3>
-                <p>Try refining your search terms.</p>
+              <div className="language-pack-empty" id="language-pack-empty">
+                <h3 id="language-pack-empty-title">No language packs found</h3>
+                <p id="language-pack-empty-desc">
+                  Try refining your search terms or contribute your own pack.
+                </p>
+                <a
+                  id="language-pack-repo-link"
+                  href="https://github.com/loerei/YumeShelf/blob/main/TRANSLATION.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open translation guide
+                </a>
               </div>
             ) : (
               filteredPacks.map((pack) => {
@@ -340,7 +411,7 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
                     className="language-pack-card"
                     role="listitem"
                   >
-                    <div className="language-pack-card-info">
+                    <div className="language-pack-card-copy">
                       <h3>
                         {pack.nativeName || pack.englishName || pack.code}{' '}
                         {pack.englishName &&
@@ -353,6 +424,17 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
                         {pack.packVersion && (
                           <span className="language-pack-chip">v{pack.packVersion}</span>
                         )}
+                        {pack.reviewedForAppVersion && (
+                          <span className="language-pack-chip">
+                            App {pack.reviewedForAppVersion}
+                          </span>
+                        )}
+                        {Array.isArray(pack.aliases) &&
+                          pack.aliases.slice(0, 3).map((alias) => (
+                            <span key={alias} className="language-pack-chip">
+                              {alias}
+                            </span>
+                          ))}
                         {isSelected && <span className="language-pack-chip active">Active</span>}
                       </div>
                     </div>
@@ -402,16 +484,6 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
           </div>
         )}
       </Modal.Body>
-      <Modal.Footer>
-        <button
-          ref={closeBtnRef}
-          type="button"
-          className="small-btn secondary-btn"
-          onClick={onClose}
-        >
-          Close
-        </button>
-      </Modal.Footer>
     </Modal>
   );
 };

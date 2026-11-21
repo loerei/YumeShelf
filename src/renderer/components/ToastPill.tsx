@@ -7,7 +7,7 @@ export interface ToastPillProps {
   onDismiss: () => void;
 }
 
-const DEFAULT_TOAST_DURATION_MS = 3200;
+const DEFAULT_TOAST_DURATION_MS = 3000;
 const HIDE_TRANSITION_MS = 300;
 
 function prefersReducedMotion(): boolean {
@@ -83,11 +83,22 @@ export function ToastPill({
   const hostClass =
     phase === 'hiding'
       ? 'toast-pill-host toast-pill-hiding'
-      : 'toast-pill-host toast-pill-visible';
+      : 'toast-pill-host toast-pill-visible show';
 
   return (
     <div className={hostClass} role="status" aria-live="polite">
       <div className="toast-pill">
+        <div className="toast-pill-icon-wrapper" aria-hidden="true">
+          <svg
+            className="toast-pill-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+        </div>
         <span className="toast-pill-text">{message}</span>
         <button
           type="button"

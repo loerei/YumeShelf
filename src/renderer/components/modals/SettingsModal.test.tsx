@@ -691,6 +691,10 @@ describe('SettingsModal', () => {
     // Zero telemetry controls
     expect(screen.queryByText(/telemetry/i)).toBeNull();
 
+    expect(screen.getByLabelText('Hide And Seek?')).toBeTruthy();
+    const bonkSelect = screen.getByLabelText('Bonk Sound') as HTMLSelectElement;
+    expect(Array.from(bonkSelect.options).some((o) => o.value === 'metal-pipe')).toBe(true);
+
     const scaleSlider = screen.getByLabelText('Mascot Scale');
     expect(scaleSlider.getAttribute('aria-valuetext')).toBe('30%');
 
@@ -754,5 +758,6 @@ describe('SettingsModal', () => {
 
     expect(css).toMatch(/\.category-actions\s*\{[^}]*position:\s*relative;/s);
     expect(css).toMatch(/\.settings-tab-btn:focus-visible\s*\{[^}]*outline:\s*2px\s+solid\s+var\(--accent\);/s);
+    expect(css).toMatch(/\.modal-backdrop\.settings-overlay\s*\{[^}]*display:\s*flex;/s);
   });
 });

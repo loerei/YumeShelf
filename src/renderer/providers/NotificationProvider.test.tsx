@@ -233,6 +233,8 @@ describe('NotificationProvider & Parsers', () => {
       const status = screen.getByRole('status');
       expect(status).toHaveAttribute('aria-live', 'polite');
       expect(status.className).toContain('toast-pill-visible');
+      expect(status.className).toContain('show');
+      expect(status.querySelector('.toast-pill-icon-wrapper')).not.toBeNull();
       expect(screen.getByText('Saved changes')).toBeInTheDocument();
 
       const dismissBtn = screen.getByRole('button', { name: 'Dismiss notification' });

@@ -9,6 +9,7 @@ export interface UpdateNotificationCardProps {
   onStartDownload: () => Promise<void>;
   onOpenDownloadPage: () => Promise<void>;
   onInstall: () => Promise<void>;
+  onOptOut?: () => Promise<void> | void;
   fallbackFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
@@ -18,9 +19,11 @@ export function UpdateNotificationCard({
   onStartDownload,
   onOpenDownloadPage,
   onInstall,
+  onOptOut,
   fallbackFocusRef,
 }: UpdateNotificationCardProps) {
   const [isActionPending, setIsActionPending] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const remindLaterBtnRef = useRef<HTMLButtonElement | null>(null);
   const cardRef = useRef<HTMLElement | null>(null);
 
@@ -93,6 +96,20 @@ export function UpdateNotificationCard({
     onDismiss?.();
   };
 
+  if (isCollapsed) {
+    return (
+      <button
+        type="button"
+        className="update-notification-handle"
+        id="update-notification-handle"
+        style={{ display: 'inline-flex' }}
+        onClick={() => setIsCollapsed(false)}
+      >
+        Updates
+      </button>
+    );
+  }
+
   return (
     <section
       ref={cardRef}
@@ -146,6 +163,20 @@ export function UpdateNotificationCard({
         <p className="update-notification-message">{update.releaseNotes}</p>
       )}
       <div className="update-notification-actions">
+        {onOptOut && (
+          <button
+            type="button"
+            className="text-btn update-notification-tertiary"
+            id="update-notification-tertiary-btn"
+            aria-disabled={isActionPending}
+            style={isActionPending ? { pointerEvents: 'none' } : undefined}
+            onClick={() => {
+              if (!isActionPending) void onOptOut();
+            }}
+          >
+            Don&apos;t show again
+          </button>
+        )}
         <button
           ref={remindLaterBtnRef}
           type="button"

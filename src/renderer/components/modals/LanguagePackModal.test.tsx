@@ -139,8 +139,14 @@ describe('LanguagePackModal', () => {
     expect(portalRoot.contains(dialog)).toBe(true);
     expect(dialog.className).toContain('language-pack-panel');
     expect(dialog.querySelector('.language-pack-body')).not.toBeNull();
+    expect(dialog.querySelector('#app-update-review-section')).not.toBeNull();
     expect(dialog.querySelector('.language-pack-toolbar')).not.toBeNull();
     expect(dialog.querySelector('.language-pack-search')).not.toBeNull();
+    expect(dialog.querySelector('.language-pack-actions')).not.toBeNull();
+    expect(dialog.querySelector('#language-pack-list-btn')).not.toBeNull();
+    expect(dialog.querySelector('#language-pack-refresh-btn')).not.toBeNull();
+    expect(dialog.querySelector('.language-pack-hint')).not.toBeNull();
+    expect(dialog.querySelector('.language-pack-source')).not.toBeNull();
     expect(dialog.querySelector('.language-pack-placeholder')).not.toBeNull();
 
     await waitFor(() => {
@@ -149,6 +155,7 @@ describe('LanguagePackModal', () => {
 
     const cards = dialog.querySelectorAll('.language-pack-card');
     expect(cards.length).toBe(3);
+    expect(dialog.querySelector('.language-pack-card-copy')).not.toBeNull();
     expect(dialog.querySelector('.language-pack-card-meta')).not.toBeNull();
     expect(dialog.querySelector('.language-pack-chip')).not.toBeNull();
 

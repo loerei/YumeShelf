@@ -501,6 +501,10 @@ export function NotificationProvider({
                     onStartDownload={startUpdateDownload}
                     onOpenDownloadPage={openUpdateDownloadPage}
                     onInstall={restartAndInstallUpdate}
+                    onOptOut={async () => {
+                      await scheduleInstallOnNextLaunch();
+                      dismissUpdate();
+                    }}
                     fallbackFocusRef={effectiveFallbackFocusRef}
                   />
                 )}

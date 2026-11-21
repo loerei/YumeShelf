@@ -194,7 +194,12 @@ export function SettingsModal({
 
   // General / Interface preferences
   const [theme, setTheme] = useState<string>(() => resolvedStorage?.getItem('yumeshelf_theme') || 'system');
-  const [language, setLanguage] = useState<string>('en');
+  const [language, setLanguage] = useState<string>(
+    () => resolvedStorage?.getItem('yumeshelf_lang') || 'en'
+  );
+  const [installedLanguages, setInstalledLanguages] = useState<
+    Array<{ code: string; label: string }>
+  >([{ code: 'en', label: 'English' }]);
   const [isUpdatingConfig, setIsUpdatingConfig] = useState(false);
 
   // Updates preferences
@@ -208,6 +213,9 @@ export function SettingsModal({
   // Mascot preferences
   const [mascotShow, setMascotShow] = useState<boolean>(
     () => (resolvedStorage?.getItem('yumeshelf_mascot_show') || 'on') === 'on'
+  );
+  const [hideAndSeek, setHideAndSeek] = useState<string>(
+    () => resolvedStorage?.getItem('yumeshelf_hide_and_seek') || 'out'
   );
   const [mascotScale, setMascotScale] = useState<number>(() => {
     const raw = Number(resolvedStorage?.getItem('yumeshelf_mascot_scale') || '30');
@@ -279,6 +287,29 @@ export function SettingsModal({
           // Non-critical metadata fetch
         });
     }
+    if (api?.getLanguageState) {
+      Promise.resolve(api.getLanguageState())
+        .then((state) => {
+          if (!active || !isMountedRef.current || !state) return;
+          const seen = new Set<string>();
+          const items: Array<{ code: string; label: string }> = [];
+          for (const entry of [...(state.builtIn ?? []), ...(state.installed ?? [])]) {
+            const code = String(entry?.code || '').trim();
+            if (!code || seen.has(code)) continue;
+            seen.add(code);
+            items.push({
+              code,
+              label: entry.nativeName || entry.englishName || code,
+            });
+          }
+          if (items.length > 0) {
+            setInstalledLanguages(items);
+          }
+        })
+        .catch(() => {
+          // Non-critical language list fetch
+        });
+    }
     return () => {
       active = false;
     };
@@ -293,7 +324,7 @@ export function SettingsModal({
   const flattenedCategories = useMemo(() => flattenCategoryTree(categoryTree), [categoryTree]);
 
   const libraryPaths = config?.libraryPaths ?? [];
-  const maxDepth = typeof config?.maxDepth === 'number' ? config.maxDepth : 2;
+  const maxDepth = typeof config?.maxDepth === 'number' ? config.maxDepth : 5;
   const titleDisplayMode = config?.titleDisplayMode ?? 'metadata';
   const displayProductCodes = Boolean(config?.displayProductCodes);
   const autoLaunchValue =
@@ -335,7 +366,7 @@ export function SettingsModal({
         ...(config ?? {
           libraryPaths: [],
           libraryPath: '',
-          maxDepth: 2,
+          maxDepth: 5,
           autoLaunch: false,
           minimizeToTray: false,
         }),
@@ -513,6 +544,41 @@ export function SettingsModal({
         stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
       });
       showToast('Failed to remove library path');
+    } finally {
+      if (isMountedRef.current) {
+        setIsMutating(false);
+      }
+    }
+  };
+
+  const handleChangePath = async (pathToChange: string) => {
+    if (isMutating || isScanning) return;
+    setIsMutating(true);
+    try {
+      const updatedConfig = await api?.changeLibraryPath?.(pathToChange);
+      if (updatedConfig) {
+        const [games, tree] = await Promise.all([
+          api?.getGames?.() ?? [],
+          api?.getCategoryTree?.() ?? [],
+        ]);
+        store.setCurrentLibraryConfig(updatedConfig);
+        store.setCategoryTree(tree);
+        store.setAllGames(
+          annotateGamesForDisplay(
+            games,
+            updatedConfig,
+            store.getSnapshot().locationDisplayMode
+          )
+        );
+        onLibraryPathsUpdated?.(updatedConfig.libraryPaths);
+      }
+    } catch (err) {
+      console.error('[SettingsModal] Failed to change library path:', {
+        pathToChange: sanitizeUserPaths(pathToChange),
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      showToast('Failed to change library path');
     } finally {
       if (isMountedRef.current) {
         setIsMutating(false);
@@ -875,20 +941,29 @@ export function SettingsModal({
             <div className="setting-item">
               <label htmlFor="language-select">Language</label>
               <div className="setting-control-zone setting-field-group">
-                <select
-                  id="language-select"
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                >
-                  <option value="en">English</option>
-                </select>
                 <button
                   type="button"
-                  className="small-btn text-btn"
+                  className="small-btn secondary-btn"
                   onClick={() => onOpenLanguagePack?.()}
                 >
                   More languages...
                 </button>
+                <select
+                  id="language-select"
+                  value={language}
+                  onChange={(e) => {
+                    const nextLang = e.target.value;
+                    setLanguage(nextLang);
+                    resolvedStorage?.setItem('yumeshelf_lang', nextLang);
+                    showToast('Language updated');
+                  }}
+                >
+                  {installedLanguages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -1007,32 +1082,73 @@ export function SettingsModal({
                 {libraryPaths.length === 0 ? (
                   <p className="empty-list-hint">No library directories configured.</p>
                 ) : (
-                  libraryPaths.map((dirPath) => (
-                    <div
-                      key={dirPath}
-                      ref={(el) => {
-                        if (el) {
-                          pathItemRefs.current.set(dirPath, el);
-                        } else {
-                          pathItemRefs.current.delete(dirPath);
-                        }
-                      }}
-                      tabIndex={-1}
-                      className="library-path-row"
-                    >
-                      <span className="library-path-text">{dirPath}</span>
-                      <button
-                        type="button"
-                        className="library-path-action-btn"
-                        aria-label={`Remove path ${dirPath}`}
-                        aria-disabled={isMutating || isScanning}
-                        style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
-                        onClick={() => handleRemovePath(dirPath)}
+                  libraryPaths.map((dirPath) => {
+                    const canRemove = libraryPaths.length > 1;
+                    return (
+                      <div
+                        key={dirPath}
+                        ref={(el) => {
+                          if (el) {
+                            pathItemRefs.current.set(dirPath, el);
+                          } else {
+                            pathItemRefs.current.delete(dirPath);
+                          }
+                        }}
+                        tabIndex={-1}
+                        className="library-path-entry"
                       >
-                        Remove
-                      </button>
-                    </div>
-                  ))
+                        <span className="library-path-icon" aria-hidden="true">
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                          </svg>
+                        </span>
+                        <button
+                          type="button"
+                          className="library-path-link"
+                          title={dirPath}
+                          onClick={() => void api?.openPath?.(dirPath)}
+                        >
+                          {dirPath}
+                        </button>
+                        <div className="library-path-actions">
+                          <button
+                            type="button"
+                            className="library-path-action-btn change-btn"
+                            aria-label={`Change path ${dirPath}`}
+                            aria-disabled={isMutating || isScanning}
+                            style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
+                            onClick={() => void handleChangePath(dirPath)}
+                          >
+                            Change
+                          </button>
+                          <button
+                            type="button"
+                            className="library-path-action-btn remove-btn"
+                            aria-label={`Remove path ${dirPath}`}
+                            disabled={!canRemove}
+                            aria-disabled={!canRemove || isMutating || isScanning}
+                            style={
+                              !canRemove || isMutating || isScanning
+                                ? { pointerEvents: 'none' }
+                                : undefined
+                            }
+                            onClick={() => {
+                              if (canRemove) void handleRemovePath(dirPath);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1379,6 +1495,25 @@ export function SettingsModal({
               </div>
             </div>
 
+            <div className="setting-item" id="setting-item-hide-and-seek">
+              <label htmlFor="hide-and-seek-select">Hide And Seek?</label>
+              <div className="setting-control-zone">
+                <select
+                  id="hide-and-seek-select"
+                  value={hideAndSeek}
+                  disabled={!mascotShow}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setHideAndSeek(nextVal);
+                    resolvedStorage?.setItem('yumeshelf_hide_and_seek', nextVal);
+                  }}
+                >
+                  <option value="yeaaa">YEAAA</option>
+                  <option value="out">I&apos;m out</option>
+                </select>
+              </div>
+            </div>
+
             <div className="setting-item">
               <label htmlFor="mascot-scale-slider">Mascot Scale</label>
               <div className="setting-control-zone">
@@ -1394,7 +1529,9 @@ export function SettingsModal({
                       updateMascotPreferences({ scale: Number(e.target.value) })
                     }
                   />
-                  <span id="mascot-scale-value">{mascotScale}%</span>
+                  <span id="mascot-scale-value" className="volume-value-label">
+                    {mascotScale}%
+                  </span>
                 </div>
               </div>
             </div>
@@ -1407,8 +1544,8 @@ export function SettingsModal({
                   value={mascotSound}
                   onChange={(e) => updateMascotPreferences({ sound: e.target.value })}
                 >
-                  <option value="squeaker">Squeaker</option>
-                  <option value="bonk">Bonk</option>
+                  <option value="squeaker">Squeaky</option>
+                  <option value="metal-pipe">Metal pipe</option>
                   <option value="none">None</option>
                 </select>
               </div>
@@ -1429,7 +1566,9 @@ export function SettingsModal({
                       updateMascotPreferences({ volume: Number(e.target.value) })
                     }
                   />
-                  <span id="mascot-volume-value">{mascotVolume}%</span>
+                  <span id="mascot-volume-value" className="volume-value-label">
+                    {mascotVolume}%
+                  </span>
                 </div>
               </div>
             </div>

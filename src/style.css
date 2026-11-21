@@ -3,6 +3,7 @@
 @import "./styles/header-search.css";
 @import "./styles/game-cards.css";
 @import "./styles/menus-tooltips.css";
+@import "./styles/modals.css";
 @import "./styles/settings.css";
 @import "./styles/responsive.css";
 @import "./styles/boot.css";
@@ -11,4 +12,3 @@
 @import "./styles/save-editor.css";
 @import "./styles/toast-pill.css";
 @import "./styles/mascot.css";
-@import "./styles/modals.css";

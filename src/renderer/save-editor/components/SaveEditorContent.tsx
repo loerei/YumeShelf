@@ -67,6 +67,9 @@ export function SaveEditorContent({
 
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const columnCount = computeGridColumnCount(containerWidth);
+  const [expandingTabs, setExpandingTabs] = useState<ReadonlySet<string>>(() => new Set());
+  const prevCollapsedRef = useRef<ReadonlySet<string>>(collapsedSections);
+  const expandTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const handleChange = useCallback(
     (id: string, val: SaveFieldScalar) => {
@@ -158,6 +161,53 @@ export function SaveEditorContent({
       : fileStatus.state === 'loading' || fileStatus.state === 'error'
         ? fileStatus.fileName
         : null;
+
+  useEffect(() => {
+    const prev = prevCollapsedRef.current;
+    prevCollapsedRef.current = collapsedSections;
+    if (fileStatus.state !== 'loaded') return;
+
+    const newlyExpanded: string[] = [];
+    for (const tabId of prev) {
+      if (!collapsedSections.has(tabId)) {
+        newlyExpanded.push(tabId);
+      }
+    }
+    if (newlyExpanded.length === 0) return;
+
+    setExpandingTabs((curr) => {
+      const next = new Set(curr);
+      for (const tabId of newlyExpanded) {
+        next.add(tabId);
+      }
+      return next;
+    });
+
+    for (const tabId of newlyExpanded) {
+      const existing = expandTimersRef.current.get(tabId);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(() => {
+        expandTimersRef.current.delete(tabId);
+        setExpandingTabs((curr) => {
+          if (!curr.has(tabId)) return curr;
+          const next = new Set(curr);
+          next.delete(tabId);
+          return next;
+        });
+      }, 180);
+      expandTimersRef.current.set(tabId, timer);
+    }
+  }, [collapsedSections, fileStatus.state]);
+
+  useEffect(() => {
+    const timers = expandTimersRef.current;
+    return () => {
+      for (const timer of timers.values()) {
+        clearTimeout(timer);
+      }
+      timers.clear();
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (fileStatus.state === 'loaded') {
@@ -373,7 +423,11 @@ export function SaveEditorContent({
                   </button>
                 ) : (
                   <div
-                    className="save-grid-virtual-row"
+                    className={
+                      row.fields[0]?.tabId && expandingTabs.has(row.fields[0].tabId)
+                        ? 'save-grid-virtual-row save-grid-virtual-row--expanding'
+                        : 'save-grid-virtual-row'
+                    }
                     style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
                   >
                     {row.fields.map((field) => {

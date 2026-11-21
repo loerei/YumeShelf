@@ -1049,6 +1049,9 @@
         animation: none;
         transition: none;
     }
+    .save-grid-virtual-row--expanding {
+        animation: none;
+    }
 }
 
 @keyframes save-editor-fade-in {
@@ -1067,6 +1070,10 @@
 .save-editor-loaded-stage {
     width: 100%;
     animation: save-editor-fade-in 0.18s ease-out;
+}
+
+.save-grid-virtual-row--expanding {
+    animation: save-editor-fade-in 0.16s ease-out;
 }
 
 .save-editor-content {
@@ -1135,6 +1142,7 @@
 }
 
 .save-field-row .checkbox-row {
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -1295,6 +1303,7 @@
 }
 
 .checkbox-row input[type="checkbox"] {
+    flex-shrink: 0;
     width: 18px;
     height: 18px;
     accent-color: var(--accent, #0078d4);

@@ -4,13 +4,15 @@
 [Epic 09: Sort by Folder](file:///d:/Projects/YumeShelf/docs/specs/09-sort-by-folder/PRD.md)
 
 ## What to build
+> **Scope Guard:** Implement only what is explicitly specified; preserve initial intended UXUI and all unmentioned existing behaviors in `GameCard.tsx`, `StackCard.tsx`, `useCardMenu.ts` (including right-click context menus), and `LibraryGrid.tsx`. Do NOT alter, restyle, or remove anything unasked.
+
 Implement connected multi-container drag-and-drop for game cards using `@dnd-kit`, supporting card reordering within folder sections and cross-zone drag-and-drop with the Favorites section:
 - [ ] 1. **[NEW]** [`src/renderer/dnd/GameDndContext.tsx`](file:///d:/Projects/YumeShelf/src/renderer/dnd/GameDndContext.tsx), **[NEW]** [`src/renderer/components/SortableGameCard.tsx`](file:///d:/Projects/YumeShelf/src/renderer/components/SortableGameCard.tsx), & **[MODIFY]** [`src/renderer/components/LibraryGrid.tsx`](file:///d:/Projects/YumeShelf/src/renderer/components/LibraryGrid.tsx) — **@dnd-kit Drag Architecture**:
-   - Establish multi-container `DndContext` in `LibraryGrid.tsx` or dedicated drag provider `GameDndContext.tsx`.
-   - Render sortable card wrappers (`SortableGameCard.tsx`) using `useSortable({ id: gameKey })` around `GameCard.tsx`.
-   - Provide `<DragOverlay>` to render a high-fidelity visual preview of the dragged game card during interactions, styled with elevated z-index (`--zIndex-card-drag: 1600`).
+   - Establish multi-container `DndContext` in `GameDndContext.tsx` and mount it in `LibraryGrid.tsx`.
+   - Render sortable card wrappers (`SortableGameCard.tsx`) using `useSortable({ id: gameKey })` around `GameCard.tsx` (preserving `forwardRef`, `useCardMenu.ts` right-click context menu behavior, and existing card CSS classes).
+   - Provide `<DragOverlay>` to render a high-fidelity visual preview of the dragged game card during interactions, styled with elevated z-index (`var(--zIndex-card-drag, 1650)`).
 - [ ] 2. **[NEW]** [`src/renderer/dnd/card-drop-validator.ts`](file:///d:/Projects/YumeShelf/src/renderer/dnd/card-drop-validator.ts) — **Drop Permission Matrix & Validation Seam**:
-   - Implement pure validator function `validateGameCardDrop(context: { sourceContainerId: string; targetContainerId: string; game: GameEntry; currentSort: string; favorites: GameEntry[]; targetPlatform?: PlatformInput; }): boolean`:
+   - Implement pure validator function `validateGameCardDrop(context: { sourceContainerId: string; targetContainerId: string; game: GameEntry; currentSort: string; favorites: readonly GameEntry[]; targetPlatform?: PlatformInput; }): boolean`:
      1. **Same-container reordering**: always allowed (`targetContainerId === sourceContainerId`).
      2. **Folder sort -> Drag into Favorites**: allowed strictly if the game is not already present in the favorites collection. Upon successful drop, triggers `electronAPI.toggleFavorite(gameKey, true)` to establish dual placement.
      3. **Folder sort -> Drag out of Favorites**: allowed strictly if the target container is the owning root folder of the game (verified via `isSubsumedBy(game.folderPath, targetRootPath, targetPlatform)`). Upon drop, triggers `electronAPI.toggleFavorite(gameKey, false)` to remove from favorites while retaining folder placement.
@@ -19,16 +21,14 @@ Implement connected multi-container drag-and-drop for game cards using `@dnd-kit
 - [ ] 3. **Custom Order Persistence & Optimistic Updates**:
    - Calculate relative insertion into `customOrder` upon drop.
    - Optimistically update local state and persist to storage via `writeCustomOrder`.
-   - If favorite state changed, invoke `electronAPI.toggleFavorite`. On error, roll back local order/favorite state and dispatch toast notification (`toast_favorite_update_failed`).
-- [ ] 4. **[NEW]** [`src/renderer/hooks/useCardMenuAndRename.ts`](file:///d:/Projects/YumeShelf/src/renderer/hooks/useCardMenuAndRename.ts), **[MODIFY]** [`src/renderer/components/GameCard.tsx`](file:///d:/Projects/YumeShelf/src/renderer/components/GameCard.tsx), & **[MODIFY]** [`src/renderer/components/StackCard.tsx`](file:///d:/Projects/YumeShelf/src/renderer/components/StackCard.tsx) — **Shared Card Menu & Inline Rename Hook (SSOT)**:
-   - Extract the duplicated menu-toggle/outside-click/`Escape` listener lifecycle, inline rename draft/focus/commit/cancel state, and forwarded card ref handler shared by `GameCard.tsx` and `StackCard.tsx` (~197 duplicated lines flagged in Epic 08 SonarCloud CPD) into `useCardMenuAndRename.ts`.
-   - Consume `useCardMenuAndRename` in both `GameCard.tsx` and `StackCard.tsx` without changing existing DOM selectors, ARIA attributes, or test contracts.
-- [ ] 5. **[NEW]** [`src/renderer/dnd/game-card-dnd.test.tsx`](file:///d:/Projects/YumeShelf/src/renderer/dnd/game-card-dnd.test.tsx) — **Vitest Unit & Integration Tests**:
-   - Verify 5-scenario drop validation matrix, favorite toggle dispatch on cross-zone drops, cross-folder drop rejection, and custom order update and persistence.
+   - If favorite state changed, invoke `electronAPI.toggleFavorite`. On error, roll back local order/favorite state and dispatch localized toast notification (`useLocaleStrings().toast_favorite_update_failed`).
+- [ ] 4. **[NEW]** [`src/renderer/dnd/game-card-dnd.test.tsx`](file:///d:/Projects/YumeShelf/src/renderer/dnd/game-card-dnd.test.tsx) — **Vitest Unit & Integration Tests**:
+   - Verify 5-scenario drop validation matrix, favorite toggle dispatch on cross-zone drops, cross-folder drop rejection, custom order update and persistence, and rollback on IPC rejection.
+   - Verify existing `GameCard.test.tsx` and `StackCard.test.tsx` remain 100% passing without regression to `useCardMenu.ts` or right-click context menus.
 
 ## Blocked by
 - [03 — Segmented Shelf Tabs Component with @dnd-kit ($B$)](file:///d:/Projects/YumeShelf/docs/specs/09-sort-by-folder/tickets/03-segmented-shelf-tabs-dnd-kit.md)
-- [04 — Folder Accordions & Section Components ($B$)](file:///d:/Projects/YumeShelf/docs/specs/09-sort-by-folder/tickets/04-folder-accordions-and-sections.md)
+- [04 — Folder Accordions, Section Components & LibraryGrid Mounting ($B$)](file:///d:/Projects/YumeShelf/docs/specs/09-sort-by-folder/tickets/04-folder-accordions-and-sections.md)
 
 ## Status
 todo
@@ -38,8 +38,8 @@ todo
 - [ ] Dragging a game card into Favorites favorites the game and retains it in its folder section (dual placement).
 - [ ] Dragging a game card out of Favorites unfavorites the game only when dropped into its owning folder.
 - [ ] Cross-folder drops between different folder sections are strictly rejected.
-- [ ] Reordered custom order persists deterministically to disk.
-- [ ] Shared card menu and inline rename logic lives in `useCardMenuAndRename.ts` with `GameCard.test.tsx` and `StackCard.test.tsx` passing.
+- [ ] Reordered custom order persists deterministically to storage and rolls back with localized error toast (`toast_favorite_update_failed`) on failure.
+- [ ] Existing `GameCard.test.tsx`, `StackCard.test.tsx`, and `LibraryGrid.test.tsx` pass with zero regression to right-click menus or card styling.
 - [ ] Unit tests in `game-card-dnd.test.tsx` pass cleanly.
 - [ ] `npm run typecheck` passes with zero errors.
 

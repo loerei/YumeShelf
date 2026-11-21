@@ -926,6 +926,8 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     expect(css).toMatch(
       /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[^}]*\.save-editor-loaded-stage,\s*\.save-editor-tabs-wrapper\.is-loaded\s*\{[^}]*animation:\s*none;/s
     );
+    expect(css).toMatch(/\.save-grid-virtual-row--expanding\s*\{[^}]*animation:\s*save-editor-fade-in/s);
+    expect(css).toMatch(/\.save-field-row\s+\.checkbox-row\s*\{[^}]*box-sizing:\s*border-box/s);
 
     const rowBlock = css.match(/\.save-field-row\s*\{([^}]+)\}/);
     expect(rowBlock).not.toBeNull();
@@ -1008,5 +1010,60 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     expect(idleSvg).not.toBeNull();
     expect(idleSvg?.getAttribute('width')).toBe('48');
     expect(idleSvg?.getAttribute('height')).toBe('48');
+  });
+
+  it('applies save-grid-virtual-row--expanding briefly when expanding a collapsed section in All tab', () => {
+    vi.useFakeTimers();
+    try {
+      const store = createSaveEditorStore('game-1');
+      store.setFileLoaded(
+        createSaveDto('slot1.sav', [
+          {
+            id: 'variables:1',
+            tabId: 'variables',
+            key: '1',
+            label: 'Gold',
+            value: 100,
+            type: 'number',
+          },
+          {
+            id: 'switches:1',
+            tabId: 'switches',
+            key: '1',
+            label: 'Flag Alpha',
+            value: false,
+            type: 'boolean',
+          },
+        ])
+      );
+      store.setActiveTab('all');
+
+      const { container } = render(
+        <SaveEditorStoreProvider store={store}>
+          <SaveEditorContent />
+        </SaveEditorStoreProvider>
+      );
+
+      expect(container.querySelector('.save-grid-virtual-row--expanding')).toBeNull();
+
+      act(() => {
+        store.toggleSection('switches');
+      });
+      expect(container.querySelector('.save-grid-virtual-row--expanding')).toBeNull();
+
+      act(() => {
+        store.toggleSection('switches');
+      });
+      const expandingRows = container.querySelectorAll('.save-grid-virtual-row--expanding');
+      expect(expandingRows).toHaveLength(1);
+      expect(expandingRows[0]?.textContent).toContain('Flag Alpha');
+
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(container.querySelector('.save-grid-virtual-row--expanding')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

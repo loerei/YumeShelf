@@ -11,6 +11,7 @@ import type {
 } from '@yumeshelf/engine/types';
 import type { ElectronAPI, SaveFolderInfo } from '../../../shared/types/ipc';
 import { bootstrapStandaloneSaveEditor, mountStandaloneSaveEditor } from '../../../save-editor';
+import { resetLocaleCacheForTests } from '../../i18n/locale-strings';
 import { SaveEditorApp } from '../SaveEditorApp';
 import { createSaveEditorStore, type ObservableSaveEditorStore } from '../store/save-editor-store';
 
@@ -580,7 +581,7 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     });
     expect(store.getSnapshot().dirtyKeys.size).toBe(0);
     expect(store.getSnapshot().saveStatus).toEqual({ state: 'saved' });
-    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.getByText(/^Saved!?$/)).toBeInTheDocument();
 
     const postSaveUnloadEvent = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(postSaveUnloadEvent);
@@ -789,5 +790,49 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
       fileName: 'save01.sav',
       updates: { 'variables:1': 888 },
     });
+  });
+
+  it('renders localized vi strings for sidebar, tabs, filters, search bar, field row pin, and footer', async () => {
+    resetLocaleCacheForTests();
+    const viPack = JSON.parse(
+      fs.readFileSync(path.resolve(process.cwd(), 'language-packs/packs/vi.json'), 'utf8')
+    ) as { strings: Record<string, string> };
+    localStorage.setItem('yumeshelf_lang', 'vi');
+    const mockApi = createMockElectronAPI({
+      getLanguageState: vi.fn().mockResolvedValue({
+        builtIn: [],
+        installed: [{ code: 'vi', strings: viPack.strings }],
+      }),
+    });
+    const store = createSaveEditorStore('test-game');
+
+    try {
+      render(
+        <SaveEditorApp
+          gameKey="test-game"
+          initialFile="save01.sav"
+          store={store}
+          electronAPI={mockApi}
+        />
+      );
+
+      await screen.findByRole('textbox', { name: 'Gold' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Thư mục lưu')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Chọn thư mục lưu' })).toHaveTextContent('Đổi...');
+        expect(screen.getByRole('list', { name: 'Danh sách file save' })).toBeInTheDocument();
+        expect(screen.getByRole('navigation', { name: 'Danh mục save' })).toBeInTheDocument();
+        expect(screen.getByRole('group', { name: 'Bộ lọc biến save' })).toBeInTheDocument();
+        expect(screen.getByRole('searchbox', { name: 'Tìm kiếm biến' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Tải lại từ ổ đĩa' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Dịch các trường save' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Ghim Gold' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeInTheDocument();
+      });
+    } finally {
+      localStorage.removeItem('yumeshelf_lang');
+      resetLocaleCacheForTests();
+    }
   });
 });

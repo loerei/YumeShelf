@@ -18,7 +18,11 @@ export const SaveEditorFilterBar: React.FC = () => {
   const strings = useLocaleStrings(undefined, contextApi ?? null);
 
   return (
-    <div className="save-editor-filters" role="group" aria-label="Save variable filters">
+    <div
+      className="save-editor-filters"
+      role="group"
+      aria-label={strings.save_editor_filters_aria || 'Save variable filters'}
+    >
       <label className="save-editor-filter-check">
         <input
           type="checkbox"

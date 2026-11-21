@@ -144,7 +144,7 @@ export function SaveEditorFooter({
           role="alert"
         >
           <span className="save-editor-error-title">
-            Failed to save changes:
+            {strings.save_editor_save_error_title || 'Failed to save changes:'}
           </span>
           <span>{saveStatus.errorMessage}</span>
         </div>
@@ -154,7 +154,7 @@ export function SaveEditorFooter({
         role="status"
         aria-live="polite"
       >
-        {saveStatus.state === 'saved' && <span>Saved</span>}
+        {saveStatus.state === 'saved' && <span>{strings.save_editor_saved || 'Saved'}</span>}
       </div>
       <button
         type="button"
@@ -168,7 +168,7 @@ export function SaveEditorFooter({
         className={
           isSaving ? 'primary-btn save-btn is-saving' : 'primary-btn save-btn'
         }
-        aria-label="Save Changes"
+        aria-label={strings.save_editor_save || 'Save Changes'}
         aria-disabled={isActionDisabled}
         aria-busy={isSaving || undefined}
         style={isActionDisabled ? { pointerEvents: 'none' } : undefined}

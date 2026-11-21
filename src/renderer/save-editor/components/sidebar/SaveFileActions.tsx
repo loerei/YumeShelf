@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useContext, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { sanitizeUserPaths } from '../../../../shared/path-sanitizer';
+import { useLocaleStrings } from '../../../i18n/locale-strings';
+import { SaveEditorElectronApiContext } from '../../store/save-editor-store';
 
 export interface SaveFileActionsProps {
   fileName: string;
@@ -20,6 +22,8 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
   isConfirmOpen: controlledIsConfirmOpen,
   onConfirmOpenChange,
 }) => {
+  const contextApi = useContext(SaveEditorElectronApiContext) ?? null;
+  const strings = useLocaleStrings(undefined, contextApi);
   const [internalIsConfirmOpen, setInternalIsConfirmOpen] = useState(false);
   const resolvedOpen = controlledIsConfirmOpen ?? internalIsConfirmOpen;
   const setConfirmOpen = (next: boolean) => {
@@ -137,8 +141,8 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
           }}
           aria-disabled={isRenameDisabled}
           style={isRenameDisabled ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
-          title={`Rename ${fileName}`}
-          aria-label={`Rename ${fileName}`}
+          title={(strings.save_editor_rename_file || 'Rename {file}').replace('{file}', fileName)}
+          aria-label={(strings.save_editor_rename_file || 'Rename {file}').replace('{file}', fileName)}
         >
           <svg
             className="action-icon"
@@ -167,8 +171,8 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
         style={isDeleteDisabled ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
         aria-haspopup="dialog"
         aria-expanded={resolvedOpen}
-        title={`Delete ${fileName}`}
-        aria-label={`Delete ${fileName}`}
+        title={(strings.save_editor_delete_file || 'Delete {file}').replace('{file}', fileName)}
+        aria-label={(strings.save_editor_delete_file || 'Delete {file}').replace('{file}', fileName)}
       >
         <svg
           className="action-icon"
@@ -189,7 +193,7 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
             ref={popoverRef}
             className="save-editor-popover"
             role="dialog"
-            aria-label={`Confirm deletion of ${fileName}`}
+            aria-label={(strings.save_editor_confirm_delete_aria || 'Confirm deletion of {file}').replace('{file}', fileName)}
             data-interactive="true"
             style={{
               position: 'fixed',
@@ -206,9 +210,24 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
             }}
             tabIndex={-1}
           >
-            <h4 className="save-editor-popover-title">Confirm Deletion</h4>
+            <h4 className="save-editor-popover-title">
+              {strings.save_editor_confirm_delete_title || 'Confirm Deletion'}
+            </h4>
             <p className="save-editor-popover-desc">
-              Are you sure you want to delete <strong>{fileName}</strong>?
+              {(() => {
+                const descTemplate =
+                  strings.save_editor_confirm_delete_desc ||
+                  'Are you sure you want to delete {file}?';
+                const parts = descTemplate.split('{file}');
+                if (parts.length === 1) return descTemplate;
+                return (
+                  <>
+                    {parts[0]}
+                    <strong>{fileName}</strong>
+                    {parts.slice(1).join('{file}')}
+                  </>
+                );
+              })()}
             </p>
             {deleteError && (
               <div className="save-action-error" role="alert">
@@ -224,7 +243,7 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
                 style={isDeleting ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
                 autoFocus
               >
-                Cancel
+                {strings.save_editor_cancel || 'Cancel'}
               </button>
               <button
                 type="button"
@@ -233,7 +252,9 @@ export const SaveFileActions: React.FC<SaveFileActionsProps> = ({
                 aria-disabled={isDeleting}
                 style={isDeleting ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
               >
-                {isDeleting ? 'Deleting...' : 'Confirm'}
+                {isDeleting
+                  ? (strings.save_editor_deleting || 'Deleting...')
+                  : (strings.save_editor_confirm || 'Confirm')}
               </button>
             </div>
           </div>,

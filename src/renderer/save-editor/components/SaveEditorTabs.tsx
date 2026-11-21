@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { SaveTabDto } from '@yumeshelf/engine/types';
 import {
+  SaveEditorElectronApiContext,
   useSaveFileStatus,
   useActiveSaveTabId,
   useSaveEditorDispatch,
@@ -21,6 +22,8 @@ export const SaveEditorTabsView: React.FC<SaveEditorTabsViewProps> = ({
   activeTabId = '',
   onSelectTab,
 }) => {
+  const contextApi = useContext(SaveEditorElectronApiContext) ?? null;
+  const strings = useLocaleStrings(undefined, contextApi);
   const safeTabs = tabs ?? [];
   const containerClassName =
     safeTabs.length === 0
@@ -54,7 +57,7 @@ export const SaveEditorTabsView: React.FC<SaveEditorTabsViewProps> = ({
       <nav
         ref={tabsRef}
         className={containerClassName}
-        aria-label="Save categories"
+        aria-label={strings.save_editor_categories_aria || 'Save categories'}
         onScroll={updateShadows}
       >
         {safeTabs.map((tab) => {

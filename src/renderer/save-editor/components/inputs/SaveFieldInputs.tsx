@@ -6,6 +6,7 @@ export interface NumberInputProps {
   value: number;
   onChange: (val: number) => void;
   disabled?: boolean;
+  invalidNumberText?: string;
 }
 
 /**
@@ -19,6 +20,7 @@ export function NumberInput({
   value,
   onChange,
   disabled = false,
+  invalidNumberText = 'Invalid number',
 }: NumberInputProps): React.JSX.Element {
   const [draft, setDraft] = useState(String(value));
   const [draftError, setDraftError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function NumberInput({
 
     skipBlurCommitRef.current = false;
     if (fromEnter) {
-      setDraftError('Invalid number');
+      setDraftError(invalidNumberText);
     } else {
       setDraft(String(value));
       setDraftError(null);

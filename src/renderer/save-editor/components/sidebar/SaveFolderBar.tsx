@@ -30,7 +30,9 @@ export function SaveFolderBar({
   const strings = useLocaleStrings(undefined, contextApi);
   const changeBtnRef = useRef<HTMLButtonElement | null>(null);
   const retryBtnRef = useRef<HTMLButtonElement | null>(null);
-  const displayPath = isLoading ? 'Resolving save folder...' : (saveDir || 'Default Save Directory');
+  const displayPath = isLoading
+    ? (strings.save_editor_folder_resolving || 'Resolving save folder...')
+    : (saveDir || strings.save_editor_folder_default || 'Default Save Directory');
   const isControlsDisabled = disabled || isActionPending || isLoading;
 
   const handleRetry = () => {
@@ -66,8 +68,8 @@ export function SaveFolderBar({
   return (
     <div className={`save-folder-bar ${isMissing ? 'has-missing-folder' : ''}`.trim()}>
       <div className="save-folder-header">
-        <span className="save-folder-label">Save Folder</span>
-        {isOverride && <span className="save-folder-badge">Override</span>}
+        <span className="save-folder-label">{strings.save_editor_folder_label || 'Save Folder'}</span>
+        {isOverride && <span className="save-folder-badge">{strings.save_editor_folder_override || 'Override'}</span>}
       </div>
       <div className="save-folder-path" title={displayPath} style={{ minWidth: 0 }}>
         {displayPath}
@@ -103,10 +105,12 @@ export function SaveFolderBar({
           onClick={handleSelect}
           aria-disabled={isControlsDisabled}
           style={isControlsDisabled ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
-          title="Choose save directory"
-          aria-label="Choose save directory"
+          title={strings.save_editor_folder_choose_title || 'Choose save directory'}
+          aria-label={strings.save_editor_folder_choose_title || 'Choose save directory'}
         >
-          {isActionPending ? 'Choosing...' : 'Change...'}
+          {isActionPending
+            ? (strings.save_editor_folder_choosing || 'Choosing...')
+            : (strings.save_editor_folder_change || 'Change...')}
         </button>
         {isOverride && (
           <button
@@ -115,10 +119,10 @@ export function SaveFolderBar({
             onClick={handleReset}
             aria-disabled={isControlsDisabled}
             style={isControlsDisabled ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
-            title="Reset to default save directory"
-            aria-label="Reset to default save directory"
+            title={strings.save_editor_folder_reset_title || 'Reset to default save directory'}
+            aria-label={strings.save_editor_folder_reset_title || 'Reset to default save directory'}
           >
-            Reset
+            {strings.save_editor_folder_reset || 'Reset'}
           </button>
         )}
       </div>

@@ -11,12 +11,21 @@ export interface SaveFieldRowProps {
   label: string;
   onChange: (fieldId: string, nextValue: number | string | boolean) => void;
   onTogglePin?: (fieldId: string) => void;
+  pinLabelTemplate?: string;
+  unpinLabelTemplate?: string;
+  pinTitle?: string;
+  unpinTitle?: string;
+  deltaWasTemplate?: string;
+  deltaChangedText?: string;
+  invalidNumberText?: string;
 }
 
 function renderDelta(
   field: SaveFieldDto,
   value: number | string | boolean,
-  isDirty: boolean
+  isDirty: boolean,
+  deltaWasTemplate = '(was: {value})',
+  deltaChangedText = '(changed)'
 ): React.ReactNode {
   if (!isDirty || value === field.value) return null;
 
@@ -34,12 +43,12 @@ function renderDelta(
   if (typeof value === 'boolean') {
     return (
       <span className="data-delta data-delta--changed">
-        (was: {String(field.value)})
+        {deltaWasTemplate.replace('{value}', String(field.value))}
       </span>
     );
   }
 
-  return <span className="data-delta data-delta--changed">(changed)</span>;
+  return <span className="data-delta data-delta--changed">{deltaChangedText}</span>;
 }
 
 /**
@@ -56,6 +65,13 @@ export const SaveFieldRow = React.memo(
     label,
     onChange,
     onTogglePin,
+    pinLabelTemplate = 'Pin {label}',
+    unpinLabelTemplate = 'Unpin {label}',
+    pinTitle = 'Pin field',
+    unpinTitle = 'Unpin field',
+    deltaWasTemplate = '(was: {value})',
+    deltaChangedText = '(changed)',
+    invalidNumberText,
   }: SaveFieldRowProps): React.JSX.Element {
     const inputId = `field-${field.id}`;
     const rowClassName = isDirty ? 'save-field-row is-dirty' : 'save-field-row';
@@ -64,14 +80,14 @@ export const SaveFieldRow = React.memo(
       : 'save-field-label';
     const isBooleanField = field.type === 'boolean' || typeof field.value === 'boolean';
     const idBadge = field.key ? <span className="data-id">#{field.key}</span> : null;
-    const deltaNode = renderDelta(field, value, isDirty);
+    const deltaNode = renderDelta(field, value, isDirty, deltaWasTemplate, deltaChangedText);
     const pinButton = onTogglePin ? (
       <button
         type="button"
         className={isPinned ? 'data-pin-btn active' : 'data-pin-btn'}
-        aria-label={isPinned ? `Unpin ${label}` : `Pin ${label}`}
+        aria-label={(isPinned ? unpinLabelTemplate : pinLabelTemplate).replace('{label}', label)}
         aria-pressed={isPinned}
-        title={isPinned ? 'Unpin field' : 'Pin field'}
+        title={isPinned ? unpinTitle : pinTitle}
         onClick={(e) => {
           e.stopPropagation();
           onTogglePin(field.id);
@@ -128,6 +144,7 @@ export const SaveFieldRow = React.memo(
               label={label}
               value={numericValue}
               disabled={field.readOnly}
+              invalidNumberText={invalidNumberText}
               onChange={(val) => onChange(field.id, val)}
             />
             {deltaNode}
@@ -170,5 +187,12 @@ export const SaveFieldRow = React.memo(
     prev.isPinned === next.isPinned &&
     prev.label === next.label &&
     prev.onChange === next.onChange &&
-    prev.onTogglePin === next.onTogglePin
+    prev.onTogglePin === next.onTogglePin &&
+    prev.pinLabelTemplate === next.pinLabelTemplate &&
+    prev.unpinLabelTemplate === next.unpinLabelTemplate &&
+    prev.pinTitle === next.pinTitle &&
+    prev.unpinTitle === next.unpinTitle &&
+    prev.deltaWasTemplate === next.deltaWasTemplate &&
+    prev.deltaChangedText === next.deltaChangedText &&
+    prev.invalidNumberText === next.invalidNumberText
 );

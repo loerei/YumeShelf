@@ -1,9 +1,11 @@
-import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import React, { useContext, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import type { ElectronAPI } from '../../../../shared/types/ipc';
 import { sanitizeUserPaths } from '../../../../shared/path-sanitizer';
 import { Modal } from '../../../components/modals/Modal';
+import { useLocaleStrings } from '../../../i18n/locale-strings';
 import { isCancellationError } from '../../../utils/errors';
 import {
+  SaveEditorElectronApiContext,
   useSaveDirtyKeys,
   useSaveEditorDispatch,
   useSaveElectronAPI,
@@ -80,6 +82,8 @@ export function SaveFileListView({
     }
   };
 
+  const contextApi = useContext(SaveEditorElectronApiContext) ?? null;
+  const strings = useLocaleStrings(undefined, contextApi);
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const listContainerRef = useRef<HTMLDivElement | null>(null);
   const emptyContainerRef = useRef<HTMLDivElement | null>(null);
@@ -353,7 +357,7 @@ export function SaveFileListView({
         tabIndex={-1}
         style={{ outline: 'none' }}
       >
-        <span>No save files found in directory</span>
+        <span>{strings.save_editor_no_saves || 'No save files found'}</span>
       </div>
     );
   }
@@ -368,7 +372,7 @@ export function SaveFileListView({
       }}
       className="save-file-list"
       role="list"
-      aria-label="Save file slots"
+      aria-label={strings.save_editor_files_aria || 'Save file slots'}
       data-testid="save-file-list"
       tabIndex={-1}
     >
@@ -487,6 +491,7 @@ export function SaveFileList(props: SaveFileListProps) {
   const dirtyKeys = useSaveDirtyKeys();
   const dispatch = useSaveEditorDispatch();
   const contextApi = useSaveElectronAPI();
+  const strings = useLocaleStrings(undefined, props.electronAPI ?? contextApi ?? null);
   const electronAPI =
     props.electronAPI ?? contextApi ?? (typeof window !== 'undefined' ? window.electronAPI : undefined);
 
@@ -780,19 +785,22 @@ export function SaveFileList(props: SaveFileListProps) {
       <Modal
         isOpen={pendingSwitchSlot !== null}
         onClose={handleCancelDiscardSwitch}
-        title="Unsaved Changes"
+        title={strings.save_editor_unsaved_title || 'Unsaved Changes'}
         fallbackFocusRef={listFallbackRef}
       >
-        <Modal.Header>Unsaved Changes</Modal.Header>
+        <Modal.Header>{strings.save_editor_unsaved_title || 'Unsaved Changes'}</Modal.Header>
         <Modal.Body>
-          <p>You have unsaved changes. Discard them and load {pendingSwitchSlot}?</p>
+          <p>
+            {(strings.save_editor_unsaved_switch_desc || 'You have unsaved changes. Discard them and load {file}?')
+              .replace('{file}', pendingSwitchSlot ?? '')}
+          </p>
         </Modal.Body>
         <Modal.Footer>
           <button type="button" className="secondary-btn" onClick={handleCancelDiscardSwitch}>
-            Cancel
+            {strings.save_editor_cancel || 'Cancel'}
           </button>
           <button type="button" className="danger-btn" onClick={handleConfirmDiscardSwitch}>
-            Discard Changes
+            {strings.save_editor_discard_changes || 'Discard Changes'}
           </button>
         </Modal.Footer>
       </Modal>

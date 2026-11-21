@@ -460,8 +460,8 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
         restoreFocusToTranslateTriggerIfOwned();
         const notice =
           uniqueLabels.length > 0
-            ? 'No translatable labels (oversized fields skipped)'
-            : 'All labels translated';
+            ? (strings.save_editor_no_translatable || 'No translatable labels (oversized fields skipped)')
+            : (strings.save_editor_all_translated || 'All labels translated');
         showStatusNotice(notice);
         return;
       }
@@ -567,7 +567,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
 
       if (!controller.signal.aborted) {
         restoreFocusToTranslateTriggerIfOwned();
-        showStatusNotice('All labels translated');
+        showStatusNotice(strings.save_editor_all_translated || 'All labels translated');
       }
     } catch (err) {
       if (translateAbortRef.current === controller) {
@@ -653,13 +653,13 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
         value={draftQuery}
         onChange={(e) => handleSearchChange(e.target.value)}
         onKeyDown={handleSearchKeyDown}
-        aria-label="Search variables"
+        aria-label={strings.save_editor_search_aria || 'Search variables'}
       />
       <div className="save-editor-search-actions">
         <button
           type="button"
           className="refresh-save-btn"
-          aria-label="Reload from disk"
+          aria-label={strings.save_editor_reload_aria || 'Reload from disk'}
           title={strings.save_editor_reload_title || 'Reload from disk'}
           aria-disabled={isReloadDisabled}
           style={{
@@ -685,7 +685,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
           ref={translateBtnRef}
           type="button"
           className={isTranslating ? 'translate-btn loading' : 'translate-btn'}
-          aria-label="Translate save fields"
+          aria-label={strings.save_editor_translate_aria || 'Translate save fields'}
           title={strings.save_editor_translate_title || 'Translate to app language'}
           aria-disabled={isTranslateDisabled}
           style={{
@@ -714,13 +714,15 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
           {isTranslating && translationProgress && (
             <>
               <span className="translation-progress-text">
-                Batch {translationProgress.current} of {translationProgress.total}
+                {(strings.save_editor_batch_progress || 'Batch {current} of {total}')
+                  .replace('{current}', String(translationProgress.current))
+                  .replace('{total}', String(translationProgress.total))}
               </span>
               <button
                 ref={cancelBtnRef}
                 type="button"
                 className="translate-cancel-btn"
-                aria-label="Cancel batch translation"
+                aria-label={strings.save_editor_cancel_translate_aria || 'Cancel batch translation'}
                 onClick={handleCancel}
               >
                 {strings.save_editor_cancel || 'Cancel'}

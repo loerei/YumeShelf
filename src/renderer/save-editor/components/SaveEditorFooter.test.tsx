@@ -247,7 +247,7 @@ describe('SaveEditorFooter (Persistent Footer & Focus Continuity)', () => {
     expect(store.getSnapshot().dirtyKeys.size).toBe(0);
     expect(store.getSnapshot().pristineFieldsById.get('variables:1')?.value).toBe(999);
     expect(store.getSnapshot().saveStatus).toEqual({ state: 'saved' });
-    expect(statusRegion).toHaveTextContent('Saved');
+    expect(statusRegion).toHaveTextContent(/^Saved!?$/);
     expect(saveBtn).toHaveAttribute('aria-disabled', 'true');
     expect(saveBtn).not.toBeDisabled();
     expect(saveBtn.querySelector('svg')).toBeNull();
@@ -390,7 +390,7 @@ describe('SaveEditorFooter (Persistent Footer & Focus Continuity)', () => {
     expect(setSavedSpy).toHaveBeenCalledTimes(1);
     expect(store.getSnapshot().saveStatus).toEqual({ state: 'saved' });
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByRole('status')).toHaveTextContent('Saved');
+    expect(screen.getByRole('status')).toHaveTextContent(/^Saved!?$/);
   });
 
   it('requires result.ok === true strictly and treats malformed { ok: undefined } or missing API as save errors', async () => {

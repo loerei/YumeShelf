@@ -36,7 +36,7 @@ describe('SaveFileListView (Pure Presentational Mode)', () => {
 
     const emptyEl = screen.getByRole('status');
     expect(emptyEl.classList.contains('save-file-list-empty')).toBe(true);
-    expect(emptyEl.textContent).toContain('No save files found in directory');
+    expect(emptyEl.textContent).toContain('No save files found');
     expect(listFocusRef.current).toBe(emptyEl);
 
     listFocusRef.current?.focus();

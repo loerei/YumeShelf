@@ -220,10 +220,10 @@ export function SaveEditorSidebar(props: SaveEditorSidebarProps) {
       <Modal
         isOpen={pendingFolderAction !== null}
         onClose={handleCancelPendingFolderAction}
-        title="Unsaved Changes"
+        title={strings.save_editor_unsaved_title || 'Unsaved Changes'}
         fallbackFocusRef={sidebarFallbackRef}
       >
-        <Modal.Header>Unsaved Changes</Modal.Header>
+        <Modal.Header>{strings.save_editor_unsaved_title || 'Unsaved Changes'}</Modal.Header>
         <Modal.Body>
           <p>{strings.save_editor_unsaved_confirm || 'You have unsaved changes. Discard them?'}</p>
         </Modal.Body>
@@ -240,7 +240,7 @@ export function SaveEditorSidebar(props: SaveEditorSidebarProps) {
             className="danger-btn"
             onClick={handleConfirmPendingFolderAction}
           >
-            Discard Changes
+            {strings.save_editor_discard_changes || 'Discard Changes'}
           </button>
         </Modal.Footer>
       </Modal>

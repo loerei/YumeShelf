@@ -231,7 +231,7 @@ export function SaveEditorContent({
       <div className="loading" role="status" aria-live="polite" aria-busy="true">
         <div className="loading-spinner" aria-hidden="true" />
         <span>
-          Loading {fileStatus.fileName}
+          {(strings.save_editor_loading_file || 'Loading {file}').replace('{file}', fileStatus.fileName)}
           {typeof fileStatus.percent === 'number' ? ` (${fileStatus.percent}%)` : '...'}
         </span>
       </div>
@@ -240,7 +240,7 @@ export function SaveEditorContent({
     content = (
       <div className="save-editor-error-box" role="alert">
         <div className="save-editor-error-title">
-          Failed to load {fileStatus.fileName}
+          {(strings.save_editor_failed_load_file || 'Failed to load {file}').replace('{file}', fileStatus.fileName)}
         </div>
         <code>{fileStatus.errorMessage}</code>
         <div className="save-editor-error-actions">
@@ -256,7 +256,7 @@ export function SaveEditorContent({
             className="secondary-btn"
             onClick={() => onChangeFile?.()}
           >
-            Choose Another File
+            {strings.save_editor_choose_another_file || 'Choose Another File'}
           </button>
         </div>
       </div>
@@ -271,7 +271,7 @@ export function SaveEditorContent({
             className="secondary-btn"
             onClick={handleClearSearchFilter}
           >
-            Clear search filter
+            {strings.save_editor_clear_search_filter || 'Clear search filter'}
           </button>
         </div>
       ) : (
@@ -403,6 +403,13 @@ export function SaveEditorContent({
                           label={label}
                           onChange={handleChange}
                           onTogglePin={handleTogglePin}
+                          pinLabelTemplate={strings.save_editor_pin_field_aria}
+                          unpinLabelTemplate={strings.save_editor_unpin_field_aria}
+                          pinTitle={strings.save_editor_pin_field_title}
+                          unpinTitle={strings.save_editor_unpin_field_title}
+                          deltaWasTemplate={strings.save_editor_delta_was}
+                          deltaChangedText={strings.save_editor_delta_changed}
+                          invalidNumberText={strings.save_editor_invalid_number}
                         />
                       );
                     })}

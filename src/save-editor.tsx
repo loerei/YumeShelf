@@ -1,96 +1,113 @@
+import React from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { SaveEditorApp } from './renderer/save-editor/SaveEditorApp';
+import type { ObservableSaveEditorStore } from './renderer/save-editor/store/save-editor-store';
+import type { ElectronAPI } from './shared/types/ipc';
 import { registerGlobalErrorSanitizer, sanitizeUserPaths } from './shared/path-sanitizer';
 
 declare global {
   interface Window {
     __IS_STANDALONE_SAVE_EDITOR__?: boolean;
+    __VITEST__?: boolean;
   }
 }
 
 export interface StandaloneMountOptions {
-  controllerFactory?: () => {
-    open: (gameKey: string, options: { isStandaloneWindow: boolean }) => Promise<unknown>;
-    destroy: () => void;
-  };
+  electronAPI?: ElectronAPI;
+  store?: ObservableSaveEditorStore;
+  controllerFactory?: () => unknown;
 }
 
+/**
+ * Mounts the standalone Save Editor React tree into #save-editor-root and returns
+ * an idempotent disposer for React root, body class, and global window listeners.
+ */
 export async function mountStandaloneSaveEditor(
-  root: HTMLElement | null = document.getElementById('save-editor-root'),
-  search: string = window.location.search,
+  root: HTMLElement | null = typeof document !== 'undefined'
+    ? document.getElementById('save-editor-root')
+    : null,
+  search: string = typeof window !== 'undefined' ? window.location.search : '',
   options: StandaloneMountOptions = {}
 ): Promise<() => void> {
+  if (!root) throw new Error('Failed to find #save-editor-root container');
+
   window.__IS_STANDALONE_SAVE_EDITOR__ = true;
+  const bodyHadClass =
+    typeof document !== 'undefined' && document.body
+      ? document.body.classList.contains('standalone-save-editor')
+      : false;
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.classList.add('standalone-save-editor');
+  }
   const unbindSanitizer = registerGlobalErrorSanitizer(window, '[SaveEditor]');
 
-  const urlParams = new URLSearchParams(search);
-  const gameKey = urlParams.get('gameKey')?.trim();
+  let gameKey = '';
+  let initialFile: string | undefined;
+  try {
+    const urlParams = new URLSearchParams(search);
+    gameKey = urlParams.get('gameKey')?.trim() ?? '';
+    initialFile = urlParams.get('file')?.trim() || undefined;
+  } catch {
+    gameKey = '';
+    initialFile = undefined;
+  }
 
-  let controller: ReturnType<NonNullable<StandaloneMountOptions['controllerFactory']>> | null = null;
+  let reactRoot: Root | null = createRoot(root);
+  reactRoot.render(
+    <SaveEditorApp
+      gameKey={gameKey}
+      initialFile={initialFile}
+      store={options.store}
+      electronAPI={options.electronAPI}
+    />
+  );
+
   let disposed = false;
-
-  const cleanup = () => {
+  const cleanup = (event?: Event): void => {
     if (disposed) return;
+    // Defer beforeunload teardown check so SaveEditorStoreProvider can cancel dirty closes first
+    if (event && event.type === 'beforeunload') {
+      queueMicrotask(() => {
+        if (!disposed && !event.defaultPrevented) {
+          cleanup();
+        }
+      });
+      return;
+    }
     disposed = true;
     window.removeEventListener('beforeunload', cleanup);
     unbindSanitizer();
-    if (controller) {
-      controller.destroy();
-      controller = null;
+    if (!bodyHadClass && typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('standalone-save-editor');
+    }
+    if (reactRoot) {
+      reactRoot.unmount();
+      reactRoot = null;
     }
   };
 
   window.addEventListener('beforeunload', cleanup);
-
-  if (!gameKey) {
-    console.error('[SaveEditor] Missing or empty gameKey parameter in standalone window.');
-    if (root) {
-      const errorDiv = document.createElement('div');
-      errorDiv.className = 'save-editor-error';
-      errorDiv.textContent = 'Missing required gameKey parameter.';
-      root.replaceChildren(errorDiv);
-    }
-    return cleanup;
-  }
-
-  // Dynamic import ensures window flag is initialized before controller evaluates
-  const { SaveEditorViewController } = await import('./renderer/save-editor/view-controller');
-  controller = options.controllerFactory ? options.controllerFactory() : new SaveEditorViewController();
-
-  try {
-    await controller.open(gameKey, { isStandaloneWindow: true });
-  } catch (err: unknown) {
-    const rawMessage = err instanceof Error ? err.message : String(err || 'Unknown error');
-    const sanitizedMessage = sanitizeUserPaths(rawMessage);
-    const sanitizedStack = err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined;
-
-    console.error('[SaveEditor] Failed to mount standalone view controller:', {
-      gameKey: sanitizeUserPaths(gameKey),
-      error: sanitizedMessage,
-      stack: sanitizedStack,
-    });
-    controller.destroy();
-    controller = null;
-    if (root) {
-      const errorDiv = document.createElement('div');
-      errorDiv.className = 'save-editor-error';
-      errorDiv.textContent = `Failed to load save editor: ${sanitizedMessage}`;
-      root.replaceChildren(errorDiv);
-    }
-  }
-
   return cleanup;
 }
 
-// Auto-bootstrap in browser/standalone window environment (skip under Vitest/test runner)
+export function bootstrapStandaloneSaveEditor(): Promise<(() => void) | undefined> {
+  return mountStandaloneSaveEditor().catch((err: unknown) => {
+    const rawMsg = err instanceof Error ? (err.stack || err.message) : String(err);
+    console.error('[SaveEditor] Failed to mount standalone save editor:', {
+      error: sanitizeUserPaths(rawMsg),
+    });
+    return undefined;
+  });
+}
+
 const isTestEnv =
+  (typeof window !== 'undefined' && window.__VITEST__ === true) ||
   (typeof import.meta !== 'undefined' &&
     (import.meta as { env?: { MODE?: string } }).env?.MODE === 'test') ||
   (typeof globalThis !== 'undefined' &&
-    (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV === 'test');
+    (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ===
+      'test');
 
-if (!isTestEnv) {
-  mountStandaloneSaveEditor().catch((err) => {
-    console.error('[SaveEditor] Bootstrap failed unexpectedly:', {
-      error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
-    });
-  });
+if (typeof window !== 'undefined' && !isTestEnv) {
+  void bootstrapStandaloneSaveEditor();
 }

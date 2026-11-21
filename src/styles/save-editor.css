@@ -1298,6 +1298,7 @@ body.standalone-save-editor {
     background: transparent;
     backdrop-filter: none;
     z-index: auto;
+    isolation: isolate;
     display: flex;
     animation: none;
 }
@@ -1416,4 +1417,16 @@ body.standalone-save-editor {
 
 .all-tab-btn:hover svg {
     opacity: 0.9;
+}
+
+.save-editor-error-banner {
+    margin: 24px auto;
+    max-width: 480px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    background: rgba(224, 49, 49, 0.12);
+    border: 1px solid rgba(224, 49, 49, 0.4);
+    color: #ff6b6b;
+    font-size: 0.9rem;
+    line-height: 1.5;
 }

@@ -1,4 +1,6 @@
+import { act, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ElectronAPI } from '../../shared/types/ipc';
 import { mountStandaloneSaveEditor } from '../../save-editor';
 import { initSaveEditorUI } from '../save-editor-ui';
 import { ElectronSaveEditorLauncher, type ISaveEditorLauncher } from './save-editor-launcher';
@@ -94,87 +96,109 @@ describe('initSaveEditorUI seam & standalone loop suppression', () => {
 describe('mountStandaloneSaveEditor', () => {
   afterEach(() => {
     delete (window as { __IS_STANDALONE_SAVE_EDITOR__?: unknown }).__IS_STANDALONE_SAVE_EDITOR__;
+    document.body.classList.remove('standalone-save-editor');
     window.history.replaceState(null, '', '/');
     vi.restoreAllMocks();
   });
 
-  it('sets __IS_STANDALONE_SAVE_EDITOR__, opens controller, and cleans up on dispose', async () => {
-    const open = vi.fn().mockResolvedValue(undefined);
-    const destroy = vi.fn();
-    const controllerFactory = vi.fn(() => ({ open, destroy }));
-    const fakeRoot = document.createElement('div');
-    const removeListenerSpy = vi.spyOn(window, 'removeEventListener');
+  it('throws when root container is missing before registering window listeners', async () => {
+    const addListenerSpy = vi.spyOn(window, 'addEventListener');
 
-    const cleanup = await mountStandaloneSaveEditor(fakeRoot, '?gameKey=my-game', { controllerFactory });
+    await expect(mountStandaloneSaveEditor(null, '?gameKey=my-game')).rejects.toThrow(
+      'Failed to find #save-editor-root container'
+    );
+
+    expect(window.__IS_STANDALONE_SAVE_EDITOR__).toBeUndefined();
+    expect(document.body.classList.contains('standalone-save-editor')).toBe(false);
+    expect(addListenerSpy).not.toHaveBeenCalled();
+  });
+
+  it('sets __IS_STANDALONE_SAVE_EDITOR__, applies body class, mounts SaveEditorApp with injected electronAPI, and cleans up idempotently on dispose', async () => {
+    const fakeRoot = document.createElement('div');
+    fakeRoot.id = 'save-editor-root';
+    document.body.appendChild(fakeRoot);
+
+    const mockApi = {
+      getSaveFolder: vi.fn().mockResolvedValue({ path: '/saves/my-game', engine: 'rpg-mv-mz', confidence: 'high', source: 'deterministic' }),
+      listSaveFiles: vi.fn().mockResolvedValue(['save01.sav']),
+      loadTranslations: vi.fn().mockResolvedValue({}),
+      getAppVersion: vi.fn().mockResolvedValue('2.2.9'),
+    } as unknown as ElectronAPI;
+
+    const removeListenerSpy = vi.spyOn(window, 'removeEventListener');
+    let cleanup!: () => void;
+
+    await act(async () => {
+      cleanup = await mountStandaloneSaveEditor(fakeRoot, '?gameKey=my-game', {
+        electronAPI: mockApi,
+      });
+    });
 
     expect(window.__IS_STANDALONE_SAVE_EDITOR__).toBe(true);
-    expect(controllerFactory).toHaveBeenCalledTimes(1);
-    expect(open).toHaveBeenCalledWith('my-game', { isStandaloneWindow: true });
+    expect(document.body.classList.contains('standalone-save-editor')).toBe(true);
+    await waitFor(() => {
+      expect(within(fakeRoot).getByRole('button', { name: 'save01.sav' })).toBeInTheDocument();
+    });
+    expect(mockApi.getSaveFolder).toHaveBeenCalledWith('my-game');
 
-    cleanup();
+    act(() => {
+      cleanup();
+    });
 
-    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(document.body.classList.contains('standalone-save-editor')).toBe(false);
+    expect(fakeRoot.innerHTML).toBe('');
     expect(removeListenerSpy).toHaveBeenCalledWith('beforeunload', cleanup);
     expect(removeListenerSpy).toHaveBeenCalledWith('error', expect.any(Function));
     expect(removeListenerSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
 
+    const callsAfterFirstDispose = removeListenerSpy.mock.calls.length;
+    expect(callsAfterFirstDispose).toBe(4);
+
     // Idempotent second cleanup
-    cleanup();
-    expect(destroy).toHaveBeenCalledTimes(1);
+    act(() => {
+      cleanup();
+    });
+    expect(removeListenerSpy).toHaveBeenCalledTimes(callsAfterFirstDispose);
   });
 
-  it('renders error fallback when gameKey is missing or empty', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const controllerFactory = vi.fn();
+  it('renders .save-editor-error-banner when gameKey is missing or empty', async () => {
     const fakeRoot = document.createElement('div');
+    fakeRoot.id = 'save-editor-root';
+    document.body.appendChild(fakeRoot);
 
-    const cleanup = await mountStandaloneSaveEditor(fakeRoot, '?gameKey=   ', { controllerFactory });
+    let cleanup!: () => void;
+    await act(async () => {
+      cleanup = await mountStandaloneSaveEditor(fakeRoot, '?gameKey=   ');
+    });
 
-    expect(controllerFactory).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[SaveEditor] Missing or empty gameKey parameter in standalone window.'
-    );
-    const errorEl = fakeRoot.querySelector('.save-editor-error');
-    expect(errorEl?.textContent).toBe('Missing required gameKey parameter.');
+    const banner = fakeRoot.querySelector('.save-editor-error-banner');
+    expect(banner).not.toBeNull();
+    expect(banner).toHaveAttribute('role', 'alert');
+    expect(banner?.textContent).toBe('Missing required gameKey parameter');
 
-    cleanup();
-  });
-
-  it('sanitizes local user paths in console.error and DOM fallback when controller.open rejects', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const err = new Error('Failed to open C:\\Users\\Alice\\save.dat');
-    err.stack = 'Error: Failed to open C:\\Users\\Alice\\save.dat\n    at C:\\Users\\Alice\\app.js:10:5';
-    const open = vi.fn().mockRejectedValue(err);
-    const destroy = vi.fn();
-    const controllerFactory = vi.fn(() => ({ open, destroy }));
-    const fakeRoot = document.createElement('div');
-
-    const cleanup = await mountStandaloneSaveEditor(fakeRoot, '?gameKey=valid-game', { controllerFactory });
-
-    expect(destroy).toHaveBeenCalledTimes(1);
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-
-    const [prefix, payload] = consoleErrorSpy.mock.calls[0] as [string, Record<string, unknown>];
-    expect(prefix).toBe('[SaveEditor] Failed to mount standalone view controller:');
-    expect(payload.gameKey).toBe('valid-game');
-    expect(payload.error).toBe('Failed to open <USER_DIR>\\save.dat');
-    expect(payload.stack).toEqual(expect.not.stringContaining('Alice'));
-    expect(JSON.stringify(payload)).toEqual(expect.not.stringContaining('Alice'));
-
-    const errorEl = fakeRoot.querySelector('.save-editor-error');
-    expect(errorEl?.textContent).toBe('Failed to load save editor: Failed to open <USER_DIR>\\save.dat');
-
-    cleanup();
+    act(() => {
+      cleanup();
+    });
   });
 
   it('registers global error sanitizer that redacts paths and detaches on cleanup', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const open = vi.fn().mockResolvedValue(undefined);
-    const destroy = vi.fn();
     const fakeRoot = document.createElement('div');
+    fakeRoot.id = 'save-editor-root';
+    document.body.appendChild(fakeRoot);
 
-    const cleanup = await mountStandaloneSaveEditor(fakeRoot, '?gameKey=valid-game', {
-      controllerFactory: () => ({ open, destroy }),
+    const mockApi = {
+      getSaveFolder: vi.fn().mockResolvedValue({ path: '/saves/valid', engine: null, confidence: 'none' }),
+      listSaveFiles: vi.fn().mockResolvedValue([]),
+      loadTranslations: vi.fn().mockResolvedValue({}),
+      getAppVersion: vi.fn().mockResolvedValue('2.2.9'),
+    } as unknown as ElectronAPI;
+
+    let cleanup!: () => void;
+    await act(async () => {
+      cleanup = await mountStandaloneSaveEditor(fakeRoot, '?gameKey=valid-game', {
+        electronAPI: mockApi,
+      });
     });
 
     const errEvent = new ErrorEvent('error', {
@@ -192,7 +216,9 @@ describe('mountStandaloneSaveEditor', () => {
     expect(JSON.stringify(payload)).toEqual(expect.not.stringContaining('Alice'));
     expect(payload.message).toBe('Crash at <USER_DIR>\\save.dat');
 
-    cleanup();
+    act(() => {
+      cleanup();
+    });
     consoleErrorSpy.mockClear();
 
     window.dispatchEvent(

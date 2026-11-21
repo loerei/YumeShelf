@@ -279,6 +279,9 @@ export type ShorthandSaveStrategy =
 
 export type SupportedSaveStrategy = CanonicalSaveStrategy | ShorthandSaveStrategy;
 
+export type SaveFieldScalar = number | string | boolean | null;
+export type SaveUpdatesPayload = Record<string, SaveFieldScalar>;
+
 export interface SaveFieldDto {
   id: string; // Qualified key: `${tabId}:${key}` (e.g. "variables:1", "switches:1")
   tabId: string;

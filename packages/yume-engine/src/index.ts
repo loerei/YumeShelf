@@ -23,9 +23,11 @@ import type {
   SaveCodecContext,
   SaveCodecOptions,
   SaveFieldDto,
+  SaveFieldScalar,
   SaveMetadataDto,
   SaveSchemaOptions,
   SaveTabDto,
+  SaveUpdatesPayload,
   ShorthandSaveStrategy,
   SupportedSaveStrategy,
 } from './types.js';
@@ -56,6 +58,7 @@ import {
   isSupportedSaveFile,
   listSupportedSaveExtensions,
   extractSaveSchema,
+  applySaveUpdates,
   normalizeSaveStrategy,
   STRATEGY_CANONICAL_MAP,
   safeLog,
@@ -88,9 +91,11 @@ export type {
   NormalizedSaveDto,
   SaveTabDto,
   SaveFieldDto,
+  SaveFieldScalar,
   SaveMetadataDto,
   SaveSchemaOptions,
   SaveCodecOptions,
+  SaveUpdatesPayload,
   EngineLogger,
 };
 export { SaveCodecError, DEFAULT_MAX_ARTWORK_SIZE, DEFAULT_MAX_DECOMPRESSED_BYTES } from './types.js';
@@ -98,6 +103,7 @@ export {
   STRATEGY_CANONICAL_MAP,
   normalizeSaveStrategy,
   extractSaveSchema,
+  applySaveUpdates,
   safeLog,
   resolveMetadataLabel,
 };
@@ -354,6 +360,15 @@ export class YumeEngine {
     options?: SaveSchemaOptions
   ): NormalizedSaveDto {
     return extractSaveSchema(strategy, rawData, options);
+  }
+
+  static async applySaveUpdates(
+    strategy: SupportedSaveStrategy | (string & {}),
+    rawBuffer: Buffer,
+    updates: SaveUpdatesPayload,
+    options?: SaveCodecOptions
+  ): Promise<Buffer> {
+    return applySaveUpdates(strategy, rawBuffer, updates, options);
   }
 
   static readonly STRATEGY_CANONICAL_MAP = STRATEGY_CANONICAL_MAP;

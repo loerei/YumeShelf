@@ -918,6 +918,8 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     expect(css).toMatch(
       /\.save-editor-content:focus,\s*\.save-editor-content:focus-visible\s*\{[^}]*outline:\s*none/
     );
+    expect(css).toMatch(/\.save-editor-content\s+\.loading\s*\{[^}]*height:\s*100%/s);
+    expect(css).not.toMatch(/^\.loading\s*\{/m);
 
     const rowBlock = css.match(/\.save-field-row\s*\{([^}]+)\}/);
     expect(rowBlock).not.toBeNull();

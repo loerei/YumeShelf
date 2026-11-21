@@ -1068,8 +1068,12 @@
 }
 
 .save-editor-content .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
     gap: 12px;
-    color: var(--text-sub);
+    color: var(--text-sub, #666);
 }
 
 .save-editor-error-actions {
@@ -1407,14 +1411,6 @@
     justify-content: center;
     height: 100%;
     color: #444;
-}
-
-.loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: #666;
 }
 
 /* Standalone Window Save Editor Styles */

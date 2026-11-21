@@ -879,37 +879,105 @@
     padding: 8px 14px;
     color: #eee;
     font-size: 0.85rem;
-    width: 240px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 260px;
+    transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .save-editor-search:focus {
-    width: 320px;
     background: rgba(255, 255, 255, 0.06);
-    border-color: var(--accent-color, #4f46e5);
+    border-color: var(--accent, #0078d4);
     box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
     outline: none;
 }
 
+.save-editor-search:focus-visible {
+    outline: 2px solid var(--accent, #0078d4);
+    outline-offset: 1px;
+}
+
 .save-tab {
-    padding: 10px 16px;
-    cursor: pointer;
-    color: #777;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font: inherit;
     font-size: 0.85rem;
     font-weight: 600;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+    padding: 10px 16px;
+    cursor: pointer;
+    color: var(--text-sub, #b3b3b3);
+    transition: color 0.15s ease, border-color 0.15s ease;
     flex-shrink: 0;
     white-space: nowrap;
 }
 
 .save-tab:hover {
+    color: var(--text-main, #ffffff);
+}
+
+.save-tab.active,
+.save-tab[aria-current="page"] {
+    color: var(--accent, #0078d4);
+    border-bottom-color: var(--accent, #0078d4);
+}
+
+.translate-btn:disabled,
+.translate-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.translate-btn[aria-disabled="true"]:hover {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
     color: #aaa;
 }
 
-.save-tab.active {
-    color: var(--accent-color, #4f46e5);
-    border-bottom-color: var(--accent-color, #4f46e5);
+.translation-progress-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-sub, #aaa);
+}
+
+.translation-progress-text {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.translate-cancel-btn {
+    background: transparent;
+    border: 1px solid var(--border-color, #333);
+    border-radius: 4px;
+    color: var(--text-sub, #aaa);
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.translate-cancel-btn:hover {
+    color: var(--text-main, #fff);
+    border-color: var(--text-sub, #aaa);
+    background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.translate-btn:focus-visible,
+.translate-cancel-btn:focus-visible,
+.save-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .save-editor-popover,
+    .input-error,
+    .translate-btn.loading svg {
+        animation: none;
+        transition: none;
+    }
 }
 
 .save-editor-content {

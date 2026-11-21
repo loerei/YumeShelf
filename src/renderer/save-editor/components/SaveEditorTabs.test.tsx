@@ -1,0 +1,185 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { NormalizedSaveDto, SaveTabDto } from '@yumeshelf/engine/types';
+import { SaveEditorTabs, SaveEditorTabsView } from './SaveEditorTabs';
+import {
+  createSaveEditorStore,
+  SaveEditorStoreProvider,
+} from '../store/save-editor-store';
+
+const MOCK_TABS: readonly SaveTabDto[] = [
+  { id: 'variables', label: 'Variables', count: 42 },
+  { id: 'switches', label: 'Switches', count: 18 },
+  { id: 'system', label: 'System', count: 5 },
+];
+
+describe('SaveEditorTabsView (Pure Presentational Component)', () => {
+  it('renders empty nav container with save-editor-tabs--empty class when tabs are empty or undefined without SaveEditorStoreProvider', () => {
+    const { rerender } = render(<SaveEditorTabsView />);
+    const nav = screen.getByRole('navigation', { name: 'Save categories' });
+    expect(nav).toHaveClass('save-editor-tabs', 'save-editor-tabs--empty');
+    expect(nav.querySelectorAll('button')).toHaveLength(0);
+
+    rerender(<SaveEditorTabsView tabs={[]} />);
+    expect(nav).toHaveClass('save-editor-tabs', 'save-editor-tabs--empty');
+    expect(nav.querySelectorAll('button')).toHaveLength(0);
+  });
+
+  it('sets aria-current="page" and .active class exclusively on the active tab while non-matching tabs omit both', () => {
+    render(<SaveEditorTabsView tabs={MOCK_TABS} activeTabId="switches" />);
+
+    const nav = screen.getByRole('navigation', { name: 'Save categories' });
+    expect(nav).toHaveClass('save-editor-tabs');
+    expect(nav).not.toHaveClass('save-editor-tabs--empty');
+
+    const varBtn = screen.getByRole('button', { name: /Variables/i });
+    const switchBtn = screen.getByRole('button', { name: /Switches/i });
+    const sysBtn = screen.getByRole('button', { name: /System/i });
+
+    expect(switchBtn.className).toBe('save-tab active');
+    expect(switchBtn).toHaveAttribute('aria-current', 'page');
+    expect(switchBtn.querySelector('.save-tab-label')?.textContent).toBe('Switches');
+    expect(switchBtn.querySelector('.save-tab-count')?.textContent).toBe('(18)');
+
+    expect(varBtn.className).toBe('save-tab');
+    expect(varBtn).not.toHaveAttribute('aria-current');
+
+    expect(sysBtn.className).toBe('save-tab');
+    expect(sysBtn).not.toHaveAttribute('aria-current');
+  });
+
+  it('supports sequential Tab / Shift+Tab focus order without roving tabIndex traps and triggers onSelectTab on click, Enter, and Space', async () => {
+    const user = userEvent.setup();
+    const onSelectTab = vi.fn();
+
+    render(
+      <SaveEditorTabsView
+        tabs={MOCK_TABS}
+        activeTabId="variables"
+        onSelectTab={onSelectTab}
+      />
+    );
+
+    const varBtn = screen.getByRole('button', { name: /Variables/i });
+    const switchBtn = screen.getByRole('button', { name: /Switches/i });
+    const sysBtn = screen.getByRole('button', { name: /System/i });
+
+    expect(varBtn).not.toHaveAttribute('tabindex');
+    expect(switchBtn).not.toHaveAttribute('tabindex');
+    expect(sysBtn).not.toHaveAttribute('tabindex');
+
+    await user.tab();
+    expect(document.activeElement).toBe(varBtn);
+
+    await user.tab();
+    expect(document.activeElement).toBe(switchBtn);
+
+    await user.keyboard('{Enter}');
+    expect(onSelectTab).toHaveBeenCalledWith('switches');
+
+    await user.tab();
+    expect(document.activeElement).toBe(sysBtn);
+
+    await user.keyboard(' ');
+    expect(onSelectTab).toHaveBeenCalledWith('system');
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(switchBtn);
+
+    await user.click(varBtn);
+    expect(onSelectTab).toHaveBeenCalledWith('variables');
+  });
+});
+
+describe('SaveEditorTabs (Connected Container)', () => {
+  it('renders empty state when store fileStatus is idle, loading, or error', () => {
+    const store = createSaveEditorStore('game-1');
+    render(
+      <SaveEditorStoreProvider store={store}>
+        <SaveEditorTabs />
+      </SaveEditorStoreProvider>
+    );
+
+    const nav = screen.getByRole('navigation', { name: 'Save categories' });
+    expect(nav).toHaveClass('save-editor-tabs', 'save-editor-tabs--empty');
+
+    act(() => {
+      store.setFileLoading('file1.rpgsave');
+    });
+    expect(nav).toHaveClass('save-editor-tabs', 'save-editor-tabs--empty');
+
+    act(() => {
+      store.setFileError('file1.rpgsave', 'Corrupt header');
+    });
+    expect(nav).toHaveClass('save-editor-tabs', 'save-editor-tabs--empty');
+  });
+
+  it('derives tabs and activeTabId from SaveEditorStore and dispatches setActiveTab on selection', async () => {
+    const user = userEvent.setup();
+    const store = createSaveEditorStore('game-1');
+    const dto: NormalizedSaveDto = {
+      gameKey: 'game-1',
+      fileName: 'file1.rpgsave',
+      strategy: 'rpg-maker-mv',
+      tabs: [...MOCK_TABS],
+      fields: [],
+    };
+    store.setFileLoaded(dto);
+
+    render(
+      <SaveEditorStoreProvider store={store}>
+        <SaveEditorTabs />
+      </SaveEditorStoreProvider>
+    );
+
+    const varBtn = screen.getByRole('button', { name: /Variables/i });
+    const switchBtn = screen.getByRole('button', { name: /Switches/i });
+
+    expect(varBtn).toHaveClass('save-tab', 'active');
+    expect(varBtn).toHaveAttribute('aria-current', 'page');
+    expect(switchBtn).not.toHaveClass('active');
+
+    await user.click(switchBtn);
+
+    expect(store.getSnapshot().activeTabId).toBe('switches');
+    expect(switchBtn).toHaveClass('save-tab', 'active');
+    expect(switchBtn).toHaveAttribute('aria-current', 'page');
+    expect(varBtn).not.toHaveClass('active');
+    expect(varBtn).not.toHaveAttribute('aria-current');
+  });
+});
+
+describe('Save Editor Stylesheet Contract (AC-UXUI-4)', () => {
+  it('enforces button reset, var(--accent) active/focus bindings, fixed search width, and reduced-motion rules in save-editor.css', () => {
+    const cssPath = path.resolve(__dirname, '../../../styles/save-editor.css');
+    const css = fs.readFileSync(cssPath, 'utf-8');
+
+    const saveTabMatch = css.match(/\.save-tab\s*\{([^}]+)\}/);
+    expect(saveTabMatch).not.toBeNull();
+    const saveTabBody = saveTabMatch![1];
+    const bgIndex = saveTabBody.indexOf('background: transparent');
+    const borderNoneIndex = saveTabBody.indexOf('border: none');
+    const borderBottomIndex = saveTabBody.indexOf('border-bottom:');
+    expect(bgIndex).toBeGreaterThanOrEqual(0);
+    expect(borderNoneIndex).toBeGreaterThanOrEqual(0);
+    expect(borderBottomIndex).toBeGreaterThan(borderNoneIndex);
+
+    expect(css).toMatch(
+      /\.save-tab\.active,\s*\.save-tab\[aria-current="page"\]\s*\{[^}]*var\(--accent/
+    );
+
+    const searchFocusMatch = css.match(/\.save-editor-search:focus\s*\{([^}]+)\}/);
+    expect(searchFocusMatch).not.toBeNull();
+    expect(searchFocusMatch![1]).not.toMatch(/\bwidth\s*:/);
+
+    expect(css).toMatch(/\.save-editor-search:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--accent/);
+    expect(css).toMatch(
+      /\.translate-btn:focus-visible,\s*\.translate-cancel-btn:focus-visible,\s*\.save-tab:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--accent/
+    );
+    expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  });
+});

@@ -984,6 +984,93 @@
     flex: 1;
     padding: 24px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.save-editor-content:focus,
+.save-editor-content:focus-visible {
+    outline: none;
+}
+
+.save-editor-content .empty-state {
+    color: var(--text-sub);
+    gap: 12px;
+    text-align: center;
+}
+
+.save-editor-content .loading {
+    gap: 12px;
+    color: var(--text-sub);
+}
+
+.save-editor-error-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.save-field-row {
+    box-sizing: border-box;
+    min-height: 88px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 12px 14px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    isolation: isolate;
+}
+
+.save-field-row:has(.checkbox-row) {
+    min-height: 48px;
+    justify-content: center;
+}
+
+.save-field-row.is-dirty {
+    border-color: var(--accent);
+}
+
+.save-field-label {
+    font-size: 0.85rem;
+    color: var(--text-sub);
+    overflow-wrap: anywhere;
+}
+
+.virtualized-table-number-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+}
+
+.virtualized-table-number-input,
+.virtualized-table-text-input {
+    box-sizing: border-box;
+    width: 100%;
+    background: var(--field-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.virtualized-table-number-input:focus,
+.virtualized-table-text-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--field-hover-bg);
+}
+
+.virtualized-table-number-input[aria-invalid="true"] {
+    border-color: #ef4444;
+}
+
+.number-input-error {
+    font-size: 0.75rem;
+    color: #ff6b6b;
+    line-height: 1.3;
 }
 
 .save-grid {

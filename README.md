@@ -45,7 +45,7 @@ Since this is an indie open-source tool and is not signed with an expensive ente
 #### Tech Stack
 - **Framework**: Electron
 - **Main Process**: Node.js and TypeScript
-- **Renderer**: Vite, TypeScript, Vanilla HTML5/CSS3 (no heavy UI frameworks)
+- **Renderer**: React 19, Vite, TypeScript, CSS3
 - **Native Helpers**: Rust (playtime helper and process monitor), C# (.NET save converter)
 - **Storage**: Local JSON files (`~/.config/YumeShelf/` on Linux, `%APPDATA%\YumeShelf\` on Windows)
 
@@ -64,7 +64,7 @@ YumeShelf/
 │   │   ├── save-folder-resolver/ # Engine save directory resolution
 │   │   ├── translation/     # Translation shims and asset deployer
 │   │   └── window/          # App lifecycle and window management
-│   ├── renderer/            # Frontend UI (TypeScript, CSS)
+│   ├── renderer/            # Frontend UI (React 19, TypeScript, CSS)
 │   ├── preload.ts           # Context bridge
 │   └── shared/              # Shared types and interfaces
 ├── native/

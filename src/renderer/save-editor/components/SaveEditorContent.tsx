@@ -68,8 +68,31 @@ export function SaveEditorContent({
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const columnCount = computeGridColumnCount(containerWidth);
   const [expandingTabs, setExpandingTabs] = useState<ReadonlySet<string>>(() => new Set());
-  const prevCollapsedRef = useRef<ReadonlySet<string>>(collapsedSections);
+  const [prevCollapsed, setPrevCollapsed] = useState<ReadonlySet<string>>(collapsedSections);
   const expandTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  if (prevCollapsed !== collapsedSections) {
+    setPrevCollapsed(collapsedSections);
+    if (fileStatus.state === 'loaded') {
+      let changed = false;
+      const next = new Set(expandingTabs);
+      for (const tabId of prevCollapsed) {
+        if (!collapsedSections.has(tabId) && !next.has(tabId)) {
+          next.add(tabId);
+          changed = true;
+        }
+      }
+      for (const tabId of collapsedSections) {
+        if (next.has(tabId)) {
+          next.delete(tabId);
+          changed = true;
+        }
+      }
+      if (changed) {
+        setExpandingTabs(next);
+      }
+    }
+  }
 
   const handleChange = useCallback(
     (id: string, val: SaveFieldScalar) => {
@@ -163,41 +186,28 @@ export function SaveEditorContent({
         : null;
 
   useEffect(() => {
-    const prev = prevCollapsedRef.current;
-    prevCollapsedRef.current = collapsedSections;
-    if (fileStatus.state !== 'loaded') return;
-
-    const newlyExpanded: string[] = [];
-    for (const tabId of prev) {
-      if (!collapsedSections.has(tabId)) {
-        newlyExpanded.push(tabId);
+    const timers = expandTimersRef.current;
+    for (const [tabId, timer] of timers.entries()) {
+      if (!expandingTabs.has(tabId)) {
+        clearTimeout(timer);
+        timers.delete(tabId);
       }
     }
-    if (newlyExpanded.length === 0) return;
-
-    setExpandingTabs((curr) => {
-      const next = new Set(curr);
-      for (const tabId of newlyExpanded) {
-        next.add(tabId);
+    for (const tabId of expandingTabs) {
+      if (!timers.has(tabId)) {
+        const timer = setTimeout(() => {
+          timers.delete(tabId);
+          setExpandingTabs((curr) => {
+            if (!curr.has(tabId)) return curr;
+            const next = new Set(curr);
+            next.delete(tabId);
+            return next;
+          });
+        }, 180);
+        timers.set(tabId, timer);
       }
-      return next;
-    });
-
-    for (const tabId of newlyExpanded) {
-      const existing = expandTimersRef.current.get(tabId);
-      if (existing) clearTimeout(existing);
-      const timer = setTimeout(() => {
-        expandTimersRef.current.delete(tabId);
-        setExpandingTabs((curr) => {
-          if (!curr.has(tabId)) return curr;
-          const next = new Set(curr);
-          next.delete(tabId);
-          return next;
-        });
-      }, 180);
-      expandTimersRef.current.set(tabId, timer);
     }
-  }, [collapsedSections, fileStatus.state]);
+  }, [expandingTabs]);
 
   useEffect(() => {
     const timers = expandTimersRef.current;

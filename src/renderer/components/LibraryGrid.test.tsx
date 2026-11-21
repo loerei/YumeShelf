@@ -645,4 +645,37 @@ describe('LibraryGrid', () => {
 
     expect(gameCardsCss).toMatch(/\.library-empty-state,[\s\S]*\.filtered-empty-state\s*\{[\s\S]*min-height:\s*280px/);
   });
+
+  it('wraps grids in #game-grid-wrapper with .drop-zone, enables showPath/showDuplicateChip/double-launch, and attaches card tooltip attributes', () => {
+    const store = createUiRuntimeState();
+    const g1 = makeGame({
+      gameKey: 'g-1',
+      name: 'Alpha Quest',
+      favorite: true,
+      duplicateCount: 2,
+      relativePathDisplay: '/Games/RPG',
+      relativePathFullDisplay: 'D:/Games/RPG/Alpha',
+    });
+    const g2 = makeGame({ gameKey: 'g-2', name: 'Beta Quest', favorite: false });
+    store.setAllGames([g1, g2]);
+
+    const onLaunch = vi.fn();
+    const { container } = renderGrid(store, { onLaunch });
+
+    const wrapper = container.querySelector('#game-grid-wrapper');
+    expect(wrapper).toBeInTheDocument();
+    expect(wrapper?.querySelector('#fav-grid')).toHaveClass('game-grid', 'grid-section', 'drop-zone');
+    expect(wrapper?.querySelector('#unfav-grid')).toHaveClass('game-grid', 'grid-section', 'drop-zone');
+
+    const favCard = wrapper?.querySelector('#fav-grid .game-card') as HTMLElement;
+    expect(favCard.querySelector('.game-duplicate-chip')).toHaveTextContent('2x');
+    expect(favCard.querySelector('.game-path')).toHaveTextContent('/Games/RPG');
+    expect(favCard).toHaveAttribute('data-tooltip', 'Alpha Quest');
+    expect(favCard).toHaveAttribute('data-tooltip-subtitle', 'D:/Games/RPG/Alpha');
+
+    fireEvent.click(favCard);
+    expect(onLaunch).not.toHaveBeenCalled();
+    fireEvent.doubleClick(favCard);
+    expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({ gameKey: 'g-1' }));
+  });
 });

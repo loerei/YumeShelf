@@ -456,6 +456,9 @@ export function LibraryGrid({
         key={item.representativeKey}
         ref={getCardRefCallback(item.representativeKey)}
         game={item.primaryGame}
+        showPath={true}
+        showDuplicateChip={true}
+        launchMode="double"
         onToggleFavorite={handleToggleFavoriteGame}
         onLaunch={onLaunch}
         onOpenSaveEditor={onOpenSaveEditor}
@@ -482,8 +485,8 @@ export function LibraryGrid({
           categoryName={activeCategoryName}
         />
       ) : (
-        <>
-          <div id="fav-grid" className="game-grid grid-section">
+        <div id="game-grid-wrapper">
+          <div id="fav-grid" className="game-grid grid-section drop-zone">
             {favorites.map(renderItem)}
           </div>
           {favorites.length > 0 && nonFavorites.length > 0 && (
@@ -491,10 +494,10 @@ export function LibraryGrid({
               <div className="favorites-separator" />
             </div>
           )}
-          <div id="unfav-grid" className="game-grid grid-section">
+          <div id="unfav-grid" className="game-grid grid-section drop-zone">
             {nonFavorites.map(renderItem)}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

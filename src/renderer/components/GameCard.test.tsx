@@ -122,11 +122,17 @@ describe('GameCard', () => {
     expect(menuBtn).toHaveAttribute('aria-expanded', 'true');
     expect(container.querySelector('.action-reset-save-folder')).not.toBeInTheDocument();
 
-    const items = menu.querySelectorAll('.dropdown-item');
+    const items = menu.querySelectorAll('.dropdown-item:not(.has-submenu)');
     expect(items.length).toBeGreaterThan(0);
     items.forEach((item) => {
       expect(item.tagName).toBe('BUTTON');
       expect(item).toHaveAttribute('type', 'button');
+    });
+    const submenus = menu.querySelectorAll('.dropdown-item.has-submenu');
+    expect(submenus).toHaveLength(2);
+    submenus.forEach((submenu) => {
+      expect(submenu).toHaveAttribute('role', 'menuitem');
+      expect(submenu).toHaveAttribute('aria-haspopup', 'menu');
     });
 
     // Escape dismisses and restores focus to menuBtn
@@ -161,7 +167,7 @@ describe('GameCard', () => {
 
     // Outside pointerdown dismisses menu
     fireEvent.click(menuBtn);
-    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('menu', { name: 'Game options' })).toBeInTheDocument();
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
@@ -242,22 +248,80 @@ describe('GameCard', () => {
     expect(cardsCss).toMatch(/\.fav-btn:focus-visible,\s*\.menu-btn:focus-visible[\s\S]*?outline:\s*2px solid var\(--accent\)[\s\S]*?opacity:\s*1/);
   });
 
-  it('resolves dataUrl icon payloads returned by window.electronAPI.getIcon', async () => {
+  it('resolves dataUrl icon payloads returned by window.electronAPI.getIcon, respects iconFit, fades in, and falls back to 🎮', async () => {
     const getIcon = vi.fn().mockResolvedValue({
       dataUrl: 'data:image/png;base64,QUJD',
-      fit: 'contain',
+      fit: 'cover',
       source: 'pe-icon',
     });
     const prevApi = window.electronAPI;
     window.electronAPI = { ...prevApi, getIcon } as typeof window.electronAPI;
     try {
-      const { container } = render(
+      const { container, rerender } = render(
         <GameCard game={{ ...BASE_GAME, exePath: 'C:/Games/Test/Game.exe' }} />
       );
       await waitFor(() => {
-        const img = container.querySelector('img.game-icon') as HTMLImageElement | null;
+        const img = container.querySelector('.game-icon img') as HTMLImageElement | null;
         expect(img).toBeTruthy();
         expect(img?.getAttribute('src')).toBe('data:image/png;base64,QUJD');
+        expect(img?.getAttribute('data-icon-fit')).toBe('cover');
+        expect(img?.style.objectFit).toBe('cover');
+        expect(img).toHaveClass('fade-in-icon');
+      });
+
+      const img = container.querySelector('.game-icon img') as HTMLImageElement;
+      fireEvent.load(img);
+      expect(img).toHaveClass('fade-in-icon', 'loaded');
+
+      fireEvent.error(img);
+      expect(container.querySelector('.game-icon-fallback')).toHaveTextContent('🎮');
+
+      rerender(<GameCard game={{ ...BASE_GAME, exePath: undefined }} />);
+      expect(container.querySelector('.game-icon-fallback')).toHaveTextContent('🎮');
+    } finally {
+      window.electronAPI = prevApi;
+    }
+  });
+
+  it('places .game-duplicate-chip before .game-title, gates Pre-Translate on isBetaExposed, and disables translation items when unsupported', async () => {
+    const checkTranslationSupport = vi.fn().mockResolvedValue({ supported: false });
+    const prevApi = window.electronAPI;
+    window.electronAPI = { ...prevApi, checkTranslationSupport } as typeof window.electronAPI;
+    try {
+      const { container, rerender } = render(
+        <GameCard
+          game={{ ...BASE_GAME, duplicateCount: 2, autoTranslate: true }}
+          showDuplicateChip
+          isBetaExposed={false}
+        />
+      );
+
+      const chip = container.querySelector('.game-duplicate-chip');
+      const title = container.querySelector('.game-title');
+      expect(chip).toHaveTextContent('2x');
+      expect(chip && title && Boolean(chip.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Game options' }));
+      expect(container.querySelector('.action-pre-translate')).not.toBeInTheDocument();
+
+      rerender(
+        <GameCard
+          game={{ ...BASE_GAME, duplicateCount: 2, autoTranslate: true }}
+          showDuplicateChip
+          isBetaExposed={true}
+        />
+      );
+
+      await waitFor(() => {
+        expect(checkTranslationSupport).toHaveBeenCalledWith('main::rpg/alpha');
+        const liveBtn = container.querySelector('.action-live-translate') as HTMLButtonElement;
+        const preBtn = container.querySelector('.action-pre-translate') as HTMLButtonElement;
+        expect(liveBtn).toBeDisabled();
+        expect(liveBtn).toHaveTextContent('Not yet supported');
+        expect(preBtn).toBeDisabled();
+        expect(preBtn).toHaveTextContent('Not yet supported');
+        // checkbox-on includes both polyline and outer box path
+        expect(liveBtn.querySelector('svg path')).toBeInTheDocument();
       });
     } finally {
       window.electronAPI = prevApi;

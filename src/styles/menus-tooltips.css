@@ -9,7 +9,7 @@
     padding: 5px 0;
     box-shadow: var(--menu-shadow);
     display: none;
-    z-index: var(--zIndex-dropdown);
+    z-index: 2000;
     min-width: 170px;
     text-align: left;
 }
@@ -87,7 +87,7 @@
     padding: 5px 0;
     box-shadow: var(--menu-shadow);
     display: none;
-    z-index: var(--zIndex-dropdown);
+    z-index: 2010;
     min-width: 170px;
     text-align: left;
     white-space: nowrap;

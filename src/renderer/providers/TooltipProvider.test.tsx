@@ -52,9 +52,16 @@ describe('TooltipProvider', () => {
     });
     expect(screen.queryByRole('tooltip')).toBeNull();
 
-    // After 300ms delay -> .app-tooltip.show rendered
+    // After 300ms delay -> .app-tooltip mounts, then .show is added on next animation frame
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
+    });
+    const tooltipBeforeRaf = screen.getByRole('tooltip');
+    expect(tooltipBeforeRaf.classList.contains('app-tooltip')).toBe(true);
+    expect(tooltipBeforeRaf.classList.contains('show')).toBe(false);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
     });
     const tooltip = screen.getByRole('tooltip');
     expect(tooltip.classList.contains('app-tooltip')).toBe(true);
@@ -72,7 +79,7 @@ describe('TooltipProvider', () => {
     // Re-show and dismiss via Escape
     fireEvent.focusIn(trigger);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(300);
+      await vi.advanceTimersByTimeAsync(320);
     });
     expect(screen.getByRole('tooltip')).toBeTruthy();
 
@@ -157,5 +164,53 @@ describe('TooltipProvider', () => {
     );
     const removedWinEvents = removeWinSpy.mock.calls.map(([event]) => event);
     expect(removedWinEvents).toEqual(expect.arrayContaining(['blur', 'resize']));
+  });
+
+  it('renders structured .app-tooltip-engine, .app-tooltip-dot, and .app-tooltip-size inside .app-tooltip-meta-line and positions with live getBoundingClientRect() + offset 16', async () => {
+    const origRect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList?.contains('app-tooltip')) {
+        return {
+          width: 180,
+          height: 60,
+          top: 0,
+          left: 0,
+          right: 180,
+          bottom: 60,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      return origRect.call(this);
+    });
+
+    render(
+      <TooltipProvider>
+        <div
+          data-testid="game-card-trigger"
+          data-tooltip="Alpha Quest"
+          data-tooltip-meta="RPG Maker MV • 1.25 GB"
+          data-tooltip-subtitle="/Games/Alpha"
+        >
+          Alpha
+        </div>
+      </TooltipProvider>
+    );
+
+    const trigger = screen.getByTestId('game-card-trigger');
+    fireEvent.mouseOver(trigger, { clientX: 100, clientY: 120 });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(320);
+    });
+
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip.querySelector('.app-tooltip-engine')).toHaveTextContent('RPG Maker MV');
+    expect(tooltip.querySelector('.app-tooltip-dot')).toHaveTextContent('•');
+    expect(tooltip.querySelector('.app-tooltip-size')).toHaveTextContent('1.25 GB');
+    expect(tooltip.querySelector('.app-tooltip-subtitle')).toHaveTextContent('/Games/Alpha');
+    expect(tooltip.style.left).toBe('116px');
+    expect(tooltip.style.top).toBe('136px');
   });
 });

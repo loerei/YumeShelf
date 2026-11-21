@@ -207,4 +207,50 @@ describe('DuplicateStackModal', () => {
     // Must resolve to 'b-2', NOT any key from Stack A
     expect(onClose).toHaveBeenCalledWith('b-2');
   });
+
+  it('renders .stack-overlay-panel, .stack-overlay-grid, .stack-overlay-card with double-click launch and hidden path/chip, and .stack-overlay-location', () => {
+    const inst1 = makeInstance({
+      gameKey: 'inst-1',
+      name: 'My Game (v1.0)',
+      locationLabel: 'Drive C',
+      relativePathDisplay: 'C:/Games/My Game v1',
+      duplicateCount: 2,
+    });
+    const inst2 = makeInstance({
+      gameKey: 'inst-2',
+      name: 'My Game (v2.0)',
+      locationLabel: 'Drive D',
+      relativePathDisplay: 'D:/Games/My Game v2',
+      duplicateCount: 2,
+    });
+    const parent = makeStackParent('stack-layout', 'My Game', [inst1, inst2]);
+
+    const store = createUiRuntimeState();
+    store.setAllGames([parent]);
+    const onLaunch = vi.fn();
+
+    render(
+      <LibraryStateProvider store={store}>
+        <DuplicateStackModal isOpen={true} groupKey="stack-layout" onClose={vi.fn()} onLaunch={onLaunch} />
+      </LibraryStateProvider>
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveClass('modal-panel', 'stack-overlay-panel');
+    expect(dialog.querySelector('.stack-overlay-grid')).toBeInTheDocument();
+
+    const items = dialog.querySelectorAll('.stack-overlay-item');
+    expect(items).toHaveLength(2);
+    expect(items[0].querySelector('.stack-overlay-card')).toBeInTheDocument();
+    expect(items[0].querySelector('.game-path')).not.toBeInTheDocument();
+    expect(items[0].querySelector('.game-duplicate-chip')).not.toBeInTheDocument();
+    expect(items[0].querySelector('.stack-overlay-location')).toHaveTextContent('Drive C');
+    expect(items[1].querySelector('.stack-overlay-location')).toHaveTextContent('Drive D');
+
+    const firstCard = items[0].querySelector('.stack-overlay-card') as HTMLElement;
+    fireEvent.click(firstCard);
+    expect(onLaunch).not.toHaveBeenCalled();
+    fireEvent.doubleClick(firstCard);
+    expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({ gameKey: 'inst-1' }));
+  });
 });

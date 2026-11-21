@@ -39,7 +39,7 @@ const SAMPLE_STACK: LibraryViewItem = {
 describe('StackCard', () => {
   it('renders .game-card.stack-card, data attributes, role="region", aria-label, favorite classes, native buttons, and inline SVGs', () => {
     const ref = React.createRef<HTMLDivElement>();
-    const { rerender } = render(
+    const { container, rerender } = render(
       <StackCard ref={ref} stack={SAMPLE_STACK} data-testid="stack-1" />
     );
 
@@ -52,7 +52,12 @@ describe('StackCard', () => {
     expect(card).toHaveAttribute('data-testid', 'stack-1');
     expect(card).toHaveAttribute('tabindex', '0');
     expect(card).not.toHaveAttribute('draggable');
-    expect(screen.getByText('2 instances')).toBeInTheDocument();
+    const chip = container.querySelector('.game-duplicate-chip');
+    const title = container.querySelector('.game-title');
+    expect(chip).toHaveTextContent('2x');
+    expect(chip && title && Boolean(chip.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(container.querySelector('.game-status')).toHaveTextContent('Playing');
+    expect(container.querySelector('.game-playtime')).toHaveTextContent('0m');
 
     const favBtn = screen.getByRole('button', { name: 'Add to favorites' });
     expect(favBtn.tagName).toBe('BUTTON');
@@ -60,7 +65,11 @@ describe('StackCard', () => {
     expect(favBtn).toHaveClass('fav-btn', 'stack-fav-indicator');
     expect(favBtn).not.toHaveClass('active');
     expect(favBtn).toHaveAttribute('aria-pressed', 'false');
-    expect(favBtn.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+    expect(favBtn).toHaveAttribute('title', 'Add to favorites');
+    const favSvg = favBtn.querySelector('svg[aria-hidden="true"]');
+    expect(favSvg).toBeInTheDocument();
+    expect(favSvg).toHaveAttribute('fill', 'currentColor');
+    expect(favSvg).not.toHaveAttribute('stroke');
 
     const menuBtn = screen.getByRole('button', { name: 'Stack options' });
     expect(menuBtn.tagName).toBe('BUTTON');
@@ -68,7 +77,10 @@ describe('StackCard', () => {
     expect(menuBtn).toHaveClass('menu-btn');
     expect(menuBtn).toHaveAttribute('aria-haspopup', 'menu');
     expect(menuBtn).toHaveAttribute('aria-expanded', 'false');
-    expect(menuBtn.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+    const menuSvg = menuBtn.querySelector('svg[aria-hidden="true"]');
+    expect(menuSvg).toBeInTheDocument();
+    expect(menuSvg).toHaveAttribute('width', '18');
+    expect(menuSvg).toHaveAttribute('height', '18');
 
     rerender(<StackCard ref={ref} stack={{ ...SAMPLE_STACK, favorite: true }} />);
     expect(card).toHaveClass('game-card', 'stack-card', 'favorited');
@@ -195,6 +207,6 @@ describe('StackCard', () => {
     // Re-render with updated stack reference
     const updatedStack: LibraryViewItem = { ...SAMPLE_STACK, stackSize: 3 };
     rerender(<TrackedWrapper stack={updatedStack} tick={3} />);
-    expect(screen.getByText('3 instances')).toBeInTheDocument();
+    expect(screen.getByText('3x')).toBeInTheDocument();
   });
 });

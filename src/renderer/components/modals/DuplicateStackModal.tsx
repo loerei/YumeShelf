@@ -122,27 +122,42 @@ export function DuplicateStackModalContent({
   }
 
   return (
-    <Modal isOpen onClose={onClose} title={stack.primaryGame.name} fallbackFocusRef={fallbackFocusRef}>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={stack.primaryGame.name}
+      panelClassName="stack-overlay-panel"
+      fallbackFocusRef={fallbackFocusRef}
+    >
       <Modal.Header>
         <span>{stack.primaryGame.name}</span>
         <span className="duplicate-stack-count">{stack.games?.length ?? 0} versions installed</span>
       </Modal.Header>
       <Modal.Body>
         <div ref={resolvedContainerRef} className="duplicate-stack-dialog" tabIndex={-1}>
-          <div className="duplicate-stack-instances">
-            {stack.games?.map((game: GameEntry) => {
+          <div className="duplicate-stack-instances stack-overlay-grid">
+            {stack.games?.map((game: GameEntry, index: number) => {
               const instanceKey = getGameKey(game);
               return (
-                <GameCard
+                <div
                   key={instanceKey}
-                  ref={(el) => {
-                    if (el) instanceRefs.current.set(instanceKey, el);
-                    else instanceRefs.current.delete(instanceKey);
-                  }}
-                  game={game}
-                  showPath={true}
-                  {...cardProps}
-                />
+                  className="stack-overlay-item"
+                  style={{ '--stack-delay': `${index * 40}ms` } as React.CSSProperties}
+                >
+                  <GameCard
+                    ref={(el) => {
+                      if (el) instanceRefs.current.set(instanceKey, el);
+                      else instanceRefs.current.delete(instanceKey);
+                    }}
+                    className="stack-overlay-card"
+                    game={game}
+                    showPath={false}
+                    showDuplicateChip={false}
+                    launchMode="double"
+                    {...cardProps}
+                  />
+                  <div className="stack-overlay-location">{game.locationLabel || ''}</div>
+                </div>
               );
             })}
           </div>

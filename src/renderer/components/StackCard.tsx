@@ -1,8 +1,20 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { LibraryViewItem } from '../library-stacks';
 import type { GameEntry } from '../types/game';
+import { formatBytes, formatPlaytime, timeSince } from '../utils/formatting';
 import type { GameCardMenuAction, GameCardMenuPayload } from './GameCard';
 import { GameIcon } from './GameIcon';
+
+const DEFAULT_TIME_STRINGS = {
+  status_playing: 'Playing',
+  status_never: 'Never played',
+  status_recent: 'Just now',
+  status_mins: 'm ago',
+  status_hours: 'h ago',
+  status_days: 'd ago',
+  status_months: ' months ago',
+  status_years: 'y ago',
+};
 
 export interface StackCardProps extends React.HTMLAttributes<HTMLDivElement> {
   stack: LibraryViewItem;
@@ -169,6 +181,21 @@ export const StackCard = React.memo(
       .join(' ');
 
     const favLabel = isFavorited ? 'Remove from favorites' : 'Add to favorites';
+    const uniqueLocations = Array.from(
+      new Set(stack.games.map((g) => g.locationLabel).filter(Boolean))
+    );
+    const locationSummary =
+      uniqueLocations.length > 1
+        ? `${uniqueLocations[0]} +${uniqueLocations.length - 1}`
+        : uniqueLocations[0] || primaryGame.locationLabel || '';
+    const statusLabel = isRunning
+      ? DEFAULT_TIME_STRINGS.status_playing
+      : timeSince(primaryGame.lastPlayed, DEFAULT_TIME_STRINGS);
+    const playtimeLabel = formatPlaytime(primaryGame.playtime);
+    const engineName = (primaryGame as { engine?: string }).engine || '';
+    const sizeLabel = formatBytes((primaryGame as { sizeBytes?: number }).sizeBytes);
+    const tooltipMeta = [engineName, sizeLabel].filter(Boolean).join(' • ') || undefined;
+    const tooltipSubtitle = primaryGame.fullLocationLabel || locationSummary || undefined;
 
     return (
       <div
@@ -177,6 +204,9 @@ export const StackCard = React.memo(
         style={style}
         data-group-key={stack.groupKey}
         data-game-key={stack.representativeKey}
+        data-tooltip={displayName || undefined}
+        data-tooltip-meta={tooltipMeta}
+        data-tooltip-subtitle={tooltipSubtitle}
         tabIndex={0}
         role="region"
         aria-label={`Game stack: ${displayName} (${stack.stackSize} instances)`}
@@ -193,13 +223,7 @@ export const StackCard = React.memo(
           onClick={handleToggleFavorite}
           onDoubleClick={(e) => e.preventDefault()}
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill={isFavorited ? 'currentColor' : 'none'}
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
         </button>
@@ -218,7 +242,7 @@ export const StackCard = React.memo(
           }}
           onDoubleClick={(e) => e.preventDefault()}
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
             <circle cx="12" cy="5" r="2" />
             <circle cx="12" cy="12" r="2" />
             <circle cx="12" cy="19" r="2" />
@@ -297,6 +321,8 @@ export const StackCard = React.memo(
 
         <GameIcon game={primaryGame} />
 
+        <div className="game-duplicate-chip">{stack.stackSize}x</div>
+
         {isRenaming ? (
           <input
             ref={renameInputRef}
@@ -325,7 +351,9 @@ export const StackCard = React.memo(
           </div>
         )}
 
-        <span className="stack-count-badge">{stack.stackSize} instances</span>
+        <div className="game-status">{statusLabel}</div>
+        <div className="game-playtime">{playtimeLabel}</div>
+        {locationSummary && <div className="game-path">{locationSummary}</div>}
       </div>
     );
   })

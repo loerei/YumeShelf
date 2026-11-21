@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,8 +13,13 @@ import { createPortal } from 'react-dom';
 export interface ActiveTooltipState {
   readonly title: string;
   readonly meta?: string;
+  readonly engine?: string;
+  readonly size?: string;
   readonly subtitle?: string;
   readonly compact: boolean;
+  readonly anchorX: number;
+  readonly anchorY: number;
+  readonly isPointer: boolean;
   readonly top: number;
   readonly left: number;
 }
@@ -33,29 +39,67 @@ export interface TooltipProviderProps {
 
 const DEFAULT_TOOLTIP_DELAY_MS = 300;
 const VIEWPORT_PADDING = 12;
-const CURSOR_OFFSET = 12;
+const CURSOR_OFFSET = 16;
 
-function clampTooltipPosition(
+function parseMetaFields(
+  meta?: string,
+  engineAttr?: string,
+  sizeAttr?: string
+): { engine?: string; size?: string } {
+  if (engineAttr || sizeAttr) {
+    return {
+      engine: engineAttr || undefined,
+      size: sizeAttr || undefined,
+    };
+  }
+  if (!meta) return {};
+  const parts = meta
+    .split(/\s*[•·]\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      engine: parts[0],
+      size: parts.slice(1).join(' • '),
+    };
+  }
+  if (parts.length === 1) {
+    if (/^\d+(?:\.\d+)?\s*(?:B|KB|MB|GB|TB)$/i.test(parts[0])) {
+      return { size: parts[0] };
+    }
+    return { engine: parts[0] };
+  }
+  return {};
+}
+
+function computeTooltipPosition(
   anchorX: number,
   anchorY: number,
-  tooltipWidth = 240,
-  tooltipHeight = 48
+  isPointer: boolean,
+  tooltipWidth: number,
+  tooltipHeight: number
 ): { top: number; left: number } {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 720;
 
-  let left = anchorX;
-  let top = anchorY;
+  let left = isPointer ? anchorX + CURSOR_OFFSET : anchorX;
+  let top = isPointer ? anchorY + CURSOR_OFFSET : anchorY;
 
   if (left + tooltipWidth > vw - VIEWPORT_PADDING) {
-    left = Math.max(VIEWPORT_PADDING, vw - tooltipWidth - VIEWPORT_PADDING);
+    left = Math.max(
+      VIEWPORT_PADDING,
+      isPointer ? anchorX - tooltipWidth - CURSOR_OFFSET : vw - tooltipWidth - VIEWPORT_PADDING
+    );
   }
   if (left < VIEWPORT_PADDING) {
     left = VIEWPORT_PADDING;
   }
 
   if (top + tooltipHeight > vh - VIEWPORT_PADDING) {
-    top = Math.max(VIEWPORT_PADDING, anchorY - tooltipHeight - CURSOR_OFFSET * 2);
+    top = Math.max(
+      VIEWPORT_PADDING,
+      isPointer ? anchorY - tooltipHeight - CURSOR_OFFSET : vh - tooltipHeight - VIEWPORT_PADDING
+    );
   }
   if (top < VIEWPORT_PADDING) {
     top = VIEWPORT_PADDING;
@@ -122,9 +166,13 @@ export function TooltipProvider({
       if (!title) return;
 
       const meta = triggerEl.getAttribute('data-tooltip-meta')?.trim() || undefined;
+      const engineAttr = triggerEl.getAttribute('data-tooltip-engine')?.trim() || undefined;
+      const sizeAttr = triggerEl.getAttribute('data-tooltip-size')?.trim() || undefined;
+      const { engine, size } = parseMetaFields(meta, engineAttr, sizeAttr);
       const subtitle = triggerEl.getAttribute('data-tooltip-subtitle')?.trim() || undefined;
       const compact =
-        triggerEl.getAttribute('data-tooltip-compact') === 'true' || (!meta && !subtitle);
+        triggerEl.getAttribute('data-tooltip-compact') === 'true' ||
+        (!engine && !size && !subtitle);
 
       clearPendingTimer();
       currentTriggerRef.current = triggerEl;
@@ -139,23 +187,56 @@ export function TooltipProvider({
         }
 
         const rect = triggerEl.getBoundingClientRect();
-        const anchorX = pointerPos ? pointerPos.x + CURSOR_OFFSET : rect.left;
-        const anchorY = pointerPos ? pointerPos.y + CURSOR_OFFSET : rect.bottom + 8;
-        const pos = clampTooltipPosition(anchorX, anchorY);
+        const isPointer = Boolean(pointerPos);
+        const anchorX = pointerPos ? pointerPos.x : rect.left;
+        const anchorY = pointerPos ? pointerPos.y : rect.bottom + 8;
+        const pos = computeTooltipPosition(anchorX, anchorY, isPointer, 0, 0);
 
+        setIsVisible(false);
         setActiveTooltip({
           title,
           meta,
+          engine,
+          size,
           subtitle,
           compact,
+          anchorX,
+          anchorY,
+          isPointer,
           top: pos.top,
           left: pos.left,
         });
-        setIsVisible(true);
       }, delayMs);
     },
     [clearPendingTimer, delayMs, hideTooltip]
   );
+
+  const hasActiveTooltip = activeTooltip !== null;
+
+  useEffect(() => {
+    if (!hasActiveTooltip) return;
+    const rafId = requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [hasActiveTooltip]);
+
+  useLayoutEffect(() => {
+    if (!activeTooltip || !tooltipRef.current) return;
+    const rect = tooltipRef.current.getBoundingClientRect();
+    const pos = computeTooltipPosition(
+      activeTooltip.anchorX,
+      activeTooltip.anchorY,
+      activeTooltip.isPointer,
+      rect.width,
+      rect.height
+    );
+    if (pos.top !== activeTooltip.top || pos.left !== activeTooltip.left) {
+      setActiveTooltip((prev) => (prev ? { ...prev, top: pos.top, left: pos.left } : prev));
+    }
+  }, [activeTooltip]);
 
   useEffect(() => {
     const handleMouseOver = (e: MouseEvent) => {
@@ -176,8 +257,26 @@ export function TooltipProvider({
         hideTooltip();
         return;
       }
-      const pos = clampTooltipPosition(e.clientX + CURSOR_OFFSET, e.clientY + CURSOR_OFFSET);
-      setActiveTooltip((prev) => (prev ? { ...prev, top: pos.top, left: pos.left } : prev));
+      const rect = tooltipRef.current?.getBoundingClientRect();
+      const pos = computeTooltipPosition(
+        e.clientX,
+        e.clientY,
+        true,
+        rect?.width ?? 0,
+        rect?.height ?? 0
+      );
+      setActiveTooltip((prev) =>
+        prev
+          ? {
+              ...prev,
+              anchorX: e.clientX,
+              anchorY: e.clientY,
+              isPointer: true,
+              top: pos.top,
+              left: pos.left,
+            }
+          : prev
+      );
     };
 
     const handleMouseOut = (e: MouseEvent) => {
@@ -269,7 +368,21 @@ export function TooltipProvider({
       }}
     >
       <div className="app-tooltip-title">{activeTooltip.title}</div>
-      {activeTooltip.meta && <div className="app-tooltip-meta-line">{activeTooltip.meta}</div>}
+      {(activeTooltip.engine || activeTooltip.size) && (
+        <div className="app-tooltip-meta-line">
+          {activeTooltip.engine && (
+            <span className="app-tooltip-engine">{activeTooltip.engine}</span>
+          )}
+          {activeTooltip.engine && activeTooltip.size && (
+            <span className="app-tooltip-dot" aria-hidden="true">
+              •
+            </span>
+          )}
+          {activeTooltip.size && (
+            <span className="app-tooltip-size">{activeTooltip.size}</span>
+          )}
+        </div>
+      )}
       {activeTooltip.subtitle && <div className="app-tooltip-subtitle">{activeTooltip.subtitle}</div>}
     </div>
   ) : null;

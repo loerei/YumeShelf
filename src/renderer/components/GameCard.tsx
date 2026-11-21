@@ -1,7 +1,8 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { LibraryStoreContext } from '../context/LibraryStateContext';
 import { buildDuplicateChipLabel, buildPathSubtitle } from '../game-annotations';
 import type { GameEntry } from '../types/game';
-import { formatPlaytime, timeSince } from '../utils/formatting';
+import { formatBytes, formatPlaytime, timeSince } from '../utils/formatting';
 import { GameIcon } from './GameIcon';
 
 export type GameCardMenuAction =
@@ -25,6 +26,7 @@ export interface GameCardProps extends React.HTMLAttributes<HTMLDivElement> {
   launchMode?: 'single' | 'double';
   showDuplicateChip?: boolean;
   showPath?: boolean;
+  isBetaExposed?: boolean;
   onToggleFavorite?: (game: GameEntry) => void;
   onLaunch?: (game: GameEntry) => void;
   onMenuAction?: (action: GameCardMenuAction, game: GameEntry, payload?: GameCardMenuPayload) => void;
@@ -56,6 +58,7 @@ export const GameCard = React.memo(
       launchMode = 'single',
       showDuplicateChip = false,
       showPath = false,
+      isBetaExposed,
       onToggleFavorite,
       onLaunch,
       onMenuAction,
@@ -69,11 +72,17 @@ export const GameCard = React.memo(
     },
     forwardedRef
   ) {
+    const store = useContext(LibraryStoreContext);
+    const resolvedBetaExposed =
+      isBetaExposed ?? Boolean(store?.getSnapshot().currentLibraryConfig?.exposeBetaOptions);
+
     const displayName = game.name || game.title || game.folderName || '';
     const gameKey = game.gameKey || game.gameId || '';
     const isFavorited = Boolean(game.favorite);
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [openSubmenu, setOpenSubmenu] = useState<'saves' | 'addons' | null>(null);
+    const [translationSupported, setTranslationSupported] = useState<boolean | null>(null);
     const [isRenaming, setIsRenaming] = useState(false);
     const [draftName, setDraftName] = useState(displayName);
 
@@ -105,7 +114,27 @@ export const GameCard = React.memo(
     }, [isRenaming]);
 
     useEffect(() => {
-      if (!isMenuOpen) return;
+      if (!isMenuOpen) {
+        setOpenSubmenu(null);
+        return;
+      }
+
+      const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+      let cancelled = false;
+      if (gameKey && typeof api?.checkTranslationSupport === 'function') {
+        void Promise.resolve(api.checkTranslationSupport(gameKey))
+          .then((result: unknown) => {
+            if (cancelled) return;
+            const supported =
+              result && typeof result === 'object'
+                ? (result as { supported?: unknown }).supported !== false
+                : true;
+            setTranslationSupported(supported);
+          })
+          .catch(() => {
+            if (!cancelled) setTranslationSupported(true);
+          });
+      }
 
       const handleDocumentPointerDown = (e: PointerEvent) => {
         const target = e.target as Node | null;
@@ -131,10 +160,11 @@ export const GameCard = React.memo(
       document.addEventListener('pointerdown', handleDocumentPointerDown);
       document.addEventListener('keydown', handleDocumentKeyDown);
       return () => {
+        cancelled = true;
         document.removeEventListener('pointerdown', handleDocumentPointerDown);
         document.removeEventListener('keydown', handleDocumentKeyDown);
       };
-    }, [isMenuOpen]);
+    }, [isMenuOpen, gameKey]);
 
     const handleToggleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
@@ -219,6 +249,15 @@ export const GameCard = React.memo(
       : timeSince(game.lastPlayed, DEFAULT_TIME_STRINGS);
     const playtimeLabel = formatPlaytime(game.playtime);
     const favLabel = isFavorited ? 'Remove from favorites' : 'Add to favorites';
+    const engineName = (game as { engine?: string }).engine || '';
+    const sizeLabel = formatBytes((game as { sizeBytes?: number }).sizeBytes);
+    const tooltipMeta = [engineName, sizeLabel].filter(Boolean).join(' • ') || undefined;
+    const tooltipSubtitle =
+      game.relativePathFullDisplay ||
+      game.relativePathDisplay ||
+      game.relativePath ||
+      game.folderPath ||
+      undefined;
 
     return (
       <div
@@ -226,6 +265,9 @@ export const GameCard = React.memo(
         className={combinedClassName}
         style={style}
         data-game-key={gameKey}
+        data-tooltip={displayName || undefined}
+        data-tooltip-meta={tooltipMeta}
+        data-tooltip-subtitle={tooltipSubtitle}
         tabIndex={0}
         role="article"
         onClick={handleCardClick}
@@ -242,13 +284,7 @@ export const GameCard = React.memo(
           onClick={handleToggleFavorite}
           onDoubleClick={(e) => e.preventDefault()}
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill={isFavorited ? 'currentColor' : 'none'}
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
         </button>
@@ -267,7 +303,7 @@ export const GameCard = React.memo(
           }}
           onDoubleClick={(e) => e.preventDefault()}
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
             <circle cx="12" cy="5" r="2" />
             <circle cx="12" cy="12" r="2" />
             <circle cx="12" cy="19" r="2" />
@@ -279,7 +315,7 @@ export const GameCard = React.memo(
             <button
               type="button"
               role="menuitem"
-              className="dropdown-item"
+              className="dropdown-item action-rename"
               onClick={(e) => {
                 e.preventDefault();
                 handleStartRename();
@@ -301,7 +337,7 @@ export const GameCard = React.memo(
             <button
               type="button"
               role="menuitem"
-              className="dropdown-item"
+              className="dropdown-item action-reveal"
               onClick={(e) => {
                 e.preventDefault();
                 handleMenuSelect('reveal');
@@ -320,60 +356,28 @@ export const GameCard = React.memo(
               <span>Reveal in Folder</span>
             </button>
 
-            <button
-              type="button"
+            <div
               role="menuitem"
-              className="dropdown-item"
+              tabIndex={0}
+              aria-haspopup="menu"
+              aria-expanded={openSubmenu === 'saves'}
+              className={`dropdown-item has-submenu action-saves-group${openSubmenu === 'saves' ? ' submenu-open' : ''}`}
+              onMouseEnter={() => setOpenSubmenu('saves')}
+              onMouseLeave={() => setOpenSubmenu((prev) => (prev === 'saves' ? null : prev))}
               onClick={(e) => {
-                e.preventDefault();
-                menuBtnRef.current?.focus();
-                setIsMenuOpen(false);
-                onOpenSaveEditor?.(gameKey);
+                if (e.target === e.currentTarget || !(e.target as HTMLElement).closest('.dropdown-submenu')) {
+                  e.preventDefault();
+                  setOpenSubmenu((prev) => (prev === 'saves' ? null : 'saves'));
+                }
               }}
-            >
-              <svg
-                className="dropdown-item-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              </svg>
-              <span>Save Editor</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                handleMenuSelect('open-saves');
-              }}
-            >
-              <svg
-                className="dropdown-item-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />
-              </svg>
-              <span>Open Save Folder</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                handleMenuSelect('set-save-folder');
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  setOpenSubmenu('saves');
+                } else if (e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  setOpenSubmenu(null);
+                }
               }}
             >
               <svg
@@ -388,119 +392,244 @@ export const GameCard = React.memo(
                 <polyline points="17 21 17 13 7 13 7 21" />
                 <polyline points="7 3 7 8 15 8" />
               </svg>
-              <span>Set Custom Save Folder</span>
-            </button>
-
-            {Boolean(game.saveFolderOverride) && (
-              <button
-                type="button"
-                role="menuitem"
-                className="dropdown-item action-reset-save-folder"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleMenuSelect('reset-save-folder');
-                }}
-              >
-                <svg
-                  className="dropdown-item-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
+              <span>Saves</span>
+              <div className={`dropdown-submenu${openSubmenu === 'saves' ? ' show' : ''}`} role="menu" aria-label="Saves">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="dropdown-item action-save-editor"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    menuBtnRef.current?.focus();
+                    setIsMenuOpen(false);
+                    onOpenSaveEditor?.(gameKey);
+                  }}
                 >
-                  <polyline points="1 4 1 10 7 10" />
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                </svg>
-                <span>Reset Save Folder</span>
-              </button>
-            )}
+                  <svg
+                    className="dropdown-item-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  </svg>
+                  <span>Save Editor</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="dropdown-item action-save-folder"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleMenuSelect('open-saves');
+                  }}
+                >
+                  <svg
+                    className="dropdown-item-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8" />
+                  </svg>
+                  <span>Open Save Folder</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="dropdown-item action-set-save-folder"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleMenuSelect('set-save-folder');
+                  }}
+                >
+                  <svg
+                    className="dropdown-item-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                  <span>Set Custom Save Folder</span>
+                </button>
+
+                {Boolean(game.saveFolderOverride) && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="dropdown-item action-reset-save-folder"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleMenuSelect('reset-save-folder');
+                    }}
+                  >
+                    <svg
+                      className="dropdown-item-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <polyline points="1 4 1 10 7 10" />
+                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                    </svg>
+                    <span>Reset Save Folder</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div
+              role="menuitem"
+              tabIndex={0}
+              aria-haspopup="menu"
+              aria-expanded={openSubmenu === 'addons'}
+              className={`dropdown-item has-submenu action-addons-group${openSubmenu === 'addons' ? ' submenu-open' : ''}`}
+              onMouseEnter={() => setOpenSubmenu('addons')}
+              onMouseLeave={() => setOpenSubmenu((prev) => (prev === 'addons' ? null : prev))}
+              onClick={(e) => {
+                if (e.target === e.currentTarget || !(e.target as HTMLElement).closest('.dropdown-submenu')) {
+                  e.preventDefault();
+                  setOpenSubmenu((prev) => (prev === 'addons' ? null : 'addons'));
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  setOpenSubmenu('addons');
+                } else if (e.key === 'ArrowLeft') {
+                  e.preventDefault();
+                  setOpenSubmenu(null);
+                }
+              }}
+            >
+              <svg
+                className="dropdown-item-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <line x1="16.5" y1="9.4" x2="7.5" y2="4.21" />
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+              <span>Add-ons</span>
+              <div className={`dropdown-submenu${openSubmenu === 'addons' ? ' show' : ''}`} role="menu" aria-label="Add-ons">
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={Boolean(game.autoTranslate)}
+                  aria-disabled={translationSupported === false || undefined}
+                  disabled={translationSupported === false}
+                  className={`dropdown-item action-live-translate${translationSupported === false ? ' disabled' : ''}`}
+                  style={translationSupported === false ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (translationSupported === false) return;
+                    handleMenuSelect('toggle-live-tl');
+                  }}
+                >
+                  <svg
+                    className="dropdown-item-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    {game.autoTranslate ? (
+                      <>
+                        <polyline points="9 11 12 14 22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                      </>
+                    ) : (
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    )}
+                  </svg>
+                  <span>{translationSupported === false ? 'Not yet supported' : 'Live Translation'}</span>
+                </button>
+
+                {resolvedBetaExposed && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-disabled={translationSupported === false || undefined}
+                    disabled={translationSupported === false}
+                    className={`dropdown-item action-pre-translate${translationSupported === false ? ' disabled' : ''}`}
+                    style={translationSupported === false ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (translationSupported === false) return;
+                      handleMenuSelect('tl-sync');
+                    }}
+                  >
+                    <svg
+                      className="dropdown-item-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 20h9M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    </svg>
+                    <span>{translationSupported === false ? 'Not yet supported' : 'Pre-Translate Game'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={Boolean(game.runInBackground)}
+                  className="dropdown-item action-background-run"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleMenuSelect('toggle-bg');
+                  }}
+                >
+                  <svg
+                    className="dropdown-item-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    {game.runInBackground ? (
+                      <>
+                        <polyline points="9 11 12 14 22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                      </>
+                    ) : (
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    )}
+                  </svg>
+                  <span>Run in Background</span>
+                </button>
+              </div>
+            </div>
 
             <button
               type="button"
               role="menuitem"
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                handleMenuSelect('tl-sync');
-              }}
-            >
-              <svg
-                className="dropdown-item-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M5 8l6 6" />
-                <path d="M4 14l6-6 2-3" />
-                <path d="M2 5h12" />
-                <path d="M7 2h1" />
-                <path d="M22 22l-5-10-5 10" />
-                <path d="M14 18h6" />
-              </svg>
-              <span>Sync Translations</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={Boolean(game.autoTranslate)}
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                handleMenuSelect('toggle-live-tl');
-              }}
-            >
-              <svg
-                className="dropdown-item-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                {game.autoTranslate ? (
-                  <polyline points="9 11 12 14 22 4" />
-                ) : (
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                )}
-              </svg>
-              <span>Live Translation</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={Boolean(game.runInBackground)}
-              className="dropdown-item"
-              onClick={(e) => {
-                e.preventDefault();
-                handleMenuSelect('toggle-bg');
-              }}
-            >
-              <svg
-                className="dropdown-item-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                {game.runInBackground ? (
-                  <polyline points="9 11 12 14 22 4" />
-                ) : (
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                )}
-              </svg>
-              <span>Run in Background</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              className="dropdown-item danger"
+              className="dropdown-item danger action-delete"
               onClick={(e) => {
                 e.preventDefault();
                 handleMenuSelect('delete');
@@ -522,6 +651,8 @@ export const GameCard = React.memo(
         )}
 
         <GameIcon game={game} />
+
+        {duplicateChip && <div className="game-duplicate-chip">{duplicateChip}</div>}
 
         {isRenaming ? (
           <input
@@ -551,7 +682,6 @@ export const GameCard = React.memo(
           </div>
         )}
 
-        {duplicateChip && <div className="game-duplicate-chip">{duplicateChip}</div>}
         <div className="game-status">{statusLabel}</div>
         <div className="game-playtime">{playtimeLabel}</div>
         {pathSubtitle && (

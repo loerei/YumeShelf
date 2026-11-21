@@ -449,7 +449,8 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
             saveFolderOverride: 'C:\\CustomSaves\\g1',
           }),
         ],
-        libraryConfig: { libraryPaths: ['C:\\Games'], categoryTree: [] },
+        config: { libraryPaths: ['C:\\Games'], categoryTree: [], exposeBetaOptions: true },
+        libraryConfig: { libraryPaths: ['C:\\Games'], categoryTree: [], exposeBetaOptions: true },
         categoryTree: [],
       }),
       renameGame: vi
@@ -583,16 +584,16 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     });
     expect(store.getSnapshot().allGames[0]?.runInBackground).toBe(true);
 
-    // 9. Sync Translations (BCP-47 invalid stored lang -> falls back to 'en', then second call rejects -> toast)
+    // 9. Sync Translations / Pre-Translate Game (BCP-47 invalid stored lang -> falls back to 'en', then second call rejects -> toast)
     openCardMenu();
     await act(async () => {
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Sync Translations' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Pre-Translate Game' }));
     });
     expect(api.startTranslationSync).toHaveBeenCalledWith({ gameKey: 'g1', targetLang: 'en' });
 
     openCardMenu();
     await act(async () => {
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Sync Translations' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Pre-Translate Game' }));
     });
     expect(screen.getByText('Failed to start translation sync')).toBeTruthy();
 
@@ -606,9 +607,9 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     expect(saveEditorToast).toContain('<USER_DIR>');
     expect(saveEditorToast).not.toContain('Bob');
 
-    // 11. Card click launches game with runInBackground preference
+    // 11. Card double-click launches game with runInBackground preference
     const cardEl = screen.getByRole('article');
-    fireEvent.click(cardEl);
+    fireEvent.doubleClick(cardEl);
     expect(api.launchYume).toHaveBeenCalledWith({
       gameKey: 'g1',
       exePath: 'C:\\Games\\g1\\Alpha.exe',

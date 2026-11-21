@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCardMenu } from '../hooks/useCardMenu';
 import { useLocaleStrings } from '../i18n/locale-strings';
 import type { LibraryViewItem } from '../library-stacks';
 import type { GameEntry } from '../types/game';
@@ -42,6 +43,7 @@ export const StackCard = React.memo(
       style,
       onClick,
       onKeyDown,
+      onContextMenu,
       ...rest
     },
     forwardedRef
@@ -51,13 +53,18 @@ export const StackCard = React.memo(
     const isFavorited = Boolean(stack.favorite);
     const isRunning = stack.games.some((g) => Boolean(g.isRunning));
 
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isRenaming, setIsRenaming] = useState(false);
     const [draftName, setDraftName] = useState(displayName);
 
     const cardRef = useRef<HTMLDivElement | null>(null);
-    const menuRef = useRef<HTMLDivElement | null>(null);
-    const menuBtnRef = useRef<HTMLButtonElement | null>(null);
+    const {
+      isMenuOpen,
+      setIsMenuOpen,
+      menuRef,
+      menuBtnRef,
+      handleMenuButtonClick,
+      handleCardContextMenu,
+    } = useCardMenu({ cardRef, onContextMenu });
     const renameInputRef = useRef<HTMLInputElement | null>(null);
     const isCancellingRef = useRef(false);
     const isCommittingRef = useRef(false);
@@ -81,38 +88,6 @@ export const StackCard = React.memo(
         renameInputRef.current?.select();
       }
     }, [isRenaming]);
-
-    useEffect(() => {
-      if (!isMenuOpen) return;
-
-      const handleDocumentPointerDown = (e: PointerEvent) => {
-        const target = e.target as Node | null;
-        if (
-          menuRef.current &&
-          target &&
-          !menuRef.current.contains(target) &&
-          menuBtnRef.current &&
-          !menuBtnRef.current.contains(target)
-        ) {
-          setIsMenuOpen(false);
-        }
-      };
-
-      const handleDocumentKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          setIsMenuOpen(false);
-          menuBtnRef.current?.focus();
-        }
-      };
-
-      document.addEventListener('pointerdown', handleDocumentPointerDown);
-      document.addEventListener('keydown', handleDocumentKeyDown);
-      return () => {
-        document.removeEventListener('pointerdown', handleDocumentPointerDown);
-        document.removeEventListener('keydown', handleDocumentKeyDown);
-      };
-    }, [isMenuOpen]);
 
     const handleToggleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
@@ -214,6 +189,7 @@ export const StackCard = React.memo(
         aria-label={`Game stack: ${displayName} (${stack.stackSize} instances)`}
         onClick={handleCardClick}
         onKeyDown={handleCardKeyDown}
+        onContextMenu={handleCardContextMenu}
         {...rest}
       >
         <button
@@ -238,10 +214,7 @@ export const StackCard = React.memo(
           title="Stack options"
           aria-haspopup="menu"
           aria-expanded={isMenuOpen}
-          onClick={(e) => {
-            e.preventDefault();
-            setIsMenuOpen((prev) => !prev);
-          }}
+          onClick={handleMenuButtonClick}
           onDoubleClick={(e) => e.preventDefault()}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">

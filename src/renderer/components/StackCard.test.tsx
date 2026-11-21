@@ -209,4 +209,44 @@ describe('StackCard', () => {
     rerender(<TrackedWrapper stack={updatedStack} tick={3} />);
     expect(screen.getByText('3x')).toBeInTheDocument();
   });
+
+  it('toggles dropdown menu on stack right-click and preserves native context menu on rename input', () => {
+    render(<StackCard stack={SAMPLE_STACK} />);
+    const card = screen.getByRole('region', { name: 'Game stack: Alpha Quest (2 instances)' });
+
+    const openEvent = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+    });
+    expect(fireEvent(card, openEvent)).toBe(false);
+    expect(openEvent.defaultPrevented).toBe(true);
+    expect(screen.getByRole('menu', { name: 'Stack options' })).toHaveClass('dropdown-menu', 'show');
+
+    // Second right-click (pointerdown button=2 then contextmenu) toggles menu closed
+    fireEvent(
+      card,
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 2 })
+    );
+    const closeEvent = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+    });
+    expect(fireEvent(card, closeEvent)).toBe(false);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    // Right-click on rename input preserves native context menu
+    fireEvent.contextMenu(card);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    const renameInput = screen.getByRole('textbox', { name: 'Rename stack title' });
+    const inputCtxEvent = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+    });
+    expect(fireEvent(renameInput, inputCtxEvent)).toBe(true);
+    expect(inputCtxEvent.defaultPrevented).toBe(false);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
 });

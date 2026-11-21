@@ -327,4 +327,72 @@ describe('GameCard', () => {
       window.electronAPI = prevApi;
     }
   });
+
+  it('toggles dropdown menu on card right-click, closes sibling menu on right-click elsewhere, and preserves native context menu on rename input', () => {
+    const parentContextMenuSpy = vi.fn();
+    render(
+      <div onContextMenu={parentContextMenuSpy}>
+        <GameCard game={BASE_GAME} data-testid="card-1" />
+        <GameCard
+          game={{ ...BASE_GAME, gameKey: 'main::rpg/beta', gameId: 'beta-id', name: 'Beta Quest' }}
+          data-testid="card-2"
+        />
+      </div>
+    );
+
+    const card1 = screen.getByTestId('card-1');
+    const card2 = screen.getByTestId('card-2');
+
+    // First right-click opens Card 1 menu and prevents native menu & bubbling
+    const openCard1Event = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+    });
+    expect(fireEvent(card1, openCard1Event)).toBe(false);
+    expect(openCard1Event.defaultPrevented).toBe(true);
+    expect(parentContextMenuSpy).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('menu', { name: 'Game options' })).toHaveLength(1);
+    expect(card1.querySelector('.dropdown-menu')).toHaveClass('show');
+
+    // Right-clicking Card 2 (pointerdown button=2 then contextmenu) closes Card 1 and opens Card 2
+    fireEvent(
+      card2,
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 2 })
+    );
+    const openCard2Event = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+    });
+    expect(fireEvent(card2, openCard2Event)).toBe(false);
+    expect(card1.querySelector('.dropdown-menu')).not.toBeInTheDocument();
+    expect(card2.querySelector('.dropdown-menu')).toHaveClass('show');
+
+    // Second right-click on Card 2 (pointerdown button=2 then contextmenu) closes Card 2 cleanly
+    fireEvent(
+      card2,
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 2 })
+    );
+    const closeCard2Event = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+    });
+    expect(fireEvent(card2, closeCard2Event)).toBe(false);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    // During inline rename, right-clicking .rename-input preserves native context menu and does not open dropdown
+    fireEvent.contextMenu(card1);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    const renameInput = screen.getByRole('textbox', { name: 'Rename game title' });
+    const inputCtxEvent = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+    });
+    expect(fireEvent(renameInput, inputCtxEvent)).toBe(true);
+    expect(inputCtxEvent.defaultPrevented).toBe(false);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
 });

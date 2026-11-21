@@ -202,7 +202,7 @@ export function createMainWindow({
             responseHeaders: {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
-                    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'`
+                    `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: game-icon:; connect-src 'self'`
                 ]
             }
         });

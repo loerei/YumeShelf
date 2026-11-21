@@ -1,4 +1,5 @@
-.game-grid {
+.game-grid,
+.grid-section {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 20px;
@@ -129,11 +130,17 @@
     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
 }
 
-.game-icon img {
+.game-icon img,
+img.game-icon {
     width: 100%;
     height: 100%;
     object-fit: contain;
     pointer-events: none;
+}
+
+img.game-icon {
+    width: 64px;
+    height: 64px;
 }
 
 .game-icon img.fade-in-icon {

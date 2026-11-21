@@ -380,21 +380,20 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
       expect(screen.getByText('Alpha')).toBeTruthy();
     });
 
-    // 1. Open AboutModal directly from Header and dismiss -> focus returns to Header About button
-    const headerAboutBtn = screen.getByRole('button', { name: 'About YumeShelf and Credits' });
-    headerAboutBtn.focus();
-    fireEvent.click(headerAboutBtn);
+    // 1. Open SettingsModal directly from Header and dismiss -> focus returns to Settings button
+    const settingsBtn = screen.getByRole('button', { name: 'Settings' });
+    settingsBtn.focus();
+    fireEvent.click(settingsBtn);
 
     expect(await screen.findByRole('dialog')).toBeTruthy();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(document.activeElement).toBe(headerAboutBtn);
+      expect(document.activeElement).toBe(settingsBtn);
     });
 
     // 2. Open SettingsModal, then open LanguagePackModal from inside SettingsModal
-    const settingsBtn = screen.getByRole('button', { name: 'Settings' });
     settingsBtn.focus();
     fireEvent.click(settingsBtn);
 
@@ -926,7 +925,7 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     expect(indexHtml).toContain('<div id="react-root" tabindex="-1"></div>');
     expect(indexHtml).toContain('<div id="portal-root"></div>');
     expect(indexHtml).toContain(
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: game-icon:; connect-src 'self';"
     );
     expect(indexHtml).not.toContain('https://translate.googleapis.com');
     expect(indexHtml).not.toContain('id="settings-overlay"');

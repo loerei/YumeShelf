@@ -483,7 +483,7 @@ export function LibraryGrid({
         />
       ) : (
         <>
-          <div id="fav-grid" className="grid-section">
+          <div id="fav-grid" className="game-grid grid-section">
             {favorites.map(renderItem)}
           </div>
           {favorites.length > 0 && nonFavorites.length > 0 && (
@@ -491,7 +491,7 @@ export function LibraryGrid({
               <div className="favorites-separator" />
             </div>
           )}
-          <div id="unfav-grid" className="grid-section">
+          <div id="unfav-grid" className="game-grid grid-section">
             {nonFavorites.map(renderItem)}
           </div>
         </>

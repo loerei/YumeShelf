@@ -202,6 +202,7 @@ describe('main-window hardening and crash recovery', () => {
     expect(cspHeader).not.toContain('yumeshelf-telemetry.sayusumat.workers.dev');
     expect(cspHeader).not.toContain('https://translate.googleapis.com');
     expect(cspHeader).toContain("script-src 'self';");
+    expect(cspHeader).toContain("img-src 'self' data: game-icon:;");
     expect(cspHeader).toContain("connect-src 'self'");
 
     const consoleHandler = mocks.webContentsListeners.get('console-message')!;

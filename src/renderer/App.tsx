@@ -632,8 +632,6 @@ export function AppShell({
         onRefreshLibrary={bootstrapState.refresh}
         isRefreshing={bootstrapState.isRefreshing}
         onOpenSettings={() => openModal('settings')}
-        onOpenAbout={() => openModal('about')}
-        onOpenLanguagePack={() => openModal('language-pack')}
       />
       <LibraryGrid
         containerRef={gridContainerRef}

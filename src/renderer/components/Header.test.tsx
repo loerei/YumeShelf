@@ -82,16 +82,12 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
   it('triggers action callbacks and suppresses Refresh Library activation while isRefreshing is true', () => {
     const onRefreshLibrary = vi.fn();
     const onOpenSettings = vi.fn();
-    const onOpenAbout = vi.fn();
-    const onOpenLanguagePack = vi.fn();
 
     const { rerender } = render(
       <HeaderView
         isRefreshing={false}
         onRefreshLibrary={onRefreshLibrary}
         onOpenSettings={onOpenSettings}
-        onOpenAbout={onOpenAbout}
-        onOpenLanguagePack={onOpenLanguagePack}
       />
     );
 
@@ -106,19 +102,8 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
 
-    const aboutBtn = screen.getByRole('button', { name: /About/i });
-    expect(aboutBtn.classList.contains('header-text-btn')).toBe(true);
-    expect(aboutBtn.querySelector('.header-btn-icon')).toBeTruthy();
-    expect(aboutBtn.querySelector('.header-btn-label')?.textContent).toBe('About');
-    fireEvent.click(aboutBtn);
-    expect(onOpenAbout).toHaveBeenCalledTimes(1);
-
-    const langBtn = screen.getByRole('button', { name: /Language/i });
-    expect(langBtn.classList.contains('header-text-btn')).toBe(true);
-    expect(langBtn.querySelector('.header-btn-icon')).toBeTruthy();
-    expect(langBtn.querySelector('.header-btn-label')?.textContent).toBe('Languages');
-    fireEvent.click(langBtn);
-    expect(onOpenLanguagePack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /About/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Language/i })).toBeNull();
 
     // Re-render with isRefreshing={true}
     rerender(
@@ -126,8 +111,6 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
         isRefreshing={true}
         onRefreshLibrary={onRefreshLibrary}
         onOpenSettings={onOpenSettings}
-        onOpenAbout={onOpenAbout}
-        onOpenLanguagePack={onOpenLanguagePack}
       />
     );
 

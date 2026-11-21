@@ -321,15 +321,6 @@
     margin-top: 2px;
 }
 
-.save-editor-file-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.save-editor-file-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
-}
-
 .save-editor-loading-sidebar,
 .save-editor-empty,
 .save-file-list-empty {
@@ -1409,18 +1400,6 @@
 .save-editor-overlay .small-btn.secondary-btn {
     padding: 5px 12px;
     font-size: 12px;
-}
-
-/* Custom Scrollbar */
-.save-editor-content::-webkit-scrollbar,
-.save-editor-sidebar::-webkit-scrollbar {
-    width: 6px;
-}
-
-.save-editor-content::-webkit-scrollbar-thumb,
-.save-editor-sidebar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
 }
 
 @keyframes fadeIn {

@@ -682,6 +682,8 @@
 
 .save-editor-main {
     flex: 1;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1069,9 +1071,14 @@
 
 .save-editor-content {
     flex: 1;
-    padding: 24px;
+    min-height: 0;
+    padding: 0 24px 24px 24px;
     overflow-y: auto;
     scrollbar-gutter: stable;
+}
+
+.save-editor-loaded-stage > .save-editor-virtual-spacer:first-child {
+    margin-top: 20px;
 }
 
 .save-editor-content:focus,
@@ -1422,10 +1429,22 @@
 }
 
 /* Standalone Window Save Editor Styles */
+html:has(body.standalone-save-editor) {
+    width: 100%;
+    height: 100%;
+}
+
 body.standalone-save-editor {
+    width: 100%;
+    height: 100%;
     padding: 0 !important;
     margin: 0 !important;
     overflow: hidden !important;
+}
+
+.standalone-save-editor #save-editor-root {
+    width: 100%;
+    height: 100%;
 }
 
 .standalone-save-editor #welcome-screen,
@@ -1444,8 +1463,8 @@ body.standalone-save-editor {
     left: 0;
     right: 0;
     bottom: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     background: transparent;
     backdrop-filter: none;
     z-index: auto;
@@ -1455,8 +1474,8 @@ body.standalone-save-editor {
 }
 
 .standalone-save-editor .save-editor-panel {
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     max-width: none;
     border-radius: 0;
     border: none;
@@ -1548,10 +1567,14 @@ body.standalone-save-editor {
 
 /* Global Controls for Collapse/Expand All */
 .all-tab-controls {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
     gap: 8px;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
+    margin-bottom: 16px;
+    padding: 16px 0 12px 0;
+    background: var(--bg-color, #121212);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 

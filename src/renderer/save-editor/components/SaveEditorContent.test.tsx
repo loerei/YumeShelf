@@ -928,6 +928,8 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     );
     expect(css).toMatch(/\.save-grid-virtual-row--expanding\s*\{[^}]*animation:\s*save-editor-fade-in/s);
     expect(css).toMatch(/\.save-field-row\s+\.checkbox-row\s*\{[^}]*box-sizing:\s*border-box/s);
+    expect(css).toMatch(/\.all-tab-controls\s*\{[^}]*position:\s*sticky/s);
+    expect(css).toMatch(/\.standalone-save-editor\s+\.save-editor-panel\s*\{[^}]*width:\s*100%/s);
 
     const rowBlock = css.match(/\.save-field-row\s*\{([^}]+)\}/);
     expect(rowBlock).not.toBeNull();

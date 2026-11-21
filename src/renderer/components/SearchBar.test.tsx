@@ -254,7 +254,7 @@ describe('SearchBar', () => {
     expect(status.textContent).toBe('No matching games found');
   });
 
-  it('halts placeholder rotation when prefers-reduced-motion: reduce is active', () => {
+  it('halts #search-placeholder rotation when prefers-reduced-motion: reduce is active', () => {
     vi.useFakeTimers();
     vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
       matches: query === '(prefers-reduced-motion: reduce)',
@@ -267,19 +267,70 @@ describe('SearchBar', () => {
       dispatchEvent: vi.fn(),
     }));
 
-    render(
+    const { container } = render(
       <ControlledSearchHarness
         placeholderList={['Static Placeholder', 'Second Placeholder']}
       />
     );
 
-    const input = screen.getByRole('textbox', { name: 'Search library games' }) as HTMLInputElement;
-    expect(input.placeholder).toBe('Static Placeholder');
+    const placeholder = container.querySelector('#search-placeholder') as HTMLElement;
+    expect(placeholder).toBeTruthy();
+    expect(placeholder.classList.contains('search-placeholder')).toBe(true);
+    expect(placeholder.textContent).toBe('Static Placeholder');
 
     act(() => {
       vi.advanceTimersByTime(10000);
     });
 
-    expect(input.placeholder).toBe('Static Placeholder');
+    expect(placeholder.textContent).toBe('Static Placeholder');
+  });
+
+  it('renders #search-placeholder bonk quote, fallback icon, data-tooltip, and .search-launch-icon-wrapper button', () => {
+    vi.useFakeTimers();
+    const onSelectGame = vi.fn();
+    const onLocateGame = vi.fn();
+    const games: SearchBarGameItem[] = [
+      { gameKey: 'g1', name: 'Clannad', relativePathDisplay: 'VN/Clannad' },
+    ];
+
+    const { container } = render(
+      <SearchBar
+        query="clan"
+        onQueryChange={vi.fn()}
+        onSelectGame={onSelectGame}
+        onLocateGame={onLocateGame}
+        games={games}
+        debounceMs={100}
+      />
+    );
+
+    // Mascot bonk quote overrides placeholder when query is cleared
+    act(() => {
+      window.dispatchEvent(new CustomEvent('yumeshelf:mascot-bonk', { detail: { quote: 'OIIIIIIII!!!' } }));
+    });
+    const placeholder = container.querySelector('#search-placeholder') as HTMLElement;
+    expect(placeholder.textContent).toBe('OIIIIIIII!!!');
+    expect(placeholder.style.display).toBe('none');
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    const item = screen.getByRole('listitem');
+    expect(item.getAttribute('data-tooltip')).toBe('Clannad');
+    expect(item.getAttribute('data-tooltip-subtitle')).toBe('VN/Clannad');
+    expect(item.querySelector('.search-item-icon')?.textContent).toBe('🎮');
+
+    const locateBtn = item.querySelector('button.search-launch-icon-wrapper') as HTMLButtonElement;
+    expect(locateBtn).toBeTruthy();
+    expect(locateBtn.querySelector('.search-launch-icon')).toBeTruthy();
+
+    fireEvent.click(locateBtn);
+    expect(onLocateGame).toHaveBeenCalledWith('g1');
+    expect(onSelectGame).not.toHaveBeenCalled();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('yumeshelf:mascot-recover'));
+    });
   });
 });

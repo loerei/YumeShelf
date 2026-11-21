@@ -31,7 +31,10 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
     expect(sortBtn.getAttribute('aria-haspopup')).toBe('menu');
     expect(sortBtn.getAttribute('aria-expanded')).toBe('false');
     expect(document.getElementById('sort-active-label')?.textContent).toBe('Name A-Z');
-    expect(sortBtn.querySelector('.sort-caret')).toBeTruthy();
+    const caret = sortBtn.querySelector('.sort-caret');
+    expect(caret).toBeTruthy();
+    expect(caret?.tagName).toBe('SPAN');
+    expect(caret?.textContent).toBe('▾');
 
     // Open sort menu
     fireEvent.click(sortBtn);
@@ -152,6 +155,40 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
     expect(container.querySelector('.search-dropdown')).toBeNull();
     expect(document.activeElement).toBe(input);
   });
+
+  it('renders #quick-folder-container for 1 or more libraryPaths and opens path or menu', () => {
+    const onOpenFolder = vi.fn();
+    const { rerender } = render(<HeaderView libraryPaths={[]} onOpenFolder={onOpenFolder} />);
+    expect(document.getElementById('quick-folder-container')).toBeNull();
+
+    // Single path opens directly
+    rerender(<HeaderView libraryPaths={['D:\\Games']} onOpenFolder={onOpenFolder} />);
+    const singleBtn = document.getElementById('quick-folder-btn') as HTMLButtonElement;
+    expect(singleBtn).toBeTruthy();
+    fireEvent.click(singleBtn);
+    expect(onOpenFolder).toHaveBeenCalledWith('D:\\Games');
+    expect(document.getElementById('quick-folder-menu')).toBeNull();
+
+    // Multiple paths opens #quick-folder-menu
+    onOpenFolder.mockClear();
+    rerender(
+      <HeaderView libraryPaths={['D:\\Games', 'E:\\VN']} onOpenFolder={onOpenFolder} />
+    );
+    const multiBtn = document.getElementById('quick-folder-btn') as HTMLButtonElement;
+    fireEvent.click(multiBtn);
+    const folderMenu = document.getElementById('quick-folder-menu')!;
+    expect(folderMenu).toBeTruthy();
+    expect(folderMenu.classList.contains('sort-menu')).toBe(true);
+    expect(folderMenu.classList.contains('quick-folder-menu')).toBe(true);
+    expect(folderMenu.classList.contains('show')).toBe(true);
+
+    const items = folderMenu.querySelectorAll('button.quick-folder-item');
+    expect(items.length).toBe(2);
+    expect(items[1].getAttribute('data-tooltip')).toBe('E:\\VN');
+    fireEvent.click(items[1]);
+    expect(onOpenFolder).toHaveBeenCalledWith('E:\\VN');
+    expect(document.getElementById('quick-folder-menu')).toBeNull();
+  });
 });
 
 describe('Header (Connected Container & Playtime Isolation)', () => {
@@ -212,26 +249,25 @@ describe('Header (Connected Container & Playtime Isolation)', () => {
 });
 
 describe('Stylesheet Contract: src/styles/header-search.css', () => {
-  it('enforces design tokens, isolation, button resets, focus-visible, search clear padding, and reduced motion', () => {
+  it('enforces design tokens, restored z-index 1500, isolation, button resets, focus-visible, search clear padding, and reduced motion', () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/header-search.css');
     const css = fs.readFileSync(cssPath, 'utf-8').replace(/\r\n/g, '\n');
 
     expect(css).toContain('z-index: var(--zIndex-dropdown);');
-    expect(css).not.toMatch(/z-index:\s*(1000|1500)\b/);
+    expect(css).toContain('z-index: 1500;');
     expect(css).toContain('isolation: isolate;');
 
     expect(css).toContain('.header-icon-btn[aria-disabled="true"]');
     expect(css).toContain('.category-filter-btn[aria-disabled="true"]');
 
-    expect(css).toContain('.sort-item,\n.category-filter-item');
-    expect(css).toContain('display: block;');
+    expect(css).toContain('.sort-item,\n.category-filter-item,\n.quick-folder-item');
     expect(css).toContain('width: 100%;');
     expect(css).toContain('background: transparent;');
     expect(css).toContain('border: none;');
     expect(css).toContain('font-family: inherit;');
     expect(css).toContain('text-align: left;');
 
-    expect(css).toContain('.sort-item:focus-visible,\n.category-filter-item:focus-visible');
+    expect(css).toContain('.sort-item:focus-visible,\n.category-filter-item:focus-visible,\n.quick-folder-item:focus-visible');
     expect(css).toContain('outline: 2px solid var(--accent);');
 
     expect(css).toContain('box-sizing: border-box;');

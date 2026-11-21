@@ -11,6 +11,8 @@ export interface MascotPreferences {
 
 export interface MascotWidgetProps extends MascotPreferences {
   storage?: UiStorageAdapter;
+  onBonk?: (quote: string) => void;
+  onRecoverSmug?: () => void;
 }
 
 export const MascotWidget: React.FC<MascotWidgetProps> = ({
@@ -19,11 +21,22 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
   sound,
   volume,
   storage,
+  onBonk,
+  onRecoverSmug,
 }) => {
   const widgetRef = useRef<HTMLButtonElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<MascotController | null>(null);
+  const onBonkRef = useRef(onBonk);
+  onBonkRef.current = onBonk;
+  const onRecoverSmugRef = useRef(onRecoverSmug);
+  onRecoverSmugRef.current = onRecoverSmug;
+
+  const [displayScale, setDisplayScale] = useState<number>(() => {
+    const parsed = scale !== undefined ? Number(scale) : 30;
+    return Number.isFinite(parsed) ? Math.min(100, Math.max(25, parsed)) : 30;
+  });
 
   const [displayVolume, setDisplayVolume] = useState<number>(() => {
     const parsed = volume !== undefined ? Number(volume) : 20;
@@ -36,6 +49,18 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
       imgEl: imgRef.current,
       contextMenuEl: contextMenuRef.current,
       storage,
+      onBonk: (quote) => {
+        onBonkRef.current?.(quote);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('yumeshelf:mascot-bonk', { detail: { quote } }));
+        }
+      },
+      onRecoverSmug: () => {
+        onRecoverSmugRef.current?.();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('yumeshelf:mascot-recover'));
+        }
+      },
     });
     controllerRef.current = controller;
     controller.init();
@@ -60,6 +85,10 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
   useEffect(() => {
     if (scale !== undefined) {
       controllerRef.current?.setScale(scale);
+      const parsed = Number(scale);
+      if (Number.isFinite(parsed)) {
+        setDisplayScale(Math.min(100, Math.max(25, parsed)));
+      }
     }
   }, [scale]);
 
@@ -160,15 +189,18 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
               id="mascot-menu-scale-slider"
               min={25}
               max={100}
-              defaultValue={scale !== undefined ? Number(scale) : 30}
+              value={displayScale}
               step={1}
               aria-label="Scale"
+              aria-valuetext={`${displayScale}%`}
               onChange={(e) => {
-                controllerRef.current?.setScale(e.target.value);
+                const next = Number(e.target.value);
+                setDisplayScale(next);
+                controllerRef.current?.setScale(next);
               }}
             />
             <span className="volume-value-label" id="mascot-menu-scale-value">
-              {scale !== undefined ? `${scale}%` : '30%'}
+              {`${displayScale}%`}
             </span>
           </div>
         </div>

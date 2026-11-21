@@ -12,16 +12,22 @@ export interface SearchBarGameItem {
   gameKey: string;
   name: string;
   iconUrl?: string;
+  subtitle?: string;
+  relativePath?: string;
+  relativePathDisplay?: string;
+  relativePathFullDisplay?: string;
 }
 
 export interface SearchBarProps {
   query: string;
   onQueryChange: (query: string) => void;
   onSelectGame: (gameKey: string) => void;
+  onLocateGame?: (gameKey: string) => void;
   debounceMs?: number;
   onSearch?: (debouncedQuery: string) => void;
   games?: readonly SearchBarGameItem[] | readonly GameEntry[];
   placeholderList?: string[];
+  temporaryPlaceholder?: string | null;
 }
 
 function escapeRegex(s: string): string {
@@ -70,10 +76,12 @@ export function HighlightedText({
 
 export function useRotatingPlaceholder(
   placeholderList: readonly string[] = DEFAULT_PLACEHOLDERS,
-  intervalMs = 3500
-): string {
+  intervalMs = 3500,
+  paused = false
+): { text: string; isFadingOut: boolean } {
   const list = placeholderList.length > 0 ? placeholderList : DEFAULT_PLACEHOLDERS;
   const [index, setIndex] = useState(0);
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
     const prefersReducedMotion =
@@ -81,21 +89,33 @@ export function useRotatingPlaceholder(
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (prefersReducedMotion || list.length <= 1) {
-      setIndex(0);
+    if (prefersReducedMotion || list.length <= 1 || paused) {
+      setIsFadingOut(false);
+      if (prefersReducedMotion || list.length <= 1) {
+        setIndex(0);
+      }
       return;
     }
 
+    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
     const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % list.length);
+      setIsFadingOut(true);
+      fadeTimer = setTimeout(() => {
+        setIndex((prev) => (prev + 1) % list.length);
+        setIsFadingOut(false);
+      }, 2000);
     }, intervalMs);
 
     return () => {
       clearInterval(timer);
+      if (fadeTimer) clearTimeout(fadeTimer);
     };
-  }, [list, intervalMs]);
+  }, [list, intervalMs, paused]);
 
-  return list[index % list.length] ?? DEFAULT_PLACEHOLDERS[0];
+  return {
+    text: list[index % list.length] ?? DEFAULT_PLACEHOLDERS[0],
+    isFadingOut,
+  };
 }
 
 interface SearchDropdownProps {
@@ -104,6 +124,7 @@ interface SearchDropdownProps {
   visibleMatches: readonly SearchBarGameItem[];
   selectedIndex: number;
   onSelect: (gameKey: string) => void;
+  onLocate: (gameKey: string) => void;
 }
 
 function SearchDropdown({
@@ -112,6 +133,7 @@ function SearchDropdown({
   visibleMatches,
   selectedIndex,
   onSelect,
+  onLocate,
 }: SearchDropdownProps): React.ReactElement {
   const highlightRegex = useMemo(() => buildHighlightRegex(debouncedQuery), [debouncedQuery]);
 
@@ -123,26 +145,60 @@ function SearchDropdown({
         </div>
       ) : (
         <div role="list">
-          {visibleMatches.map((item, i) => (
-            <div
-              key={item.gameKey}
-              role="listitem"
-              className={`search-item ${selectedIndex === i ? 'active' : ''}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => onSelect(item.gameKey)}
-            >
-              <div className="search-item-info">
-                <div className="search-item-icon">
-                  {item.iconUrl ? <img src={item.iconUrl} alt="" /> : null}
-                </div>
-                <div className="search-item-title-container">
-                  <div className="search-item-title">
-                    <HighlightedText text={item.name} highlightRegex={highlightRegex} />
+          {visibleMatches.map((item, i) => {
+            const tooltipSubtitle =
+              item.subtitle ||
+              item.relativePathFullDisplay ||
+              item.relativePathDisplay ||
+              item.relativePath ||
+              undefined;
+            return (
+              <div
+                key={item.gameKey}
+                role="listitem"
+                className={`search-item ${selectedIndex === i ? 'active' : ''}`}
+                data-tooltip={item.name}
+                data-tooltip-subtitle={tooltipSubtitle}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onSelect(item.gameKey)}
+              >
+                <div className="search-item-info">
+                  <div className="search-item-icon">
+                    {item.iconUrl ? <img src={item.iconUrl} alt="" /> : '🎮'}
+                  </div>
+                  <div className="search-item-title-container">
+                    <div className="search-item-title">
+                      <HighlightedText text={item.name} highlightRegex={highlightRegex} />
+                    </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className="search-launch-icon-wrapper"
+                  aria-label={`Locate ${item.name} in library`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLocate(item.gameKey);
+                  }}
+                >
+                  <svg
+                    className="search-launch-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M15 10l5 5-5 5" />
+                    <path d="M4 4v7a4 4 0 0 0 4 4h12" />
+                  </svg>
+                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -153,14 +209,17 @@ export function SearchBar({
   query,
   onQueryChange,
   onSelectGame,
+  onLocateGame,
   debounceMs = 150,
   onSearch,
   games = [],
   placeholderList,
+  temporaryPlaceholder,
 }: SearchBarProps): React.ReactElement {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [bonkQuote, setBonkQuote] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -169,7 +228,31 @@ export function SearchBar({
   debouncedQueryRef.current = debouncedQuery;
   const suppressFocusReopenRef = useRef(false);
 
-  const placeholderText = useRotatingPlaceholder(placeholderList);
+  const activeOverridePlaceholder = temporaryPlaceholder ?? bonkQuote;
+  const { text: placeholderText, isFadingOut } = useRotatingPlaceholder(
+    placeholderList,
+    3500,
+    Boolean(activeOverridePlaceholder) || query.trim().length > 0
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleBonk = (e: Event) => {
+      const quote = (e as CustomEvent<{ quote?: string }>).detail?.quote;
+      if (typeof quote === 'string' && quote.length > 0) {
+        setBonkQuote(quote);
+      }
+    };
+    const handleRecover = () => {
+      setBonkQuote(null);
+    };
+    window.addEventListener('yumeshelf:mascot-bonk', handleBonk);
+    window.addEventListener('yumeshelf:mascot-recover', handleRecover);
+    return () => {
+      window.removeEventListener('yumeshelf:mascot-bonk', handleBonk);
+      window.removeEventListener('yumeshelf:mascot-recover', handleRecover);
+    };
+  }, []);
 
   useEffect(() => {
     if (debounceTimerRef.current) {
@@ -252,6 +335,31 @@ export function SearchBar({
     onSelectGame(gameKey);
   };
 
+  const handleLocate = (gameKey: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    debouncedQueryRef.current = '';
+    setDebouncedQuery('');
+    setSelectedIndex(-1);
+    onQueryChange('');
+    setIsOpen(false);
+    if (onLocateGame) {
+      onLocateGame(gameKey);
+      return;
+    }
+    if (typeof document !== 'undefined') {
+      const cards = document.querySelectorAll<HTMLElement>('.game-card[data-game-key]');
+      const card = Array.from(cards).find((el) => el.dataset.gameKey === gameKey);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('glow');
+        setTimeout(() => card.classList.remove('glow'), 2000);
+      }
+    }
+  };
+
   const handleClear = () => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -305,14 +413,25 @@ export function SearchBar({
         <input
           ref={inputRef}
           type="text"
+          id="search-input"
           className="search-input"
           aria-label="Search library games"
-          placeholder={query.length === 0 ? placeholderText : ''}
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
         />
+        <div
+          id="search-placeholder"
+          className="search-placeholder"
+          aria-hidden="true"
+          style={{
+            display: query.trim().length > 0 ? 'none' : 'block',
+            opacity: activeOverridePlaceholder ? 0.75 : isFadingOut ? 0 : 0.5,
+          }}
+        >
+          {activeOverridePlaceholder ?? placeholderText}
+        </div>
         {query.length > 0 && (
           <button
             type="button"
@@ -345,6 +464,7 @@ export function SearchBar({
           visibleMatches={visibleMatches}
           selectedIndex={selectedIndex}
           onSelect={handleSelect}
+          onLocate={handleLocate}
         />
       )}
     </div>

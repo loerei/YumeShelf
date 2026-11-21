@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CategoryNode } from '../domain/category-tree';
 import {
   useActiveCategoryId,
@@ -38,6 +38,10 @@ export interface HeaderProps {
   onRefreshLibrary?: () => void;
   isRefreshing?: boolean;
 
+  // Quick Folder
+  libraryPaths?: readonly string[];
+  onOpenFolder?: (folderPath?: string) => void;
+
   // Modal Actions
   onOpenSettings?: () => void;
 }
@@ -56,13 +60,23 @@ export function HeaderView({
   onSortChange,
   onRefreshLibrary,
   isRefreshing = false,
+  libraryPaths,
+  onOpenFolder,
   onOpenSettings,
 }: HeaderViewProps): React.ReactElement {
   const [internalQuery, setInternalQuery] = useState('');
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isQuickFolderOpen, setIsQuickFolderOpen] = useState(false);
 
   const sortContainerRef = useRef<HTMLDivElement | null>(null);
   const sortBtnRef = useRef<HTMLButtonElement | null>(null);
+  const quickFolderContainerRef = useRef<HTMLDivElement | null>(null);
+  const quickFolderBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  const validLibraryPaths = useMemo(
+    () => (libraryPaths ?? []).map((p) => p.trim()).filter(Boolean),
+    [libraryPaths]
+  );
 
   const isSearchControlled = searchQuery !== undefined;
   const resolvedQuery = isSearchControlled ? searchQuery : internalQuery;
@@ -92,6 +106,15 @@ export function HeaderView({
     onRefreshLibrary?.();
   };
 
+  const handleQuickFolderClick = () => {
+    if (validLibraryPaths.length <= 1) {
+      setIsQuickFolderOpen(false);
+      onOpenFolder?.(validLibraryPaths[0]);
+      return;
+    }
+    setIsQuickFolderOpen((prev) => !prev);
+  };
+
   useEffect(() => {
     if (!isSortOpen) return;
 
@@ -116,6 +139,34 @@ export function HeaderView({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isSortOpen]);
+
+  useEffect(() => {
+    if (!isQuickFolderOpen) return;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      if (
+        quickFolderContainerRef.current &&
+        !quickFolderContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsQuickFolderOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsQuickFolderOpen(false);
+        quickFolderBtnRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isQuickFolderOpen]);
 
   const activeSortLabel = SORT_OPTIONS.find((opt) => opt.id === currentSort)?.label ?? 'Newest';
 
@@ -197,18 +248,9 @@ export function HeaderView({
               <line x1="10" y1="18" x2="14" y2="18" />
             </svg>
             <span id="sort-active-label">{activeSortLabel}</span>
-            <svg
-              className="sort-caret"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+            <span className="sort-caret" aria-hidden="true">
+              ▾
+            </span>
           </button>
           {isSortOpen && (
             <div
@@ -234,6 +276,80 @@ export function HeaderView({
             </div>
           )}
         </div>
+
+        {validLibraryPaths.length > 0 && (
+          <div
+            ref={quickFolderContainerRef}
+            id="quick-folder-container"
+            className="quick-folder-container"
+            onBlur={(e) => {
+              if (
+                quickFolderContainerRef.current &&
+                !quickFolderContainerRef.current.contains(e.relatedTarget as Node | null)
+              ) {
+                setIsQuickFolderOpen(false);
+              }
+            }}
+          >
+            <button
+              ref={quickFolderBtnRef}
+              type="button"
+              id="quick-folder-btn"
+              className="header-icon-btn"
+              title="Open Games Folder"
+              aria-label="Open Games Folder"
+              aria-haspopup={validLibraryPaths.length > 1 ? 'menu' : undefined}
+              aria-expanded={validLibraryPaths.length > 1 ? isQuickFolderOpen : undefined}
+              onClick={handleQuickFolderClick}
+            >
+              <svg
+                className="icon-svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+            {validLibraryPaths.length > 1 && isQuickFolderOpen && (
+              <div
+                id="quick-folder-menu"
+                className="sort-menu quick-folder-menu show"
+                role="menu"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {validLibraryPaths.map((folderPath) => (
+                  <button
+                    key={folderPath}
+                    type="button"
+                    role="menuitem"
+                    className="quick-folder-item"
+                    data-tooltip={folderPath}
+                    onClick={() => {
+                      quickFolderBtnRef.current?.focus();
+                      setIsQuickFolderOpen(false);
+                      onOpenFolder?.(folderPath);
+                    }}
+                  >
+                    <svg
+                      className="quick-folder-item-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span className="quick-folder-item-path">{folderPath}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           type="button"

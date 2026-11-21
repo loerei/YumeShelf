@@ -103,7 +103,7 @@ export function AppShell({
     const parsedVol = rawVol !== null && rawVol !== undefined && rawVol !== '' ? Number(rawVol) : 20;
     return {
       show: storage?.getItem('yumeshelf_mascot_show') !== 'off',
-      scale: Number(storage?.getItem('yumeshelf_mascot_scale')) || 100,
+      scale: Number(storage?.getItem('yumeshelf_mascot_scale')) || 30,
       sound: storage?.getItem('yumeshelf_mascot_sound') || 'squeaker',
       volume: Number.isFinite(parsedVol) ? parsedVol : 20,
     };
@@ -620,6 +620,22 @@ export function AppShell({
   return (
     <>
       <Header
+        libraryPaths={
+          bootstrapState.status === 'success'
+            ? bootstrapState.data.config?.libraryPaths?.length
+              ? bootstrapState.data.config.libraryPaths
+              : bootstrapState.data.config?.libraryPath
+                ? [bootstrapState.data.config.libraryPath]
+                : undefined
+            : undefined
+        }
+        onOpenFolder={(folderPath) => {
+          if (folderPath && api?.openPath) {
+            api.openPath(folderPath);
+          } else {
+            api?.openFolder?.();
+          }
+        }}
         onSelectGame={(gameKey) => {
           const targetGame = store.getSnapshot().allGames.find(
             (g) =>

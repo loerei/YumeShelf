@@ -136,15 +136,30 @@ describe('MascotWidget', () => {
     expect(contextMenu.style.display).toBe('none');
   });
 
-  it('declares :focus-visible outline, design token z-indices, and prefers-reduced-motion in src/styles/mascot.css', () => {
+  it('updates #mascot-menu-scale-value live when dragging #mascot-menu-scale-slider and defaults to 30%', () => {
+    const { adapter } = createMockStorage();
+    const { container } = render(<MascotWidget show={true} storage={adapter} />);
+
+    const scaleSlider = container.querySelector<HTMLInputElement>('#mascot-menu-scale-slider')!;
+    const scaleValue = container.querySelector<HTMLElement>('#mascot-menu-scale-value')!;
+    expect(scaleSlider.value).toBe('30');
+    expect(scaleValue.textContent).toBe('30%');
+
+    fireEvent.change(scaleSlider, { target: { value: '65' } });
+    expect(scaleSlider.value).toBe('65');
+    expect(scaleValue.textContent).toBe('65%');
+  });
+
+  it('declares :focus-visible outline, restored z-indices, and prefers-reduced-motion in src/styles/mascot.css', () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/mascot.css');
     const cssContent = fs.readFileSync(cssPath, 'utf8');
 
     expect(cssContent).toContain('.yume-mascot-widget:focus-visible');
     expect(cssContent).toContain('.mascot-menu-reset-btn:focus-visible');
     expect(cssContent).toContain('outline: 2px solid var(--accent)');
-    expect(cssContent).toContain('var(--zIndex-widget)');
-    expect(cssContent).toContain('var(--zIndex-widget-overlay)');
+    expect(cssContent).toContain('z-index: 1650;');
+    expect(cssContent).toContain('z-index: 1655;');
+    expect(cssContent).toContain('z-index: 2100;');
     expect(cssContent).toContain('@media (prefers-reduced-motion: reduce)');
   });
 });

@@ -21,31 +21,28 @@ describe('CategoryFilter', () => {
     vi.restoreAllMocks();
   });
 
-  it('retains .category-filter-btn with aria-disabled="true" and inline folder SVG when categories is empty', () => {
+  it('hides container (renders null) when categories is empty', () => {
     const { container } = render(
       <CategoryFilter categories={[]} activeCategoryId={null} onSelectCategory={vi.fn()} />
     );
 
-    const btn = screen.getByRole('button', { name: 'Filter by category' });
-    expect(btn.classList.contains('category-filter-btn')).toBe(true);
-    expect(btn.getAttribute('aria-disabled')).toBe('true');
-    expect(btn.getAttribute('tabindex')).toBe('-1');
-    expect(btn.querySelector('.category-filter-label')?.textContent).toBe('No categories');
-
-    const path = btn.querySelector('svg path');
-    expect(path?.getAttribute('d')).toBe('M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z');
-    expect(container.querySelector('use')).toBeNull();
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Filter by category' })).toBeNull();
   });
 
-  it('renders hierarchical categories as native <button type="button" role="menuitem"> and displays active label', () => {
+  it('renders hierarchical categories with 3-bar filter SVG, 18px depth indentation, and data-tooltip ancestry', () => {
     const { rerender } = render(
       <CategoryFilter categories={SAMPLE_CATEGORIES} activeCategoryId={null} onSelectCategory={vi.fn()} />
     );
 
     const trigger = screen.getByRole('button', { name: 'Filter by category' });
     expect(trigger.querySelector('.category-filter-label')?.textContent).toBe('All categories');
+    expect(trigger.getAttribute('data-tooltip')).toBe('All categories');
     expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    const svgPaths = Array.from(trigger.querySelectorAll('svg path')).map((p) => p.getAttribute('d'));
+    expect(svgPaths).toEqual(['M4 6h16', 'M7 12h10', 'M10 18h4']);
 
     fireEvent.click(trigger);
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
@@ -70,13 +67,15 @@ describe('CategoryFilter', () => {
       expect(item.classList.contains('category-filter-item')).toBe(true);
     }
 
-    // Depth indentation: 'Mystery' is depth 1 => 15 + 1*16 = 31px
-    expect((items[2] as HTMLElement).style.paddingLeft).toBe('31px');
+    // Depth indentation: 'Mystery' is depth 1 => 15 + 1*18 = 33px, with ancestry data-tooltip
+    expect((items[2] as HTMLElement).style.paddingLeft).toBe('33px');
+    expect(items[2].getAttribute('data-tooltip')).toBe('Visual Novels / Mystery');
 
     rerender(
       <CategoryFilter categories={SAMPLE_CATEGORIES} activeCategoryId="vn-mystery" onSelectCategory={vi.fn()} />
     );
     expect(trigger.querySelector('.category-filter-label')?.textContent).toBe('Mystery');
+    expect(trigger.getAttribute('data-tooltip')).toBe('Visual Novels / Mystery');
   });
 
   it('supports Tab navigation, Enter/Space activation, Escape dismissal, outside click, and blur closure', async () => {

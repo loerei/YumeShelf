@@ -1,3 +1,7 @@
+#save-editor-root {
+    isolation: isolate;
+}
+
 .save-editor-overlay {
     position: fixed;
     top: 0;
@@ -6,7 +10,8 @@
     bottom: 0;
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(8px);
-    z-index: 10000;
+    z-index: var(--zIndex-overlay, 6000);
+    isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -212,12 +217,87 @@
     pointer-events: none;
 }
 
-.save-editor-file-list {
+.save-editor-file-list,
+.save-file-list {
     flex: 1;
     overflow-y: auto;
     padding: 12px;
     min-height: 0;
     overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+/* Save Folder Bar Header, Directory Path Flex Containment & Missing Folder Alert */
+.save-folder-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    min-width: 0;
+}
+
+.save-folder-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+}
+
+.save-folder-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-sub, #888888);
+    flex-shrink: 0;
+}
+
+.save-folder-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--accent, #6366f1);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.save-folder-path {
+    font-size: 0.8rem;
+    color: var(--text-main, #eeeeee);
+    font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    display: block;
+    cursor: default;
+}
+
+.save-folder-missing-alert {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 6px 8px;
+    background: rgba(224, 49, 49, 0.15);
+    border: 1px solid rgba(224, 49, 49, 0.3);
+    border-radius: 4px;
+    color: #ff6b6b;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.save-folder-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
 }
 
 .save-editor-file-list::-webkit-scrollbar {
@@ -354,6 +434,29 @@
     font-weight: 500;
 }
 
+/* Save File Item Primary Selection Button Reset & Flex Containment */
+.save-file-item-main-btn {
+    flex: 1 1 0%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    outline: none;
+}
+
+.save-file-item-main-btn:focus-visible {
+    outline: 2px solid var(--accent, #6366f1);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
 .save-file-name {
     flex: 1;
     min-width: 0;
@@ -373,8 +476,20 @@
 }
 
 .save-file-item:hover .save-file-actions,
+.save-file-item:focus-within .save-file-actions,
 .save-file-item.has-open-popover .save-file-actions {
     opacity: 1;
+}
+
+/* Keyboard Focus Visibility Parity for Row Action Buttons */
+.save-file-item:focus-within .save-file-actions,
+.save-file-action-btn:focus-visible {
+    opacity: 1;
+}
+
+.save-file-action-btn:focus-visible {
+    outline: 2px solid var(--accent, #6366f1);
+    outline-offset: 1px;
 }
 
 .save-file-action-btn {
@@ -403,6 +518,14 @@
 }
 
 /* Inline rename input */
+.save-file-rename-container {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
 .save-file-rename-input {
     flex: 1;
     width: 100%;
@@ -432,7 +555,8 @@
 /* Save Editor Popover (Delete Confirm / Collision Overwrite) */
 .save-editor-popover {
     position: fixed;
-    z-index: 10001;
+    z-index: var(--zIndex-dropdown, 1000);
+    isolation: isolate;
     background: var(--menu-bg, #202020);
     border: 1px solid var(--menu-border, #3d3d3d);
     border-radius: 8px;
@@ -522,8 +646,10 @@
 
 /* Validation Tooltip for Rename */
 .save-editor-rename-tooltip {
-    position: fixed;
-    z-index: 10002;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: var(--zIndex-tooltip, 10000);
     background: var(--tooltip-bg, rgba(22, 22, 22, 0.96));
     border: 1px solid rgba(255, 74, 74, 0.45);
     color: #ff6b6b;
@@ -953,7 +1079,7 @@ body.standalone-save-editor {
 }
 
 .standalone-save-editor .save-editor-overlay {
-    position: fixed;
+    position: static;
     top: 0;
     left: 0;
     right: 0;
@@ -962,7 +1088,7 @@ body.standalone-save-editor {
     height: 100vh;
     background: transparent;
     backdrop-filter: none;
-    z-index: 1;
+    z-index: auto;
     display: flex;
     animation: none;
 }

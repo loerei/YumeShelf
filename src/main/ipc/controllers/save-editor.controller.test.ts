@@ -527,10 +527,21 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
         });
     });
 
-    describe('save-editor:load-data and save-editor:write-data options sanitization', () => {
-        it('sanitizes options, removes prototype pollution, and forwards valid options to loadSaveData', async () => {
+    describe('save-editor:load-data and save-editor:write-data options sanitization & contracted envelopes', () => {
+        it('strips legacy data/metadata envelopes from save-editor:load-data to return strictly NormalizedSaveDto and sanitizes options', async () => {
+            const mockNormalizedDto = {
+                gameKey: 'valid-game',
+                fileName: 'saveSlot1.json',
+                strategy: 'tinc-double-aes-json',
+                tabs: [{ id: 'variables', label: 'Variables', count: 1 }],
+                fields: [{ id: 'variables:1', tabId: 'variables', key: '1', label: 'Gold', value: 500, type: 'number' }],
+            };
             const mockSaveEditorService = {
-                loadSaveData: vi.fn(async (_gameKey: string, _fileName: string, _options?: Record<string, unknown>) => ({ data: {}, metadata: {} })),
+                loadSaveData: vi.fn(async (_gameKey: string, _fileName: string, _options?: Record<string, unknown>) => ({
+                    ...mockNormalizedDto,
+                    data: { gold: 500, _userMappings: [] },
+                    metadata: { variables: ['Gold'], switches: [] },
+                })),
                 writeSaveData: vi.fn(async (_gameKey: string, _fileName: string, _data: unknown, _options?: Record<string, unknown>) => ({ ok: true })),
             };
             const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
@@ -549,7 +560,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                 prototype: 'polluted',
             };
 
-            await handler(
+            const res = await handler(
                 { sender: { isDestroyed: () => false, send: vi.fn() } },
                 {
                     gameKey: 'valid-game',
@@ -559,6 +570,10 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                     options: maliciousOptions,
                 }
             );
+
+            expect(res).toEqual(mockNormalizedDto);
+            expect('data' in res).toBe(false);
+            expect('metadata' in res).toBe(false);
 
             expect(mockSaveEditorService.loadSaveData).toHaveBeenCalledTimes(1);
             const callArgs = mockSaveEditorService.loadSaveData.mock.calls[0];
@@ -580,7 +595,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             expect(typeof passedOptions.shouldCancel).toBe('function');
         });
 
-        it('sanitizes options, removes prototype pollution, and forwards valid options to writeSaveData', async () => {
+        it('sanitizes options, removes prototype pollution, and forwards valid updates to writeSaveData', async () => {
             const mockSaveEditorService: any = {
                 loadSaveData: vi.fn(async () => ({})),
                 writeSaveData: vi.fn(async () => ({ ok: true })),
@@ -596,23 +611,25 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                 __proto__: { hacked: true },
             };
 
-            await handler(
+            const res = await handler(
                 {},
                 {
                     gameKey: 'valid-game',
                     fileName: 'saveSlot1.json',
-                    data: { score: 100 },
+                    updates: { 'variables:1': 100 },
                     options: maliciousOptions,
                 }
             );
+            expect(res).toEqual({ ok: true });
 
             expect(mockSaveEditorService.writeSaveData).toHaveBeenCalledTimes(1);
-            const [gameKey, fileName, data, sanitizedOpts] = mockSaveEditorService.writeSaveData.mock.calls[0];
+            const [gameKey, fileName, updates, sanitizedOpts] = mockSaveEditorService.writeSaveData.mock.calls[0];
             expect(gameKey).toBe('valid-game');
             expect(fileName).toBe('saveSlot1.json');
-            expect(data).toEqual({ score: 100 });
+            expect(updates).toEqual({ 'variables:1': 100 });
             expect(sanitizedOpts.outerKey).toBe('writeOuterKey');
             expect(sanitizedOpts.innerKey).toBe('writeInnerKey');
+            expect(sanitizedOpts.isUpdates).toBe(true);
             expect(sanitizedOpts.injectedEvil).toBeUndefined();
             expect(sanitizedOpts.__proto__?.hacked).toBeUndefined();
         });
@@ -814,7 +831,12 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             }
         });
 
-        it('save-editor:write-data handles terminal guard, null/array updates, empty no-op, prototype pollution, and envelope mismatch', async () => {
+        it('decommissions dead IPC channel save-editor:update-mapping', () => {
+            const { handlers } = createIpcHarness();
+            expect(handlers.has('save-editor:update-mapping')).toBe(false);
+        });
+
+        it('save-editor:write-data enforces mandatory updates, rejects legacy data-only payloads, path traversal, and prototype pollution with { ok: false, error: "invalid-payload" }', async () => {
             const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             try {
                 const mockSaveEditorService = {
@@ -823,12 +845,36 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                 const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
                 const handler = handlers.get('save-editor:write-data')!;
 
-                // Terminal guard: neither updates nor data
+                // Missing updates or malformed root payload
                 expect(await handler({}, { gameKey: 'valid-game', fileName: 'save01.json' })).toEqual({
                     ok: false,
                     error: 'invalid-payload',
                 });
                 expect(await handler({}, null)).toEqual({ ok: false, error: 'invalid-payload' });
+                expect(await handler({}, [])).toEqual({ ok: false, error: 'invalid-payload' });
+
+                // Legacy data-only payloads must resolve { ok: false, error: 'invalid-payload' }
+                expect(
+                    await handler({}, { gameKey: 'valid-game', fileName: 'save01.json', data: { gold: 5 } })
+                ).toEqual({ ok: false, error: 'invalid-payload' });
+                expect(
+                    await handler(
+                        {},
+                        { gameKey: 'valid-game', fileName: 'save01.json', data: { gold: 5 }, options: { isUpdates: true } }
+                    )
+                ).toEqual({ ok: false, error: 'invalid-payload' });
+
+                // Path traversal & prototype pollution identifiers in gameKey / fileName
+                for (const badKey of ['', '  ', '__proto__', 'constructor', 'prototype', '../evil', 'a/b', 'a\\b', null]) {
+                    expect(
+                        await handler({}, { gameKey: badKey, fileName: 'save01.json', updates: { 'variables:1': 5 } })
+                    ).toEqual({ ok: false, error: 'invalid-payload' });
+                }
+                for (const badFile of BAD_FILENAMES) {
+                    expect(
+                        await handler({}, { gameKey: 'valid-game', fileName: badFile, updates: { 'variables:1': 5 } })
+                    ).toEqual({ ok: false, error: 'invalid-payload' });
+                }
 
                 // Invalid updates type (null, array, primitive)
                 for (const badUpdates of [null, [], 'str', 123, true]) {
@@ -844,18 +890,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                         { gameKey: 'valid-game', fileName: 'save01.json', updates: { 'variables:1': 5 }, options: { isUpdates: false } }
                     )
                 ).toEqual({ ok: false, error: 'invalid-payload' });
-
-                await expect(
-                    handler(
-                        {},
-                        { gameKey: 'valid-game', fileName: 'save01.json', data: { gold: 5 }, options: { isUpdates: true } }
-                    )
-                ).rejects.toThrow('invalid-payload');
-
-                // Legacy data with invalid gameKey/fileName throws
-                await expect(
-                    handler({}, { gameKey: '../evil', fileName: 'save01.json', data: { gold: 5 } })
-                ).rejects.toThrow('invalid-payload');
+                expect(mockSaveEditorService.writeSaveData).not.toHaveBeenCalled();
 
                 // Truly empty updates -> safe no-op { ok: true } without calling service
                 expect(await handler({}, { gameKey: 'valid-game', fileName: 'save01.json', updates: {} })).toEqual({ ok: true });
@@ -863,7 +898,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
 
                 // Non-empty updates where all keys are stripped -> { ok: false, error: 'invalid-payload' }
                 const allBadUpdates = JSON.parse(
-                    '{"__proto__:1":1,"variables:__proto__":2,"variables:a.prototype.b":3,"variables:constructor":4,"badkey":5,"variables:nan":null,"variables:obj":{}}'
+                    '{"__proto__:1":1,"constructor:1":2,"prototype:1":3,"variables:__proto__":4,"variables:a.prototype.b":5,"variables:constructor":6,"badkey":7,"variables:nan":null,"variables:obj":{}}'
                 );
                 delete allBadUpdates['variables:nan'];
                 allBadUpdates['variables:nan'] = Number.NaN;
@@ -894,8 +929,9 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             }
         });
 
-        it('save-editor:write-data preserves EBUSY code and sanitizes paths on updates failure, and re-throws on legacy data failure', async () => {
+        it('save-editor:write-data preserves EBUSY code and sanitizes paths on updates failure', async () => {
             const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
             try {
                 const busyErr: any = new Error('EBUSY: resource busy, open C:\\Users\\John Doe\\Saves\\save01.json');
                 busyErr.code = 'EBUSY';
@@ -925,13 +961,9 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                         stack: expect.not.stringContaining('John Doe'),
                     })
                 );
-
-                // Legacy data path re-throws
-                await expect(
-                    handler({}, { gameKey: 'valid-game', fileName: 'save01.json', data: { gold: 10 } })
-                ).rejects.toThrow('EBUSY');
             } finally {
                 errSpy.mockRestore();
+                warnSpy.mockRestore();
             }
         });
 

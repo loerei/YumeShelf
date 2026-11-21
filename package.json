@@ -42,7 +42,7 @@
     "compile:release-notes:release": "node scripts/compile-release-notes.js --release",
     "typecheck": "tsc --noEmit",
     "test:vitest": "vitest run",
-    "verify:no-ts-nocheck": "node -e \"let count = 0; try { const out = require('child_process').execSync('git grep -c @ts-nocheck src/').toString().trim(); count = out ? out.split('\\n').length : 0; } catch (e) { if (e.status === 1) { count = 0; } else { throw e; } } if (count > 65) { console.error('New @ts-nocheck introduced! Baseline 65, found: ' + count); process.exit(1); }\"",
+    "verify:no-ts-nocheck": "node -e \"try { const out = require('child_process').execSync('git grep -n @ts-nocheck src/').toString(); console.error('Found @ts-nocheck:\\n' + out); process.exit(1); } catch (e) { if (e.status === 1) process.exit(0); throw e; }\"",
     "test:node": "node --test \"tests/*.test.js\"",
     "test:single": "node --test",
     "test:icon-sim": "electron .devutil/icon-pipeline-sim",

@@ -926,8 +926,9 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     expect(indexHtml).toContain('<div id="react-root" tabindex="-1"></div>');
     expect(indexHtml).toContain('<div id="portal-root"></div>');
     expect(indexHtml).toContain(
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://translate.googleapis.com;"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';"
     );
+    expect(indexHtml).not.toContain('https://translate.googleapis.com');
     expect(indexHtml).not.toContain('id="settings-overlay"');
     expect(indexHtml).not.toContain('id="about-overlay"');
     expect(indexHtml).not.toContain('id="language-pack-overlay"');

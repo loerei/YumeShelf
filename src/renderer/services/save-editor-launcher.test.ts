@@ -2,8 +2,7 @@ import { act, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ElectronAPI } from '../../shared/types/ipc';
 import { mountStandaloneSaveEditor } from '../../save-editor';
-import { initSaveEditorUI } from '../save-editor-ui';
-import { ElectronSaveEditorLauncher, type ISaveEditorLauncher } from './save-editor-launcher';
+import { ElectronSaveEditorLauncher } from './save-editor-launcher';
 
 describe('ElectronSaveEditorLauncher', () => {
   it('dispatches openSaveEditorWindow with trimmed gameKey', async () => {
@@ -35,61 +34,6 @@ describe('ElectronSaveEditorLauncher', () => {
     const launcher = new ElectronSaveEditorLauncher({ openSaveEditorWindow });
 
     await expect(launcher.open('game-123')).rejects.toThrow('Window spawn failed');
-  });
-});
-
-describe('initSaveEditorUI seam & standalone loop suppression', () => {
-  afterEach(() => {
-    delete (window as { showSaveEditor?: unknown }).showSaveEditor;
-    delete (window as { __IS_STANDALONE_SAVE_EDITOR__?: unknown }).__IS_STANDALONE_SAVE_EDITOR__;
-    window.history.replaceState(null, '', '/');
-    vi.restoreAllMocks();
-  });
-
-  it('attaches window.showSaveEditor in main window context and delegates to launcher', async () => {
-    const mockLauncher: ISaveEditorLauncher = {
-      open: vi.fn().mockResolvedValue(undefined),
-    };
-
-    initSaveEditorUI(mockLauncher);
-
-    expect(typeof window.showSaveEditor).toBe('function');
-    await window.showSaveEditor?.('game-1');
-    expect(mockLauncher.open).toHaveBeenCalledTimes(1);
-    expect(mockLauncher.open).toHaveBeenCalledWith('game-1');
-  });
-
-  it('suppresses window.showSaveEditor when __IS_STANDALONE_SAVE_EDITOR__ is true', () => {
-    window.__IS_STANDALONE_SAVE_EDITOR__ = true;
-    const mockLauncher: ISaveEditorLauncher = {
-      open: vi.fn().mockResolvedValue(undefined),
-    };
-
-    initSaveEditorUI(mockLauncher);
-
-    expect(window.showSaveEditor).toBeUndefined();
-  });
-
-  it('suppresses window.showSaveEditor when URL search contains gameKey=', () => {
-    window.history.replaceState(null, '', '/?gameKey=demo');
-    const mockLauncher: ISaveEditorLauncher = {
-      open: vi.fn().mockResolvedValue(undefined),
-    };
-
-    initSaveEditorUI(mockLauncher);
-
-    expect(window.showSaveEditor).toBeUndefined();
-  });
-
-  it('suppresses window.showSaveEditor when URL pathname contains save-editor', () => {
-    window.history.replaceState(null, '', '/save-editor.html');
-    const mockLauncher: ISaveEditorLauncher = {
-      open: vi.fn().mockResolvedValue(undefined),
-    };
-
-    initSaveEditorUI(mockLauncher);
-
-    expect(window.showSaveEditor).toBeUndefined();
   });
 });
 

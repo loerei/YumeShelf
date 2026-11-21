@@ -91,7 +91,7 @@ const api: ElectronAPI = {
     },
     // Save Editor
     listSaveFiles: (gameKey: string) => ipcRenderer.invoke('save-editor:list-files', gameKey),
-    loadSaveData: (data: any) => ipcRenderer.invoke('save-editor:load-data', data),
+    loadSaveData: (data: Parameters<ElectronAPI['loadSaveData']>[0]) => ipcRenderer.invoke('save-editor:load-data', data),
     cancelLoadSaveData: (params: { gameKey: string; fileName: string }) => ipcRenderer.invoke('save-editor:cancel-load', params),
     onSaveLoadProgress: (callback: (payload: { gameKey: string; fileName: string; percent: number; current: number; total: number; unit: string; pos?: number; totalBytes?: number }) => void) => {
         const handler = (_event: any, payload: any) => callback(payload);
@@ -100,10 +100,9 @@ const api: ElectronAPI = {
             ipcRenderer.removeListener('save-editor:load-progress', handler);
         };
     },
-    writeSaveData: (data: { gameKey: string; fileName: string; updates?: any; data?: any; options?: any }) => ipcRenderer.invoke('save-editor:write-data', data),
+    writeSaveData: (data: Parameters<ElectronAPI['writeSaveData']>[0]) => ipcRenderer.invoke('save-editor:write-data', data),
     renameSaveFile: (data: any) => ipcRenderer.invoke('save-editor:rename-file', data),
     deleteSaveFile: (data: any) => ipcRenderer.invoke('save-editor:delete-file', data),
-    updateMapping: (data: any) => ipcRenderer.invoke('save-editor:update-mapping', data),
     openSaveEditorWindow: async (gameKey: string): Promise<void> => {
         ipcRenderer.send('save-editor:open-window', gameKey);
     },

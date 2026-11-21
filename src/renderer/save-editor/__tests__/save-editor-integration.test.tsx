@@ -151,6 +151,10 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     expect(htmlText).toContain('<div id="save-editor-root" tabindex="-1"></div>');
     expect(htmlText).toContain('<div id="portal-root"></div>');
     expect(htmlText).toContain('<script type="module" src="./save-editor.tsx"></script>');
+    expect(htmlText).toContain(
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';"
+    );
+    expect(htmlText).not.toContain('https://translate.googleapis.com');
 
     // Strictly enforce type-only imports from @yumeshelf/engine across all renderer modules
     const collectTsFiles = (dir: string): string[] => {

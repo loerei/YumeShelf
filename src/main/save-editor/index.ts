@@ -4,7 +4,6 @@ import * as path from 'node:path';
 import { app } from 'electron';
 import type { SaveUpdatesPayload } from '@yumeshelf/engine';
 import { sanitizeUserPaths } from '../../shared/path-sanitizer';
-import SaveMappingManager from './mapping-manager';
 import { resilientRename, sweepOrphanedSaveTmpFiles } from './fs-utils';
 import { SaveDataEngine, type SaveFormatStrategy, type WriteSaveOptions } from './engine';
 
@@ -37,7 +36,6 @@ export interface SaveEditorService {
   deleteSaveFile(gameKey: string, fileName: string): Promise<{ ok: boolean }>;
   loadTranslations(lang?: string): Promise<Record<string, string>>;
   saveTranslations(lang?: string, translations?: Record<string, string>): Promise<{ ok: boolean; error?: string }>;
-  updateMapping?(gameKey: string, name: string, offset: number, dataType: string): Promise<{ ok: boolean }>;
 }
 
 export interface SaveEditorServiceConfig {
@@ -462,15 +460,6 @@ export function createSaveEditorService(config: SaveEditorServiceConfig): SaveEd
     });
   }
 
-  async function updateMapping(gameKey: string, name: string, offset: number, dataType: string) {
-    const mappingMgr = new SaveMappingManager(gameKey, {
-      fs: config.fs,
-      nowProvider: config.nowProvider,
-    });
-    await mappingMgr.addMappingAsync(name, offset, dataType);
-    return { ok: true };
-  }
-
   async function listSaveFiles(gameKey: string): Promise<string[]> {
     try {
       return await engine.listSaveFiles(gameKey);
@@ -555,7 +544,6 @@ export function createSaveEditorService(config: SaveEditorServiceConfig): SaveEd
     writeSaveData,
     renameSaveFile,
     deleteSaveFile,
-    updateMapping,
     loadTranslations,
     saveTranslations,
   };

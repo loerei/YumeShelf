@@ -550,6 +550,23 @@ describe('SaveDataEngine', () => {
 
       const res2 = await service.writeSaveData('g1', 'slot1.json', { gold: 84 }, { createBackup: false });
       expect(res2).toEqual({ ok: true });
+
+      const applySpy = vi
+        .spyOn(YumeEngine, 'applySaveUpdates')
+        .mockResolvedValue(Buffer.from('{"gold":128}', 'utf8'));
+
+      const res3 = await service.writeSaveData({
+        gameKey: 'g1',
+        fileName: 'slot1.json',
+        updates: { 'default:gold': 128 },
+        options: { createBackup: false },
+      });
+      expect(res3).toEqual({ ok: true });
+
+      const res4 = await service.writeSaveData('g1', 'slot1.json', { 'default:gold': 256 }, { createBackup: false });
+      expect(res4).toEqual({ ok: true });
+      expect(applySpy).toHaveBeenCalledTimes(2);
+      expect('updateMapping' in service).toBe(false);
     });
 
     it('scrubs paths/usernames with sanitizeUserPaths in listSaveFiles, renameSaveFile, and deleteSaveFile errors', async () => {

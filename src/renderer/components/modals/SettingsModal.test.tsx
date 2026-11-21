@@ -102,7 +102,6 @@ function createMockElectronAPI(overrides: Partial<ElectronAPI> = {}): ElectronAP
     writeSaveData: vi.fn(),
     renameSaveFile: vi.fn(),
     deleteSaveFile: vi.fn(),
-    updateMapping: vi.fn(),
     openSaveEditorWindow: vi.fn(),
     loadTranslations: vi.fn(),
     saveTranslations: vi.fn(),

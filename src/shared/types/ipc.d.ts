@@ -1,4 +1,4 @@
-import type { NormalizedSaveDto, SaveUpdatesPayload } from '@yumeshelf/engine/types';
+import type { NormalizedSaveDto, SaveCodecOptions, SaveSchemaOptions, SaveUpdatesPayload } from '@yumeshelf/engine/types';
 
 export interface SaveFolderInfo {
     path: string | null;
@@ -124,13 +124,12 @@ export interface ElectronAPI {
     
     // Save Editor
     listSaveFiles: (gameKey: string) => Promise<string[]>;
-    loadSaveData: (data: { gameKey: string; fileName: string; earlyExit?: boolean; stalenessTimeoutMs?: number; options?: any }) => Promise<NormalizedSaveDto & { data?: any; metadata?: any }>;
+    loadSaveData: (data: { gameKey: string; fileName: string; earlyExit?: boolean; stalenessTimeoutMs?: number; options?: SaveSchemaOptions }) => Promise<NormalizedSaveDto>;
     cancelLoadSaveData: (params: { gameKey: string; fileName: string }) => Promise<{ cancelled: boolean }>;
     onSaveLoadProgress: (callback: (payload: { gameKey: string, fileName: string, percent: number, current: number, total: number, unit: string, pos?: number, totalBytes?: number }) => void) => () => void;
-    writeSaveData: (data: { gameKey: string; fileName: string; updates?: SaveUpdatesPayload; data?: any; options?: any }) => Promise<{ ok: boolean; error?: string; code?: string }>;
+    writeSaveData: (data: { gameKey: string; fileName: string; updates: SaveUpdatesPayload; options?: SaveCodecOptions & { isUpdates?: boolean; createBackup?: boolean; preserveBackup?: boolean; maxBackups?: number; maxBufferSizeBytes?: number } }) => Promise<{ ok: boolean; error?: string; code?: string }>;
     renameSaveFile: (data: { gameKey: string, oldFileName: string, newFileName: string, overwrite?: boolean }) => Promise<{ ok: boolean, error?: string, message?: string, renamed?: boolean, fileName?: string }>;
     deleteSaveFile: (data: { gameKey: string, fileName: string }) => Promise<{ ok: boolean }>;
-    updateMapping: (data: any) => Promise<any>;
     openSaveEditorWindow: (gameKey: string) => Promise<void>;
     translateBatch: (texts: string[], targetLang: string, options?: { timeoutMs?: number; maxBatchSize?: number; jobId?: string }) => Promise<Record<string, string>>;
     cancelTranslateBatch: (params: { jobId: string }) => Promise<{ cancelled: boolean }>;

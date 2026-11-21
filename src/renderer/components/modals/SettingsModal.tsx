@@ -998,7 +998,11 @@ export function SettingsModal({
             </div>
 
             <div className="setting-item">
-              <label htmlFor="location-display-select">Location Display</label>
+              <label htmlFor="location-display-select">
+                {language === 'en'
+                  ? 'Location Display'
+                  : strings.location_display_label || 'Location Display'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="location-display-select"
@@ -1007,14 +1011,24 @@ export function SettingsModal({
                     handleLocationDisplayModeChange(e.target.value as 'parent' | 'full')
                   }
                 >
-                  <option value="parent">Parent Folder</option>
-                  <option value="full">Full Path</option>
+                  <option value="parent">
+                    {language === 'en'
+                      ? 'Parent Folder'
+                      : strings.location_display_parent || 'Parent Folder'}
+                  </option>
+                  <option value="full">
+                    {language === 'en'
+                      ? 'Full Path'
+                      : strings.location_display_full || 'Full Path'}
+                  </option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="title-display-select">Title Display</label>
+              <label htmlFor="title-display-select">
+                {strings.title_display_label || 'Title Display'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="title-display-select"
@@ -1027,14 +1041,26 @@ export function SettingsModal({
                     })
                   }
                 >
-                  <option value="metadata">Metadata Title</option>
-                  <option value="legacy_folder">Folder Name</option>
+                  <option value="metadata">
+                    {language === 'en'
+                      ? 'Metadata Title'
+                      : strings.title_display_metadata || 'Metadata Title'}
+                  </option>
+                  <option value="legacy_folder">
+                    {language === 'en'
+                      ? 'Folder Name'
+                      : strings.title_display_legacy || 'Folder Name'}
+                  </option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="product-codes-select">Product Codes</label>
+              <label htmlFor="product-codes-select">
+                {language === 'en'
+                  ? 'Product Codes'
+                  : strings.display_codes_label || 'Product Codes'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="product-codes-select"
@@ -1047,14 +1073,18 @@ export function SettingsModal({
                     })
                   }
                 >
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
+                  <option value="off">{strings.option_off || 'Off'}</option>
+                  <option value="on">{strings.option_on || 'On'}</option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="max-depth-input">Max Scan Depth</label>
+              <label htmlFor="max-depth-input">
+                {language === 'en'
+                  ? 'Max Scan Depth'
+                  : strings.max_depth_label || 'Max Scan Depth'}
+              </label>
               <div className="setting-control-zone">
                 <MaxDepthStepper value={maxDepth} onChange={handleMaxDepthChange} />
               </div>
@@ -1112,7 +1142,9 @@ export function SettingsModal({
                 aria-label="Configured library paths"
               >
                 {libraryPaths.length === 0 ? (
-                  <p className="empty-list-hint">No library directories configured.</p>
+                  <p className="empty-list-hint">
+                    {strings.settings_paths_empty || 'No library directories configured.'}
+                  </p>
                 ) : (
                   libraryPaths.map((dirPath) => {
                     const canRemove = libraryPaths.length > 1;
@@ -1158,7 +1190,7 @@ export function SettingsModal({
                             style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
                             onClick={() => void handleChangePath(dirPath)}
                           >
-                            Change
+                            {strings.change || 'Change'}
                           </button>
                           <button
                             type="button"
@@ -1175,7 +1207,7 @@ export function SettingsModal({
                               if (canRemove) void handleRemovePath(dirPath);
                             }}
                           >
-                            Remove
+                            {strings.btn_remove || 'Remove'}
                           </button>
                         </div>
                       </div>
@@ -1187,7 +1219,9 @@ export function SettingsModal({
 
             <div className="setting-section">
               <div className="setting-item">
-                <span className="setting-label">Categories</span>
+                <span className="setting-label">
+                  {strings.settings_categories_label || 'Categories'}
+                </span>
                 <button
                   type="button"
                   className="small-btn text-btn"
@@ -1197,7 +1231,7 @@ export function SettingsModal({
                     setCategoryCreateStatus('idle');
                   }}
                 >
-                  + Add Category
+                  {strings.btn_add_category || '+ Add Category'}
                 </button>
               </div>
 
@@ -1257,7 +1291,9 @@ export function SettingsModal({
                 aria-label="Categories list"
               >
                 {flattenedCategories.length === 0 ? (
-                  <p className="empty-list-hint">No categories created.</p>
+                  <p className="empty-list-hint">
+                    {strings.settings_categories_empty || 'No categories created.'}
+                  </p>
                 ) : (
                   flattenedCategories.map((category, index) => (
                     <div
@@ -1430,31 +1466,47 @@ export function SettingsModal({
             className="settings-tab-panel"
           >
             <div className="setting-item">
-              <label htmlFor="app-updates-select">App Updates</label>
+              <label htmlFor="app-updates-select">
+                {strings.app_updates_label || 'App Updates'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="app-updates-select"
                   value={appUpdateMode}
                   onChange={(e) => handleAppUpdateModeChange(e.target.value)}
                 >
-                  <option value="automatic">Automatic</option>
-                  <option value="notify">Notify Only</option>
-                  <option value="off">Off</option>
+                  <option value="automatic">
+                    {strings.update_mode_automatic || 'Automatic'}
+                  </option>
+                  <option value="notify">
+                    {language === 'en'
+                      ? 'Notify Only'
+                      : strings.update_mode_notify || 'Notify Only'}
+                  </option>
+                  <option value="off">{strings.update_mode_off || 'Off'}</option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="lang-pack-updates-select">Language Pack Updates</label>
+              <label htmlFor="lang-pack-updates-select">
+                {strings.language_pack_updates_label || 'Language Pack Updates'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="lang-pack-updates-select"
                   value={langPackUpdateMode}
                   onChange={(e) => handleLangPackUpdateModeChange(e.target.value)}
                 >
-                  <option value="automatic">Automatic</option>
-                  <option value="notify">Notify Only</option>
-                  <option value="off">Off</option>
+                  <option value="automatic">
+                    {strings.update_mode_automatic || 'Automatic'}
+                  </option>
+                  <option value="notify">
+                    {language === 'en'
+                      ? 'Notify Only'
+                      : strings.update_mode_notify || 'Notify Only'}
+                  </option>
+                  <option value="off">{strings.update_mode_off || 'Off'}</option>
                 </select>
               </div>
             </div>
@@ -1469,50 +1521,68 @@ export function SettingsModal({
             className="settings-tab-panel"
           >
             <div className="setting-item">
-              <label htmlFor="auto-launch-select">Launch on Startup</label>
+              <label htmlFor="auto-launch-select">
+                {language === 'en'
+                  ? 'Launch on Startup'
+                  : strings.auto_launch_label || 'Launch on Startup'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="auto-launch-select"
                   value={autoLaunchValue}
                   onChange={(e) => handleAutoLaunchChange(e.target.value)}
                 >
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
-                  <option value="minimized">Minimized</option>
+                  <option value="off">{strings.option_off || 'Off'}</option>
+                  <option value="on">{strings.option_on || 'On'}</option>
+                  <option value="minimized">
+                    {language === 'en'
+                      ? 'Minimized'
+                      : strings.option_minimized || 'Minimized'}
+                  </option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="minimize-tray-select">Minimize to Tray</label>
+              <label htmlFor="minimize-tray-select">
+                {language === 'en'
+                  ? 'Minimize to Tray'
+                  : strings.minimize_to_tray_label || 'Minimize to Tray'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="minimize-tray-select"
                   value={minimizeToTray ? 'on' : 'off'}
                   onChange={(e) => handleMinimizeToTrayChange(e.target.value === 'on')}
                 >
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
+                  <option value="off">{strings.option_off || 'Off'}</option>
+                  <option value="on">{strings.option_on || 'On'}</option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="expose-beta-select">Expose Beta Options</label>
+              <label htmlFor="expose-beta-select">
+                {strings.expose_beta_label || 'Expose Beta Options'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="expose-beta-select"
                   value={exposeBetaOptions ? 'on' : 'off'}
                   onChange={(e) => handleExposeBetaChange(e.target.value === 'on')}
                 >
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
+                  <option value="off">{strings.option_off || 'Off'}</option>
+                  <option value="on">{strings.option_on || 'On'}</option>
                 </select>
               </div>
             </div>
 
             <div className="setting-item">
-              <label htmlFor="mascot-show-select">Show Mascot</label>
+              <label htmlFor="mascot-show-select">
+                {language === 'en'
+                  ? 'Show Mascot'
+                  : strings.mascot_show_label || 'Show Mascot'}
+              </label>
               <div className="setting-control-zone">
                 <select
                   id="mascot-show-select"
@@ -1521,8 +1591,16 @@ export function SettingsModal({
                     updateMascotPreferences({ show: e.target.value === 'on' })
                   }
                 >
-                  <option value="on">On</option>
-                  <option value="off">Off</option>
+                  <option value="on">
+                    {language === 'en'
+                      ? 'On'
+                      : strings.mascot_show_on || strings.option_on || 'On'}
+                  </option>
+                  <option value="off">
+                    {language === 'en'
+                      ? 'Off'
+                      : strings.mascot_show_off || strings.option_off || 'Off'}
+                  </option>
                 </select>
               </div>
             </div>
@@ -1549,7 +1627,11 @@ export function SettingsModal({
             </div>
 
             <div className="setting-item">
-              <label htmlFor="mascot-scale-slider">Mascot Scale</label>
+              <label htmlFor="mascot-scale-slider">
+                {language === 'en'
+                  ? 'Mascot Scale'
+                  : strings.mascot_scale_label || 'Mascot Scale'}
+              </label>
               <div className="setting-control-zone">
                 <div className="volume-slider-container">
                   <input
@@ -1572,7 +1654,9 @@ export function SettingsModal({
 
             <div className="setting-item">
               <label htmlFor="mascot-sound-select">
-                {strings.mascot_menu_sound || 'Bonk Sound'}
+                {language === 'en'
+                  ? 'Bonk Sound'
+                  : strings.mascot_sound_label || strings.mascot_menu_sound || 'Bonk Sound'}
               </label>
               <div className="setting-control-zone">
                 <select
@@ -1588,7 +1672,11 @@ export function SettingsModal({
             </div>
 
             <div className="setting-item">
-              <label htmlFor="mascot-volume-slider">Mascot Volume</label>
+              <label htmlFor="mascot-volume-slider">
+                {language === 'en'
+                  ? 'Mascot Volume'
+                  : strings.mascot_volume_label || 'Mascot Volume'}
+              </label>
               <div className="setting-control-zone">
                 <div className="volume-slider-container">
                   <input
@@ -1617,7 +1705,11 @@ export function SettingsModal({
           <span className="settings-version">
             {strings.title || 'YumeShelf'}{appVersion ? ` v${appVersion}` : ''}
           </span>
-          <span className="settings-tagline">Local-first game library</span>
+          <span className="settings-tagline">
+            {language === 'en'
+              ? 'Local-first game library'
+              : strings.footer_desc || 'Local-first game library'}
+          </span>
         </div>
         <button
           type="button"

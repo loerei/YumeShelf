@@ -370,6 +370,10 @@
     "settings_tab_general": "General",
     "settings_tab_library": "Library & Categories",
     "settings_tab_updates": "Updates",
-    "settings_tab_system": "System & Mascot"
+    "settings_tab_system": "System & Mascot",
+    "settings_categories_label": "Categories",
+    "btn_add_category": "+ Add Category",
+    "settings_categories_empty": "No categories created.",
+    "settings_paths_empty": "No library directories configured."
   }
 }

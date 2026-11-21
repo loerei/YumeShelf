@@ -217,6 +217,10 @@ export function createLanguagePackServices({
     async function buildLanguageState(): Promise<LanguageState> {
         const builtInPacks = await loadLocaleDirectory(paths.builtInLocalesDir, { builtIn: true });
         const installedPacks = await loadLocaleDirectory(paths.userLocalesDir, { installed: true });
+        const localPacks = paths.localLanguagePacksDir
+            ? await loadLocaleDirectory(paths.localLanguagePacksDir, { installed: true })
+            : [];
+        const localPacksByCode = new Map(localPacks.map((p) => [p.code, p]));
         const locales: Record<string, any> = {};
         const seenCodes = new Set<string>();
 
@@ -228,8 +232,12 @@ export function createLanguagePackServices({
         const installed: LanguagePack[] = [];
         for (const pack of installedPacks) {
             if (seenCodes.has(pack.code)) continue;
-            installed.push(pack);
-            locales[pack.code] = pack.strings;
+            const localOverlay = localPacksByCode.get(pack.code);
+            const mergedStrings = localOverlay
+                ? { ...localOverlay.strings, ...pack.strings, ...localOverlay.strings }
+                : pack.strings;
+            installed.push({ ...pack, strings: mergedStrings });
+            locales[pack.code] = mergedStrings;
             seenCodes.add(pack.code);
         }
 

@@ -10,6 +10,7 @@ import {
   useSaveFileStatus,
   useSaveOperationStatus,
 } from '../store/save-editor-store';
+import { useLocaleStrings } from '../../i18n/locale-strings';
 
 export interface SaveEditorFooterProps {
   electronAPI?: ElectronAPI;
@@ -31,6 +32,7 @@ export function SaveEditorFooter({
   const isMutatingFile = useIsMutatingFile();
   const dispatch = useSaveEditorDispatch();
   const contextElectronAPI = useSaveElectronAPI();
+  const strings = useLocaleStrings(undefined, electronAPI ?? contextElectronAPI ?? null);
   const isSavingRef = useRef(false);
 
   const handleSave = useCallback(async () => {
@@ -159,7 +161,7 @@ export function SaveEditorFooter({
         className="secondary-btn cancel-btn"
         onClick={handleCancel}
       >
-        Cancel
+        {strings.save_editor_cancel || 'Cancel'}
       </button>
       <button
         type="button"
@@ -194,10 +196,10 @@ export function SaveEditorFooter({
                 strokeDashoffset="12"
               />
             </svg>
-            <span>Saving...</span>
+            <span>{strings.save_editor_saving || 'Saving...'}</span>
           </>
         ) : (
-          'Save Changes'
+          strings.save_editor_save || 'Save Changes'
         )}
       </button>
     </div>

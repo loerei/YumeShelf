@@ -9,6 +9,7 @@ import type {
   ManifestPack,
 } from '../../../shared/types/ipc';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
+import { useLocaleStrings } from '../../i18n/locale-strings';
 
 export type LanguagePackListItem = ManifestPack & { isInstalled: boolean };
 
@@ -60,6 +61,8 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
   const { showToast } = useNotification();
   const api = electronAPI ?? (typeof window !== 'undefined' ? window.electronAPI : undefined);
   const store = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+  const strings = useLocaleStrings(store, api ?? null);
+  const isEn = (activeCode || 'en') === 'en';
 
   const loadManifest = async ({
     silent = false,
@@ -290,7 +293,9 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
       panelClassName="language-pack-panel"
       title="Language Packs"
     >
-      <Modal.Header className="settings-header">Language Packs</Modal.Header>
+      <Modal.Header className="settings-header">
+        {isEn ? 'Language Packs' : strings.lang_modal_title || 'Language Packs'}
+      </Modal.Header>
       <Modal.Body className="language-pack-body">
         <section
           className="app-update-review-card"
@@ -299,9 +304,9 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
         >
           <div className="app-update-review-copy">
             <div className="app-update-review-eyebrow" id="app-update-review-eyebrow">
-              App update
+              {strings.app_update_review_eyebrow || 'App update'}
             </div>
-            <h3 id="app-update-review-title">YumeShelf</h3>
+            <h3 id="app-update-review-title">{strings.title || 'YumeShelf'}</h3>
             <p id="app-update-review-status">Review the latest release before you update.</p>
             <div className="app-update-review-meta" id="app-update-review-meta" />
           </div>
@@ -313,10 +318,10 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
               id="app-update-review-opt-out-btn"
               style={{ display: 'none' }}
             >
-              Don&apos;t show again
+              {strings.post_update_notification_opt_out || "Don't show again"}
             </button>
             <button type="button" className="small-btn" id="app-update-review-action-btn">
-              Update
+              {strings.app_update_review_action || 'Update'}
             </button>
           </div>
         </section>
@@ -327,7 +332,9 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
             type="search"
             id="language-pack-search"
             className="language-pack-search"
-            placeholder="Search by code, language, or alias"
+            placeholder={
+              strings.lang_modal_search_placeholder || 'Search by code, language, or alias'
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search language packs"
@@ -342,7 +349,7 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
                 searchInputRef.current?.focus();
               }}
             >
-              See available language packs
+              {strings.lang_modal_list_button || 'See available language packs'}
             </button>
             <button
               type="button"
@@ -355,19 +362,21 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
                 }
               }}
             >
-              Refresh
+              {strings.lang_modal_refresh_button || 'Refresh'}
             </button>
           </div>
         </div>
 
         <p className="language-pack-hint" id="language-pack-hint">
-          Search for a language pack or browse what is available.
+          {strings.lang_modal_hint || 'Search for a language pack or browse what is available.'}
         </p>
         <div className="language-pack-source" id="language-pack-source" />
 
         {status === 'loading' && (
           <div className="language-pack-placeholder" role="status" aria-live="polite">
-            Loading language packs...
+            {isEn
+              ? 'Loading language packs...'
+              : strings.lang_modal_loading || 'Loading language packs...'}
           </div>
         )}
 
@@ -380,7 +389,7 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
               className="small-btn secondary-btn"
               onClick={() => void loadManifest()}
             >
-              Retry
+              {isEn ? 'Retry' : strings.save_editor_retry || 'Retry'}
             </button>
           </div>
         )}
@@ -389,9 +398,16 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
           <div className="language-pack-results" id="language-pack-results" role="list">
             {filteredPacks.length === 0 ? (
               <div className="language-pack-empty" id="language-pack-empty">
-                <h3 id="language-pack-empty-title">No language packs found</h3>
+                <h3 id="language-pack-empty-title">
+                  {isEn
+                    ? 'No language packs found'
+                    : strings.lang_modal_empty_title || 'No language packs found'}
+                </h3>
                 <p id="language-pack-empty-desc">
-                  Try refining your search terms or contribute your own pack.
+                  {isEn
+                    ? 'Try refining your search terms or contribute your own pack.'
+                    : strings.lang_modal_empty_desc ||
+                      'Try refining your search terms or contribute your own pack.'}
                 </p>
                 <a
                   id="language-pack-repo-link"
@@ -399,7 +415,7 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Open translation guide
+                  {strings.lang_modal_contribute || 'Open translation guide'}
                 </a>
               </div>
             ) : (

@@ -243,15 +243,15 @@
     "never_bonked": "一度も叩かれていません",
     "mascot_show_on": "表示",
     "mascot_show_off": "非表示",
-    "mascot_sound_label": "Bonk Sound",
-    "sound_squeaker": "Squeaky",
-    "sound_metal_pipe": "Metal pipe",
+    "mascot_sound_label": "叩く音",
+    "sound_squeaker": "ピコピコハンマー",
+    "sound_metal_pipe": "鉄パイプ",
     "sound_none": "なし",
-    "mascot_volume_label": "Bonk Volume (うっ…気をつけて)",
+    "mascot_volume_label": "叩く音量 (うっ…気をつけて)",
     "mascot_menu_reset_position": "位置をリセット",
     "mascot_menu_bonked_count": "{count} 回叩かれました",
     "mascot_menu_bonked_count_one": "1 回叩かれました",
-    "mascot_menu_sound": "Bonk Sound",
+    "mascot_menu_sound": "叩く音",
     "mascot_menu_scale": "スケール",
     "mascot_menu_volume": "音量",
     "launching_game": "{name} を起動中...",
@@ -370,6 +370,10 @@
     "settings_tab_general": "一般",
     "settings_tab_library": "ライブラリとカテゴリ",
     "settings_tab_updates": "アップデート",
-    "settings_tab_system": "システムとマスコット"
+    "settings_tab_system": "システムとマスコット",
+    "settings_categories_label": "カテゴリ",
+    "btn_add_category": "+ カテゴリを追加",
+    "settings_categories_empty": "カテゴリが作成されていません。",
+    "settings_paths_empty": "ライブラリフォルダが設定されていません。"
   }
 }

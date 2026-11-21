@@ -374,6 +374,10 @@
     "settings_tab_general": "Chung",
     "settings_tab_library": "Thư viện & Danh mục",
     "settings_tab_updates": "Cập nhật",
-    "settings_tab_system": "Hệ thống & Linh vật"
+    "settings_tab_system": "Hệ thống & Linh vật",
+    "settings_categories_label": "Danh mục",
+    "btn_add_category": "+ Thêm danh mục",
+    "settings_categories_empty": "Chưa có danh mục nào được tạo.",
+    "settings_paths_empty": "Chưa có thư mục thư viện nào được cấu hình."
   }
 }

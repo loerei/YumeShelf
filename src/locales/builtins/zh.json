@@ -371,6 +371,10 @@
     "settings_tab_general": "常规",
     "settings_tab_library": "游戏库与分类",
     "settings_tab_updates": "更新",
-    "settings_tab_system": "系统与吉祥物"
+    "settings_tab_system": "系统与吉祥物",
+    "settings_categories_label": "分类",
+    "btn_add_category": "+ 添加分类",
+    "settings_categories_empty": "尚未创建任何分类。",
+    "settings_paths_empty": "尚未配置游戏库目录。"
   }
 }

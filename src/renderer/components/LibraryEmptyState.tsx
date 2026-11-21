@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { sanitizeUserPaths } from '../../shared/path-sanitizer';
 import type { ElectronAPI } from '../../shared/types/ipc';
+import { getStoredLanguage, useLocaleStrings } from '../i18n/locale-strings';
 
 export interface LibraryEmptyStateProps {
   electronAPI?: ElectronAPI;
@@ -58,12 +59,19 @@ export function LibraryEmptyState({
   };
 
   const isSettingUp = loadingMode !== null;
+  const strings = useLocaleStrings();
+  const isEn = getStoredLanguage() === 'en';
 
   return (
     <div className="library-empty-state" role="status" aria-live="polite">
-      <h2 className="library-empty-title">Your library is empty</h2>
+      <h2 className="library-empty-title">
+        {isEn ? 'Your library is empty' : strings.welcome || 'Your library is empty'}
+      </h2>
       <p className="library-empty-description">
-        Add a game folder or initialize the default library location to get started.
+        {isEn
+          ? 'Add a game folder or initialize the default library location to get started.'
+          : strings.welcome_desc ||
+            'Add a game folder or initialize the default library location to get started.'}
       </p>
 
       {setupError && (
@@ -104,7 +112,7 @@ export function LibraryEmptyState({
               <span>Choosing Folder...</span>
             </>
           ) : (
-            'Choose Folder'
+            strings.opt_choose || 'Choose Folder'
           )}
         </button>
         <button
@@ -146,19 +154,32 @@ export const FilteredEmptyState: React.FC<FilteredEmptyStateProps> = ({
   onClearFilter,
   categoryName,
 }) => {
+  const strings = useLocaleStrings();
+  const isEn = getStoredLanguage() === 'en';
+  const localizedMatchedDesc =
+    categoryName && typeof strings.category_empty_desc_matched === 'string'
+      ? strings.category_empty_desc_matched.replace('{name}', categoryName)
+      : undefined;
+
   return (
     <div className="filtered-empty-state" role="status" aria-live="polite">
       <p className="library-empty-title">
-        {categoryName
-          ? `No games found in "${categoryName}".`
-          : 'No games match your current filter.'}
+        {isEn
+          ? categoryName
+            ? `No games found in "${categoryName}".`
+            : 'No games match your current filter.'
+          : strings.category_empty_title || 'No games in this category'}
       </p>
       <p className="library-empty-description">
-        Try adjusting your search query or clear the active category filter.
+        {isEn
+          ? 'Try adjusting your search query or clear the active category filter.'
+          : localizedMatchedDesc ||
+            strings.category_empty_desc ||
+            'Try adjusting your search query or clear the active category filter.'}
       </p>
       <div className="library-empty-actions">
         <button type="button" className="secondary-btn" onClick={onClearFilter}>
-          Clear Filter
+          {isEn ? 'Clear Filter' : strings.category_clear_filter || 'Clear Filter'}
         </button>
       </div>
     </div>

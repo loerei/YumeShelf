@@ -57,7 +57,9 @@ export function createAppPaths(app: ElectronAppInterface, sourceRootDir: string)
         translatorsDir: path.join(appDataDir, 'YumeShelf', 'translators'),
         languagePackCacheDir: path.join(appDataDir, 'YumeShelf', 'language-pack-cache'),
         languagePackManifestCacheFile: path.join(appDataDir, 'YumeShelf', 'language-pack-cache', 'manifest.json'),
-        builtInLocalesDir: path.join(sourceRootDir, 'locales', 'builtins'),
+        builtInLocalesDir: isDev
+            ? path.join(sourceRootDir, '..', 'src', 'locales', 'builtins')
+            : path.join(sourceRootDir, 'locales', 'builtins'),
         localLanguagePackRoot: path.join(sourceRootDir, '..', 'language-packs'),
         localLanguagePackManifestFile: path.join(sourceRootDir, '..', 'language-packs', 'manifest.json'),
         localLanguagePacksDir: path.join(sourceRootDir, '..', 'language-packs', 'packs'),

@@ -1103,13 +1103,13 @@
     pointer-events: none;
 }
 
-.save-section-header--sticky {
+.save-section-header.save-section-header--sticky {
     pointer-events: auto;
     background: var(--bg-color, #121212);
     will-change: transform;
 }
 
-.save-section-header--sticky:hover {
+.save-section-header.save-section-header--sticky:hover {
     background: var(--card-bg, #181818);
 }
 

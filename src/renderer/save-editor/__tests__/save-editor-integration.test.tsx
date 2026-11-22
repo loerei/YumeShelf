@@ -792,6 +792,56 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     });
   });
 
+  it('focuses and selects input.save-editor-search on Ctrl+F / Cmd+F unless inside a dialog', async () => {
+    const user = userEvent.setup();
+    const mockApi = createMockElectronAPI();
+    const store = createSaveEditorStore('test-game');
+
+    render(
+      <SaveEditorApp
+        gameKey="test-game"
+        initialFile="save01.sav"
+        store={store}
+        electronAPI={mockApi}
+      />
+    );
+
+    const goldInput = await screen.findByRole('textbox', { name: 'Gold' });
+    const searchInput = screen.getByRole('searchbox', {
+      name: /search variables/i,
+    }) as HTMLInputElement;
+
+    // Ctrl+F while typing inside a field input still focuses the search bar
+    goldInput.focus();
+    expect(document.activeElement).toBe(goldInput);
+    fireEvent.keyDown(goldInput, { key: 'f', ctrlKey: true });
+    expect(document.activeElement).toBe(searchInput);
+
+    // Cmd+F from outside inputs focuses and selects existing search query
+    await user.type(searchInput, 'Gold');
+    searchInput.blur();
+    (document.body as HTMLElement).focus();
+    fireEvent.keyDown(document.body, { key: 'f', metaKey: true });
+    expect(document.activeElement).toBe(searchInput);
+    expect(searchInput.selectionStart).toBe(0);
+    expect(searchInput.selectionEnd).toBe(4);
+
+    // Ctrl+F inside an open [role="dialog"] must not steal focus
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const dialogInput = document.createElement('input');
+    dialog.appendChild(dialogInput);
+    document.body.appendChild(dialog);
+    try {
+      dialogInput.focus();
+      expect(document.activeElement).toBe(dialogInput);
+      fireEvent.keyDown(dialogInput, { key: 'f', ctrlKey: true });
+      expect(document.activeElement).toBe(dialogInput);
+    } finally {
+      dialog.remove();
+    }
+  });
+
   it('renders localized vi strings for sidebar, tabs, filters, search bar, field row pin, and footer', async () => {
     resetLocaleCacheForTests();
     const viPack = JSON.parse(

@@ -741,7 +741,7 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
       act(() => {
         store.setFileLoaded(
           createSaveDto('slot2.sav', [
-            { id: 'variables:1', tabId: 'variables', key: '1', label: 'C', value: 2, type: 'number' },
+            { id: 'switches:1', tabId: 'switches', key: '1', label: 'B', value: true, type: 'boolean' },
           ])
         );
       });
@@ -928,7 +928,7 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     );
     expect(css).toMatch(/\.save-grid-virtual-row--expanding\s*\{[^}]*animation:\s*save-editor-fade-in/s);
     expect(css).toMatch(/\.save-field-row\s+\.checkbox-row\s*\{[^}]*box-sizing:\s*border-box/s);
-    expect(css).toMatch(/\.all-tab-controls\s*\{[^}]*position:\s*sticky/s);
+    expect(css).toMatch(/\.save-editor-scroll-viewport\s*\{[^}]*overflow-y:\s*auto;[^}]*scrollbar-gutter:\s*stable/s);
     expect(css).toMatch(/\.standalone-save-editor\s+\.save-editor-panel\s*\{[^}]*width:\s*100%/s);
 
     const rowBlock = css.match(/\.save-field-row\s*\{([^}]+)\}/);

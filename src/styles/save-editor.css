@@ -1061,6 +1061,10 @@
 }
 
 .save-editor-loaded-stage {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
     width: 100%;
     animation: save-editor-fade-in 0.18s ease-out;
 }
@@ -1072,13 +1076,23 @@
 .save-editor-content {
     flex: 1;
     min-height: 0;
-    padding: 0 24px 24px 24px;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
     scrollbar-gutter: stable;
 }
 
-.save-editor-loaded-stage > .save-editor-virtual-spacer:first-child {
-    margin-top: 20px;
+.save-editor-scroll-viewport {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px 24px 24px 24px;
+    scrollbar-gutter: stable;
+}
+
+.save-editor-content > .save-editor-error-box {
+    margin: 24px;
 }
 
 .save-editor-content:focus,
@@ -1087,6 +1101,8 @@
 }
 
 .save-editor-content .empty-state {
+    flex: 1;
+    padding: 24px;
     color: var(--text-sub);
     gap: 12px;
     text-align: center;
@@ -1567,13 +1583,11 @@ body.standalone-save-editor {
 
 /* Global Controls for Collapse/Expand All */
 .all-tab-controls {
-    position: sticky;
-    top: 0;
-    z-index: 2;
+    flex-shrink: 0;
     display: flex;
     gap: 8px;
-    margin-bottom: 16px;
-    padding: 16px 0 12px 0;
+    margin-bottom: 0;
+    padding: 16px 24px 12px 24px;
     background: var(--bg-color, #121212);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }

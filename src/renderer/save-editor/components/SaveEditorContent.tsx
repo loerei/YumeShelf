@@ -50,7 +50,8 @@ export function SaveEditorContent({
   onRetryLoad,
   onChangeFile,
 }: SaveEditorContentProps): React.JSX.Element {
-  const parentRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const scrollViewportRef = useRef<HTMLDivElement | null>(null);
   const fileStatus = useSaveFileStatus();
   const pristineFieldsByTab = useSaveEditorSelector((s) => s.pristineFieldsByTab);
   const activeTabId = useActiveSaveTabId();
@@ -110,7 +111,7 @@ export function SaveEditorContent({
 
   const handleClearSearchFilter = () => {
     // Transfer focus to scroll container fallback before unmounting empty-state view
-    parentRef.current?.focus();
+    contentRef.current?.focus();
     dispatch.setSearchQuery('');
   };
 
@@ -151,7 +152,7 @@ export function SaveEditorContent({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     enabled: fileStatus.state === 'loaded',
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollViewportRef.current,
     estimateSize: (index: number) => {
       const row = rows[index];
       if (!row) return 104;
@@ -222,11 +223,12 @@ export function SaveEditorContent({
   useLayoutEffect(() => {
     if (fileStatus.state === 'loaded') {
       rowVirtualizer.scrollToOffset(0);
+      scrollViewportRef.current?.scrollTo?.({ top: 0 });
     }
   }, [activeFileName, activeTabId, searchQuery, filters, rowVirtualizer, fileStatus.state]);
 
   useEffect(() => {
-    const el = parentRef.current;
+    const el = contentRef.current;
     if (!el) return;
 
     const updateContainerWidth = () => {
@@ -393,95 +395,100 @@ export function SaveEditorContent({
           </div>
         )}
         <div
-          className="save-editor-virtual-spacer"
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
+          ref={scrollViewportRef}
+          className="save-editor-scroll-viewport"
         >
-          {virtualRows.map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            if (!row) return null;
+          <div
+            className="save-editor-virtual-spacer"
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualRows.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              if (!row) return null;
 
-            return (
-              <div
-                key={virtualRow.key}
-                ref={rowVirtualizer.measureElement}
-                data-index={virtualRow.index}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                  isolation: 'isolate',
-                  overflow: 'hidden',
-                }}
-              >
-                {row.kind === 'section-header' ? (
-                  <button
-                    type="button"
-                    className={
-                      row.isCollapsed ? 'save-section-header collapsed' : 'save-section-header'
-                    }
-                    aria-expanded={!row.isCollapsed}
-                    onClick={() => dispatch.toggleSection(row.tabId)}
-                  >
-                    <span className="save-section-title">{row.label}</span>
-                    <span className="save-section-count">({row.count})</span>
-                  </button>
-                ) : (
-                  <div
-                    className={
-                      row.fields[0]?.tabId && expandingTabs.has(row.fields[0].tabId)
-                        ? 'save-grid-virtual-row save-grid-virtual-row--expanding'
-                        : 'save-grid-virtual-row'
-                    }
-                    style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
-                  >
-                    {row.fields.map((field) => {
-                      const rawModified = Object.hasOwn(modifiedFields, field.id)
-                        ? modifiedFields[field.id]
-                        : undefined;
-                      const value: number | string | boolean =
-                        rawModified !== undefined && rawModified !== null
-                          ? rawModified
-                          : field.value;
-                      const isDirty = dirtyKeys.has(field.id);
-                      const normLabel = (field.label || '').normalize('NFC');
-                      const translatedLabel = getTranslation(translations, normLabel);
-                      const isTranslated = Boolean(
-                        translatedLabel && translatedLabel !== field.label
-                      );
-                      const label = translatedLabel ?? field.label;
+              return (
+                <div
+                  key={virtualRow.key}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    isolation: 'isolate',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {row.kind === 'section-header' ? (
+                    <button
+                      type="button"
+                      className={
+                        row.isCollapsed ? 'save-section-header collapsed' : 'save-section-header'
+                      }
+                      aria-expanded={!row.isCollapsed}
+                      onClick={() => dispatch.toggleSection(row.tabId)}
+                    >
+                      <span className="save-section-title">{row.label}</span>
+                      <span className="save-section-count">({row.count})</span>
+                    </button>
+                  ) : (
+                    <div
+                      className={
+                        row.fields[0]?.tabId && expandingTabs.has(row.fields[0].tabId)
+                          ? 'save-grid-virtual-row save-grid-virtual-row--expanding'
+                          : 'save-grid-virtual-row'
+                      }
+                      style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+                    >
+                      {row.fields.map((field) => {
+                        const rawModified = Object.hasOwn(modifiedFields, field.id)
+                          ? modifiedFields[field.id]
+                          : undefined;
+                        const value: number | string | boolean =
+                          rawModified !== undefined && rawModified !== null
+                            ? rawModified
+                            : field.value;
+                        const isDirty = dirtyKeys.has(field.id);
+                        const normLabel = (field.label || '').normalize('NFC');
+                        const translatedLabel = getTranslation(translations, normLabel);
+                        const isTranslated = Boolean(
+                          translatedLabel && translatedLabel !== field.label
+                        );
+                        const label = translatedLabel ?? field.label;
 
-                      return (
-                        <SaveFieldRow
-                          key={field.id}
-                          field={field}
-                          value={value}
-                          isDirty={isDirty}
-                          isTranslated={isTranslated}
-                          isPinned={pinnedIds.has(field.id)}
-                          label={label}
-                          onChange={handleChange}
-                          onTogglePin={handleTogglePin}
-                          pinLabelTemplate={strings.save_editor_pin_field_aria}
-                          unpinLabelTemplate={strings.save_editor_unpin_field_aria}
-                          pinTitle={strings.save_editor_pin_field_title}
-                          unpinTitle={strings.save_editor_unpin_field_title}
-                          deltaWasTemplate={strings.save_editor_delta_was}
-                          deltaChangedText={strings.save_editor_delta_changed}
-                          invalidNumberText={strings.save_editor_invalid_number}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                        return (
+                          <SaveFieldRow
+                            key={field.id}
+                            field={field}
+                            value={value}
+                            isDirty={isDirty}
+                            isTranslated={isTranslated}
+                            isPinned={pinnedIds.has(field.id)}
+                            label={label}
+                            onChange={handleChange}
+                            onTogglePin={handleTogglePin}
+                            pinLabelTemplate={strings.save_editor_pin_field_aria}
+                            unpinLabelTemplate={strings.save_editor_unpin_field_aria}
+                            pinTitle={strings.save_editor_pin_field_title}
+                            unpinTitle={strings.save_editor_unpin_field_title}
+                            deltaWasTemplate={strings.save_editor_delta_was}
+                            deltaChangedText={strings.save_editor_delta_changed}
+                            invalidNumberText={strings.save_editor_invalid_number}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -489,10 +496,9 @@ export function SaveEditorContent({
 
   return (
     <div
-      ref={parentRef}
+      ref={contentRef}
       className="save-editor-content"
       tabIndex={-1}
-      style={{ overflow: 'auto' }}
     >
       {content}
     </div>

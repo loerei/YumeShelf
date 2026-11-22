@@ -1068,4 +1068,79 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
       vi.useRealTimers();
     }
   });
+
+  it('shows sticky active section header with push-off transform and collapses with scroll-back on click', () => {
+    const store = createSaveEditorStore('game-1');
+    const fields: SaveFieldDto[] = [
+      ...Array.from({ length: 12 }, (_, i) => ({
+        id: `variables:${i + 1}`,
+        tabId: 'variables',
+        key: String(i + 1),
+        label: `Var ${i + 1}`,
+        value: i + 1,
+        type: 'number' as const,
+      })),
+      ...Array.from({ length: 6 }, (_, i) => ({
+        id: `switches:${i + 1}`,
+        tabId: 'switches',
+        key: String(i + 1),
+        label: `Switch ${i + 1}`,
+        value: true,
+        type: 'boolean' as const,
+      })),
+    ];
+    store.setFileLoaded(createSaveDto('slot1.sav', fields));
+    store.setActiveTab('all');
+
+    const scrollToSpy = vi.fn();
+    const origScrollTo = HTMLElement.prototype.scrollTo;
+    HTMLElement.prototype.scrollTo = scrollToSpy;
+
+    try {
+      const { container } = render(
+        <SaveEditorStoreProvider store={store}>
+          <SaveEditorContent />
+        </SaveEditorStoreProvider>
+      );
+
+      expect(container.querySelector('.save-section-header--sticky')).toBeNull();
+
+      const viewport = container.querySelector('.save-editor-scroll-viewport') as HTMLDivElement;
+      expect(viewport).not.toBeNull();
+
+      // Scroll past the Variables header (index 0, start = 0) into Variables rows
+      Object.defineProperty(viewport, 'scrollTop', { value: 120, configurable: true, writable: true });
+      fireEvent.scroll(viewport);
+
+      const stickyBtn = container.querySelector('.save-section-header--sticky') as HTMLButtonElement;
+      expect(stickyBtn).not.toBeNull();
+      expect(stickyBtn.textContent).toContain('Variables');
+      expect(stickyBtn.textContent).toContain('(12)');
+
+      // Read actual Switches header Y offset from virtualizer DOM and scroll 15px before it
+      const switchesBtn = Array.from(container.querySelectorAll('.save-section-header')).find(
+        (el) => !el.classList.contains('save-section-header--sticky') && el.textContent?.includes('Switches')
+      );
+      const switchesWrapper = switchesBtn?.parentElement as HTMLElement | null;
+      const matchY = switchesWrapper?.style.transform.match(/translateY\((\d+(?:\.\d+)?)px\)/);
+      expect(matchY).not.toBeNull();
+      const switchesTop = Number(matchY![1]);
+
+      Object.defineProperty(viewport, 'scrollTop', {
+        value: switchesTop - 15,
+        configurable: true,
+        writable: true,
+      });
+      fireEvent.scroll(viewport);
+      expect(stickyBtn.style.transform).toMatch(/^translateY\(-\d+(\.\d+)?px\)$/);
+
+      // Click sticky header: collapses Variables and scrolls back to its header offset (0)
+      scrollToSpy.mockClear();
+      fireEvent.click(stickyBtn);
+      expect(store.getSnapshot().collapsedSections.has('variables')).toBe(true);
+      expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+    } finally {
+      HTMLElement.prototype.scrollTo = origScrollTo;
+    }
+  });
 });

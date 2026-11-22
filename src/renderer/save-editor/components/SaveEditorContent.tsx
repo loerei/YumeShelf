@@ -52,6 +52,8 @@ export function SaveEditorContent({
 }: SaveEditorContentProps): React.JSX.Element {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const scrollViewportRef = useRef<HTMLDivElement | null>(null);
+  const stickyBtnRef = useRef<HTMLButtonElement | null>(null);
+  const stickyPushOffsetRef = useRef<number>(0);
   const fileStatus = useSaveFileStatus();
   const pristineFieldsByTab = useSaveEditorSelector((s) => s.pristineFieldsByTab);
   const activeTabId = useActiveSaveTabId();
@@ -71,6 +73,13 @@ export function SaveEditorContent({
   const [expandingTabs, setExpandingTabs] = useState<ReadonlySet<string>>(() => new Set());
   const [prevCollapsed, setPrevCollapsed] = useState<ReadonlySet<string>>(collapsedSections);
   const expandTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [stickySection, setStickySection] = useState<{
+    readonly index: number;
+    readonly tabId: string;
+    readonly label: string;
+    readonly count: number;
+    readonly isCollapsed: boolean;
+  } | null>(null);
 
   if (prevCollapsed !== collapsedSections) {
     setPrevCollapsed(collapsedSections);
@@ -149,6 +158,29 @@ export function SaveEditorContent({
     columnCount,
   ]);
 
+  const sectionHeaders = useMemo(() => {
+    const list: Array<{
+      readonly index: number;
+      readonly tabId: string;
+      readonly label: string;
+      readonly count: number;
+      readonly isCollapsed: boolean;
+    }> = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row && row.kind === 'section-header') {
+        list.push({
+          index: i,
+          tabId: row.tabId,
+          label: row.label,
+          count: row.count,
+          isCollapsed: row.isCollapsed,
+        });
+      }
+    }
+    return list;
+  }, [rows]);
+
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     enabled: fileStatus.state === 'loaded',
@@ -220,12 +252,119 @@ export function SaveEditorContent({
     };
   }, []);
 
+  const syncStickyHeader = useCallback(() => {
+    const scrollEl = scrollViewportRef.current;
+    if (
+      !scrollEl ||
+      fileStatus.state !== 'loaded' ||
+      activeTabId !== 'all' ||
+      sectionHeaders.length === 0
+    ) {
+      stickyPushOffsetRef.current = 0;
+      setStickySection((curr) => (curr === null ? curr : null));
+      return;
+    }
+
+    const scrollTop = scrollEl.scrollTop;
+    const padTop =
+      typeof window !== 'undefined'
+        ? Number.parseFloat(window.getComputedStyle(scrollEl).paddingTop) || 0
+        : 0;
+    const measurements = rowVirtualizer.measurementsCache;
+
+    const getHeaderTop = (rowIndex: number): number => {
+      const m = measurements[rowIndex];
+      if (m) return m.start + padTop;
+      const offset = rowVirtualizer.getOffsetForIndex(rowIndex, 'start');
+      return (offset ? offset[0] : rowIndex * 48) + padTop;
+    };
+
+    let activePos = -1;
+    for (let i = 0; i < sectionHeaders.length; i++) {
+      if (getHeaderTop(sectionHeaders[i]!.index) < scrollTop) {
+        activePos = i;
+      } else {
+        break;
+      }
+    }
+
+    if (activePos < 0) {
+      stickyPushOffsetRef.current = 0;
+      setStickySection((curr) => (curr === null ? curr : null));
+      return;
+    }
+
+    const active = sectionHeaders[activePos]!;
+    if (active.isCollapsed) {
+      stickyPushOffsetRef.current = 0;
+      setStickySection((curr) => (curr === null ? curr : null));
+      return;
+    }
+
+    const nextHeader = sectionHeaders[activePos + 1];
+    const stickyHeight = stickyBtnRef.current?.offsetHeight || 39;
+    let pushOffset = 0;
+    if (nextHeader) {
+      const distanceToNext = getHeaderTop(nextHeader.index) - scrollTop;
+      if (distanceToNext < stickyHeight) {
+        pushOffset = Math.max(-stickyHeight, distanceToNext - stickyHeight);
+      }
+    }
+
+    stickyPushOffsetRef.current = pushOffset;
+    if (stickyBtnRef.current) {
+      stickyBtnRef.current.style.transform =
+        pushOffset === 0 ? '' : `translateY(${pushOffset}px)`;
+    }
+
+    setStickySection((curr) => {
+      if (
+        curr &&
+        curr.tabId === active.tabId &&
+        curr.index === active.index &&
+        curr.label === active.label &&
+        curr.count === active.count &&
+        curr.isCollapsed === active.isCollapsed
+      ) {
+        return curr;
+      }
+      return active;
+    });
+  }, [activeTabId, fileStatus.state, rowVirtualizer, sectionHeaders]);
+
+  const handleStickyHeaderClick = useCallback(() => {
+    if (!stickySection) return;
+    const scrollEl = scrollViewportRef.current;
+    const measurements = rowVirtualizer.measurementsCache;
+    const m = measurements[stickySection.index];
+    const fallbackOffset = rowVirtualizer.getOffsetForIndex(stickySection.index, 'start');
+    const targetTop = Math.max(0, m ? m.start : (fallbackOffset ? fallbackOffset[0] : 0));
+
+    dispatch.toggleSection(stickySection.tabId);
+    rowVirtualizer.scrollToOffset(targetTop);
+    scrollEl?.scrollTo?.({ top: targetTop });
+  }, [dispatch, rowVirtualizer, stickySection]);
+
   useLayoutEffect(() => {
     if (fileStatus.state === 'loaded') {
       rowVirtualizer.scrollToOffset(0);
       scrollViewportRef.current?.scrollTo?.({ top: 0 });
     }
+    stickyPushOffsetRef.current = 0;
+    setStickySection(null);
   }, [activeFileName, activeTabId, searchQuery, filters, rowVirtualizer, fileStatus.state]);
+
+  useLayoutEffect(() => {
+    syncStickyHeader();
+  }, [syncStickyHeader, rows]);
+
+  useLayoutEffect(() => {
+    if (stickyBtnRef.current) {
+      const pushOffset = stickyPushOffsetRef.current;
+      stickyBtnRef.current.style.transform =
+        pushOffset === 0 ? '' : `translateY(${pushOffset}px)`;
+    }
+  }, [stickySection]);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -394,100 +533,117 @@ export function SaveEditorContent({
             </button>
           </div>
         )}
-        <div
-          ref={scrollViewportRef}
-          className="save-editor-scroll-viewport"
-        >
+        <div className="save-editor-viewport-frame">
+          {stickySection && (
+            <div className="save-section-sticky-overlay">
+              <button
+                ref={stickyBtnRef}
+                type="button"
+                className="save-section-header save-section-header--sticky"
+                aria-expanded={!stickySection.isCollapsed}
+                onClick={handleStickyHeaderClick}
+              >
+                <span className="save-section-title">{stickySection.label}</span>
+                <span className="save-section-count">({stickySection.count})</span>
+              </button>
+            </div>
+          )}
           <div
-            className="save-editor-virtual-spacer"
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
+            ref={scrollViewportRef}
+            className="save-editor-scroll-viewport"
+            onScroll={syncStickyHeader}
           >
-            {virtualRows.map((virtualRow) => {
-              const row = rows[virtualRow.index];
-              if (!row) return null;
+            <div
+              className="save-editor-virtual-spacer"
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualRows.map((virtualRow) => {
+                const row = rows[virtualRow.index];
+                if (!row) return null;
 
-              return (
-                <div
-                  key={virtualRow.key}
-                  ref={rowVirtualizer.measureElement}
-                  data-index={virtualRow.index}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                    isolation: 'isolate',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {row.kind === 'section-header' ? (
-                    <button
-                      type="button"
-                      className={
-                        row.isCollapsed ? 'save-section-header collapsed' : 'save-section-header'
-                      }
-                      aria-expanded={!row.isCollapsed}
-                      onClick={() => dispatch.toggleSection(row.tabId)}
-                    >
-                      <span className="save-section-title">{row.label}</span>
-                      <span className="save-section-count">({row.count})</span>
-                    </button>
-                  ) : (
-                    <div
-                      className={
-                        row.fields[0]?.tabId && expandingTabs.has(row.fields[0].tabId)
-                          ? 'save-grid-virtual-row save-grid-virtual-row--expanding'
-                          : 'save-grid-virtual-row'
-                      }
-                      style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
-                    >
-                      {row.fields.map((field) => {
-                        const rawModified = Object.hasOwn(modifiedFields, field.id)
-                          ? modifiedFields[field.id]
-                          : undefined;
-                        const value: number | string | boolean =
-                          rawModified !== undefined && rawModified !== null
-                            ? rawModified
-                            : field.value;
-                        const isDirty = dirtyKeys.has(field.id);
-                        const normLabel = (field.label || '').normalize('NFC');
-                        const translatedLabel = getTranslation(translations, normLabel);
-                        const isTranslated = Boolean(
-                          translatedLabel && translatedLabel !== field.label
-                        );
-                        const label = translatedLabel ?? field.label;
+                return (
+                  <div
+                    key={virtualRow.key}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                      isolation: 'isolate',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {row.kind === 'section-header' ? (
+                      <button
+                        type="button"
+                        className={
+                          row.isCollapsed ? 'save-section-header collapsed' : 'save-section-header'
+                        }
+                        aria-expanded={!row.isCollapsed}
+                        onClick={() => dispatch.toggleSection(row.tabId)}
+                      >
+                        <span className="save-section-title">{row.label}</span>
+                        <span className="save-section-count">({row.count})</span>
+                      </button>
+                    ) : (
+                      <div
+                        className={
+                          row.fields[0]?.tabId && expandingTabs.has(row.fields[0].tabId)
+                            ? 'save-grid-virtual-row save-grid-virtual-row--expanding'
+                            : 'save-grid-virtual-row'
+                        }
+                        style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+                      >
+                        {row.fields.map((field) => {
+                          const rawModified = Object.hasOwn(modifiedFields, field.id)
+                            ? modifiedFields[field.id]
+                            : undefined;
+                          const value: number | string | boolean =
+                            rawModified !== undefined && rawModified !== null
+                              ? rawModified
+                              : field.value;
+                          const isDirty = dirtyKeys.has(field.id);
+                          const normLabel = (field.label || '').normalize('NFC');
+                          const translatedLabel = getTranslation(translations, normLabel);
+                          const isTranslated = Boolean(
+                            translatedLabel && translatedLabel !== field.label
+                          );
+                          const label = translatedLabel ?? field.label;
 
-                        return (
-                          <SaveFieldRow
-                            key={field.id}
-                            field={field}
-                            value={value}
-                            isDirty={isDirty}
-                            isTranslated={isTranslated}
-                            isPinned={pinnedIds.has(field.id)}
-                            label={label}
-                            onChange={handleChange}
-                            onTogglePin={handleTogglePin}
-                            pinLabelTemplate={strings.save_editor_pin_field_aria}
-                            unpinLabelTemplate={strings.save_editor_unpin_field_aria}
-                            pinTitle={strings.save_editor_pin_field_title}
-                            unpinTitle={strings.save_editor_unpin_field_title}
-                            deltaWasTemplate={strings.save_editor_delta_was}
-                            deltaChangedText={strings.save_editor_delta_changed}
-                            invalidNumberText={strings.save_editor_invalid_number}
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                          return (
+                            <SaveFieldRow
+                              key={field.id}
+                              field={field}
+                              value={value}
+                              isDirty={isDirty}
+                              isTranslated={isTranslated}
+                              isPinned={pinnedIds.has(field.id)}
+                              label={label}
+                              onChange={handleChange}
+                              onTogglePin={handleTogglePin}
+                              pinLabelTemplate={strings.save_editor_pin_field_aria}
+                              unpinLabelTemplate={strings.save_editor_unpin_field_aria}
+                              pinTitle={strings.save_editor_pin_field_title}
+                              unpinTitle={strings.save_editor_unpin_field_title}
+                              deltaWasTemplate={strings.save_editor_delta_was}
+                              deltaChangedText={strings.save_editor_delta_changed}
+                              invalidNumberText={strings.save_editor_invalid_number}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

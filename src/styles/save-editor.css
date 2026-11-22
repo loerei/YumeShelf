@@ -1083,6 +1083,36 @@
     scrollbar-gutter: stable;
 }
 
+.save-editor-viewport-frame {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.save-section-sticky-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 10px;
+    padding: 0 24px;
+    z-index: 3;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.save-section-header--sticky {
+    pointer-events: auto;
+    background: var(--bg-color, #121212);
+    will-change: transform;
+}
+
+.save-section-header--sticky:hover {
+    background: var(--card-bg, #181818);
+}
+
 .save-editor-scroll-viewport {
     flex: 1;
     min-height: 0;

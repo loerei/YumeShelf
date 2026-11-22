@@ -1,9 +1,9 @@
 import path from 'path';
-import { fileURLToPath } from 'node:url';
 import { BrowserWindow, BrowserWindow as electronBrowserWindow, dialog as electronDialog, shell as electronShell } from 'electron';
 import { RegisterIpcOptions } from '../types';
 import { CircularRingBuffer } from '../../../shared/ring-buffer';
 import { sanitizeLoneSurrogates, sanitizeUserPaths } from '../../../shared/path-sanitizer';
+import { attachWindowNavigationGuard } from '../../window/navigation-guard';
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const SAFE_FILENAME_REGEX = /^(?!(?:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\..*)?$)[^\\/:*?"<>|\x00-\x1f]+(?<![. ])$/i;
@@ -1105,61 +1105,12 @@ export class SaveEditorIpcController {
         });
 
         const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-        let appOrigin: string | null = null;
-        if (devServerUrl) {
-            try {
-                appOrigin = new URL(devServerUrl).origin;
-            } catch {
-                appOrigin = null;
-            }
-        }
-
-        saveEditorWin.webContents?.setWindowOpenHandler?.(({ url: targetUrl }) => {
-            try {
-                const parsed = new URL(targetUrl);
-                if (['https:', 'http:'].includes(parsed.protocol)) {
-                    void shell?.openExternal(parsed.href);
-                }
-            } catch (err) {
-                const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
-                console.warn('[save-editor] Blocked malformed navigation URL:', sanitizeUserPaths(targetUrl), sanitizedError);
-            }
-            return { action: 'deny' };
-        });
-
-        saveEditorWin.webContents?.on?.('will-navigate', (event, navigationUrl) => {
-            try {
-                const parsed = new URL(navigationUrl);
-                if (appOrigin && parsed.origin === appOrigin) {
-                    return;
-                }
-                if (parsed.protocol === 'file:' && paths?.saveEditorHtmlPath) {
-                    const rawTarget = path.normalize(fileURLToPath(parsed.href));
-                    const rawAllowed = path.normalize(paths.saveEditorHtmlPath);
-                    const rawAllowedDir = path.dirname(rawAllowed);
-
-                    const targetPlatform = this.options?.platform ?? process.platform;
-                    const isCaseInsensitive = targetPlatform === 'win32' || targetPlatform === 'darwin';
-                    const targetPath = isCaseInsensitive ? rawTarget.toLowerCase() : rawTarget;
-                    const allowedPath = isCaseInsensitive ? rawAllowed.toLowerCase() : rawAllowed;
-                    const allowedDir = isCaseInsensitive ? rawAllowedDir.toLowerCase() : rawAllowedDir;
-
-                    const boundary = allowedDir.endsWith(path.sep) ? allowedDir : `${allowedDir}${path.sep}`;
-                    if (targetPath === allowedPath || targetPath.startsWith(boundary)) {
-                        return;
-                    }
-                }
-                event.preventDefault();
-                if (['https:', 'http:'].includes(parsed.protocol)) {
-                    void shell?.openExternal(parsed.href);
-                } else {
-                    console.warn('[save-editor] Blocked unauthorized navigation:', sanitizeUserPaths(navigationUrl));
-                }
-            } catch (err) {
-                event.preventDefault();
-                const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
-                console.warn('[save-editor] Blocked malformed navigation URL:', sanitizeUserPaths(navigationUrl), sanitizedError);
-            }
+        attachWindowNavigationGuard(saveEditorWin.webContents, {
+            devServerUrl,
+            allowedHtmlPath: paths?.saveEditorHtmlPath,
+            platform: this.options?.platform,
+            shell,
+            logTag: '[save-editor]',
         });
 
         saveEditorWin.removeMenu?.();

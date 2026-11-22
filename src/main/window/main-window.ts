@@ -1,8 +1,8 @@
 import * as path from 'node:path';
 import * as fsSync from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { BrowserWindow, Tray, Menu, ipcMain, session, shell, dialog } from 'electron';
 import { sanitizeUserPaths } from '../../shared/path-sanitizer';
+import { attachWindowNavigationGuard } from './navigation-guard';
 
 let tray: Tray | null = null;
 let minimizeToTray = false;
@@ -218,61 +218,12 @@ export function createMainWindow({
         console.log(`[RENDERER-LOG] ${sanitizeUserPaths(message)}`);
     });
 
-    let appOrigin: string | null = null;
-    if (devServerUrl) {
-        try {
-            appOrigin = new URL(devServerUrl).origin;
-        } catch {
-            appOrigin = null;
-        }
-    }
-
-    win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
-        try {
-            const parsed = new URL(targetUrl);
-            if (['https:', 'http:'].includes(parsed.protocol)) {
-                void shell?.openExternal(parsed.href);
-            }
-        } catch (err) {
-            const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
-            console.warn('[MainWindow] Blocked malformed window open URL:', sanitizeUserPaths(targetUrl), sanitizedError);
-        }
-        return { action: 'deny' };
-    });
-
-    win.webContents.on('will-navigate', (event, navigationUrl) => {
-        try {
-            const parsed = new URL(navigationUrl);
-            if (appOrigin && parsed.origin === appOrigin) {
-                return;
-            }
-            if (parsed.protocol === 'file:' && pathsConfig?.indexHtmlPath) {
-                const rawTarget = path.normalize(fileURLToPath(parsed.href));
-                const rawAllowed = path.normalize(pathsConfig.indexHtmlPath);
-                const rawAllowedDir = path.dirname(rawAllowed);
-
-                const targetPlatform = platform ?? process.platform;
-                const isCaseInsensitive = targetPlatform === 'win32' || targetPlatform === 'darwin';
-                const targetPath = isCaseInsensitive ? rawTarget.toLowerCase() : rawTarget;
-                const allowedPath = isCaseInsensitive ? rawAllowed.toLowerCase() : rawAllowed;
-                const allowedDir = isCaseInsensitive ? rawAllowedDir.toLowerCase() : rawAllowedDir;
-
-                const boundary = allowedDir.endsWith(path.sep) ? allowedDir : `${allowedDir}${path.sep}`;
-                if (targetPath === allowedPath || targetPath.startsWith(boundary)) {
-                    return;
-                }
-            }
-            event.preventDefault();
-            if (['https:', 'http:'].includes(parsed.protocol)) {
-                void shell?.openExternal(parsed.href);
-            } else {
-                console.warn('[MainWindow] Blocked unauthorized navigation:', sanitizeUserPaths(navigationUrl));
-            }
-        } catch (err) {
-            event.preventDefault();
-            const sanitizedError = sanitizeUserPaths(err instanceof Error ? (err.stack || err.message) : String(err));
-            console.warn('[MainWindow] Blocked malformed navigation URL:', sanitizeUserPaths(navigationUrl), sanitizedError);
-        }
+    attachWindowNavigationGuard(win.webContents, {
+        devServerUrl,
+        allowedHtmlPath: paths?.indexHtmlPath,
+        platform,
+        shell,
+        logTag: '[MainWindow]',
     });
 
     win.webContents.on('render-process-gone', (_event, details) => {

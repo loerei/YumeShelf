@@ -305,3 +305,79 @@ export function reorderLibraryPathsWithSubsumption(
 
   return result;
 }
+
+/**
+ * Resolves the canonical parent directory of a path using target-platform semantics
+ * without depending on the host OS `node:path` module.
+ */
+export function getParentDirForPlatform(p: string, targetPlatform?: PlatformInput): string {
+  const normalized = normalizePathForPlatform(p, targetPlatform);
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized === '/' || /^[a-zA-Z]:\/$/.test(normalized)) {
+    return normalized;
+  }
+
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash < 0) {
+    return '';
+  }
+  if (lastSlash === 0) {
+    return '/';
+  }
+
+  const candidateRoot = normalized.slice(0, lastSlash + 1);
+  if (/^[a-zA-Z]:\/$/.test(candidateRoot)) {
+    return candidateRoot;
+  }
+
+  return normalized.slice(0, lastSlash);
+}
+
+/**
+ * Converts a local `file://` URL into a canonical platform path using target-platform semantics
+ * (independent of the host OS running Node/Vitest). Rejects non-file URLs, remote hostnames,
+ * malformed percent-encoding, and Windows file URLs missing a drive letter.
+ */
+export function fileUrlToPlatformPath(
+  fileUrl: string | URL,
+  targetPlatform?: PlatformInput
+): string {
+  let parsed: URL;
+  try {
+    parsed = fileUrl instanceof URL ? fileUrl : new URL(fileUrl);
+  } catch {
+    return '';
+  }
+
+  if (parsed.protocol !== 'file:') {
+    return '';
+  }
+
+  if (parsed.hostname && parsed.hostname.toLowerCase() !== 'localhost') {
+    return '';
+  }
+
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(parsed.pathname);
+  } catch {
+    return '';
+  }
+
+  if (!decoded || /\0|\r|\n/.test(decoded)) {
+    return '';
+  }
+
+  const resolved = resolvePlatform(targetPlatform);
+  if (resolved === 'win32') {
+    if (!/^\/[A-Za-z]:(?:\/|$)/.test(decoded)) {
+      return '';
+    }
+    return normalizePathForPlatform(decoded.slice(1), resolved);
+  }
+
+  return normalizePathForPlatform(decoded, resolved);
+}

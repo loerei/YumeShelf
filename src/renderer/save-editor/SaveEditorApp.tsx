@@ -14,6 +14,7 @@ import { SaveEditorSearchBar } from './components/SaveEditorSearchBar';
 import { SaveEditorFilterBar } from './components/SaveEditorFilterBar';
 import { SaveEditorContent } from './components/SaveEditorContent';
 import { SaveEditorFooter } from './components/SaveEditorFooter';
+import { useFindShortcut } from '../hooks/useFindShortcut';
 
 export interface SaveEditorAppProps {
   gameKey?: string;
@@ -41,6 +42,11 @@ export function SaveEditorShell({
     fileName: string;
     requestId: number;
   } | null>(null);
+
+  useFindShortcut(
+    () => document.querySelector('input.save-editor-search') as HTMLInputElement | null,
+    fileStatus.state === 'loaded'
+  );
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -70,37 +76,8 @@ export function SaveEditorShell({
       return false;
     };
 
-    const isInsideDialog = (target: EventTarget | null): boolean => {
-      const el =
-        target instanceof HTMLElement
-          ? target
-          : document.activeElement instanceof HTMLElement
-            ? document.activeElement
-            : null;
-      return Boolean(el?.closest('[role="dialog"]'));
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (store.getSnapshot().fileStatus.state !== 'loaded') return;
-
-      if (
-        (e.ctrlKey || e.metaKey) &&
-        !e.altKey &&
-        !e.shiftKey &&
-        e.key.toLowerCase() === 'f'
-      ) {
-        if (isInsideDialog(e.target)) return;
-        const searchInput = document.querySelector(
-          'input.save-editor-search'
-        ) as HTMLInputElement | null;
-        if (searchInput) {
-          e.preventDefault();
-          searchInput.focus();
-          searchInput.select();
-        }
-        return;
-      }
-
       if (isTextTypingTarget(e.target)) return;
 
       if (e.shiftKey && e.key === 'Enter') {

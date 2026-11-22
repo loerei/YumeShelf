@@ -3,6 +3,7 @@ import type { GameEntry } from '../types/game';
 import { GameIcon } from './GameIcon';
 import { useLocaleStrings } from '../i18n/locale-strings';
 import { formatBytes } from '../utils/formatting';
+import { useFindShortcut } from '../hooks/useFindShortcut';
 
 export const MAX_DROPDOWN_RESULTS = 50;
 export const PLACEHOLDER_ROTATION_MS = 60000;
@@ -243,6 +244,8 @@ export function SearchBar({
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedQueryRef = useRef(debouncedQuery);
   debouncedQueryRef.current = debouncedQuery;
+
+  useFindShortcut(() => inputRef.current);
   const suppressFocusReopenRef = useRef(false);
 
   const localeStrings = useLocaleStrings();

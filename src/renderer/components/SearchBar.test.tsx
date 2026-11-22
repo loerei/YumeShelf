@@ -413,4 +413,43 @@ describe('SearchBar', () => {
     window.localStorage.removeItem('yumeshelf_lang');
     delete (window as unknown as { electronAPI?: unknown }).electronAPI;
   });
+
+  it('focuses and selects #search-input on Ctrl+F / Cmd+F unless inside a dialog', () => {
+    render(
+      <ControlledSearchHarness games={[{ gameKey: 'g1', name: 'Clannad' }]} initialQuery="Clan" />
+    );
+
+    const input = screen.getByRole('textbox', {
+      name: 'Search library games',
+    }) as HTMLInputElement;
+
+    (document.body as HTMLElement).focus();
+    expect(document.activeElement).not.toBe(input);
+
+    fireEvent.keyDown(document.body, { key: 'f', ctrlKey: true });
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(4);
+
+    input.blur();
+    (document.body as HTMLElement).focus();
+    fireEvent.keyDown(document.body, { key: 'f', metaKey: true });
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(4);
+
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const dialogInput = document.createElement('input');
+    dialog.appendChild(dialogInput);
+    document.body.appendChild(dialog);
+    try {
+      dialogInput.focus();
+      expect(document.activeElement).toBe(dialogInput);
+      fireEvent.keyDown(dialogInput, { key: 'f', ctrlKey: true });
+      expect(document.activeElement).toBe(dialogInput);
+    } finally {
+      dialog.remove();
+    }
+  });
 });

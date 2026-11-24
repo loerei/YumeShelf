@@ -191,11 +191,7 @@ export function matchesSaveFieldFilter(
 
     if (checkValue && field.value !== null && field.value !== undefined && field.value !== '') {
       const numericVal =
-        typeof field.value === 'number'
-          ? field.value
-          : typeof field.value === 'boolean'
-            ? Number(field.value)
-            : Number(field.value);
+        typeof field.value === 'number' ? field.value : Number(field.value);
       if (!Number.isNaN(numericVal) && compareNumericRelation(numericVal, op, targetVal)) {
         return true;
       }

@@ -678,4 +678,218 @@ describe('LibraryGrid', () => {
     fireEvent.doubleClick(favCard);
     expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({ gameKey: 'g-1' }));
   });
+
+  function makeLibraryConfig(libraryPaths: string[], libraryPath = libraryPaths[0] ?? '') {
+    return {
+      libraryPath,
+      libraryPaths,
+      maxDepth: 3,
+      autoLaunch: false,
+      minimizeToTray: false,
+    };
+  }
+
+  it('mounts ShelfTabs and FolderAccordion in folder sort, retains all folder tabs on tab switches, and persists activeTabId', () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN', 'D:/Games/RPG']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+      makeGame({ gameKey: 'g2', name: 'RPG One', folderPath: 'D:/Games/RPG/One', favorite: false }),
+    ]);
+
+    renderGrid(store, { storage });
+
+    expect(screen.getByRole('tablist', { name: 'Library folders' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+
+    // Switch to Favorites tab -> ShelfTabs still retains all folder tabs
+    fireEvent.click(document.getElementById('shelf-tab-fav')!);
+    expect(storage.setItem).toHaveBeenCalledWith('yumeshelf_active_folder_tab', 'fav');
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(document.querySelectorAll('.folder-section')).toHaveLength(0);
+
+    // Switch to individual folder tab -> ShelfTabs still retains all folder tabs
+    fireEvent.click(screen.getByRole('tab', { name: /RPG/ }));
+    expect(storage.setItem).toHaveBeenCalledWith('yumeshelf_active_folder_tab', 'D:/Games/RPG');
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(document.querySelectorAll('.folder-section')).toHaveLength(1);
+  });
+
+  it('persists activeTabId via defaultStorage (localStorage) when storage prop is omitted', () => {
+    localStorage.clear();
+    const store = createUiRuntimeState();
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+    ]);
+
+    renderGrid(store);
+    fireEvent.click(document.getElementById('shelf-tab-fav')!);
+    expect(localStorage.getItem('yumeshelf_active_folder_tab')).toBe('fav');
+    localStorage.clear();
+  });
+
+  it('falls back to LibraryEmptyState/flat grid when rootPaths is empty in folder sort', () => {
+    const store = createUiRuntimeState(createMemoryStorage());
+    store.setCurrentLibraryConfig(makeLibraryConfig([], ''));
+    store.setCurrentSort('folder');
+    store.setAllGames([]);
+
+    renderGrid(store);
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Choose Folder' })).toBeInTheDocument();
+  });
+
+  it('respects customOrder persisted in UiStorageAdapter during folder sort', () => {
+    const storage = createMemoryStorage({
+      yumeshelf_custom_order: JSON.stringify({
+        schemaVersion: 1,
+        order: ['g2', 'g1'],
+      }),
+    });
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'First Added', folderPath: 'D:/Games/VN/One', favorite: false }),
+      makeGame({ gameKey: 'g2', name: 'Second Added', folderPath: 'D:/Games/VN/Two', favorite: false }),
+    ]);
+
+    renderGrid(store, { storage });
+
+    const cards = Array.from(document.querySelectorAll('.folder-section .game-card')).map(
+      (el) => el.getAttribute('data-tooltip')
+    );
+    expect(cards).toEqual(['Second Added', 'First Added']);
+  });
+
+  it('renders .filtered-folder-empty-state instead of FilteredEmptyState when activeCategoryId matches 0 games in folder sort', () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', categoryIds: ['cat-1'] }),
+    ]);
+    store.setActiveCategoryId('cat-empty');
+
+    renderGrid(store, { storage });
+
+    expect(screen.getByRole('tablist')).toBeInTheDocument();
+    expect(document.querySelector('.filtered-folder-empty-state')).toBeInTheDocument();
+    expect(document.querySelector('.filtered-empty-state')).toBeNull();
+  });
+
+  it('retains focus on non-inert card when unfavoriting in all tab with collapsed owning folder and syncs activeTabId when favoritesCount drops to 0', async () => {
+    const storage = createMemoryStorage({
+      yumeshelf_active_folder_tab: 'fav',
+      yumeshelf_collapsed_folders: JSON.stringify({
+        schemaVersion: 1,
+        collapsed: ['D:/Games/VN'],
+      }),
+    });
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+    ]);
+
+    const api = createMockElectronAPI();
+    renderGrid(store, { storage, electronAPI: api });
+
+    // On 'fav' tab initially, unfavorite g1 -> favoritesCount drops to 0 -> activeTabId syncs to 'all'
+    const favBtn = document.querySelector('#fav-grid .fav-btn') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(favBtn);
+    });
+
+    await waitFor(() => {
+      expect(storage.setItem).toHaveBeenCalledWith('yumeshelf_active_folder_tab', 'all');
+    });
+
+    // Now test focus retention when unfavoriting on 'all' tab while owning folder is collapsed (inert)
+    const storage2 = createMemoryStorage({
+      yumeshelf_active_folder_tab: 'all',
+      yumeshelf_collapsed_folders: JSON.stringify({
+        schemaVersion: 1,
+        collapsed: ['D:/Games/VN'],
+      }),
+    });
+    const store2 = createUiRuntimeState(storage2);
+    store2.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store2.setCurrentSort('folder');
+    store2.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+    ]);
+
+    renderGrid(store2, { storage: storage2, electronAPI: api });
+    const allTabFavBtn = document.querySelector('#fav-grid .fav-btn') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(allTabFavBtn);
+    });
+
+    // Owning folder is collapsed (inert), so focus falls back to #library-grid rather than focusing inside [inert]
+    const inertCard = document.querySelector('.folder-section .game-card');
+    expect(inertCard?.closest('[inert]')).toBeTruthy();
+    expect(document.activeElement?.closest('[inert]')).toBeNull();
+  });
+
+  it('handles throwing UiStorageAdapter for activeTabId with sanitized console.warn', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const throwingStorage: UiStorageAdapter = {
+      getItem: () => {
+        throw new Error('Read failed at C:\\Users\\John Doe\\tab');
+      },
+      setItem: () => {
+        throw new Error('Write failed at /Users/alice/tab');
+      },
+      removeItem: () => {},
+    };
+    const store = createUiRuntimeState(createMemoryStorage());
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: false }),
+    ]);
+
+    renderGrid(store, { storage: throwingStorage });
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Failed to read active folder tab from storage:',
+      expect.objectContaining({
+        error: expect.not.stringContaining('John Doe'),
+      })
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /VN/ }));
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Failed to persist active folder tab:',
+      expect.objectContaining({
+        error: expect.not.stringContaining('alice'),
+      })
+    );
+  });
+
+  it('matches macOS NFD activeTabId against NFC section.path when targetPlatform="darwin"', () => {
+    const nfcPath = '/Users/me/Games/\u304c';
+    const nfdPath = '/Users/me/Games/\u304b\u3099';
+    const storage = createMemoryStorage({
+      yumeshelf_active_folder_tab: nfdPath,
+    });
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig([nfcPath]));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'Mac Game', folderPath: `${nfcPath}/Game1`, favorite: false }),
+    ]);
+
+    renderGrid(store, { storage, targetPlatform: 'darwin' });
+    const folderTab = screen.getAllByRole('tab')[1];
+    expect(folderTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelectorAll('.folder-section')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Toggle folder' })).toBeNull();
+  });
 });

@@ -47,7 +47,7 @@ export interface ObservableUiRuntimeStore {
   setLocationDisplayMode(mode: 'parent' | 'full'): void;
 }
 
-export const CANONICAL_SORT_OPTIONS = new Set(['az', 'date', 'played', 'custom']);
+export const CANONICAL_SORT_OPTIONS = new Set(['az', 'date', 'played', 'custom', 'folder']);
 
 type GameEntryWithRuntimeExtras = GameEntry & {
   iconData?: string;

@@ -1,4 +1,5 @@
 import type { NormalizedSaveDto, SaveCodecOptions, SaveSchemaOptions, SaveUpdatesPayload } from '@yumeshelf/engine/types';
+import type { GameEntry, LibraryConfig } from './game.js';
 
 export interface SaveFolderInfo {
     path: string | null;
@@ -68,13 +69,13 @@ export interface ElectronAPI {
     checkConfig: () => Promise<any>;
     setupLibrary: (type: string) => Promise<any>;
     updateLibraryConfig: (updates: any) => Promise<any>;
-    setFolderAlias: (folderPath: string, alias: string) => Promise<{ ok: boolean; config?: any; error?: string }>;
+    setFolderAlias: (folderPath: string, alias: string) => Promise<{ ok: boolean; config?: LibraryConfig; error?: string }>;
     addLibraryPath: () => Promise<any>;
     removeLibraryPath: (path: string) => Promise<any>;
     changeLibraryPath: (oldPath: string) => Promise<any>;
     
     // Library & Games
-    getGames: () => Promise<any>;
+    getGames: () => Promise<GameEntry[]>;
     getCategoryTree: () => Promise<any>;
     createCategory: (payload: any) => Promise<any>;
     renameCategory: (payload: any) => Promise<any>;
@@ -88,7 +89,7 @@ export interface ElectronAPI {
     revealGame: (path: string) => void;
     openPath: (path: string) => void;
     deleteGame: (path: string) => Promise<any>;
-    addManualGame(data?: { folderPath?: string } | string): Promise<{ ok: boolean; game?: any; canceled?: boolean; error?: string }>;
+    addManualGame(data?: { folderPath?: string } | string): Promise<{ ok: boolean; game?: GameEntry; canceled?: boolean; error?: string }>;
     
     // Settings & Utils
     getSaveFolder: (gameKey: string) => Promise<SaveFolderInfo>;

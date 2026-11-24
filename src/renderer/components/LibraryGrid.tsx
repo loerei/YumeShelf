@@ -14,8 +14,10 @@ import {
 import {
   projectLibrarySections,
   selectFolderTabProjection,
+  type FolderSection as FolderSectionModel,
   type LibrarySectionsProjection,
 } from '../library/library-sections';
+import { annotateGamesForDisplay } from '../game-annotations';
 import {
   areStringArraysEqual,
   readStoredCustomOrder,
@@ -41,6 +43,8 @@ import { StackCard, type StackCardProps } from './StackCard';
 import { FilteredEmptyState, LibraryEmptyState } from './LibraryEmptyState';
 import { ShelfTabs } from './ShelfTabs';
 import { FolderAccordion } from './FolderAccordion';
+import { FolderTitle } from './FolderTitle';
+import { EmptyFolderPrompt } from './EmptyFolderPrompt';
 
 const ACTIVE_FOLDER_TAB_KEY = 'yumeshelf_active_folder_tab';
 
@@ -92,6 +96,7 @@ export interface LibraryGridProps {
   onMenuAction?: (action: GameCardMenuAction, game: GameEntry, payload?: GameCardMenuPayload) => void;
   onRefreshLibrary?: () => Promise<void> | void;
   onFavoriteError?: (error: Error, gameKey: string) => void;
+  onShowToast?: (message: string) => void;
   inFlightFavoriteKeysRef?: React.MutableRefObject<Set<string>>;
   GameCardComponent?: React.ComponentType<GameCardProps>;
   StackCardComponent?: React.ComponentType<StackCardProps>;
@@ -160,6 +165,7 @@ export function LibraryGrid({
   onMenuAction,
   onRefreshLibrary,
   onFavoriteError,
+  onShowToast,
   inFlightFavoriteKeysRef,
   GameCardComponent,
   StackCardComponent,
@@ -195,6 +201,7 @@ export function LibraryGrid({
   const cardRefs = useRef(new Map<string, HTMLElement>());
   const cardRefCallbacksRef = useRef(new Map<string, (el: HTMLDivElement | null) => void>());
   const activeToggledKeyRef = useRef<string | null>(null);
+  const pendingFocusKeyRef = useRef<string | null>(null);
   const localInFlightRef = useRef<Set<string>>(new Set());
   const inFlightRef = inFlightFavoriteKeysRef ?? localInFlightRef;
 
@@ -517,6 +524,152 @@ export function LibraryGrid({
     onFocusHandled?.();
   }, [focusTargetKey, viewItems, onFocusHandled, resolvedGridContainerRef, resolveConnectedCardElement]);
 
+  // Post-commit focus handoff for manually added games
+  useEffect(() => {
+    if (!pendingFocusKeyRef.current) return;
+    const key = pendingFocusKeyRef.current;
+    pendingFocusKeyRef.current = null;
+    const targetEl = resolveConnectedCardElement(key);
+    if (targetEl) {
+      targetEl.focus();
+    }
+  }, [viewItems, resolveConnectedCardElement]);
+
+  const handleRenameFolder = useCallback(
+    async (folderPath: string, trimmedValue: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!api?.setFolderAlias) {
+        return { ok: false, error: 'unavailable' };
+      }
+      try {
+        const res = await api.setFolderAlias(folderPath, trimmedValue);
+        if (!res?.ok) {
+          console.warn('[LibraryGrid] Failed to rename folder:', {
+            folderPath: sanitizeUserPaths(folderPath),
+            error: sanitizeUserPaths(res?.error ?? 'unknown'),
+          });
+          return { ok: false, error: res?.error };
+        }
+        if (res.config) {
+          dispatch.setCurrentLibraryConfig(res.config);
+        }
+        return { ok: true };
+      } catch (err) {
+        console.error('[LibraryGrid] Error invoking setFolderAlias:', {
+          folderPath: sanitizeUserPaths(folderPath),
+          error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
+        return { ok: false, error: 'unavailable' };
+      }
+    },
+    [api, dispatch]
+  );
+
+  const handleAddManualGame = useCallback(
+    async (
+      folderPath: string
+    ): Promise<{ ok: boolean; game?: GameEntry; canceled?: boolean; error?: string }> => {
+      if (!api?.addManualGame) {
+        return { ok: false, error: 'unavailable' };
+      }
+      let res: { ok: boolean; game?: GameEntry; canceled?: boolean; error?: string };
+      try {
+        res = await api.addManualGame({ folderPath });
+      } catch (err) {
+        console.error('[LibraryGrid] Error invoking addManualGame:', {
+          folderPath: sanitizeUserPaths(folderPath),
+          error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
+        return { ok: false, error: 'unavailable' };
+      }
+      if (!res?.ok) {
+        if (!res?.canceled) {
+          console.warn('[LibraryGrid] Failed to add manual game:', {
+            folderPath: sanitizeUserPaths(folderPath),
+            error: sanitizeUserPaths(res?.error ?? 'unknown'),
+          });
+        }
+        return res ?? { ok: false, error: 'unknown' };
+      }
+
+      let games: GameEntry[] | undefined;
+      try {
+        games = await api.getGames?.();
+      } catch (err) {
+        console.warn('[LibraryGrid] Failed to refresh games after manual add; falling back to added entry:', {
+          folderPath: sanitizeUserPaths(folderPath),
+          hasFallbackGame: Boolean(res.game),
+          error: sanitizeUserPaths(err instanceof Error ? err.message : err),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
+        games = undefined;
+      }
+      if (games !== undefined && !Array.isArray(games)) {
+        console.warn('[LibraryGrid] Unexpected non-array response from getGames after manual add; falling back to added entry:', {
+          folderPath: sanitizeUserPaths(folderPath),
+          hasFallbackGame: Boolean(res.game),
+        });
+      }
+
+      const snapshot = store.getSnapshot();
+      const nextGames = Array.isArray(games)
+        ? games
+        : res.game
+          ? [...snapshot.allGames, res.game]
+          : null;
+      const focusKey = res.game?.gameKey || res.game?.gameId;
+
+      if (nextGames !== null) {
+        const annotated = annotateGamesForDisplay(
+          nextGames,
+          snapshot.currentLibraryConfig ?? '',
+          snapshot.locationDisplayMode
+        );
+        const visibleAfterUpdate = snapshot.activeCategoryId
+          ? annotated.filter((g) => g.categoryIds?.includes(snapshot.activeCategoryId!))
+          : annotated;
+        const willRebuildViewItems = isStructuralChange(committedGamesRef.current, visibleAfterUpdate);
+        if (focusKey && willRebuildViewItems) {
+          pendingFocusKeyRef.current = focusKey;
+        }
+        dispatch.setAllGames(annotated);
+        if (focusKey && !willRebuildViewItems) {
+          pendingFocusKeyRef.current = null;
+          resolveConnectedCardElement(focusKey)?.focus();
+        }
+      } else if (focusKey) {
+        resolveConnectedCardElement(focusKey)?.focus();
+      }
+
+      return res;
+    },
+    [api, dispatch, store, resolveConnectedCardElement]
+  );
+
+  const renderTitle = useCallback(
+    (section: FolderSectionModel) => (
+      <FolderTitle
+        folderPath={section.path}
+        displayName={section.displayName}
+        onRenameFolder={handleRenameFolder}
+        onShowToast={onShowToast}
+      />
+    ),
+    [handleRenameFolder, onShowToast]
+  );
+
+  const renderEmptyFolder = useCallback(
+    (section: FolderSectionModel) => (
+      <EmptyFolderPrompt
+        folderPath={section.path}
+        onAddManualGame={handleAddManualGame}
+        onShowToast={onShowToast}
+      />
+    ),
+    [handleAddManualGame, onShowToast]
+  );
+
   const handleClearFilter = useCallback(() => {
     resolvedGridContainerRef.current?.focus();
     dispatch.setActiveCategoryId(null);
@@ -629,6 +782,8 @@ export function LibraryGrid({
             storage={resolvedStorage}
             isFiltered={Boolean(activeCategoryId)}
             renderItem={renderItem}
+            renderTitle={renderTitle}
+            renderEmptyFolder={renderEmptyFolder}
           />
         </>
       ) : allGames.length === 0 ? (

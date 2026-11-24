@@ -6,6 +6,7 @@ import type { ElectronAPI } from '../shared/types/ipc';
 import type { CategoryNode } from './domain/category-tree';
 import { createUiRuntimeState, type UiStorageAdapter } from './state/ui-runtime-state';
 import type { GameEntry, LibraryConfig } from './types/game';
+import enLocale from '../locales/builtins/en.json';
 import { App } from './App';
 
 function createMockStorage(initial: Record<string, string> = {}): UiStorageAdapter & { store: Map<string, string> } {
@@ -246,5 +247,39 @@ describe('App root shell', () => {
     expect(bootCss).toContain('.loading-actions');
     expect(bootCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
     expect(bootCss).toMatch(/\.loading-spinner[\s\S]*?\.loading-progress-bar[\s\S]*?animation:\s*none/);
+  });
+
+  it('displays localized ToastPill via NotificationProvider when folder rename returns outside-library in folder sort mode', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = createMockStorage({ yumeshelf_sort_pref: 'folder' });
+    const api = createMockElectronAPI({
+      bootstrapApp: vi.fn().mockResolvedValue({
+        config: {
+          ...SAMPLE_CONFIG,
+          libraryPath: 'D:\\Games',
+          libraryPaths: ['D:\\Games'],
+        },
+        games: [
+          {
+            ...SAMPLE_GAMES[0],
+            folderPath: 'D:\\Games\\RPG\\Alpha',
+          },
+        ],
+        categoryTree: SAMPLE_TREE,
+      }),
+      setFolderAlias: vi.fn().mockResolvedValue({ ok: false, error: 'outside-library' }),
+    });
+
+    render(<App electronAPI={api} storage={storage} />);
+
+    const heading = await screen.findByRole('heading', { level: 3, name: 'Games' });
+    fireEvent.click(heading);
+
+    const input = document.querySelector<HTMLInputElement>('.rename-input')!;
+    fireEvent.change(input, { target: { value: 'My Games' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent(enLocale.strings.error_outside_library);
   });
 });

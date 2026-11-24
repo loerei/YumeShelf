@@ -656,6 +656,7 @@ export function AppShell({
         focusTargetKey={activeModalState.type === null ? targetFocusGameKey : null}
         onFocusHandled={() => setTargetFocusGameKey(null)}
         onFavoriteError={handleFavoriteError}
+        onShowToast={showToast}
         onRefreshLibrary={bootstrapState.refresh}
         onOpenStack={handleOpenStack}
         onOpenSaveEditor={handleOpenSaveEditor}

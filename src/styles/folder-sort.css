@@ -1,0 +1,320 @@
+/* ==========================================================================
+   Sort by Folder — Core View, Shelf Tabs & Folder Accordions
+   ========================================================================== */
+
+/* --- Shelf Tabs Bar --- */
+.shelf-tabs-bar {
+    position: sticky;
+    top: 0;
+    z-index: var(--zIndex-shelf-tabs, 200);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 0;
+    margin-bottom: 12px;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.shelf-tabs-list {
+    flex: 1 1 0%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.shelf-tabs-list::-webkit-scrollbar {
+    display: none;
+}
+
+.shelf-tab-scroll-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    color: var(--text-sub);
+    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.shelf-tab-scroll-btn svg {
+    width: 16px;
+    height: 16px;
+    color: currentColor;
+}
+
+.shelf-tab-scroll-btn:hover:not([aria-disabled="true"]) {
+    color: var(--text-main);
+    background: var(--hover-bg);
+}
+
+.shelf-tab-scroll-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.shelf-tab-scroll-btn[aria-disabled="true"] {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.shelf-tab {
+    flex-shrink: 0;
+    max-width: 240px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    color: var(--text-sub);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.shelf-tab:hover {
+    color: var(--text-main);
+    background: var(--hover-bg);
+}
+
+.shelf-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.shelf-tab.is-active,
+.shelf-tab[aria-selected="true"] {
+    color: var(--text-main);
+    background: var(--hover-bg);
+    border-color: var(--accent);
+}
+
+.shelf-tab-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shelf-tab-count {
+    flex-shrink: 0;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--chip-bg);
+    color: var(--text-sub);
+}
+
+/* --- Folder Accordion Toolbar --- */
+.folder-accordion-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.folder-accordion-toolbar button {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.folder-accordion-toolbar button:hover {
+    color: var(--text-main);
+    background: var(--hover-bg);
+    border-color: var(--text-sub);
+}
+
+.folder-accordion-toolbar button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* --- Section Header & Toggle Resets / Truncation --- */
+.library-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.folder-section-toggle {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    padding: 4px;
+    color: var(--text-sub);
+    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.folder-section-toggle svg {
+    width: 16px;
+    height: 16px;
+    color: currentColor;
+    transition: transform 0.2s ease;
+}
+
+.is-collapsed .folder-section-toggle svg {
+    transform: rotate(-90deg);
+}
+
+.folder-section-toggle:hover {
+    color: var(--text-main);
+    background: var(--hover-bg);
+}
+
+.folder-section-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.library-section-count {
+    flex-shrink: 0;
+}
+
+.folder-section-title-slot {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.folder-section-title {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 4px;
+}
+
+.folder-section-title[tabindex] {
+    cursor: pointer;
+}
+
+.folder-section-title[tabindex]:hover {
+    color: var(--accent);
+}
+
+.folder-section-title:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* --- Inline Title Input --- */
+.library-section-header .rename-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: 100%;
+    margin: 0;
+    text-align: left;
+}
+
+.library-section-header .rename-input[aria-invalid="true"] {
+    border-color: var(--danger-btn-bg);
+}
+
+/* --- Accordion Grid Transitions --- */
+.folder-section-grid {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.25s ease;
+}
+
+.folder-section.is-collapsed .folder-section-grid,
+.folder-section-grid.is-collapsed {
+    grid-template-rows: 0fr;
+}
+
+.folder-section-grid-inner {
+    min-height: 0;
+    overflow: visible;
+}
+
+.folder-section.is-collapsed .folder-section-grid-inner,
+.folder-section.is-transitioning .folder-section-grid-inner,
+.folder-section-grid.is-collapsed .folder-section-grid-inner,
+.folder-section-grid.is-transitioning .folder-section-grid-inner {
+    overflow: hidden;
+}
+
+/* --- Empty Folder Prompt --- */
+.empty-folder-prompt,
+.manual-add-btn {
+    grid-column: 1 / -1;
+    min-height: 120px;
+    width: 100%;
+    background: transparent;
+    color: var(--text-sub);
+    font: inherit;
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.empty-folder-prompt:hover,
+.manual-add-btn:hover {
+    border-color: var(--accent);
+    background: var(--field-hover-bg);
+    color: var(--text-main);
+}
+
+.empty-folder-prompt:focus-visible,
+.manual-add-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.manual-add-btn[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+/* --- Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .shelf-tab-scroll-btn,
+    .shelf-tab,
+    .folder-accordion-toolbar button,
+    .folder-section-toggle,
+    .folder-section-toggle svg,
+    .folder-section-grid,
+    .empty-folder-prompt,
+    .manual-add-btn {
+        transition: none;
+    }
+}

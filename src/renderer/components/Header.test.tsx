@@ -45,12 +45,13 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
     expect(menu.classList.contains('show')).toBe(true);
 
     const sortItems = screen.getAllByRole('menuitem');
-    expect(sortItems.length).toBe(4);
+    expect(sortItems.length).toBe(5);
     for (const item of sortItems) {
       expect(item.tagName).toBe('BUTTON');
       expect(item.getAttribute('type')).toBe('button');
       expect(item.classList.contains('sort-item')).toBe(true);
     }
+    expect(screen.getByRole('menuitem', { name: 'By Folder' })).toBeTruthy();
 
     // Select 'Recently Played'
     const playedItem = screen.getByRole('menuitem', { name: 'Recently Played' });

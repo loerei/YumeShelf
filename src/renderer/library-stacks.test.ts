@@ -6,6 +6,7 @@ import {
   buildGroupKey,
   buildLibraryViewItems,
   findGameEntryByKey,
+  getGroupedKeysForGame,
   patchRunningGameViewItem,
   resolveFavoriteLockKey,
   resolveStackByGroupKey,
@@ -128,6 +129,10 @@ describe('library-stacks', () => {
       const customResult = buildLibraryViewItems([gA, gB, gC], 'custom', ['c', 'a', 'b']);
       expect(customResult.customOrder).toEqual(['c', 'a', 'b']);
       expect(customResult.items.map((i) => i.representativeKey)).toEqual(['c', 'a', 'b']);
+
+      const folderResult = buildLibraryViewItems([gA, gB, gC], 'folder', ['b', 'c']);
+      expect(folderResult.customOrder).toEqual(['b', 'c']);
+      expect(folderResult.items.map((i) => i.representativeKey)).toEqual(['b', 'c', 'a']);
     });
 
     it('handles N = 2,000 synthetic games efficiently with Map-indexed custom sort and multi-instance stacks', () => {
@@ -270,6 +275,23 @@ describe('library-stacks', () => {
       expect(resolveFavoriteLockKey('inst-id', games)).toBe('game:legacy-123');
       expect(resolveFavoriteLockKey('solo-key', games)).toBe('solo-key');
       expect(resolveFavoriteLockKey('unknown-key', games)).toBe('unknown-key');
+    });
+  });
+
+  describe('getGroupedKeysForGame', () => {
+    it('returns deduplicated primary and sibling instance keys for both GameEntry and LibraryViewItem', () => {
+      const inst1 = makeGame({ gameKey: 'g1::1', instanceId: 'inst-1', relativePath: 'a' });
+      const inst2 = makeGame({ gameKey: 'g1::2', instanceId: 'inst-2', relativePath: 'b' });
+      const parent = makeGame({
+        gameKey: 'g1::1',
+        primaryInstance: inst1,
+        instances: [inst1, inst2],
+      });
+
+      expect(getGroupedKeysForGame(parent)).toEqual(['g1::1', 'inst-1', 'g1::2', 'inst-2']);
+
+      const stackItem = buildLibraryViewItems([parent], 'az').items[0];
+      expect(getGroupedKeysForGame(stackItem)).toEqual(['g1::1', 'inst-1', 'g1::2', 'inst-2']);
     });
   });
 

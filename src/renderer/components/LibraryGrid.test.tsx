@@ -678,4 +678,524 @@ describe('LibraryGrid', () => {
     fireEvent.doubleClick(favCard);
     expect(onLaunch).toHaveBeenCalledWith(expect.objectContaining({ gameKey: 'g-1' }));
   });
+
+  function makeLibraryConfig(libraryPaths: string[], libraryPath = libraryPaths[0] ?? '') {
+    return {
+      libraryPath,
+      libraryPaths,
+      maxDepth: 3,
+      autoLaunch: false,
+      minimizeToTray: false,
+    };
+  }
+
+  it('mounts ShelfTabs and FolderAccordion in folder sort, retains all folder tabs on tab switches, and persists activeTabId', () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN', 'D:/Games/RPG']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+      makeGame({ gameKey: 'g2', name: 'RPG One', folderPath: 'D:/Games/RPG/One', favorite: false }),
+    ]);
+
+    renderGrid(store, { storage });
+
+    expect(screen.getByRole('tablist', { name: 'Library folders' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+
+    // Switch to Favorites tab -> ShelfTabs still retains all folder tabs
+    fireEvent.click(document.getElementById('shelf-tab-fav')!);
+    expect(storage.setItem).toHaveBeenCalledWith('yumeshelf_active_folder_tab', 'fav');
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(document.querySelectorAll('.folder-section')).toHaveLength(0);
+
+    // Switch to individual folder tab -> ShelfTabs still retains all folder tabs
+    fireEvent.click(screen.getByRole('tab', { name: /RPG/ }));
+    expect(storage.setItem).toHaveBeenCalledWith('yumeshelf_active_folder_tab', 'D:/Games/RPG');
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(document.querySelectorAll('.folder-section')).toHaveLength(1);
+  });
+
+  it('persists activeTabId via defaultStorage (localStorage) when storage prop is omitted', () => {
+    localStorage.clear();
+    const store = createUiRuntimeState();
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+    ]);
+
+    renderGrid(store);
+    fireEvent.click(document.getElementById('shelf-tab-fav')!);
+    expect(localStorage.getItem('yumeshelf_active_folder_tab')).toBe('fav');
+    localStorage.clear();
+  });
+
+  it('falls back to LibraryEmptyState/flat grid when rootPaths is empty in folder sort', () => {
+    const store = createUiRuntimeState(createMemoryStorage());
+    store.setCurrentLibraryConfig(makeLibraryConfig([], ''));
+    store.setCurrentSort('folder');
+    store.setAllGames([]);
+
+    renderGrid(store);
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Choose Folder' })).toBeInTheDocument();
+  });
+
+  it('respects customOrder persisted in UiStorageAdapter during folder sort', () => {
+    const storage = createMemoryStorage({
+      yumeshelf_custom_order: JSON.stringify({
+        schemaVersion: 1,
+        order: ['g2', 'g1'],
+      }),
+    });
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'First Added', folderPath: 'D:/Games/VN/One', favorite: false }),
+      makeGame({ gameKey: 'g2', name: 'Second Added', folderPath: 'D:/Games/VN/Two', favorite: false }),
+    ]);
+
+    renderGrid(store, { storage });
+
+    const cards = Array.from(document.querySelectorAll('.folder-section .game-card')).map(
+      (el) => el.getAttribute('data-tooltip')
+    );
+    expect(cards).toEqual(['Second Added', 'First Added']);
+  });
+
+  it('renders .filtered-folder-empty-state instead of FilteredEmptyState when activeCategoryId matches 0 games in folder sort', () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', categoryIds: ['cat-1'] }),
+    ]);
+    store.setActiveCategoryId('cat-empty');
+
+    renderGrid(store, { storage });
+
+    expect(screen.getByRole('tablist')).toBeInTheDocument();
+    expect(document.querySelector('.filtered-folder-empty-state')).toBeInTheDocument();
+    expect(document.querySelector('.filtered-empty-state')).toBeNull();
+  });
+
+  it('retains focus on non-inert card when unfavoriting in all tab with collapsed owning folder and syncs activeTabId when favoritesCount drops to 0', async () => {
+    const storage = createMemoryStorage({
+      yumeshelf_active_folder_tab: 'fav',
+      yumeshelf_collapsed_folders: JSON.stringify({
+        schemaVersion: 1,
+        collapsed: ['D:/Games/VN'],
+      }),
+    });
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+    ]);
+
+    const api = createMockElectronAPI();
+    renderGrid(store, { storage, electronAPI: api });
+
+    // On 'fav' tab initially, unfavorite g1 -> favoritesCount drops to 0 -> activeTabId syncs to 'all'
+    const favBtn = document.querySelector('#fav-grid .fav-btn') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(favBtn);
+    });
+
+    await waitFor(() => {
+      expect(storage.setItem).toHaveBeenCalledWith('yumeshelf_active_folder_tab', 'all');
+    });
+
+    // Now test focus retention when unfavoriting on 'all' tab while owning folder is collapsed (inert)
+    const storage2 = createMemoryStorage({
+      yumeshelf_active_folder_tab: 'all',
+      yumeshelf_collapsed_folders: JSON.stringify({
+        schemaVersion: 1,
+        collapsed: ['D:/Games/VN'],
+      }),
+    });
+    const store2 = createUiRuntimeState(storage2);
+    store2.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store2.setCurrentSort('folder');
+    store2.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: true }),
+    ]);
+
+    renderGrid(store2, { storage: storage2, electronAPI: api });
+    const allTabFavBtn = document.querySelector('#fav-grid .fav-btn') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(allTabFavBtn);
+    });
+
+    // Owning folder is collapsed (inert), so focus falls back to #library-grid rather than focusing inside [inert]
+    const inertCard = document.querySelector('.folder-section .game-card');
+    expect(inertCard?.closest('[inert]')).toBeTruthy();
+    expect(document.activeElement?.closest('[inert]')).toBeNull();
+  });
+
+  it('handles throwing UiStorageAdapter for activeTabId with sanitized console.warn', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const throwingStorage: UiStorageAdapter = {
+      getItem: () => {
+        throw new Error('Read failed at C:\\Users\\John Doe\\tab');
+      },
+      setItem: () => {
+        throw new Error('Write failed at /Users/alice/tab');
+      },
+      removeItem: () => {},
+    };
+    const store = createUiRuntimeState(createMemoryStorage());
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'VN One', folderPath: 'D:/Games/VN/One', favorite: false }),
+    ]);
+
+    renderGrid(store, { storage: throwingStorage });
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Failed to read active folder tab from storage:',
+      expect.objectContaining({
+        error: expect.not.stringContaining('John Doe'),
+      })
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /VN/ }));
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Failed to persist active folder tab:',
+      expect.objectContaining({
+        error: expect.not.stringContaining('alice'),
+      })
+    );
+  });
+
+  it('matches macOS NFD activeTabId against NFC section.path when targetPlatform="darwin"', () => {
+    const nfcPath = '/Users/me/Games/\u304c';
+    const nfdPath = '/Users/me/Games/\u304b\u3099';
+    const storage = createMemoryStorage({
+      yumeshelf_active_folder_tab: nfdPath,
+    });
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig([nfcPath]));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'Mac Game', folderPath: `${nfcPath}/Game1`, favorite: false }),
+    ]);
+
+    renderGrid(store, { storage, targetPlatform: 'darwin' });
+    const folderTab = screen.getAllByRole('tab')[1];
+    expect(folderTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelectorAll('.folder-section')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Toggle folder' })).toBeNull();
+  });
+
+  it('(a) commits inline folder rename through LibraryGrid, updates currentLibraryConfig and ShelfTabs, and logs sanitized diagnostics on error/rejection', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['C:\\Users\\John Doe\\Games\\VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([
+      makeGame({
+        gameKey: 'g1',
+        name: 'VN One',
+        folderPath: 'C:\\Users\\John Doe\\Games\\VN\\One',
+        favorite: false,
+      }),
+    ]);
+
+    const updatedConfig = {
+      ...makeLibraryConfig(['C:\\Users\\John Doe\\Games\\VN']),
+      folderAliases: { 'C:\\Users\\John Doe\\Games\\VN': 'Visual Novels' },
+    };
+    const setFolderAlias = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, config: updatedConfig })
+      .mockResolvedValueOnce({ ok: false, error: 'Failed at C:\\Users\\John Doe\\Games\\VN' })
+      .mockRejectedValueOnce(new Error('IPC failure at /Users/alice/Games/VN'));
+
+    const api = createMockElectronAPI({ setFolderAlias: setFolderAlias as unknown as ElectronAPI['setFolderAlias'] });
+    const onShowToast = vi.fn();
+
+    renderGrid(store, { storage, electronAPI: api, onShowToast });
+
+    const heading = screen.getByRole('heading', { level: 3, name: 'VN' });
+    fireEvent.click(heading);
+    const input = document.querySelector<HTMLInputElement>('.rename-input')!;
+    fireEvent.change(input, { target: { value: 'Visual Novels' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+
+    expect(setFolderAlias).toHaveBeenCalledWith('C:\\Users\\John Doe\\Games\\VN', 'Visual Novels');
+    expect(store.getSnapshot().currentLibraryConfig?.folderAliases).toEqual({
+      'C:\\Users\\John Doe\\Games\\VN': 'Visual Novels',
+    });
+    expect(screen.getByRole('tab', { name: /Visual Novels/ })).toBeInTheDocument();
+
+    // { ok: false } -> sanitized warn
+    fireEvent.click(screen.getByRole('heading', { level: 3, name: 'Visual Novels' }));
+    const input2 = document.querySelector<HTMLInputElement>('.rename-input')!;
+    fireEvent.change(input2, { target: { value: 'Attempt 2' } });
+    await act(async () => {
+      fireEvent.keyDown(input2, { key: 'Enter' });
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Failed to rename folder:',
+      expect.objectContaining({
+        folderPath: expect.not.stringContaining('John Doe'),
+        error: expect.not.stringContaining('John Doe'),
+      })
+    );
+
+    // rejection -> sanitized error
+    const input3 = document.querySelector<HTMLInputElement>('.rename-input')!;
+    fireEvent.change(input3, { target: { value: 'Attempt 3' } });
+    await act(async () => {
+      fireEvent.keyDown(input3, { key: 'Enter' });
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Error invoking setFolderAlias:',
+      expect.objectContaining({
+        folderPath: expect.not.stringContaining('John Doe'),
+        error: expect.not.stringContaining('alice'),
+      })
+    );
+  });
+
+  it('(b) bypasses global empty state when folder sort has rootPaths and handles unavailable addManualGame cleanly', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([]);
+
+    const api = createMockElectronAPI({ addManualGame: undefined });
+    const onShowToast = vi.fn();
+
+    renderGrid(store, { storage, electronAPI: api, onShowToast });
+
+    expect(document.querySelector('.library-empty-state')).toBeNull();
+    const btn = document.querySelector<HTMLButtonElement>('.empty-folder-prompt.manual-add-btn')!;
+    expect(btn).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    expect(btn).not.toHaveAttribute('aria-busy');
+    expect(btn).not.toHaveAttribute('aria-disabled');
+    expect(onShowToast).toHaveBeenCalledWith('Failed to add game');
+  });
+
+  it('(c) falls back to annotated res.game and logs sanitized console.warn when getGames rejects or returns non-array', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['C:\\Users\\John Doe\\Games\\VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([]);
+
+    const addedGame = makeGame({
+      gameKey: 'manual-1',
+      gameId: 'manual-1',
+      name: 'Manual VN',
+      folderPath: 'C:\\Users\\John Doe\\Games\\VN\\Manual',
+      exePath: 'C:\\Users\\John Doe\\Games\\VN\\Manual\\game.exe',
+    });
+
+    const api = createMockElectronAPI({
+      addManualGame: vi.fn().mockResolvedValue({ ok: true, game: addedGame }),
+      getGames: vi.fn().mockRejectedValue(new Error('getGames failed at /Users/alice/Games')),
+    });
+
+    renderGrid(store, { storage, electronAPI: api });
+
+    const btn = document.querySelector<HTMLButtonElement>('.empty-folder-prompt.manual-add-btn')!;
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Failed to refresh games after manual add; falling back to added entry:',
+      expect.objectContaining({
+        folderPath: expect.not.stringContaining('John Doe'),
+        hasFallbackGame: true,
+        error: expect.not.stringContaining('alice'),
+      })
+    );
+    expect(store.getSnapshot().allGames).toHaveLength(1);
+    expect(store.getSnapshot().allGames[0].gameKey).toBe('manual-1');
+
+    // Non-array getGames response
+    const storage2 = createMemoryStorage();
+    const store2 = createUiRuntimeState(storage2);
+    store2.setCurrentLibraryConfig(makeLibraryConfig(['/Users/alice/Games/VN']));
+    store2.setCurrentSort('folder');
+    store2.setAllGames([]);
+
+    const addedGame2 = makeGame({
+      gameKey: 'manual-2',
+      gameId: 'manual-2',
+      name: 'Manual VN 2',
+      folderPath: '/Users/alice/Games/VN/Manual2',
+    });
+    const api2 = createMockElectronAPI({
+      addManualGame: vi.fn().mockResolvedValue({ ok: true, game: addedGame2 }),
+      getGames: vi.fn().mockResolvedValue('not-an-array' as unknown as GameEntry[]),
+    });
+
+    renderGrid(store2, { storage: storage2, electronAPI: api2 });
+    const btn2 = document.querySelectorAll<HTMLButtonElement>('.empty-folder-prompt.manual-add-btn')[0];
+    await act(async () => {
+      fireEvent.click(btn2);
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[LibraryGrid] Unexpected non-array response from getGames after manual add; falling back to added entry:',
+      expect.objectContaining({
+        folderPath: expect.not.stringContaining('alice'),
+        hasFallbackGame: true,
+      })
+    );
+    expect(store2.getSnapshot().allGames).toHaveLength(1);
+  });
+
+  it('(d) moves document.activeElement directly to the newly added card element (not .fav-btn) in folder sort mode', async () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN']));
+    store.setCurrentSort('folder');
+    store.setAllGames([]);
+
+    const addedGame = makeGame({
+      gameKey: 'manual-focus-1',
+      gameId: 'manual-focus-1',
+      name: 'Focused VN',
+      folderPath: 'D:/Games/VN/Focused',
+      favorite: false,
+    });
+
+    const api = createMockElectronAPI({
+      addManualGame: vi.fn().mockResolvedValue({ ok: true, game: addedGame }),
+      getGames: vi.fn().mockResolvedValue([addedGame]),
+    });
+
+    renderGrid(store, { storage, electronAPI: api });
+    const btn = document.querySelector<HTMLButtonElement>('.empty-folder-prompt.manual-add-btn')!;
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    const card = document.querySelector('.folder-section .game-card') as HTMLElement;
+    expect(card).toBeInTheDocument();
+    expect(document.activeElement).toBe(card);
+    expect(document.activeElement?.classList.contains('fav-btn')).toBe(false);
+  });
+
+  it('(e) focuses the StackCard element when addManualGame returns a game grouping into an existing StackLibraryViewItem', async () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN', 'D:/Games/EmptyRoot']));
+    store.setCurrentSort('folder');
+
+    const existingGame = makeGame({
+      gameKey: 'inst-1',
+      gameId: 'shared-stack-id',
+      name: 'Shared Title',
+      folderPath: 'D:/Games/VN/Shared1',
+      favorite: false,
+    });
+    const addedGame = makeGame({
+      gameKey: 'inst-2',
+      gameId: 'shared-stack-id',
+      name: 'Shared Title',
+      folderPath: 'D:/Games/VN/Shared2',
+      favorite: false,
+    });
+
+    store.setAllGames([existingGame]);
+
+    const stackedEntry: GameEntry = {
+      ...existingGame,
+      instances: [existingGame, addedGame],
+      primaryInstance: existingGame,
+    };
+
+    const api = createMockElectronAPI({
+      addManualGame: vi.fn().mockResolvedValue({ ok: true, game: addedGame }),
+      getGames: vi.fn().mockResolvedValue([stackedEntry]),
+    });
+
+    renderGrid(store, { storage, electronAPI: api });
+
+    const btn = document.querySelector<HTMLButtonElement>('.empty-folder-prompt.manual-add-btn')!;
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+
+    const stackCard = document.querySelector('.folder-section .game-card') as HTMLElement;
+    expect(stackCard).toBeInTheDocument();
+    expect(stackCard.querySelector('.game-duplicate-chip')).toHaveTextContent('2x');
+    expect(document.activeElement).toBe(stackCard);
+  });
+
+  it('(f) clears pendingFocusKeyRef when addManualGame returns a game already present with identical structural fields', async () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig(['D:/Games/VN', 'D:/Games/EmptyRoot']));
+    store.setCurrentSort('folder');
+
+    const existingGame1 = makeGame({
+      gameKey: 'g1',
+      gameId: 'g1',
+      name: 'Existing VN',
+      folderPath: 'D:/Games/VN/One',
+      favorite: false,
+    });
+    const existingGame2 = makeGame({
+      gameKey: 'g2',
+      gameId: 'g2',
+      name: 'Other VN',
+      folderPath: 'D:/Games/VN/Two',
+      favorite: false,
+    });
+    store.setAllGames([existingGame1, existingGame2]);
+
+    const api = createMockElectronAPI({
+      addManualGame: vi.fn().mockResolvedValue({ ok: true, game: existingGame1 }),
+      getGames: vi.fn().mockResolvedValue([existingGame1, existingGame2]),
+    });
+
+    render(
+      <div>
+        <LibraryStateProvider store={store}>
+          <LibraryGrid electronAPI={api} storage={storage} />
+        </LibraryStateProvider>
+        <button type="button">External Control</button>
+      </div>
+    );
+
+    const emptyBtn = document.querySelector<HTMLButtonElement>('.empty-folder-prompt.manual-add-btn')!;
+    await act(async () => {
+      fireEvent.click(emptyBtn);
+    });
+
+    const externalBtn = screen.getByRole('button', { name: 'External Control' });
+    externalBtn.focus();
+    expect(document.activeElement).toBe(externalBtn);
+
+    // Trigger a subsequent viewItems update on another game
+    await act(async () => {
+      store.updateGame('g2', { favorite: true });
+    });
+
+    expect(document.activeElement).toBe(externalBtn);
+  });
 });

@@ -26,6 +26,7 @@
     --tooltip-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 
     /* ELEVATION SCALE TOKENS */
+    --zIndex-shelf-tabs: 200;
     --zIndex-dropdown: 1000;
     --zIndex-widget: 1600;
     --zIndex-widget-overlay: 1700;

@@ -401,6 +401,20 @@ describe('ObservableUiRuntimeStore (createUiRuntimeState)', () => {
     }
   });
 
+  it('accepts folder in CANONICAL_SORT_OPTIONS and persists/restores setCurrentSort("folder") via UiStorageAdapter', () => {
+    expect(CANONICAL_SORT_OPTIONS.has('folder')).toBe(true);
+
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentSort('folder');
+
+    expect(store.getSnapshot().currentSort).toBe('folder');
+    expect(storage.getItem('yumeshelf_sort_pref')).toBe('folder');
+
+    const restoredStore = createUiRuntimeState(storage);
+    expect(restoredStore.getSnapshot().currentSort).toBe('folder');
+  });
+
   it('contracts LegacyUiRuntimeShim getters and drag stubs from the store surface', () => {
     const store = createUiRuntimeState(createMemoryStorage()) as unknown as Record<string, unknown>;
     expect(store.getAllGames).toBeUndefined();

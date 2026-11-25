@@ -42,9 +42,9 @@ function compareGames(
   orderIndex: ReadonlyMap<string, number> | null
 ): number {
   let result = 0;
-  if (type === 'custom' && orderIndex) {
-    const indexA = orderIndex.get(getGameKey(a)) ?? 99999;
-    const indexB = orderIndex.get(getGameKey(b)) ?? 99999;
+  if ((type === 'custom' || type === 'folder') && orderIndex) {
+    const indexA = orderIndex.get(getGameKey(a)) ?? Number.MAX_SAFE_INTEGER;
+    const indexB = orderIndex.get(getGameKey(b)) ?? Number.MAX_SAFE_INTEGER;
     result = indexA - indexB;
   } else if (type === 'az') {
     result = (a.name || '').localeCompare(b.name || '');
@@ -99,7 +99,9 @@ export function buildLibraryViewItems(
   customOrder?: readonly string[] | null;
 } {
   const resolvedCustomOrder =
-    type === 'custom' ? (Array.isArray(customOrder) ? customOrder : resolveCustomOrder(games)) : null;
+    type === 'custom' || type === 'folder'
+      ? (Array.isArray(customOrder) ? customOrder : resolveCustomOrder(games))
+      : null;
   const orderIndex = resolvedCustomOrder
     ? new Map<string, number>(resolvedCustomOrder.map((key, i) => [key, i]))
     : null;
@@ -159,6 +161,46 @@ export function buildLibraryViewItems(
     customOrder: resolvedCustomOrder,
     items,
   };
+}
+
+export function getGroupedKeysForGame(targetGame: GameEntry | LibraryViewItem): string[] {
+  if (!targetGame) return [];
+  const seen = new Set<string>();
+  const addKey = (k: unknown) => {
+    if (typeof k === 'string' && k.length > 0) {
+      seen.add(k);
+    }
+  };
+
+  if ('primaryGame' in targetGame && Array.isArray(targetGame.games)) {
+    if (targetGame.representativeKey) {
+      addKey(targetGame.representativeKey);
+    }
+    if (targetGame.primaryGame) {
+      addKey(getGameKey(targetGame.primaryGame));
+      addKey(targetGame.primaryGame.instanceId);
+    }
+    for (const g of targetGame.games) {
+      addKey(getGameKey(g));
+      addKey(g.instanceId);
+    }
+    return [...seen];
+  }
+
+  const entry = targetGame as GameEntry;
+  addKey(getGameKey(entry));
+  addKey(entry.instanceId);
+  if (entry.primaryInstance) {
+    addKey(getGameKey(entry.primaryInstance));
+    addKey(entry.primaryInstance.instanceId);
+  }
+  if (Array.isArray(entry.instances)) {
+    for (const inst of entry.instances) {
+      addKey(getGameKey(inst));
+      addKey(inst.instanceId);
+    }
+  }
+  return [...seen];
 }
 
 export function resolveStackByGroupKey(

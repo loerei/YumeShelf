@@ -277,6 +277,18 @@ export function dispatchLanguageChanged(code: string): void {
   }
 }
 
+export function resolveLocalizedErrorCode(
+  strings: LocaleStrings,
+  errorCode: string | undefined,
+  fallback: string
+): string {
+  const normalizedCode = typeof errorCode === 'string' ? errorCode.trim().replace(/-/g, '_') : '';
+  const localeKey = normalizedCode ? `error_${normalizedCode}` : '';
+  return localeKey && Object.hasOwn(strings, localeKey) && typeof strings[localeKey] === 'string'
+    ? strings[localeKey]
+    : fallback;
+}
+
 export function useLocaleStrings(
   storage?: Pick<UiStorageAdapter, 'getItem'> | null,
   explicitApi?: { getLanguageState?: () => Promise<LanguageStatePayload> } | null

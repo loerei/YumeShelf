@@ -666,7 +666,49 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             expect(sanitizedOpts.__proto__?.hacked).toBeUndefined();
         });
 
-        it('whitelists isUpdates, createBackup, encoding, and maxBufferSizeBytes in ALLOWED_SAVE_OPTIONS', async () => {
+        it('whitelists isUpdates, createBackup, encoding, maxBufferSizeBytes, and allowLargeSaves in ALLOWED_SAVE_OPTIONS and respects autoAllowLargeSaves config', async () => {
+            const mockSaveEditorService: any = {
+                loadSaveData: vi.fn(async () => ({})),
+                writeSaveData: vi.fn(async () => ({ ok: true })),
+            };
+            const { handlers, mockLibraryState } = createIpcHarness({ saveEditorService: mockSaveEditorService });
+            mockLibraryState.resolveLibraryConfig = vi.fn(async () => ({ autoAllowLargeSaves: true }));
+            const writeHandler = handlers.get('save-editor:write-data')!;
+            const loadHandler = handlers.get('save-editor:load-data')!;
+
+            await loadHandler({}, { gameKey: ' Parent/ Game ', fileName: 'save01.json' });
+            expect(mockSaveEditorService.loadSaveData).toHaveBeenCalledWith(
+                ' Parent/ Game ',
+                'save01.json',
+                expect.objectContaining({
+                    allowLargeSaves: true,
+                    maxBufferSizeBytes: Number.POSITIVE_INFINITY,
+                })
+            );
+
+            await writeHandler(
+                {},
+                {
+                    gameKey: 'valid-game',
+                    fileName: 'save01.json',
+                    updates: { 'variables:1': 42 },
+                    options: {
+                        isUpdates: true,
+                        createBackup: true,
+                        encoding: 'utf8',
+                        maxBufferSizeBytes: 1024 * 1024,
+                        allowLargeSaves: false,
+                        unknownOpt: 'stripped',
+                    },
+                }
+            );
+            const [, , , sanitizedOpts] = mockSaveEditorService.writeSaveData.mock.calls[0];
+            expect(sanitizedOpts.maxBufferSizeBytes).toBe(Number.POSITIVE_INFINITY);
+            expect(sanitizedOpts.allowLargeSaves).toBe(true);
+            expect(sanitizedOpts.unknownOpt).toBeUndefined();
+        });
+
+        it('whitelists explicit maxBufferSizeBytes when autoAllowLargeSaves is false', async () => {
             const mockSaveEditorService: any = {
                 writeSaveData: vi.fn(async () => ({ ok: true })),
             };

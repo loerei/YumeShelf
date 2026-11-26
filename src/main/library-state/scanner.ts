@@ -65,6 +65,7 @@ export interface LibraryConfig {
     exposeBetaOptions?: boolean;
     titleDisplayMode?: 'metadata' | 'legacy_folder';
     displayProductCodes?: boolean;
+    autoAllowLargeSaves?: boolean;
     preferredLocale?: string;
     folderAliases?: Record<string, string>;
 }
@@ -151,6 +152,7 @@ export function normalizeLibraryConfigShape(config: any, targetPlatform?: Platfo
         exposeBetaOptions: typeof base.exposeBetaOptions === 'boolean' ? base.exposeBetaOptions : false,
         titleDisplayMode: (base.titleDisplayMode === 'legacy_folder') ? 'legacy_folder' : 'metadata',
         displayProductCodes: typeof base.displayProductCodes === 'boolean' ? base.displayProductCodes : false,
+        autoAllowLargeSaves: typeof base.autoAllowLargeSaves === 'boolean' ? base.autoAllowLargeSaves : false,
         preferredLocale: rawLocale ? rawLocale : undefined
     };
 }

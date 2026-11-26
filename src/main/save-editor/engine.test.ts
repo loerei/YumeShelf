@@ -76,9 +76,15 @@ function createVirtualFs(initialFiles: Record<string, Buffer | string | VirtualE
   });
 
   const copyFile = vi.fn(async (src: string, dest: string) => {
+    const resolvedDest = path.resolve(dest);
+    const parentDir = path.dirname(resolvedDest);
+    const parentEntry = entries.get(parentDir);
+    if (!parentEntry || parentEntry.type !== 'dir') {
+      throw makeErrno('ENOENT', `ENOENT: ${parentDir}`);
+    }
     const s = entries.get(path.resolve(src));
     if (!s || s.type !== 'file') throw makeErrno('ENOENT');
-    entries.set(path.resolve(dest), { type: 'file', content: Buffer.from(s.content!), mode: 0o644 });
+    entries.set(resolvedDest, { type: 'file', content: Buffer.from(s.content!), mode: 0o644 });
   });
 
   const open = vi.fn(async (p: string, flags: string) => {
@@ -207,7 +213,7 @@ describe('SaveDataEngine', () => {
   });
 
   describe('loadSave validation, TOCTOU serialization, and schema extraction', () => {
-    it('rejects non-regular files, 0-byte files, and files exceeding explicit maxBufferSizeBytes (unlimited by default or on NaN/Infinity/0/-1)', async () => {
+    it('rejects non-regular files, 0-byte files, and files exceeding 64MB default or explicit maxBufferSizeBytes (bypassable via allowLargeSaves / Infinity)', async () => {
       const saveDir = path.resolve('/game/save');
       const { customFs, promises } = createVirtualFs({
         [path.join(saveDir, 'dir.json')]: { type: 'dir' },
@@ -223,7 +229,7 @@ describe('SaveDataEngine', () => {
         'Target save file is empty (0 bytes): empty.json'
       );
 
-      // Default (omitted) and invalid maxBufferSizeBytes impose no 64MB ceiling
+      // Default 64MB ceiling rejects oversized saves with SAVE_TOO_LARGE:<actual>:<limit>
       promises.stat.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -231,9 +237,11 @@ describe('SaveDataEngine', () => {
         mode: 0o644,
         mtimeMs: 0,
       });
-      await expect(engine.loadSave('g1', 'big.json')).resolves.toMatchObject({ fileName: 'big.json' });
+      await expect(engine.loadSave('g1', 'big.json')).rejects.toThrow(
+        `SAVE_TOO_LARGE:${64 * 1024 * 1024 + 1}:${64 * 1024 * 1024}`
+      );
 
-      for (const badMax of [Number.NaN, Number.POSITIVE_INFINITY, 0, -1]) {
+      for (const badMax of [Number.NaN, 0, -1]) {
         promises.stat.mockResolvedValueOnce({
           isFile: () => true,
           isDirectory: () => false,
@@ -243,13 +251,36 @@ describe('SaveDataEngine', () => {
         });
         await expect(
           engine.loadSave('g1', 'big.json', { maxBufferSizeBytes: badMax })
-        ).resolves.toMatchObject({ fileName: 'big.json' });
+        ).rejects.toThrow('SAVE_TOO_LARGE:');
       }
+
+      // Bypass works via allowLargeSaves: true or maxBufferSizeBytes: Infinity
+      promises.stat.mockResolvedValueOnce({
+        isFile: () => true,
+        isDirectory: () => false,
+        size: 64 * 1024 * 1024 + 1,
+        mode: 0o644,
+        mtimeMs: 0,
+      });
+      await expect(
+        engine.loadSave('g1', 'big.json', { allowLargeSaves: true })
+      ).resolves.toMatchObject({ fileName: 'big.json' });
+
+      promises.stat.mockResolvedValueOnce({
+        isFile: () => true,
+        isDirectory: () => false,
+        size: 64 * 1024 * 1024 + 1,
+        mode: 0o644,
+        mtimeMs: 0,
+      });
+      await expect(
+        engine.loadSave('g1', 'big.json', { maxBufferSizeBytes: Number.POSITIVE_INFINITY })
+      ).resolves.toMatchObject({ fileName: 'big.json' });
 
       // Explicit positive maxBufferSizeBytes still enforces the cap
       await expect(
         engine.loadSave('g1', 'big.json', { maxBufferSizeBytes: 5 })
-      ).rejects.toThrow('Save file exceeds maximum allowed size');
+      ).rejects.toThrow('SAVE_TOO_LARGE:10:5');
     });
 
     it('serializes loadSave against concurrent writeSave via queueWrite (TOCTOU prevention)', async () => {
@@ -500,6 +531,21 @@ describe('SaveDataEngine', () => {
       const res = await engine.renameSave('g1', 'a.json', 'b.json', true);
       expect(res).toEqual({ ok: true, renamed: true, fileName: 'b.json' });
       expect(entries.has(path.join(backupDir, 'b.json.bak'))).toBe(false);
+    });
+
+    it('preserves target .bak if overwrite rename fails before replacement completes', async () => {
+      const saveDir = path.resolve('/game/save');
+      const backupDir = path.join(saveDir, '.yumeshelf-backups');
+      const { customFs, entries, promises } = createVirtualFs({
+        [path.join(saveDir, 'a.json')]: '{"a":1}',
+        [path.join(saveDir, 'b.json')]: '{"b":1}',
+        [path.join(backupDir, 'b.json.bak')]: '{"b":0}',
+      });
+      const engine = new SaveDataEngine(makeConfig(customFs, { platform: 'linux' }));
+      promises.rename.mockRejectedValue(makeErrno('EACCES', 'EACCES: locked'));
+
+      await expect(engine.renameSave('g1', 'a.json', 'b.json', true)).rejects.toThrow('EACCES');
+      expect(entries.has(path.join(backupDir, 'b.json.bak'))).toBe(true);
     });
   });
 

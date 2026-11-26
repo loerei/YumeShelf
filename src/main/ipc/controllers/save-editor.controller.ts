@@ -22,17 +22,18 @@ const ALLOWED_SAVE_OPTIONS = new Set([
     'createBackup',
     'encoding',
     'maxBufferSizeBytes',
+    'allowLargeSaves',
 ]);
 
 function isValidGameKey(gameKey: unknown): gameKey is string {
     if (typeof gameKey !== 'string') return false;
-    const trimmed = gameKey.trim();
-    if (!trimmed || trimmed !== gameKey) return false;
+    if (!gameKey.trim()) return false;
     if (/[\\\x00-\x1f]/.test(gameKey)) return false;
     if (gameKey.startsWith('/') || gameKey.endsWith('/')) return false;
     const segments = gameKey.split('/');
     for (const seg of segments) {
-        if (!seg || seg === '.' || seg === '..' || DANGEROUS_KEYS.has(seg)) {
+        const segTrimmed = seg.trim();
+        if (!segTrimmed || seg === '.' || seg === '..' || segTrimmed === '.' || segTrimmed === '..' || DANGEROUS_KEYS.has(segTrimmed)) {
             return false;
         }
     }
@@ -143,13 +144,12 @@ export class SaveEditorIpcController {
 
         ipcMain.handle('save-folder:open', async (_event, gameKey) => {
             try {
-                const validGameKey = typeof gameKey === 'string' ? gameKey.trim() : null;
-                if (!isValidGameKey(validGameKey)) {
+                if (!isValidGameKey(gameKey)) {
                     return { ok: false, error: 'invalid-payload' };
                 }
                 const shell = this.options.shell || electronShell;
                 if (!shell?.openPath) return { ok: false, error: 'no-shell' };
-                const record = await libraryState?.getGameRecord(validGameKey);
+                const record = await libraryState?.getGameRecord(gameKey);
                 if (!record?.exePath) return { ok: false, error: 'no-record' };
                 const resolved = await saveFolderResolver?.resolveSaveFolder(record.exePath, record.saveFolderOverride);
                 if (resolved?.path && !resolved.overrideMissing) {
@@ -169,7 +169,7 @@ export class SaveEditorIpcController {
 
         const handleSetSaveFolderOverride = async (_event: any, payload: any) => {
             try {
-                const gameKey = typeof payload?.gameKey === 'string' ? payload.gameKey.trim() : null;
+                const gameKey = payload?.gameKey;
                 if (!isValidGameKey(gameKey)) {
                     return { ok: false, error: 'invalid-payload' };
                 }
@@ -262,8 +262,15 @@ export class SaveEditorIpcController {
                 resolvedStalenessTimeoutMs = Number(sanitizedOptions.stalenessTimeoutMs);
             }
 
+            const libConfig = await libraryState?.resolveLibraryConfig?.();
+            const allowLarge =
+                sanitizedOptions.allowLargeSaves === true || libConfig?.autoAllowLargeSaves === true;
+
             const mergedOptions = {
                 ...sanitizedOptions,
+                ...(allowLarge
+                    ? { allowLargeSaves: true, maxBufferSizeBytes: Number.POSITIVE_INFINITY }
+                    : {}),
                 earlyExit: resolvedEarlyExit,
                 stalenessTimeoutMs: resolvedStalenessTimeoutMs,
                 onProgress: (prog: { current?: number; total?: number; percent?: number; unit?: string; pos?: number; totalBytes?: number; iterations?: number }) => {
@@ -412,7 +419,13 @@ export class SaveEditorIpcController {
             }
 
             try {
-                return await saveEditorService?.writeSaveData(gameKey, fileName, sanitizedUpdates, sanitizedOptions);
+                const libConfig = await libraryState?.resolveLibraryConfig?.();
+                const allowLarge =
+                    sanitizedOptions.allowLargeSaves === true || libConfig?.autoAllowLargeSaves === true;
+                const effectiveOptions = allowLarge
+                    ? { ...sanitizedOptions, allowLargeSaves: true, maxBufferSizeBytes: Number.POSITIVE_INFINITY }
+                    : sanitizedOptions;
+                return await saveEditorService?.writeSaveData(gameKey, fileName, sanitizedUpdates, effectiveOptions);
             } catch (err: unknown) {
                 const rawMsg = err instanceof Error ? err.message : String(err);
                 const errorCode =
@@ -1007,14 +1020,14 @@ export class SaveEditorIpcController {
     }
 
     private openSaveEditorWindow(gameKey: unknown): void {
-        const normalizedGameKey = typeof gameKey === 'string' ? gameKey.trim() : null;
-        if (!isValidGameKey(normalizedGameKey)) {
+        if (!isValidGameKey(gameKey)) {
             console.warn(
                 '[IPC][save-editor:open-window] Invalid gameKey received:',
                 typeof gameKey === 'string' ? sanitizeUserPaths(gameKey) : typeof gameKey
             );
             return;
         }
+        const normalizedGameKey = gameKey;
 
         const existingWin = this.openWindows.get(normalizedGameKey);
         if (existingWin && !existingWin.isDestroyed()) {

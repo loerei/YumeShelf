@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import enLocale from '../../locales/builtins/en.json';
 import type { ElectronAPI } from '../../shared/types/ipc';
 import { LibraryStateProvider } from '../context/LibraryStateContext';
@@ -750,7 +750,9 @@ describe('GameDndContext, SortableGameCard & LibraryGrid DnD Integration', () =>
     await act(async () => {
       fireEvent.click(favBtn);
     });
-    expect(document.activeElement?.closest('[data-game-key]')?.getAttribute('data-game-key')).toBe('ns::game-1');
+    await waitFor(() => {
+      expect(document.activeElement?.closest('[data-game-key]')?.getAttribute('data-game-key')).toBe('ns::game-1');
+    });
   });
 
   it('handles in-flight lock contention (skipped) without toast, and rolls back LibraryStore + viewItems + toast on IPC failure', async () => {
@@ -930,8 +932,10 @@ describe('GameDndContext, SortableGameCard & LibraryGrid DnD Integration', () =>
     await act(async () => {
       fireEvent.click(menuBtn);
     });
+    await waitFor(() => {
+      expect(container.querySelector('.dropdown-item.action-rename')).toBeTruthy();
+    });
     const renameMenuItem = container.querySelector('.dropdown-item.action-rename')!;
-    expect(renameMenuItem).toBeTruthy();
     await startPointerDrag(renameMenuItem, { x: 10, y: 10 }, { x: 40, y: 10 });
     expect(onDragStateChange).not.toHaveBeenCalled();
     await act(async () => {

@@ -84,7 +84,7 @@ describe('Headless Save Schema Extraction & DTO Contracts (Ticket 08.1.1)', () =
       const _shorthandCheck: ShorthandSaveStrategy = 'rpg-maker-mv-mz';
       assert.equal(_tabs.length, 0);
       assert.equal(_fields.length, 0);
-      assert.equal(_codecOpts.maxBufferSizeBytes, Number.POSITIVE_INFINITY);
+      assert.equal(_codecOpts.maxBufferSizeBytes, 64 * 1024 * 1024);
       assert.equal(_strategyCheck, _canonicalCheck);
       assert.equal(normalizeSaveStrategy(_shorthandCheck), 'rpg-maker-mv');
     });
@@ -598,8 +598,8 @@ describe('Headless Save Schema Extraction & DTO Contracts (Ticket 08.1.1)', () =
         }
       );
 
-      // Verify default is unlimited while explicit maxBufferSizeBytes still enforces the ceiling
-      assert.equal(DEFAULT_MAX_DECOMPRESSED_BYTES, Number.POSITIVE_INFINITY);
+      // Verify default 64MB decompression ceiling and explicit maxBufferSizeBytes enforcement
+      assert.equal(DEFAULT_MAX_DECOMPRESSED_BYTES, 64 * 1024 * 1024);
       const largePayload = JSON.stringify({ data: 'x'.repeat(2048) });
       const compressedMz = zlib.deflateSync(Buffer.from(largePayload, 'utf8'));
 

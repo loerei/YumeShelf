@@ -1,4 +1,9 @@
-import { SaveCodecError, type SaveCodecErrorCode } from './errors.js';
+import {
+  SaveCodecError,
+  formatSaveTooLargeCodecMessage,
+  resolveMaxDecompressedBytes,
+  type SaveCodecErrorCode,
+} from './errors.js';
 import { PureJsonSaveCodec } from './pure-json.js';
 import { KeyedJsonSaveCodec } from './keyed-json.js';
 import { RpgMakerMvSaveCodec } from './rpg-maker-mv.js';
@@ -17,12 +22,6 @@ import type {
   SupportedSaveStrategy,
 } from '../types.js';
 import { extractSaveSchema, safeLog, resolveMetadataLabel } from './schema/index.js';
-
-function resolveOptionalMaxBytes(raw?: unknown): number | undefined {
-  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0
-    ? Math.trunc(raw)
-    : undefined;
-}
 
 export * from './errors.js';
 export * from './sanitize.js';
@@ -541,10 +540,10 @@ export async function applySaveUpdates(
     return rawBuffer;
   }
 
-  const maxDecompressedBytes = resolveOptionalMaxBytes(options?.maxBufferSizeBytes);
+  const maxDecompressedBytes = resolveMaxDecompressedBytes(options);
   if (maxDecompressedBytes !== undefined && rawBuffer.length > maxDecompressedBytes) {
     throw new SaveCodecError(
-      `Save buffer exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
+      formatSaveTooLargeCodecMessage(rawBuffer.length, maxDecompressedBytes, 'Save buffer'),
       'DECOMPRESSION_FAILED'
     );
   }
@@ -561,7 +560,10 @@ export async function applySaveUpdates(
   const mergedOptions: SaveCodecOptions = {
     ...options,
     originalBuffer: options?.originalBuffer ?? rawBuffer,
-    maxBufferSizeBytes: maxDecompressedBytes,
+    maxBufferSizeBytes:
+      options?.allowLargeSaves === true || options?.maxBufferSizeBytes === Number.POSITIVE_INFINITY
+        ? Number.POSITIVE_INFINITY
+        : maxDecompressedBytes,
     exeDir: options?.exeDir ?? options?.paths?.exeDir,
     saveDir: options?.saveDir ?? options?.paths?.saveDir,
     dataDir: options?.dataDir ?? options?.paths?.dataDir,

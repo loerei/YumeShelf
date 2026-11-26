@@ -1,5 +1,10 @@
 import * as zlib from 'node:zlib';
-import { SaveCodecError } from './errors.js';
+import {
+  SaveCodecError,
+  formatSaveTooLargeCodecMessage,
+  isZlibBufferLimitError,
+  resolveMaxDecompressedBytes,
+} from './errors.js';
 import { safeJsonParse, sanitizeDeep } from './sanitize.js';
 import type { SaveCodecContext } from '../types.js';
 import { safeLog } from './schema/index.js';
@@ -9,11 +14,7 @@ export class RpgMakerMzSaveCodec {
     if (!rawData || rawData.length === 0) {
       throw new SaveCodecError('RPG Maker MZ save file is empty', 'PARSE_FAILED');
     }
-    const rawMax = context?.options?.maxBufferSizeBytes;
-    const maxDecompressedBytes =
-      typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0
-        ? Math.trunc(rawMax)
-        : undefined;
+    const maxDecompressedBytes = resolveMaxDecompressedBytes(context?.options);
     const inflateOpts =
       maxDecompressedBytes !== undefined ? { maxOutputLength: maxDecompressedBytes } : undefined;
 
@@ -26,7 +27,14 @@ export class RpgMakerMzSaveCodec {
       }
       const decompressedBuffer = zlib.inflateSync(rawBytes, inflateOpts);
       return safeJsonParse(decompressedBuffer.toString('utf8'));
-    } catch {
+    } catch (primaryErr: any) {
+      if (maxDecompressedBytes !== undefined && isZlibBufferLimitError(primaryErr)) {
+        throw new SaveCodecError(
+          formatSaveTooLargeCodecMessage(null, maxDecompressedBytes, 'Decompressed RPG Maker MZ save'),
+          'DECOMPRESSION_FAILED',
+          { cause: primaryErr }
+        );
+      }
       // 2. Fallback to direct raw binary zlib inflate
       try {
         const decompressedBuffer = zlib.inflateSync(rawData, inflateOpts);
@@ -36,6 +44,13 @@ export class RpgMakerMzSaveCodec {
           error: err?.message ?? String(err),
         });
         if (err instanceof SaveCodecError) throw err;
+        if (maxDecompressedBytes !== undefined && isZlibBufferLimitError(err)) {
+          throw new SaveCodecError(
+            formatSaveTooLargeCodecMessage(null, maxDecompressedBytes, 'Decompressed RPG Maker MZ save'),
+            'DECOMPRESSION_FAILED',
+            { cause: err }
+          );
+        }
         throw new SaveCodecError(
           `Failed to decompress RPG Maker MZ save: ${err.message}`,
           'DECOMPRESSION_FAILED',

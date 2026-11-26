@@ -1,15 +1,18 @@
-import { SaveCodecError } from './errors.js';
+import {
+  SaveCodecError,
+  formatSaveTooLargeCodecMessage,
+  resolveMaxDecompressedBytes,
+} from './errors.js';
 import { safeJsonParse, sanitizeDeep } from './sanitize.js';
 import type { SaveCodecContext } from '../types.js';
 import { safeLog } from './schema/index.js';
 
 export class KeyedJsonSaveCodec {
   static decode(rawData: Buffer, context?: SaveCodecContext): any {
-    const rawMax = context?.options?.maxBufferSizeBytes;
-    const maxBytes = typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0 ? Math.trunc(rawMax) : undefined;
+    const maxBytes = resolveMaxDecompressedBytes(context?.options);
     if (maxBytes !== undefined && rawData && rawData.length > maxBytes) {
       throw new SaveCodecError(
-        `Keyed JSON save exceeds maximum allowed size (${maxBytes} bytes)`,
+        formatSaveTooLargeCodecMessage(rawData.length, maxBytes, 'Keyed JSON save'),
         'DECOMPRESSION_FAILED'
       );
     }
@@ -42,7 +45,7 @@ export class KeyedJsonSaveCodec {
       const decodedBuf = Buffer.from(reversed, 'base64');
       if (maxBytes !== undefined && decodedBuf.length > maxBytes) {
         throw new SaveCodecError(
-          `Decompressed Keyed JSON payload exceeds maximum allowed size (${maxBytes} bytes)`,
+          formatSaveTooLargeCodecMessage(decodedBuf.length, maxBytes, 'Decompressed Keyed JSON payload'),
           'DECOMPRESSION_FAILED'
         );
       }

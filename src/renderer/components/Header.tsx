@@ -87,12 +87,9 @@ export function HeaderView({
 
   const handleSelectGame = useCallback(
     (gameKey: string) => {
-      if (!isSearchControlled) {
-        setInternalQuery('');
-      }
       onSelectGame?.(gameKey);
     },
-    [isSearchControlled, onSelectGame]
+    [onSelectGame]
   );
 
   const handleRefreshClick = () => {

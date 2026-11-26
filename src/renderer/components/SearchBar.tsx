@@ -137,8 +137,11 @@ interface SearchDropdownProps {
   debouncedQuery: string;
   visibleMatches: readonly SearchBarGameItem[];
   selectedIndex: number;
+  clickedGameKey: string | null;
+  clickPulseSeq: number;
   noResultsText: string;
-  onSelect: (gameKey: string) => void;
+  onItemClick: (gameKey: string, index: number) => void;
+  onItemDoubleClick: (gameKey: string, index: number) => void;
   onLocate: (gameKey: string) => void;
 }
 
@@ -147,8 +150,11 @@ function SearchDropdown({
   debouncedQuery,
   visibleMatches,
   selectedIndex,
+  clickedGameKey,
+  clickPulseSeq,
   noResultsText,
-  onSelect,
+  onItemClick,
+  onItemDoubleClick,
   onLocate,
 }: SearchDropdownProps): React.ReactElement {
   const highlightRegex = useMemo(() => buildHighlightRegex(debouncedQuery), [debouncedQuery]);
@@ -171,16 +177,32 @@ function SearchDropdown({
               item.relativePathDisplay ||
               item.relativePath ||
               undefined;
+            const isClicked = clickedGameKey === item.gameKey;
+            const clickedAltClass =
+              isClicked && clickPulseSeq % 2 === 1 ? ' is-clicked-alt' : '';
             return (
               <div
                 key={item.gameKey}
                 role="listitem"
-                className={`search-item ${selectedIndex === i ? 'active' : ''}`}
+                className={`search-item ${selectedIndex === i ? 'active' : ''}${isClicked ? ` is-clicked${clickedAltClass}` : ''}`}
+                data-click-seq={isClicked ? clickPulseSeq : undefined}
                 data-tooltip={item.name}
                 data-tooltip-meta={tooltipMeta}
                 data-tooltip-subtitle={tooltipSubtitle}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onSelect(item.gameKey)}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement | null)?.closest('.search-launch-icon-wrapper')) {
+                    return;
+                  }
+                  onItemClick(item.gameKey, i);
+                }}
+                onDoubleClick={(e) => {
+                  if ((e.target as HTMLElement | null)?.closest('.search-launch-icon-wrapper')) {
+                    return;
+                  }
+                  e.stopPropagation();
+                  onItemDoubleClick(item.gameKey, i);
+                }}
               >
                 <div className="search-item-info">
                   <GameIcon game={item} className="search-item-icon" />
@@ -237,13 +259,24 @@ export function SearchBar({
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [clickedPulse, setClickedPulse] = useState<{ gameKey: string; seq: number } | null>(null);
   const [bonkQuote, setBonkQuote] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedQueryRef = useRef(debouncedQuery);
   debouncedQueryRef.current = debouncedQuery;
+
+  useEffect(() => {
+    return () => {
+      if (clickedTimerRef.current) {
+        clearTimeout(clickedTimerRef.current);
+        clickedTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useFindShortcut(() => inputRef.current);
   const suppressFocusReopenRef = useRef(false);
@@ -291,6 +324,11 @@ export function SearchBar({
       setDebouncedQuery('');
       setIsOpen(false);
       setSelectedIndex(-1);
+      if (clickedTimerRef.current) {
+        clearTimeout(clickedTimerRef.current);
+        clickedTimerRef.current = null;
+      }
+      setClickedPulse(null);
       return;
     }
 
@@ -354,17 +392,24 @@ export function SearchBar({
     }
   };
 
-  const handleSelect = (gameKey: string) => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
+  const triggerClickFeedback = (gameKey: string, index: number) => {
+    setSelectedIndex(index);
+    setClickedPulse((prev) => ({ gameKey, seq: (prev?.seq ?? 0) + 1 }));
+    if (clickedTimerRef.current) {
+      clearTimeout(clickedTimerRef.current);
     }
-    debouncedQueryRef.current = '';
-    setDebouncedQuery('');
-    setSelectedIndex(-1);
-    onQueryChange('');
-    inputRef.current?.focus();
-    setIsOpen(false);
+    clickedTimerRef.current = setTimeout(() => {
+      clickedTimerRef.current = null;
+      setClickedPulse(null);
+    }, 280);
+  };
+
+  const handleItemClick = (gameKey: string, index: number) => {
+    triggerClickFeedback(gameKey, index);
+  };
+
+  const handleLaunchSelected = (gameKey: string, index: number) => {
+    triggerClickFeedback(gameKey, index);
     onSelectGame(gameKey);
   };
 
@@ -401,6 +446,11 @@ export function SearchBar({
     debouncedQueryRef.current = '';
     setDebouncedQuery('');
     setSelectedIndex(-1);
+    if (clickedTimerRef.current) {
+      clearTimeout(clickedTimerRef.current);
+      clickedTimerRef.current = null;
+    }
+    setClickedPulse(null);
     onQueryChange('');
     inputRef.current?.focus();
     setIsOpen(false);
@@ -433,7 +483,7 @@ export function SearchBar({
       const target = visibleMatches[targetIndex];
       if (target) {
         e.preventDefault();
-        handleSelect(target.gameKey);
+        handleLaunchSelected(target.gameKey, targetIndex);
       }
     }
   };
@@ -496,8 +546,11 @@ export function SearchBar({
           debouncedQuery={debouncedQuery}
           visibleMatches={visibleMatches}
           selectedIndex={selectedIndex}
+          clickedGameKey={clickedPulse?.gameKey ?? null}
+          clickPulseSeq={clickedPulse?.seq ?? 0}
           noResultsText={localeStrings.no_results}
-          onSelect={handleSelect}
+          onItemClick={handleItemClick}
+          onItemDoubleClick={handleLaunchSelected}
           onLocate={handleLocate}
         />
       )}

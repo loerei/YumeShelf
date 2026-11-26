@@ -282,4 +282,41 @@ describe('App root shell', () => {
     const status = await screen.findByRole('status');
     expect(status).toHaveTextContent(enLocale.strings.error_outside_library);
   });
+
+  it('shows Launching ToastPill for both main library card double-click and search dropdown double-click without closing search dropdown', async () => {
+    const launchYume = vi.fn();
+    const api = createMockElectronAPI({ launchYume });
+    const storage = createMockStorage();
+
+    const { container } = render(<App electronAPI={api} storage={storage} />);
+
+    // 1. Main library card double-click triggers launchYume + Launching toast
+    const card = await screen.findByRole('article');
+    fireEvent.doubleClick(card);
+
+    expect(launchYume).toHaveBeenCalledTimes(1);
+    expect(launchYume).toHaveBeenCalledWith({
+      gameKey: 'main::rpg/alpha',
+      exePath: 'D:\\Games\\RPG\\Alpha\\Game.exe',
+      runInBackground: undefined,
+    });
+    const expectedToast = enLocale.strings.launching_game.replace('{name}', 'Alpha Quest');
+    expect((await screen.findByText(expectedToast)).closest('[role="status"]')).toBeTruthy();
+
+    // 2. Search dropdown: single-click animates without launching; double-click launches + shows toast while keeping dropdown open
+    const searchInput = screen.getByRole('textbox', { name: 'Search library games' }) as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: 'Alpha' } });
+
+    const searchItem = await screen.findByRole('listitem');
+    fireEvent.click(searchItem);
+    expect(launchYume).toHaveBeenCalledTimes(1);
+    expect(searchItem.classList.contains('is-clicked')).toBe(true);
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+
+    fireEvent.doubleClick(searchItem);
+    expect(launchYume).toHaveBeenCalledTimes(2);
+    expect(searchInput.value).toBe('Alpha');
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+    expect((await screen.findByText(expectedToast)).closest('[role="status"]')).toBeTruthy();
+  });
 });

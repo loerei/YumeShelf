@@ -130,7 +130,7 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
     expect(onRefreshLibrary).toHaveBeenCalledTimes(1);
   });
 
-  it('supports uncontrolled search lifecycle and restores input focus after selecting a game', () => {
+  it('supports uncontrolled search lifecycle, single-click feedback, and double-click launch without closing dropdown', () => {
     vi.useFakeTimers();
     const onSelectGame = vi.fn();
     const games = [
@@ -150,9 +150,16 @@ describe('HeaderView (Controlled & Pure Presentational)', () => {
 
     const item = screen.getByRole('listitem');
     fireEvent.click(item);
+    expect(onSelectGame).not.toHaveBeenCalled();
+    expect(item.classList.contains('is-clicked')).toBe(true);
+
+    fireEvent.doubleClick(item);
 
     expect(onSelectGame).toHaveBeenCalledWith('g1');
-    expect(input.value).toBe('');
+    expect(input.value).toBe('Steins');
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+
+    fireEvent.keyDown(input, { key: 'Escape' });
     expect(container.querySelector('.search-dropdown')).toBeNull();
     expect(document.activeElement).toBe(input);
   });

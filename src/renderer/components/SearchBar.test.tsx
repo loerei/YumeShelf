@@ -472,4 +472,58 @@ describe('SearchBar', () => {
       dialog.remove();
     }
   });
+
+  it('keeps dropdown mounted without flickering during transient IME 1 -> 0 -> 1 query flashes and closes only after genuine empty settle', () => {
+    vi.useFakeTimers();
+    const onSelectGame = vi.fn();
+    const games: SearchBarGameItem[] = [{ gameKey: 'g1', name: 'Fallen Priestess' }];
+
+    const { container } = render(
+      <ControlledSearchHarness games={games} debounceMs={150} onSelectGame={onSelectGame} />
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Search library games' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    const dropdownBefore = container.querySelector('.search-dropdown.show');
+    expect(dropdownBefore).toBeTruthy();
+
+    // Variant 1: active compositionStart -> empty -> restored -> Enter/Escape ignored while composing -> compositionEnd
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSelectGame).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: '' } });
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+    fireEvent.change(input, { target: { value: 'f' } });
+    fireEvent.compositionEnd(input);
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+
+    // Variant 2: Windows TSF post-composition 0 -> 1 flash within 11ms keeps exact same dropdown DOM node
+    fireEvent.change(input, { target: { value: '' } });
+    act(() => {
+      vi.advanceTimersByTime(11);
+    });
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+
+    // Clicking and double-clicking immediately succeeds without lost first click
+    const item = screen.getByRole('listitem');
+    fireEvent.click(item);
+    expect(item.classList.contains('is-clicked')).toBe(true);
+    fireEvent.doubleClick(item);
+    expect(onSelectGame).toHaveBeenCalledWith('g1');
+
+    // Genuine empty delete settles and closes dropdown after grace window
+    fireEvent.change(input, { target: { value: '' } });
+    act(() => {
+      vi.advanceTimersByTime(60);
+    });
+    expect(container.querySelector('.search-dropdown')).toBeNull();
+  });
 });

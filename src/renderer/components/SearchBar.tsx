@@ -5,6 +5,8 @@ import { useLocaleStrings } from '../i18n/locale-strings';
 import { formatBytes } from '../utils/formatting';
 import { useFindShortcut } from '../hooks/useFindShortcut';
 
+const EMPTY_CLOSE_GRACE_MS = 50;
+
 export const MAX_DROPDOWN_RESULTS = 50;
 export const PLACEHOLDER_ROTATION_MS = 60000;
 
@@ -266,6 +268,7 @@ export function SearchBar({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clickedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isComposingRef = useRef(false);
   const debouncedQueryRef = useRef(debouncedQuery);
   debouncedQueryRef.current = debouncedQuery;
 
@@ -319,7 +322,7 @@ export function SearchBar({
       debounceTimerRef.current = null;
     }
 
-    if (query.trim().length === 0) {
+    const resetOnEmpty = () => {
       debouncedQueryRef.current = '';
       setDebouncedQuery('');
       setIsOpen(false);
@@ -329,16 +332,42 @@ export function SearchBar({
         clickedTimerRef.current = null;
       }
       setClickedPulse(null);
-      return;
+    };
+
+    if (query.trim().length === 0) {
+      if (isComposingRef.current) {
+        return;
+      }
+      if (debouncedQueryRef.current.trim().length === 0) {
+        resetOnEmpty();
+        return;
+      }
+      // Guard against transient 1 -> 0 -> 1 query flashes from IME composition resets (e.g. Windows TSF).
+      const graceMs = Math.min(debounceMs, EMPTY_CLOSE_GRACE_MS);
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        if (!isComposingRef.current) {
+          resetOnEmpty();
+        }
+      }, graceMs);
+      return () => {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = null;
+        }
+      };
     }
 
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
+      const unchanged = debouncedQueryRef.current === query;
       debouncedQueryRef.current = query;
       setDebouncedQuery(query);
       setIsOpen(true);
-      setSelectedIndex(-1);
-      onSearch?.(query);
+      if (!unchanged) {
+        setSelectedIndex(-1);
+        onSearch?.(query);
+      }
     }, debounceMs);
 
     return () => {
@@ -457,6 +486,10 @@ export function SearchBar({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || isComposingRef.current) {
+      return;
+    }
+
     if (e.key === 'Escape') {
       if (isOpen) {
         e.preventDefault();
@@ -501,6 +534,12 @@ export function SearchBar({
           aria-label="Search library games"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
+          onCompositionStart={() => {
+            isComposingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            isComposingRef.current = false;
+          }}
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
         />

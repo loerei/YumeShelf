@@ -7,7 +7,7 @@
 ready-for-agent
 
 ## Blocked by
-- [Epic 09.2: Folder Drag-and-Drop Reordering & Card FLIP Animation](file:///d:/Projects/YumeShelf/docs/specs/09.2-folder-dnd-and-card-flip/PRD.md)
+- [Epic 11: Mascot React 19 Migration & Hide-and-Seek Restoration](file:///d:/Projects/YumeShelf/docs/specs/11-mascot-react-migration-and-hide-and-seek/PRD.md)
 
 ## What to Build
 > **Scope Guard:** Implement only what is explicitly specified; preserve initial intended UXUI and all unmentioned existing behaviors across `OverlayProvider.tsx`, `Modal.tsx`, and `App.tsx`. Do NOT alter, restyle, or remove anything unasked.

@@ -1,21 +1,19 @@
 # PRD: Folder Drag-and-Drop Reordering & Card FLIP Animation (09.2)
 
 - **Change Mode:** `BROWNFIELD`
-- **Reviewed-At-Commit:** `d5c5d81`
+- **Reviewed-At-Commit:** `e963d26e9c63865dc3f512c300c84df84b532ba7`
 - **Upstream Prerequisite:** `docs/specs/09.1-sort-by-folder-core/`
-
-> [!NOTE]
-> Because this PRD depends sequentially on `docs/specs/09.1-sort-by-folder-core/`, run `/prd-and-tickets !REC docs/specs/09.2-folder-dnd-and-card-flip/` after Epic 09.1 finishes review and implementation so 09.2 adapts to 09.1's final implemented seams.
 
 ## Problem Statement
 After Epic 09.1 delivers core folder browsing, tabs, accordions, inline rename, and manual game addition, users still cannot reorder folder tabs, reorder game/stack cards across folders and Favorites via drag-and-drop, reorder library root paths in Settings, or see smooth card repositioning animations when toggling favorites or changing sort modes (a pre-310 UX regression from Epic 08).
 
 ## Solution
 Layer `@dnd-kit` drag-and-drop reordering and non-drag layout FLIP animation cleanly on top of Epic 09.1's declarative components:
-1. **Preparatory Seam & Dependencies (`00`)**: Install `@dnd-kit/core`, `@dnd-kit/sortable`, and `@dnd-kit/utilities`; extract `SettingsLibraryTab.tsx` from `SettingsModal.tsx` (removing orphaned `#hide-and-seek-select`); harden `updateLibraryConfig` in `ipc.d.ts`; add drag z-index tokens (`--zIndex-tab-drag: 500`, `--zIndex-card-drag: 1650`, `--zIndex-path-row-drag: 2100`) and 4-language drag locale keys.
+1. **Preparatory Seam & Dependencies (`00`)**: Install `@dnd-kit/core`, `@dnd-kit/sortable`, and `@dnd-kit/utilities`; extract `SettingsLibraryTab.tsx` from `SettingsModal.tsx` (preserving `#hide-and-seek-select` and all other Settings controls); harden `updateLibraryConfig` in `ipc.d.ts`; add drag z-index tokens (`--zIndex-tab-drag: 500`, `--zIndex-card-drag: 1650`, `--zIndex-path-row-drag: 2100`) and 4-language drag locale keys.
 2. **Shelf Tabs Horizontal Drag Reorder (`01`)**: Add `SortableTabItem.tsx` and wrap draggable folder tabs in `ShelfTabs.tsx` with horizontal `DndContext`/`SortableContext`, pinned-tab protection, `reorderLibraryPathsWithSubsumption`, and optimistic rollback.
-3. **Multi-Container Game/Stack Card DnD & Layout FLIP (`02`)**: Mount `GameDndContext.tsx` strictly as a sibling outside `ShelfTabs`, enforce the 5-scenario drop validation matrix (`card-drop-validator.ts`) for both `GameCard` and `StackCard` (`SortableGameCard.tsx`), and restore non-drag card FLIP animation (`useCardLayoutFlip.ts`) strictly suppressed during active drags and container-scoped in `'folder'` sort.
-4. **Settings Library Paths Vertical Drag Reorder & Smoke Gate (`03`)**: Mount `PathReorderList.tsx` and `SortablePathRow.tsx` inside `SettingsLibraryTab.tsx`, synchronize folder order reactively with `LibraryGrid.tsx`, and run the terminal runtime smoke check.
+3. **Multi-Container Game/Stack Card DnD (`02.1`)**: Mount `GameDndContext.tsx` strictly as a sibling outside `ShelfTabs`, and enforce the 5-scenario drop validation matrix (`card-drop-validator.ts`) for both `GameCard` and `StackCard` (`SortableGameCard.tsx`).
+4. **Non-Drag Card Layout FLIP (`02.2`)**: Restore non-drag card FLIP animation (`useCardLayoutFlip.ts`) via `structuralLayoutRevision` in `LibraryGrid.tsx`, strictly suppressed during active drags and container-scoped in `'folder'` sort.
+5. **Settings Library Paths Vertical Drag Reorder & Smoke Gate (`03`)**: Mount `PathReorderList.tsx` and `SortablePathRow.tsx` inside `SettingsLibraryTab.tsx`, synchronize folder order reactively with `LibraryGrid.tsx`, and run the terminal runtime smoke check.
 
 ## Dependency Lineage
 
@@ -44,7 +42,10 @@ flowchart TD
 - Virtual nested folders and spring-loaded drag-and-drop (deferred to [Epic 03](file:///d:/Projects/YumeShelf/docs/specs/03-virtual-nested-folders-and-workspaces/PRD.md)).
 
 ## Tickets
+> **Critical Path:** `00 -> 01 -> 02.1 -> 02.2 -> 03`
+
 - `00` — [Preparatory Refactoring: @dnd-kit Dependencies, Settings Library Tab & Drag Tokens](file:///d:/Projects/YumeShelf/docs/specs/09.2-folder-dnd-and-card-flip/tickets/00-preparatory-dnd-deps-settings-tab-and-tokens.md)
 - `01` — [Shelf Tabs Horizontal Drag-and-Drop Reordering](file:///d:/Projects/YumeShelf/docs/specs/09.2-folder-dnd-and-card-flip/tickets/01-shelf-tabs-horizontal-dnd-reorder.md)
-- `02` — [Multi-Container Game/Stack Card DnD & Non-Drag Layout FLIP](file:///d:/Projects/YumeShelf/docs/specs/09.2-folder-dnd-and-card-flip/tickets/02-game-card-dnd-cross-zone-and-card-flip.md)
+- `02.1` — [Multi-Container Game/Stack Card DnD](file:///d:/Projects/YumeShelf/docs/specs/09.2-folder-dnd-and-card-flip/tickets/02.1-game-card-dnd-cross-zone.md)
+- `02.2` — [Non-Drag Card Layout FLIP Animation](file:///d:/Projects/YumeShelf/docs/specs/09.2-folder-dnd-and-card-flip/tickets/02.2-non-drag-card-layout-flip.md)
 - `03` — [Settings Library Paths Drag Reorder & Runtime Smoke Gate](file:///d:/Projects/YumeShelf/docs/specs/09.2-folder-dnd-and-card-flip/tickets/03-settings-paths-dnd-reorder-and-smoke.md)

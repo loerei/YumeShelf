@@ -343,13 +343,52 @@
     padding: 10px 15px;
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.2s;
+    user-select: none;
+    transition: background 0.16s ease, transform 0.12s ease, box-shadow 0.18s ease;
     margin-bottom: 2px;
     position: relative;
 }
 
 .search-item:hover {
     background: rgba(255, 255, 255, 0.08);
+}
+
+.search-item:active {
+    transform: scale(0.985);
+}
+
+@keyframes search-item-click {
+    0% {
+        transform: scale(0.985);
+        background: rgba(0, 120, 212, 0.24);
+        box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    100% {
+        transform: scale(1);
+        background: var(--menu-active-bg);
+        box-shadow: inset 0 0 0 1px transparent;
+    }
+}
+
+@keyframes search-item-click-alt {
+    0% {
+        transform: scale(0.985);
+        background: rgba(0, 120, 212, 0.24);
+        box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    100% {
+        transform: scale(1);
+        background: var(--menu-active-bg);
+        box-shadow: inset 0 0 0 1px transparent;
+    }
+}
+
+.search-item.is-clicked {
+    animation: search-item-click 0.28s ease-out;
+}
+
+.search-item.is-clicked.is-clicked-alt {
+    animation: search-item-click-alt 0.28s ease-out;
 }
 
 .search-item-info {
@@ -554,6 +593,14 @@
 
 @media (prefers-reduced-motion: reduce) {
     .refresh-library-btn.is-refreshing .icon-svg {
+        animation: none;
+    }
+    .search-item,
+    .search-item:active,
+    .search-item.is-clicked,
+    .search-item.is-clicked.is-clicked-alt {
+        transition: none;
+        transform: none;
         animation: none;
     }
 }

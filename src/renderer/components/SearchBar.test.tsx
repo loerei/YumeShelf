@@ -173,7 +173,7 @@ describe('SearchBar', () => {
     expect(screen.getAllByRole('listitem')[0].classList.contains('active')).toBe(true);
   });
 
-  it('supports keyboard Enter, Escape, mouse click selection, outside click dismissal, and focus reopen', () => {
+  it('supports keyboard Enter, Escape, single-click selection feedback, double-click launch without closing, and outside click dismissal', () => {
     vi.useFakeTimers();
     const onSelectGame = vi.fn();
     const games: SearchBarGameItem[] = [
@@ -211,29 +211,49 @@ describe('SearchBar', () => {
     expect(container.querySelector('.search-dropdown')).toBeNull();
     expect(document.activeElement).toBe(input);
 
-    // Re-focus, navigate ArrowDown twice -> index 1 ('Alphabet'), press Enter
+    // Re-focus, navigate ArrowDown twice -> index 1 ('Alphabet'), press Enter (launches without closing dropdown)
     fireEvent.focus(input);
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
 
+    expect(onSelectGame).toHaveBeenCalledTimes(1);
     expect(onSelectGame).toHaveBeenCalledWith('g2');
-    expect(input.value).toBe('');
-    expect(container.querySelector('.search-dropdown')).toBeNull();
+    expect(input.value).toBe('Alpha');
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
     expect(document.activeElement).toBe(input);
 
-    // Mouse click selection
-    fireEvent.change(input, { target: { value: 'Alpha' } });
-    act(() => {
-      vi.advanceTimersByTime(100);
-    });
+    // Single click selects row and triggers tactile click animation without launching or closing
     const firstItem = screen.getAllByRole('listitem')[0];
     fireEvent.click(firstItem);
+    expect(onSelectGame).toHaveBeenCalledTimes(1);
+    expect(firstItem.classList.contains('active')).toBe(true);
+    expect(firstItem.classList.contains('is-clicked')).toBe(true);
+    const firstSeq = firstItem.getAttribute('data-click-seq');
+    expect(firstSeq).toBeTruthy();
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
 
-    expect(onSelectGame).toHaveBeenCalledWith('g1');
+    // Second rapid click replays click feedback (new seq) and double-click launches while keeping dropdown open
+    fireEvent.click(firstItem);
+    expect(firstItem.getAttribute('data-click-seq')).not.toBe(firstSeq);
+    fireEvent.doubleClick(firstItem);
+
+    expect(onSelectGame).toHaveBeenCalledTimes(2);
+    expect(onSelectGame).toHaveBeenLastCalledWith('g1');
+    expect(input.value).toBe('Alpha');
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+
+    // Click pulse clears after timeout
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(firstItem.classList.contains('is-clicked')).toBe(false);
+
+    // Clearing search closes dropdown
+    const clearBtn = screen.getByRole('button', { name: 'Clear search input' });
+    fireEvent.click(clearBtn);
     expect(input.value).toBe('');
     expect(container.querySelector('.search-dropdown')).toBeNull();
-    expect(document.activeElement).toBe(input);
   });
 
   it('renders accessible empty-search status when debounced query matches 0 games', () => {
@@ -451,5 +471,84 @@ describe('SearchBar', () => {
     } finally {
       dialog.remove();
     }
+  });
+
+  it('keeps dropdown mounted without flickering during transient IME 1 -> 0 -> 1 query flashes and closes only after genuine empty settle', () => {
+    vi.useFakeTimers();
+    const onSelectGame = vi.fn();
+    const games: SearchBarGameItem[] = [{ gameKey: 'g1', name: 'Fallen Priestess' }];
+
+    const { container } = render(
+      <ControlledSearchHarness games={games} debounceMs={150} onSelectGame={onSelectGame} />
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Search library games' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    const dropdownBefore = container.querySelector('.search-dropdown.show');
+    expect(dropdownBefore).toBeTruthy();
+
+    // Variant 1: active compositionStart -> empty -> restored -> Enter/Escape ignored while composing -> compositionEnd
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSelectGame).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: '' } });
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+    fireEvent.change(input, { target: { value: 'f' } });
+    fireEvent.compositionEnd(input);
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+
+    // Variant 2: Windows TSF post-composition 0 -> 1 flash within 11ms keeps exact same dropdown DOM node
+    fireEvent.change(input, { target: { value: '' } });
+    act(() => {
+      vi.advanceTimersByTime(11);
+    });
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(container.querySelector('.search-dropdown.show')).toBe(dropdownBefore);
+
+    // Clicking and double-clicking immediately succeeds without lost first click
+    const item = screen.getByRole('listitem');
+    fireEvent.click(item);
+    expect(item.classList.contains('is-clicked')).toBe(true);
+    fireEvent.doubleClick(item);
+    expect(onSelectGame).toHaveBeenCalledWith('g1');
+
+    // Genuine empty delete settles and closes dropdown after grace window
+    fireEvent.change(input, { target: { value: '' } });
+    act(() => {
+      vi.advanceTimersByTime(60);
+    });
+    expect(container.querySelector('.search-dropdown')).toBeNull();
+
+    // Variant 3: composition ends while input remains empty -> grace timer closes stale dropdown
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '' } });
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+    fireEvent.compositionEnd(input);
+    act(() => {
+      vi.advanceTimersByTime(60);
+    });
+    expect(container.querySelector('.search-dropdown')).toBeNull();
+
+    // Held Enter repeat events do not trigger duplicate launches
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    const prevCalls = onSelectGame.mock.calls.length;
+    fireEvent.keyDown(input, { key: 'Enter', repeat: false });
+    fireEvent.keyDown(input, { key: 'Enter', repeat: true });
+    expect(onSelectGame).toHaveBeenCalledTimes(prevCalls + 1);
   });
 });

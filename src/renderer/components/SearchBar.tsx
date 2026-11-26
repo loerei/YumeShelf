@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GameEntry } from '../types/game';
 import { GameIcon } from './GameIcon';
 import { useLocaleStrings } from '../i18n/locale-strings';
 import { formatBytes } from '../utils/formatting';
 import { useFindShortcut } from '../hooks/useFindShortcut';
+
+const EMPTY_CLOSE_GRACE_MS = 50;
 
 export const MAX_DROPDOWN_RESULTS = 50;
 export const PLACEHOLDER_ROTATION_MS = 60000;
@@ -137,8 +139,11 @@ interface SearchDropdownProps {
   debouncedQuery: string;
   visibleMatches: readonly SearchBarGameItem[];
   selectedIndex: number;
+  clickedGameKey: string | null;
+  clickPulseSeq: number;
   noResultsText: string;
-  onSelect: (gameKey: string) => void;
+  onItemClick: (gameKey: string, index: number) => void;
+  onItemDoubleClick: (gameKey: string, index: number) => void;
   onLocate: (gameKey: string) => void;
 }
 
@@ -147,8 +152,11 @@ function SearchDropdown({
   debouncedQuery,
   visibleMatches,
   selectedIndex,
+  clickedGameKey,
+  clickPulseSeq,
   noResultsText,
-  onSelect,
+  onItemClick,
+  onItemDoubleClick,
   onLocate,
 }: SearchDropdownProps): React.ReactElement {
   const highlightRegex = useMemo(() => buildHighlightRegex(debouncedQuery), [debouncedQuery]);
@@ -171,16 +179,32 @@ function SearchDropdown({
               item.relativePathDisplay ||
               item.relativePath ||
               undefined;
+            const isClicked = clickedGameKey === item.gameKey;
+            const clickedAltClass =
+              isClicked && clickPulseSeq % 2 === 1 ? ' is-clicked-alt' : '';
             return (
               <div
                 key={item.gameKey}
                 role="listitem"
-                className={`search-item ${selectedIndex === i ? 'active' : ''}`}
+                className={`search-item ${selectedIndex === i ? 'active' : ''}${isClicked ? ` is-clicked${clickedAltClass}` : ''}`}
+                data-click-seq={isClicked ? clickPulseSeq : undefined}
                 data-tooltip={item.name}
                 data-tooltip-meta={tooltipMeta}
                 data-tooltip-subtitle={tooltipSubtitle}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onSelect(item.gameKey)}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement | null)?.closest('.search-launch-icon-wrapper')) {
+                    return;
+                  }
+                  onItemClick(item.gameKey, i);
+                }}
+                onDoubleClick={(e) => {
+                  if ((e.target as HTMLElement | null)?.closest('.search-launch-icon-wrapper')) {
+                    return;
+                  }
+                  e.stopPropagation();
+                  onItemDoubleClick(item.gameKey, i);
+                }}
               >
                 <div className="search-item-info">
                   <GameIcon game={item} className="search-item-icon" />
@@ -236,14 +260,26 @@ export function SearchBar({
 }: SearchBarProps): React.ReactElement {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
+  const [clickedPulse, setClickedPulse] = useState<{ gameKey: string; seq: number } | null>(null);
   const [bonkQuote, setBonkQuote] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isComposingRef = useRef(false);
   const debouncedQueryRef = useRef(debouncedQuery);
   debouncedQueryRef.current = debouncedQuery;
+
+  useEffect(() => {
+    return () => {
+      if (clickedTimerRef.current) {
+        clearTimeout(clickedTimerRef.current);
+        clickedTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useFindShortcut(() => inputRef.current);
   const suppressFocusReopenRef = useRef(false);
@@ -280,6 +316,37 @@ export function SearchBar({
     };
   }, []);
 
+  const resetOnEmpty = useCallback(() => {
+    debouncedQueryRef.current = '';
+    setDebouncedQuery('');
+    setIsOpen(false);
+    setSelectedGameKey(null);
+    if (clickedTimerRef.current) {
+      clearTimeout(clickedTimerRef.current);
+      clickedTimerRef.current = null;
+    }
+    setClickedPulse(null);
+  }, []);
+
+  const scheduleEmptyClose = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (debouncedQueryRef.current.trim().length === 0) {
+      resetOnEmpty();
+      return;
+    }
+    // Guard against transient 1 -> 0 -> 1 query flashes from IME composition resets (e.g. Windows TSF).
+    const graceMs = Math.min(debounceMs, EMPTY_CLOSE_GRACE_MS);
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      if (!isComposingRef.current) {
+        resetOnEmpty();
+      }
+    }, graceMs);
+  }, [debounceMs, resetOnEmpty]);
+
   useEffect(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -287,20 +354,28 @@ export function SearchBar({
     }
 
     if (query.trim().length === 0) {
-      debouncedQueryRef.current = '';
-      setDebouncedQuery('');
-      setIsOpen(false);
-      setSelectedIndex(-1);
-      return;
+      if (isComposingRef.current) {
+        return;
+      }
+      scheduleEmptyClose();
+      return () => {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = null;
+        }
+      };
     }
 
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
+      const unchanged = debouncedQueryRef.current === query;
       debouncedQueryRef.current = query;
       setDebouncedQuery(query);
       setIsOpen(true);
-      setSelectedIndex(-1);
-      onSearch?.(query);
+      if (!unchanged) {
+        setSelectedGameKey(null);
+        onSearch?.(query);
+      }
     }, debounceMs);
 
     return () => {
@@ -309,7 +384,7 @@ export function SearchBar({
         debounceTimerRef.current = null;
       }
     };
-  }, [query, debounceMs, onSearch]);
+  }, [query, debounceMs, onSearch, scheduleEmptyClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -344,6 +419,11 @@ export function SearchBar({
     return matched;
   }, [games, debouncedQuery]);
 
+  const selectedIndex = useMemo(
+    () => (selectedGameKey ? visibleMatches.findIndex((m) => m.gameKey === selectedGameKey) : -1),
+    [selectedGameKey, visibleMatches]
+  );
+
   const handleFocus = () => {
     if (suppressFocusReopenRef.current) {
       suppressFocusReopenRef.current = false;
@@ -354,17 +434,24 @@ export function SearchBar({
     }
   };
 
-  const handleSelect = (gameKey: string) => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
+  const triggerClickFeedback = (gameKey: string, _index: number) => {
+    setSelectedGameKey(gameKey);
+    setClickedPulse((prev) => ({ gameKey, seq: (prev?.seq ?? 0) + 1 }));
+    if (clickedTimerRef.current) {
+      clearTimeout(clickedTimerRef.current);
     }
-    debouncedQueryRef.current = '';
-    setDebouncedQuery('');
-    setSelectedIndex(-1);
-    onQueryChange('');
-    inputRef.current?.focus();
-    setIsOpen(false);
+    clickedTimerRef.current = setTimeout(() => {
+      clickedTimerRef.current = null;
+      setClickedPulse(null);
+    }, 280);
+  };
+
+  const handleItemClick = (gameKey: string, index: number) => {
+    triggerClickFeedback(gameKey, index);
+  };
+
+  const handleLaunchSelected = (gameKey: string, index: number) => {
+    triggerClickFeedback(gameKey, index);
     onSelectGame(gameKey);
   };
 
@@ -375,7 +462,7 @@ export function SearchBar({
     }
     debouncedQueryRef.current = '';
     setDebouncedQuery('');
-    setSelectedIndex(-1);
+    setSelectedGameKey(null);
     onQueryChange('');
     setIsOpen(false);
     if (onLocateGame) {
@@ -400,18 +487,27 @@ export function SearchBar({
     }
     debouncedQueryRef.current = '';
     setDebouncedQuery('');
-    setSelectedIndex(-1);
+    setSelectedGameKey(null);
+    if (clickedTimerRef.current) {
+      clearTimeout(clickedTimerRef.current);
+      clickedTimerRef.current = null;
+    }
+    setClickedPulse(null);
     onQueryChange('');
     inputRef.current?.focus();
     setIsOpen(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || isComposingRef.current) {
+      return;
+    }
+
     if (e.key === 'Escape') {
       if (isOpen) {
         e.preventDefault();
         setIsOpen(false);
-        setSelectedIndex(-1);
+        setSelectedGameKey(null);
         if (document.activeElement !== inputRef.current) {
           suppressFocusReopenRef.current = true;
           inputRef.current?.focus();
@@ -424,16 +520,19 @@ export function SearchBar({
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev < 0 ? 0 : Math.min(prev + 1, visibleMatches.length - 1)));
+      const nextIdx = selectedIndex < 0 ? 0 : Math.min(selectedIndex + 1, visibleMatches.length - 1);
+      setSelectedGameKey(visibleMatches[nextIdx]?.gameKey ?? null);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev <= 0 ? 0 : prev - 1));
+      const nextIdx = selectedIndex <= 0 ? 0 : selectedIndex - 1;
+      setSelectedGameKey(visibleMatches[nextIdx]?.gameKey ?? null);
     } else if (e.key === 'Enter') {
+      if (e.repeat) return;
       const targetIndex = selectedIndex >= 0 ? selectedIndex : 0;
       const target = visibleMatches[targetIndex];
       if (target) {
         e.preventDefault();
-        handleSelect(target.gameKey);
+        handleLaunchSelected(target.gameKey, targetIndex);
       }
     }
   };
@@ -451,6 +550,15 @@ export function SearchBar({
           aria-label="Search library games"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
+          onCompositionStart={() => {
+            isComposingRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            isComposingRef.current = false;
+            if (e.currentTarget.value.trim().length === 0) {
+              scheduleEmptyClose();
+            }
+          }}
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
         />
@@ -496,8 +604,11 @@ export function SearchBar({
           debouncedQuery={debouncedQuery}
           visibleMatches={visibleMatches}
           selectedIndex={selectedIndex}
+          clickedGameKey={clickedPulse?.gameKey ?? null}
+          clickPulseSeq={clickedPulse?.seq ?? 0}
           noResultsText={localeStrings.no_results}
-          onSelect={handleSelect}
+          onItemClick={handleItemClick}
+          onItemDoubleClick={handleLaunchSelected}
           onLocate={handleLocate}
         />
       )}

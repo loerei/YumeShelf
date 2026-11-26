@@ -12,6 +12,7 @@ import { LanguagePackModal } from './components/modals/LanguagePackModal';
 import { Modal } from './components/modals/Modal';
 import { SettingsModal, type MascotPreferences } from './components/modals/SettingsModal';
 import { LibraryStateProvider } from './context/LibraryStateContext';
+import { useLocaleStrings } from './i18n/locale-strings';
 import { useBootstrapLibrary } from './hooks/useBootstrapLibrary';
 import { getGameKey, readStoredCustomOrder, resolveCustomOrder } from './library-order';
 import {
@@ -64,6 +65,7 @@ export function AppShell({
   const { activeModalState, activeModal, isModalOpen, getModalPayload, closeModal, openModal } =
     useOverlay();
   const { showToast, setFallbackFocusTarget } = useNotification();
+  const localeStrings = useLocaleStrings();
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
   const duplicateStackContainerRef = useRef<HTMLDivElement | null>(null);
   const loadingOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -188,13 +190,22 @@ export function AppShell({
   const handleLaunch = useCallback(
     (game: GameEntry) => {
       if (!game) return;
+      const resolvedKey = game.primaryInstance?.gameKey || game.gameKey;
+      const resolvedExe = game.primaryInstance?.exePath || game.exePath;
+      const resolvedRunInBg = game.primaryInstance?.runInBackground ?? game.runInBackground;
       api?.launchYume?.({
-        gameKey: game.primaryInstance?.gameKey || game.gameKey,
-        exePath: game.primaryInstance?.exePath || game.exePath,
-        runInBackground: game.primaryInstance?.runInBackground ?? game.runInBackground,
+        gameKey: resolvedKey,
+        exePath: resolvedExe,
+        runInBackground: resolvedRunInBg,
       });
+      const displayName =
+        game.primaryInstance?.name || game.name || game.folderName || resolvedKey;
+      if (api?.launchYume && resolvedExe && displayName) {
+        const template = localeStrings.launching_game || 'Launching {name}...';
+        showToast(template.replace('{name}', displayName));
+      }
     },
-    [api]
+    [api, localeStrings.launching_game, showToast]
   );
 
   const handleOpenSaveEditor = useCallback(
@@ -637,12 +648,25 @@ export function AppShell({
           }
         }}
         onSelectGame={(gameKey) => {
-          const targetGame = store.getSnapshot().allGames.find(
-            (g) =>
+          const games = store.getSnapshot().allGames;
+          let targetGame: GameEntry | undefined;
+          for (const g of games) {
+            if (
               g.gameKey === gameKey ||
               g.gameId === gameKey ||
               g.primaryInstance?.gameKey === gameKey
-          );
+            ) {
+              targetGame = g;
+              break;
+            }
+            const matchedInstance = g.instances?.find(
+              (inst) => inst.gameKey === gameKey || inst.gameId === gameKey
+            );
+            if (matchedInstance) {
+              targetGame = matchedInstance;
+              break;
+            }
+          }
           if (targetGame) handleLaunch(targetGame);
         }}
         onRefreshLibrary={bootstrapState.refresh}

@@ -1,6 +1,8 @@
 import React from 'react';
+import type { PlatformInput } from '../../../shared/path-subsumption';
 import type { FlattenedCategoryItem } from '../../domain/category-tree';
 import type { LocaleStrings } from '../../i18n/locale-strings';
+import { PathReorderList } from './PathReorderList';
 
 export type LibraryAsyncStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -20,6 +22,8 @@ export interface SettingsLibraryTabProps {
   language: string;
   strings: LocaleStrings;
   libraryPaths: readonly string[];
+  folderAliases?: Readonly<Record<string, string>>;
+  targetPlatform?: PlatformInput;
   isMutating: boolean;
   isScanning: boolean;
   isAddingGame: boolean;
@@ -28,6 +32,8 @@ export interface SettingsLibraryTabProps {
   onOpenPath: (dirPath: string) => void;
   onChangePath: (dirPath: string) => void;
   onRemovePath: (dirPath: string) => void;
+  onReorderPaths?: (newPaths: string[]) => Promise<void>;
+  onShowToast?: (message: string) => void;
   pathListContainerRef: React.RefObject<HTMLDivElement | null>;
   pathItemRefs: React.MutableRefObject<Map<string, HTMLElement>>;
   /** Optional slot seam for replacing the default configured library paths list (e.g. PathReorderList). */
@@ -167,6 +173,8 @@ export function SettingsLibraryTab({
   language,
   strings,
   libraryPaths,
+  folderAliases,
+  targetPlatform,
   isMutating,
   isScanning,
   isAddingGame,
@@ -175,6 +183,8 @@ export function SettingsLibraryTab({
   onOpenPath,
   onChangePath,
   onRemovePath,
+  onReorderPaths,
+  onShowToast,
   pathListContainerRef,
   pathItemRefs,
   renderPathsList,
@@ -266,7 +276,22 @@ export function SettingsLibraryTab({
           ? pathsListSlot
           : renderPathsList
             ? renderPathsList(pathsListProps)
-            : <DefaultLibraryPathsList {...pathsListProps} />}
+            : (
+              <PathReorderList
+                paths={libraryPaths}
+                disabled={isMutating || isScanning}
+                strings={strings}
+                folderAliases={folderAliases}
+                targetPlatform={targetPlatform}
+                pathListContainerRef={pathListContainerRef}
+                pathItemRefs={pathItemRefs}
+                onOpenPath={onOpenPath}
+                onChangePath={onChangePath}
+                onRemovePath={onRemovePath}
+                onReorderPaths={onReorderPaths}
+                onShowToast={onShowToast}
+              />
+            )}
       </div>
 
       <div className="setting-section">

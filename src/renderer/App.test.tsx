@@ -279,8 +279,8 @@ describe('App root shell', () => {
     fireEvent.change(input, { target: { value: 'My Games' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    const status = await screen.findByRole('status');
-    expect(status).toHaveTextContent(enLocale.strings.error_outside_library);
+    const status = await screen.findByText(enLocale.strings.error_outside_library);
+    expect(status.closest('[role="status"]')).toBeTruthy();
   });
 
   it('shows Launching ToastPill for both main library card double-click and search dropdown double-click without closing search dropdown', async () => {

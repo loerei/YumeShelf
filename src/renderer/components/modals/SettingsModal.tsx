@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ElectronAPI } from '../../../shared/types/ipc';
+import type { PlatformInput } from '../../../shared/path-subsumption';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
 import type { CategoryNode } from '../../domain/category-tree';
 import { flattenCategoryTree } from '../../domain/category-tree';
@@ -30,6 +31,7 @@ export interface SettingsModalProps {
   fallbackFocusRef?: React.RefObject<HTMLElement | null>;
   electronAPI?: ElectronAPI;
   storage?: UiStorageAdapter;
+  targetPlatform?: PlatformInput;
   /** Optional timeout in ms for rescan inactivity watchdog (default: 30000ms; 0 disables) */
   rescanInactivityTimeoutMs?: number;
   /** Optional callback when library directories are modified */
@@ -179,6 +181,7 @@ export function SettingsModal({
   fallbackFocusRef,
   electronAPI,
   storage,
+  targetPlatform,
   rescanInactivityTimeoutMs,
   onLibraryPathsUpdated,
   onCategoryTreeUpdated,
@@ -267,6 +270,7 @@ export function SettingsModal({
   const pathListContainerRef = useRef<HTMLDivElement | null>(null);
   const rescanWatchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rescanTokenRef = useRef(0);
+  const reorderSeqRef = useRef(0);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -595,6 +599,30 @@ export function SettingsModal({
         stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
       });
       showToast('Failed to change library path');
+    } finally {
+      if (isMountedRef.current) {
+        setIsMutating(false);
+      }
+    }
+  };
+
+  const handleReorderPaths = async (newPaths: string[]): Promise<void> => {
+    if (isMutating || isScanning) {
+      throw new Error('Cannot reorder library paths while another operation is in progress');
+    }
+    setIsMutating(true);
+    const seq = ++reorderSeqRef.current;
+    try {
+      const updatedConfig = await api?.updateLibraryConfig?.({ libraryPaths: newPaths });
+      const latestConfig = store.getSnapshot().currentLibraryConfig;
+      if (seq === reorderSeqRef.current) {
+        const nextConfig =
+          updatedConfig ?? (latestConfig ? { ...latestConfig, libraryPaths: newPaths } : null);
+        if (nextConfig) {
+          store.setCurrentLibraryConfig(nextConfig);
+          onLibraryPathsUpdated?.(nextConfig.libraryPaths);
+        }
+      }
     } finally {
       if (isMountedRef.current) {
         setIsMutating(false);
@@ -1098,6 +1126,8 @@ export function SettingsModal({
             language={language}
             strings={strings}
             libraryPaths={libraryPaths}
+            folderAliases={config?.folderAliases}
+            targetPlatform={targetPlatform}
             isMutating={isMutating}
             isScanning={isScanning}
             isAddingGame={isAddingGame}
@@ -1106,6 +1136,8 @@ export function SettingsModal({
             onOpenPath={(dirPath) => void api?.openPath?.(dirPath)}
             onChangePath={(dirPath) => void handleChangePath(dirPath)}
             onRemovePath={(dirPath) => void handleRemovePath(dirPath)}
+            onReorderPaths={handleReorderPaths}
+            onShowToast={showToast}
             pathListContainerRef={pathListContainerRef}
             pathItemRefs={pathItemRefs}
             flattenedCategories={flattenedCategories}

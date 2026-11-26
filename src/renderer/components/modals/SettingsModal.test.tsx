@@ -408,7 +408,7 @@ describe('SettingsModal', () => {
         await Promise.resolve();
       });
 
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(document.querySelector('.library-scan-status')).toBeNull();
       expect(electronAPI.getGames).not.toHaveBeenCalled();
 
       await act(async () => {
@@ -485,7 +485,9 @@ describe('SettingsModal', () => {
       });
 
       // Status live region visible while scanning
-      const statusRegion = screen.getByRole('status');
+      const statusRegion = document.querySelector('.library-scan-status') as HTMLElement;
+      expect(statusRegion).toBeTruthy();
+      expect(statusRegion.getAttribute('role')).toBe('status');
       expect(statusRegion.getAttribute('aria-live')).toBe('polite');
 
       // Watchdog fires after 5000ms

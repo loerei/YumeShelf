@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sanitizeUserPaths } from '../../shared/path-sanitizer';
-import type { PlatformInput } from '../../shared/path-subsumption';
+import {
+  reorderLibraryPathsWithSubsumption,
+  type PlatformInput,
+} from '../../shared/path-subsumption';
 import type { ElectronAPI } from '../../shared/types/ipc';
 import {
   useActiveCategoryId,
@@ -45,6 +48,10 @@ import { ShelfTabs } from './ShelfTabs';
 import { FolderAccordion } from './FolderAccordion';
 import { FolderTitle } from './FolderTitle';
 import { EmptyFolderPrompt } from './EmptyFolderPrompt';
+import { SortableGameCard } from './SortableGameCard';
+import { GameDndContext } from '../dnd/GameDndContext';
+import { useStableItemIds } from '../hooks/useStableItemIds';
+import { useCardLayoutFlip } from '../hooks/useCardLayoutFlip';
 
 const ACTIVE_FOLDER_TAB_KEY = 'yumeshelf_active_folder_tab';
 
@@ -97,6 +104,7 @@ export interface LibraryGridProps {
   onRefreshLibrary?: () => Promise<void> | void;
   onFavoriteError?: (error: Error, gameKey: string) => void;
   onShowToast?: (message: string) => void;
+  onCustomOrderChange?: (nextOrder: readonly string[]) => void;
   inFlightFavoriteKeysRef?: React.MutableRefObject<Set<string>>;
   GameCardComponent?: React.ComponentType<GameCardProps>;
   StackCardComponent?: React.ComponentType<StackCardProps>;
@@ -140,6 +148,21 @@ function areCustomOrdersEqual(
   return true;
 }
 
+function areFolderAliasesEqual(
+  prev?: Readonly<Record<string, string>>,
+  next?: Readonly<Record<string, string>>
+): boolean {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  const prevKeys = Object.keys(prev);
+  const nextKeys = Object.keys(next);
+  if (prevKeys.length !== nextKeys.length) return false;
+  for (const key of prevKeys) {
+    if (prev[key] !== next[key]) return false;
+  }
+  return true;
+}
+
 function findCategoryNameById(nodes: readonly CategoryNode[], id: string): string | undefined {
   for (const node of nodes) {
     if (node.id === id) return node.name;
@@ -166,6 +189,7 @@ export function LibraryGrid({
   onRefreshLibrary,
   onFavoriteError,
   onShowToast,
+  onCustomOrderChange,
   inFlightFavoriteKeysRef,
   GameCardComponent,
   StackCardComponent,
@@ -180,6 +204,9 @@ export function LibraryGrid({
 
   const resolvedStorage: UiStorageAdapter = storage ?? defaultStorage;
   const [activeTabId, setActiveTabId] = useState<string>(() => readActiveFolderTab(resolvedStorage));
+  const [isDraggingCard, setIsDraggingCard] = useState(false);
+  const [customOrderRevision, setCustomOrderRevision] = useState(0);
+  const committedCustomOrderRevisionRef = useRef(customOrderRevision);
 
   const rootPaths = useMemo(
     () =>
@@ -200,8 +227,10 @@ export function LibraryGrid({
   const resolvedGridContainerRef = containerRef ?? internalContainerRef;
   const cardRefs = useRef(new Map<string, HTMLElement>());
   const cardRefCallbacksRef = useRef(new Map<string, (el: HTMLDivElement | null) => void>());
+  const cardRawKeysRef = useRef(new Map<string, string>());
   const activeToggledKeyRef = useRef<string | null>(null);
   const pendingFocusKeyRef = useRef<string | null>(null);
+  const reorderSeqRef = useRef(0);
   const localInFlightRef = useRef<Set<string>>(new Set());
   const inFlightRef = inFlightFavoriteKeysRef ?? localInFlightRef;
 
@@ -211,6 +240,11 @@ export function LibraryGrid({
   const committedCustomOrderRef = useRef<readonly string[] | null | undefined>(customOrder);
   const committedCustomOrderPropRef = useRef<readonly string[] | null | undefined>(customOrder);
   const committedStorageRef = useRef<UiStorageAdapter | undefined>(storage);
+  const committedTabIdRef = useRef<string>(activeTabId);
+  const committedCategoryIdRef = useRef<string | null>(activeCategoryId);
+  const committedRootPathsRef = useRef<readonly string[]>(rootPaths);
+  const committedFolderAliasesRef = useRef<Readonly<Record<string, string>> | undefined>(folderAliases);
+  const committedStructuralLayoutRevisionRef = useRef<number>(0);
   const hasCommittedRef = useRef<boolean>(false);
 
   const visibleGames = useMemo(
@@ -218,7 +252,7 @@ export function LibraryGrid({
     [allGames, activeCategoryId]
   );
 
-  const { viewItems, resolvedCustomOrder } = useMemo(() => {
+  const { viewItems, resolvedCustomOrder, didRebuildViewItems } = useMemo(() => {
     const prevSort = committedSortRef.current;
     const prevGames = committedGamesRef.current;
     const prevItems = committedItemsRef.current;
@@ -230,6 +264,7 @@ export function LibraryGrid({
     const isSortChanged = prevSort !== currentSort;
     const isGamesStructurallyChanged = isStructuralChange(prevGames, visibleGames);
     const isStorageChanged = prevStorage !== storage;
+    const isRevisionChanged = committedCustomOrderRevisionRef.current !== customOrderRevision;
     const isCustomOrderPropChanged =
       (prevCustomOrderProp === undefined) !== (customOrder === undefined) ||
       !areCustomOrdersEqual(prevCustomOrderProp, customOrder);
@@ -239,6 +274,7 @@ export function LibraryGrid({
       return {
         viewItems: prevItems.length === 0 ? prevItems : ([] as readonly LibraryViewItem[]),
         resolvedCustomOrder: customOrder !== undefined ? customOrder : prevCustomOrder ?? null,
+        didRebuildViewItems: prevItems.length !== 0,
       };
     }
 
@@ -257,9 +293,10 @@ export function LibraryGrid({
         isGamesStructurallyChanged ||
         isStorageChanged ||
         isCustomOrderPropChanged ||
+        isRevisionChanged ||
         prevCustomOrder == null
       ) {
-        currentResolvedCustomOrder = resolveCustomOrder(allGames, readStoredCustomOrder(storage));
+        currentResolvedCustomOrder = resolveCustomOrder(allGames, readStoredCustomOrder(resolvedStorage));
         isCustomOrderChanged = !areCustomOrdersEqual(prevCustomOrder, currentResolvedCustomOrder);
       } else {
         // Steady-state non-structural update (playtime tick, isRunning): reuse cached custom order without I/O or sorting
@@ -273,6 +310,7 @@ export function LibraryGrid({
       return {
         viewItems: built.items,
         resolvedCustomOrder: currentResolvedCustomOrder,
+        didRebuildViewItems: true,
       };
     }
 
@@ -285,8 +323,40 @@ export function LibraryGrid({
     return {
       viewItems: patched,
       resolvedCustomOrder: currentResolvedCustomOrder,
+      didRebuildViewItems: false,
     };
-  }, [visibleGames, allGames, currentSort, customOrder, storage]);
+  }, [visibleGames, allGames, currentSort, customOrder, storage, resolvedStorage, customOrderRevision]);
+
+  const structuralLayoutRevision = useMemo(() => {
+    if (!hasCommittedRef.current) {
+      return committedStructuralLayoutRevisionRef.current;
+    }
+    const layoutChanged =
+      didRebuildViewItems ||
+      committedSortRef.current !== currentSort ||
+      committedTabIdRef.current !== activeTabId ||
+      committedCategoryIdRef.current !== activeCategoryId ||
+      !areStringArraysEqual(committedRootPathsRef.current, rootPaths) ||
+      !areFolderAliasesEqual(committedFolderAliasesRef.current, folderAliases) ||
+      committedCustomOrderRevisionRef.current !== customOrderRevision;
+    return committedStructuralLayoutRevisionRef.current + (layoutChanged ? 1 : 0);
+  }, [
+    viewItems,
+    didRebuildViewItems,
+    currentSort,
+    activeTabId,
+    activeCategoryId,
+    rootPaths,
+    folderAliases,
+    customOrderRevision,
+  ]);
+
+  useCardLayoutFlip({
+    cardRefs,
+    structuralLayoutRevision,
+    isDragging: isDraggingCard,
+    currentSort,
+  });
 
   // Post-commit ref synchronization: purely isolated from render phase
   useEffect(() => {
@@ -296,8 +366,27 @@ export function LibraryGrid({
     committedCustomOrderRef.current = resolvedCustomOrder;
     committedCustomOrderPropRef.current = customOrder;
     committedStorageRef.current = storage;
+    committedCustomOrderRevisionRef.current = customOrderRevision;
+    committedTabIdRef.current = activeTabId;
+    committedCategoryIdRef.current = activeCategoryId;
+    committedRootPathsRef.current = rootPaths;
+    committedFolderAliasesRef.current = folderAliases;
+    committedStructuralLayoutRevisionRef.current = structuralLayoutRevision;
     hasCommittedRef.current = true;
-  }, [visibleGames, viewItems, currentSort, resolvedCustomOrder, customOrder, storage]);
+  }, [
+    visibleGames,
+    viewItems,
+    currentSort,
+    resolvedCustomOrder,
+    customOrder,
+    storage,
+    customOrderRevision,
+    activeTabId,
+    activeCategoryId,
+    rootPaths,
+    folderAliases,
+    structuralLayoutRevision,
+  ]);
 
   const getCardRefCallback = useCallback((key: string, sectionScope = 'flat') => {
     const scopedKey = `${sectionScope}::${key}`;
@@ -308,6 +397,7 @@ export function LibraryGrid({
         else cardRefs.current.delete(scopedKey);
       };
       cardRefCallbacksRef.current.set(scopedKey, cb);
+      cardRawKeysRef.current.set(scopedKey, key);
     }
     return cb;
   }, []);
@@ -320,8 +410,7 @@ export function LibraryGrid({
       ];
       for (const candidateKey of candidateKeys) {
         for (const [scopedKey, el] of cardRefs.current.entries()) {
-          const sepIdx = scopedKey.indexOf('::');
-          const rawKey = sepIdx >= 0 ? scopedKey.slice(sepIdx + 2) : scopedKey;
+          const rawKey = cardRawKeysRef.current.get(scopedKey) ?? scopedKey;
           if (rawKey === candidateKey && isFocusableCardElement(el)) {
             return el;
           }
@@ -337,8 +426,7 @@ export function LibraryGrid({
       if (matchedItem) {
         const targetKey = matchedItem.isStack ? matchedItem.groupKey : matchedItem.representativeKey;
         for (const [scopedKey, el] of cardRefs.current.entries()) {
-          const sepIdx = scopedKey.indexOf('::');
-          const rawKey = sepIdx >= 0 ? scopedKey.slice(sepIdx + 2) : scopedKey;
+          const rawKey = cardRawKeysRef.current.get(scopedKey) ?? scopedKey;
           if (rawKey === targetKey && isFocusableCardElement(el)) {
             return el;
           }
@@ -357,10 +445,10 @@ export function LibraryGrid({
       activeKeys.add(item.isStack ? item.groupKey : item.representativeKey);
     }
     for (const cachedKey of cardRefCallbacksRef.current.keys()) {
-      const sepIdx = cachedKey.indexOf('::');
-      const rawKey = sepIdx >= 0 ? cachedKey.slice(sepIdx + 2) : cachedKey;
+      const rawKey = cardRawKeysRef.current.get(cachedKey) ?? cachedKey;
       if (!activeKeys.has(rawKey)) {
         cardRefCallbacksRef.current.delete(cachedKey);
+        cardRawKeysRef.current.delete(cachedKey);
       }
     }
   }, [viewItems]);
@@ -474,6 +562,74 @@ export function LibraryGrid({
       }
     },
     [api, dispatch, store, inFlightFavoriteKeysRef, onFavoriteError]
+  );
+
+  const handleCommitFavoriteToggle = useCallback(
+    async (
+      item: LibraryViewItem,
+      targetFavorite: boolean
+    ): Promise<'committed' | 'skipped' | 'failed'> => {
+      const storeTargetKey = item.isStack
+        ? item.groupKey || item.representativeKey
+        : item.representativeKey || item.primaryGame.gameKey;
+      const ipcTargetKey = item.representativeKey || item.primaryGame.gameKey;
+      if (!storeTargetKey || !ipcTargetKey) return 'failed';
+      if (item.favorite === targetFavorite) return 'committed';
+
+      const currentGames = store.getSnapshot().allGames;
+      const lockKey = resolveFavoriteLockKey(storeTargetKey, currentGames) ?? storeTargetKey;
+      if (inFlightRef.current.has(lockKey)) return 'skipped';
+      inFlightRef.current.add(lockKey);
+
+      const prevFav = item.favorite;
+      dispatch.updateGame(storeTargetKey, { favorite: targetFavorite });
+      try {
+        if (api?.toggleFavorite) {
+          const res = await api.toggleFavorite(ipcTargetKey, targetFavorite);
+          if (typeof res === 'boolean' && res !== targetFavorite) {
+            console.warn('[LibraryGrid] Backend rejected drag favorite toggle; rolling back:', {
+              storeTargetKey: sanitizeUserPaths(storeTargetKey),
+              ipcTargetKey: sanitizeUserPaths(ipcTargetKey),
+              requested: targetFavorite,
+              backendState: res,
+            });
+            const latestEntry = findGameEntryByKey(store.getSnapshot().allGames, storeTargetKey);
+            if (latestEntry && latestEntry.favorite !== res) {
+              dispatch.updateGame(storeTargetKey, { favorite: res });
+            }
+            return 'failed';
+          }
+        }
+        return 'committed';
+      } catch (err) {
+        console.error('[LibraryGrid] Failed to commit drag favorite toggle:', {
+          storeTargetKey: sanitizeUserPaths(storeTargetKey),
+          ipcTargetKey: sanitizeUserPaths(ipcTargetKey),
+          error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
+        dispatch.updateGame(storeTargetKey, { favorite: prevFav });
+        return 'failed';
+      } finally {
+        inFlightRef.current.delete(lockKey);
+      }
+    },
+    [api, dispatch, store, inFlightRef]
+  );
+
+  const handleCustomOrderChange = useCallback(
+    (nextOrder: readonly string[]) => {
+      setCustomOrderRevision((r) => r + 1);
+      onCustomOrderChange?.(nextOrder);
+    },
+    [onCustomOrderChange]
+  );
+
+  const handleSetSort = useCallback(
+    (sort: string) => {
+      dispatch.setCurrentSort(sort);
+    },
+    [dispatch]
   );
 
   // Synchronous unmount focus handoff across partition boundaries
@@ -717,46 +873,74 @@ export function LibraryGrid({
     [resolvedStorage]
   );
 
+  const handleTabReorder = useCallback(
+    async (_oldOrder: readonly string[], newOrder: readonly string[]) => {
+      const seq = ++reorderSeqRef.current;
+      const nextLibraryPaths = reorderLibraryPathsWithSubsumption(
+        [...rootPaths],
+        [...newOrder],
+        targetPlatform
+      );
+      const updatedConfig = await api?.updateLibraryConfig?.({ libraryPaths: nextLibraryPaths });
+      const latestConfig = store.getSnapshot().currentLibraryConfig;
+      if (seq === reorderSeqRef.current) {
+        const nextConfig =
+          updatedConfig ?? (latestConfig ? { ...latestConfig, libraryPaths: nextLibraryPaths } : null);
+        if (nextConfig) {
+          dispatch.setCurrentLibraryConfig(nextConfig);
+        }
+      }
+    },
+    [rootPaths, targetPlatform, api, store, dispatch]
+  );
+
   const activeCategoryName = useMemo(
     () => (activeCategoryId ? findCategoryNameById(categoryTree, activeCategoryId) : undefined),
     [categoryTree, activeCategoryId]
   );
 
+  const flatFavItemIds = useStableItemIds(favorites, 'fav');
+  const flatUnfavItemIds = useStableItemIds(nonFavorites, 'unfav');
+
+  const knownContainerIds = useMemo<readonly string[]>(() => {
+    if (isFolderViewActive && projection) {
+      const folderPaths = (projection.folderSections ?? []).map((s) => s.path);
+      return ['fav', ...folderPaths];
+    }
+    return ['fav', 'unfav'];
+  }, [isFolderViewActive, projection]);
+
   const renderItem = useCallback(
-    (item: LibraryViewItem, sectionScope = 'flat') =>
-      item.isStack ? (
-        <StackComponent
-          key={item.groupKey}
-          ref={getCardRefCallback(item.groupKey, sectionScope)}
-          stack={item}
-          onOpenStack={onOpenStack}
-          onToggleFavorite={handleToggleFavoriteStack}
-          onMenuAction={onMenuAction}
-        />
-      ) : (
-        <CardComponent
-          key={item.representativeKey}
-          ref={getCardRefCallback(item.representativeKey, sectionScope)}
-          game={item.primaryGame}
-          showPath={true}
-          showDuplicateChip={true}
-          launchMode="double"
-          onToggleFavorite={handleToggleFavoriteGame}
+    (item: LibraryViewItem, sectionScope = 'flat') => {
+      const canonicalKey = item.isStack ? item.groupKey : item.representativeKey;
+      const scopedId = `${sectionScope}::${canonicalKey}`;
+      return (
+        <SortableGameCard
+          key={canonicalKey}
+          ref={getCardRefCallback(canonicalKey, sectionScope)}
+          id={scopedId}
+          item={item}
+          CardComponent={CardComponent}
+          StackComponent={StackComponent}
+          onToggleFavoriteGame={handleToggleFavoriteGame}
+          onToggleFavoriteStack={handleToggleFavoriteStack}
           onLaunch={onLaunch}
+          onOpenStack={onOpenStack}
           onOpenSaveEditor={onOpenSaveEditor}
           onMenuAction={onMenuAction}
         />
-      ),
+      );
+    },
     [
-      StackComponent,
-      CardComponent,
       getCardRefCallback,
-      onOpenStack,
-      handleToggleFavoriteStack,
-      onMenuAction,
+      CardComponent,
+      StackComponent,
       handleToggleFavoriteGame,
+      handleToggleFavoriteStack,
       onLaunch,
+      onOpenStack,
       onOpenSaveEditor,
+      onMenuAction,
     ]
   );
 
@@ -776,15 +960,38 @@ export function LibraryGrid({
             favoritesCount={favoritesCount}
             targetPlatform={targetPlatform}
             onTabSelect={handleTabSelect}
+            onTabReorder={handleTabReorder}
+            onShowToast={onShowToast}
           />
-          <FolderAccordion
-            projection={projection}
+          <GameDndContext
+            currentSort={currentSort}
+            viewItems={viewItems}
+            favorites={favorites}
+            resolvedCustomOrder={resolvedCustomOrder}
+            knownContainerIds={knownContainerIds}
             storage={resolvedStorage}
-            isFiltered={Boolean(activeCategoryId)}
-            renderItem={renderItem}
-            renderTitle={renderTitle}
-            renderEmptyFolder={renderEmptyFolder}
-          />
+            targetPlatform={targetPlatform}
+            onDragStateChange={setIsDraggingCard}
+            onCommitFavoriteToggle={handleCommitFavoriteToggle}
+            onCustomOrderChange={handleCustomOrderChange}
+            onSetSort={handleSetSort}
+            onShowToast={onShowToast}
+            CardComponent={CardComponent}
+            StackComponent={StackComponent}
+          >
+            {({ renderSectionContainer }) => (
+              <FolderAccordion
+                projection={projection}
+                storage={resolvedStorage}
+                isFiltered={Boolean(activeCategoryId)}
+                isDragActive={isDraggingCard}
+                renderItem={renderItem}
+                renderTitle={renderTitle}
+                renderEmptyFolder={renderEmptyFolder}
+                renderSectionContainer={renderSectionContainer}
+              />
+            )}
+          </GameDndContext>
         </>
       ) : allGames.length === 0 ? (
         <LibraryEmptyState
@@ -798,19 +1005,50 @@ export function LibraryGrid({
           categoryName={activeCategoryName}
         />
       ) : (
-        <div id="game-grid-wrapper">
-          <div id="fav-grid" className="game-grid grid-section drop-zone">
-            {favorites.map((item) => renderItem(item, 'flat'))}
-          </div>
-          {favorites.length > 0 && nonFavorites.length > 0 && (
-            <div id="favorites-separator" className="favorites-separator-container">
-              <div className="favorites-separator" />
+        <GameDndContext
+          currentSort={currentSort}
+          viewItems={viewItems}
+          favorites={favorites}
+          resolvedCustomOrder={resolvedCustomOrder}
+          knownContainerIds={knownContainerIds}
+          storage={resolvedStorage}
+          targetPlatform={targetPlatform}
+          onDragStateChange={setIsDraggingCard}
+          onCommitFavoriteToggle={handleCommitFavoriteToggle}
+          onCustomOrderChange={handleCustomOrderChange}
+          onSetSort={handleSetSort}
+          onShowToast={onShowToast}
+          CardComponent={CardComponent}
+          StackComponent={StackComponent}
+        >
+          {({ renderSectionContainer }) => (
+            <div id="game-grid-wrapper">
+              {renderSectionContainer('fav', flatFavItemIds, (droppableRef, isOver) => (
+                <div
+                  ref={droppableRef}
+                  id="fav-grid"
+                  className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+                >
+                  {favorites.map((item) => renderItem(item, 'fav'))}
+                </div>
+              ))}
+              {favorites.length > 0 && nonFavorites.length > 0 && (
+                <div id="favorites-separator" className="favorites-separator-container">
+                  <div className="favorites-separator" />
+                </div>
+              )}
+              {renderSectionContainer('unfav', flatUnfavItemIds, (droppableRef, isOver) => (
+                <div
+                  ref={droppableRef}
+                  id="unfav-grid"
+                  className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+                >
+                  {nonFavorites.map((item) => renderItem(item, 'unfav'))}
+                </div>
+              ))}
             </div>
           )}
-          <div id="unfav-grid" className="game-grid grid-section drop-zone">
-            {nonFavorites.map((item) => renderItem(item, 'flat'))}
-          </div>
-        </div>
+        </GameDndContext>
       )}
     </div>
   );

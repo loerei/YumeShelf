@@ -444,6 +444,11 @@
     "error_outside_enclosing_folder": "Tệp đã chọn phải nằm bên trong thư mục này.",
     "error_root_level_executable": "Không thể đặt tệp thực thi trực tiếp ở thư mục gốc của thư viện.",
     "error_unresolvable_executable": "Không thể xác định tệp thực thi game hợp lệ.",
-    "error_degraded_database": "Cơ sở dữ liệu thư viện hiện không khả dụng."
+    "error_degraded_database": "Cơ sở dữ liệu thư viện hiện không khả dụng.",
+    "reorder_library_path": "Sắp xếp lại đường dẫn thư viện",
+    "drag_to_reorder": "Kéo để sắp xếp lại",
+    "toast_favorite_update_failed": "Cập nhật trạng thái yêu thích thất bại",
+    "toast_tab_reorder_failed": "Sắp xếp lại tab thư mục thất bại",
+    "toast_path_reorder_failed": "Sắp xếp lại đường dẫn thư viện thất bại"
   }
 }

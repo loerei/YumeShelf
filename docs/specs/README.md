@@ -17,6 +17,7 @@ flowchart TD
     --> E08["Epic 08: React Migration & Renderer Reconstruction<br/><b>STATUS: IMPLEMENTED</b><br/>(React 19 setup, strict TS, Core Shell, LibraryGrid, and Save Editor reconstruction)"]
     --> E09.1["Epic 09.1: Sort by Folder Core<br/><b>STATUS: SPEC READY (NEXT)</b><br/>(FlatLibraryGrid seam, projections, ShelfTabs, Accordions, Rename, Manual Add)"]
     --> E09.2["Epic 09.2: Folder DnD & Card FLIP<br/><b>STATUS: SPEC READY</b><br/>(@dnd-kit tabs/cards/settings paths + useCardLayoutFlip)"]
+    --> E11["Epic 11: Mascot React 19 & Hide-and-Seek<br/><b>STATUS: SPEC READY</b><br/>(MascotProvider, pure React MascotWidget, restore MascotCard Hide-and-Seek)"]
     --> E10["Epic 10: Frontend Tech Debt Hardening<br/><b>STATUS: SPEC READY</b><br/>(Unified OverlayProvider, remaining Settings/AppShell seams, IPC & Save Editor hardening)"]
     --> E03["Epic 03: Virtual Nested Folders & Workspaces<br/><b>STATUS: ACTIVE SPEC REVIEW</b><br/>(App folders, dual workspaces, drag & drop)"]
     --> E04["Epic 04: Marketplace & Tool Manager<br/><b>STATUS: SCHEDULED</b><br/>(Community add-ons & tool runners)"]
@@ -30,7 +31,7 @@ flowchart TD
 
     class E01,E02,E06,E07,E08 implemented;
     class E09.1 next;
-    class E09.2,E10 ready;
+    class E09.2,E10,E11 ready;
     class E03 reviewing;
     class E04,E05 scheduled;
 ```
@@ -48,7 +49,8 @@ flowchart TD
 | **08** | **React Migration & Renderer Reconstruction** | [`08-react-migration/`](08-react-migration/) | **Implemented** | Setup React 19, purge frontend drag & dual-FLIP debt, establish observable state store and clean IPC bridge, migrate Core Shell and Library Grid to declarative components, isolate Save Editor seam, consolidate all save schema extraction into `@yumeshelf/engine` (deleting renderer shadow engines), and reconstruct Save Editor into pure presentation UI (eliminating sidebar monolith, JSON.stringify dirty-checking, and all `@ts-nocheck` directives). |
 | **09.1** | **Sort by Folder — Core View & Folder Management** | [`09.1-sort-by-folder-core/`](09.1-sort-by-folder-core/) | **Spec Ready (Next)** | Preparatory `FlatLibraryGrid` seam, headless section projections, Variant C `ShelfTabs`, collapsible CSS Grid accordions with `UiStorageAdapter` state, inline folder rename, and empty folder manual game addition (zero `@dnd-kit`). |
 | **09.2** | **Folder Drag-and-Drop Reordering & Card FLIP** | [`09.2-folder-dnd-and-card-flip/`](09.2-folder-dnd-and-card-flip/) | **Spec Ready** | `@dnd-kit` dependencies, `SettingsLibraryTab` seam, horizontal shelf tab drag, multi-container `GameCard`/`StackCard` drag-and-drop, non-drag `useCardLayoutFlip` parity, and Settings `PathReorderList`. |
-| **10** | **Frontend Tech Debt Hardening** | [`10-frontend-tech-debt-hardening/`](10-frontend-tech-debt-hardening/) | **Spec Ready** | Unify modal ownership (`pendingDeleteGame`) and single `Escape` coordination in `OverlayProvider`, finish decomposing remaining `SettingsModal` tabs and `AppShell` action hooks, remove remaining `any` IPC signatures and Save Editor DOM/silent-catch seams, decouple mascot `CustomEvent`, and document intentional deferral guardrails. |
+| **11** | **Mascot React 19 Migration & Hide-and-Seek** | [`11-mascot-react-migration-and-hide-and-seek/`](11-mascot-react-migration-and-hide-and-seek/) | **Spec Ready** | Migrate Mascot widget, context menu, and audio/drag state into pure React 19 (`MascotProvider`, `MascotWidget`), delete `src/renderer/mascot-widget.ts` and `CustomEvent` bus, and restore `pre-310` Hide-and-Seek (`<MascotCard />` in `LibraryGrid`, `SearchBar`, and `Settings`). |
+| **10** | **Frontend Tech Debt Hardening** | [`10-frontend-tech-debt-hardening/`](10-frontend-tech-debt-hardening/) | **Spec Ready** | Unify modal ownership (`pendingDeleteGame`) and single `Escape` coordination in `OverlayProvider`, finish decomposing remaining `SettingsModal` tabs and `AppShell` action hooks, remove remaining `any` IPC signatures and Save Editor DOM/silent-catch seams, and document global CSS deferral guardrails. |
 | **03** | **Virtual Nested Folders & Dual Workspaces** | [`03-virtual-nested-folders-and-workspaces/`](03-virtual-nested-folders-and-workspaces/) | **Active Spec Review** | Virtual folder hierarchies (iOS/Android-style app folders), dual workspace modes ("Favorite Desk" vs "Library"), spring-loaded drag-and-drop, atomic write coordination, and virtualized grid viewport recycling. Consumes Epic 06 for 2x2 folder card preview matrix. |
 | **04** | **Marketplace & Tool Manager** | [`04-marketplace-and-tool-manager/`](04-marketplace-and-tool-manager/) | **Scheduled** | Community add-on registries, external tool execution, and cascading tool menus. Plugs into Epic 03 via the `cardActionMenuProviders` extension seam. |
 | **05** | **macOS Implementation** | [`05-macos-implementation/`](05-macos-implementation/) | **Scheduled** | Native macOS runtime capabilities, DMG auto-updater strategy, Wine/Whisky process wrappers, and macOS-specific menu integration. Consumes platform-agnostic gesture and shortcut seams from Epic 03. |

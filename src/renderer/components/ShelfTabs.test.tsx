@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import * as localeStringsModule from '../i18n/locale-strings';
+import enLocale from '../../locales/builtins/en.json';
 import jaLocale from '../../locales/builtins/ja.json';
 import type { FolderSection } from '../library/library-sections';
 import type { LibraryViewItem } from '../library-stacks';
@@ -36,6 +37,7 @@ describe('ShelfTabs', () => {
   const originalScrollIntoView = Element.prototype.scrollIntoView;
 
   afterEach(() => {
+    vi.useRealTimers();
     globalThis.ResizeObserver = originalResizeObserver;
     Element.prototype.scrollBy = originalScrollBy;
     Element.prototype.scrollIntoView = originalScrollIntoView;
@@ -277,16 +279,28 @@ describe('ShelfTabs', () => {
 
   it('manages horizontal overflow, ResizeObserver, post-commit sections updates, scroll events, and chevron buttons', () => {
     let resizeCallback: ResizeObserverCallback | null = null;
+    let tablistObserver: MockResizeObserver | null = null;
     const disconnectSpy = vi.fn();
     const observeSpy = vi.fn();
 
     class MockResizeObserver {
+      private cb: ResizeObserverCallback;
       constructor(cb: ResizeObserverCallback) {
-        resizeCallback = cb;
+        this.cb = cb;
       }
-      observe = observeSpy;
+      observe = (target: Element) => {
+        observeSpy(target);
+        if (target.classList?.contains('shelf-tabs-list')) {
+          resizeCallback = this.cb;
+          tablistObserver = this;
+        }
+      };
       unobserve = vi.fn();
-      disconnect = disconnectSpy;
+      disconnect = () => {
+        if (this === tablistObserver) {
+          disconnectSpy();
+        }
+      };
     }
     globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
@@ -401,5 +415,336 @@ describe('ShelfTabs', () => {
       block: 'nearest',
       inline: 'nearest',
     });
+  });
+
+  function mockTabRects() {
+    vi.useFakeTimers();
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element
+    ) {
+      if (this.classList?.contains('shelf-tab') && !this.classList.contains('is-drag-overlay')) {
+        const allTabs = Array.from(
+          document.querySelectorAll('.shelf-tab:not(.is-drag-overlay)')
+        );
+        const idx = allTabs.indexOf(this);
+        const left = (idx >= 0 ? idx : 0) * 120;
+        return {
+          left,
+          right: left + 120,
+          top: 0,
+          bottom: 32,
+          width: 120,
+          height: 32,
+          x: left,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      if (
+        this.classList?.contains('is-drag-overlay') ||
+        this.firstElementChild?.classList?.contains('is-drag-overlay')
+      ) {
+        const label = this.textContent;
+        const allTabs = Array.from(
+          document.querySelectorAll('.shelf-tab:not(.is-drag-overlay)')
+        );
+        const matchIdx = allTabs.findIndex((t) => t.textContent === label);
+        const baseLeft = (matchIdx >= 0 ? matchIdx : 0) * 120;
+        const transformStr = (this as HTMLElement).style?.transform || '';
+        const match = transformStr.match(/translate3d\(([-0-9.]+)px/);
+        const tx = match ? parseFloat(match[1]) : 0;
+        const left = baseLeft + tx;
+        return {
+          left,
+          right: left + 120,
+          top: 0,
+          bottom: 32,
+          width: 120,
+          height: 32,
+          x: left,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      return {
+        left: 0,
+        right: 800,
+        top: 0,
+        bottom: 40,
+        width: 800,
+        height: 40,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+  }
+
+  it('reorders folder tabs horizontally via KeyboardSensor, suppresses roving onTabSelect during drag, and resumes navigation after drop', async () => {
+    mockTabRects();
+    const onTabSelect = vi.fn();
+    const onTabReorder = vi.fn(async () => {});
+    const sections = [
+      makeSection('D:/Games/Alpha', 'Alpha', 1),
+      makeSection('D:/Games/Beta', 'Beta', 2),
+      makeSection('D:/Games/Gamma', 'Gamma', 3),
+    ];
+
+    render(
+      <ShelfTabs
+        sections={sections}
+        activeTabId="all"
+        favoritesCount={0}
+        onTabSelect={onTabSelect}
+        onTabReorder={onTabReorder}
+      />
+    );
+
+    const alphaTab = document.getElementById('shelf-tab-folder-0') as HTMLButtonElement;
+    expect(alphaTab.getAttribute('role')).toBe('tab');
+    expect(alphaTab.tabIndex).toBe(-1);
+    alphaTab.focus();
+    expect(document.activeElement).toBe(alphaTab);
+
+    // Start keyboard drag with Space
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+      vi.advanceTimersByTime(0);
+    });
+
+    // DragOverlay renders active tab preview and source item dims to 0.4
+    expect(document.querySelector('.shelf-tab.is-drag-overlay')?.textContent).toContain('Alpha');
+    expect(alphaTab.style.opacity).toBe('0.4');
+
+    // ArrowRight while dragging must NOT trigger roving onTabSelect
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    });
+    expect(onTabSelect).not.toHaveBeenCalled();
+
+    // Drop with Space
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+    });
+
+    expect(onTabReorder).toHaveBeenCalledTimes(1);
+    expect(onTabReorder).toHaveBeenCalledWith(
+      ['D:/Games/Alpha', 'D:/Games/Beta', 'D:/Games/Gamma'],
+      ['D:/Games/Beta', 'D:/Games/Alpha', 'D:/Games/Gamma'],
+      'D:/Games/Alpha'
+    );
+
+    // DragOverlay cleared and opacity restored
+    expect(document.querySelector('.shelf-tab.is-drag-overlay')).toBeNull();
+    expect(alphaTab.style.opacity).toBe('');
+
+    // Post-drop ArrowRight resumes roving tab navigation and moves focus synchronously
+    const folderTabsAfter = screen.getAllByRole('tab') as HTMLButtonElement[];
+    const alphaIndexAfter = folderTabsAfter.indexOf(alphaTab);
+    expect(alphaIndexAfter).toBe(2); // All, Beta, Alpha, Gamma
+
+    fireEvent.keyDown(alphaTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    expect(onTabSelect).toHaveBeenCalledWith('D:/Games/Gamma');
+    expect(document.activeElement).toBe(folderTabsAfter[3]);
+  });
+
+  it('protects pinned tabs from dragging, handles Escape cancel as no-op, and resumes roving navigation after cancel', async () => {
+    mockTabRects();
+    const onTabSelect = vi.fn();
+    const onTabReorder = vi.fn(async () => {});
+    const sections = [
+      makeSection('D:/Games/Alpha', 'Alpha', 1),
+      makeSection('D:/Games/Beta', 'Beta', 2),
+    ];
+
+    const { rerender } = render(
+      <ShelfTabs
+        sections={sections}
+        activeTabId="all"
+        favoritesCount={1}
+        onTabSelect={onTabSelect}
+        onTabReorder={onTabReorder}
+      />
+    );
+
+    // Pinned tabs cannot be dragged
+    const allTab = document.getElementById('shelf-tab-all') as HTMLButtonElement;
+    allTab.focus();
+    await act(async () => {
+      fireEvent.keyDown(allTab, { key: ' ', code: 'Space' });
+    });
+    expect(document.querySelector('.shelf-tab.is-drag-overlay')).toBeNull();
+
+    // Start drag on Alpha, move right, then cancel with Escape
+    const alphaTab = document.getElementById('shelf-tab-folder-0') as HTMLButtonElement;
+    alphaTab.focus();
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+      vi.advanceTimersByTime(0);
+    });
+    expect(document.querySelector('.shelf-tab.is-drag-overlay')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    });
+    expect(onTabSelect).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: 'Escape', code: 'Escape' });
+    });
+    expect(onTabReorder).not.toHaveBeenCalled();
+    expect(document.querySelector('.shelf-tab.is-drag-overlay')).toBeNull();
+    expect(alphaTab.style.opacity).toBe('');
+
+    // Post-cancel ArrowRight resumes roving navigation
+    fireEvent.keyDown(alphaTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    expect(onTabSelect).toHaveBeenCalledWith('D:/Games/Beta');
+    expect(document.activeElement).toBe(document.getElementById('shelf-tab-folder-1'));
+
+    // External sections prop updates sync cleanly
+    rerender(
+      <ShelfTabs
+        sections={[sections[1], sections[0]]}
+        activeTabId="all"
+        favoritesCount={1}
+        onTabSelect={onTabSelect}
+        onTabReorder={onTabReorder}
+      />
+    );
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[2].textContent).toContain('Beta');
+    expect(tabs[3].textContent).toContain('Alpha');
+  });
+
+  it('rolls back local tab order, shows toast, and logs sanitized console.error when onTabReorder rejects', async () => {
+    mockTabRects();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onShowToast = vi.fn();
+    const onTabReorder = vi.fn(async () => {
+      throw new Error('Failed writing C:\\Users\\Alice\\Games\\config.json');
+    });
+    const sections = [
+      makeSection('C:\\Users\\Alice\\Games\\Alpha', 'Alpha', 1),
+      makeSection('C:\\Users\\Alice\\Games\\Beta', 'Beta', 2),
+    ];
+
+    render(
+      <ShelfTabs
+        sections={sections}
+        activeTabId="all"
+        favoritesCount={0}
+        onTabSelect={vi.fn()}
+        onTabReorder={onTabReorder}
+        onShowToast={onShowToast}
+      />
+    );
+
+    const alphaTab = document.getElementById('shelf-tab-folder-0') as HTMLButtonElement;
+    alphaTab.focus();
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+      vi.advanceTimersByTime(0);
+    });
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+    });
+
+    // Rolled back to Alpha, Beta
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[1].textContent).toContain('Alpha');
+    expect(tabs[2].textContent).toContain('Beta');
+
+    expect(onShowToast).toHaveBeenCalledWith(enLocale.strings.toast_tab_reorder_failed);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const loggedPayload = JSON.stringify(errorSpy.mock.calls[0]);
+    expect(loggedPayload).not.toContain('Alice');
+    expect(loggedPayload).toContain('<USER_DIR>');
+  });
+
+  it('preserves newer drag order and suppresses stale rollback/toast when superseded by a concurrent drag', async () => {
+    mockTabRects();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onShowToast = vi.fn();
+
+    let rejectFirst!: (err: Error) => void;
+    let resolveSecond!: () => void;
+    const onTabReorder = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectFirst = reject;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSecond = resolve;
+          })
+      );
+
+    const sections = [
+      makeSection('D:/Games/Alpha', 'Alpha', 1),
+      makeSection('D:/Games/Beta', 'Beta', 2),
+      makeSection('D:/Games/Gamma', 'Gamma', 3),
+    ];
+
+    render(
+      <ShelfTabs
+        sections={sections}
+        activeTabId="all"
+        favoritesCount={0}
+        onTabSelect={vi.fn()}
+        onTabReorder={onTabReorder}
+        onShowToast={onShowToast}
+      />
+    );
+
+    // Drag #1: Alpha -> right (Beta, Alpha, Gamma)
+    const alphaTab = document.getElementById('shelf-tab-folder-0') as HTMLButtonElement;
+    alphaTab.focus();
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+      vi.advanceTimersByTime(0);
+    });
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+    });
+
+    // Drag #2: Alpha -> right again (Beta, Gamma, Alpha)
+    alphaTab.focus();
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+      vi.advanceTimersByTime(0);
+    });
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(alphaTab, { key: ' ', code: 'Space' });
+    });
+
+    expect(onTabReorder).toHaveBeenCalledTimes(2);
+
+    // Resolve Drag #2 first, then reject Drag #1
+    await act(async () => {
+      resolveSecond();
+    });
+    await act(async () => {
+      rejectFirst(new Error('Stale drag #1 failed'));
+    });
+
+    // Drag #2 order [Beta, Gamma, Alpha] must be preserved and toast suppressed
+    const tabsAfter = screen.getAllByRole('tab');
+    expect(tabsAfter[1].textContent).toContain('Beta');
+    expect(tabsAfter[2].textContent).toContain('Gamma');
+    expect(tabsAfter[3].textContent).toContain('Alpha');
+    expect(onShowToast).not.toHaveBeenCalled();
   });
 });

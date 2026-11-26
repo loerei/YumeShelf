@@ -1,11 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { LibraryConfig } from './shared/types/game';
 import type { ElectronAPI } from './shared/types/ipc';
 
 const api: ElectronAPI = {
     bootstrapApp: (options: any) => ipcRenderer.invoke('bootstrap-app', options),
     checkConfig: () => ipcRenderer.invoke('check-config'),
     setupLibrary: (type: string) => ipcRenderer.invoke('setup-library', type),
-    updateLibraryConfig: (updates: any) => ipcRenderer.invoke('update-library-config', updates),
+    updateLibraryConfig: (updates: Omit<Partial<LibraryConfig>, 'libraryPath'>) =>
+        ipcRenderer.invoke('update-library-config', updates),
     setFolderAlias: (folderPath: string, alias: string) =>
         ipcRenderer.invoke('library:set-folder-alias', { folderPath, alias }),
     addLibraryPath: () => ipcRenderer.invoke('library:add-path'),

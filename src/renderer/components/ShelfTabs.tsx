@@ -1,7 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { sanitizeUserPaths } from '../../shared/path-sanitizer';
 import { useLocaleStrings } from '../i18n/locale-strings';
 import { normalizeLibraryPath, type FolderSection } from '../library/library-sections';
 import type { PlatformInput } from '../../shared/path-subsumption';
+import { SortableTabItem } from './SortableTabItem';
 
 export interface ShelfTabsProps {
   readonly sections: readonly FolderSection[];
@@ -10,6 +29,12 @@ export interface ShelfTabsProps {
   readonly favoritesCount: number;
   readonly targetPlatform?: PlatformInput;
   readonly onTabSelect: (tabId: string) => void;
+  readonly onTabReorder?: (
+    oldOrder: readonly string[],
+    newOrder: readonly string[],
+    movedPath?: string
+  ) => Promise<void> | void;
+  readonly onShowToast?: (message: string) => void;
 }
 
 interface TabDescriptor {
@@ -56,6 +81,8 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
   favoritesCount,
   targetPlatform,
   onTabSelect,
+  onTabReorder,
+  onShowToast,
 }) => {
   const strings = useLocaleStrings();
   const tablistRef = useRef<HTMLDivElement | null>(null);
@@ -65,6 +92,56 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
   const [hasOverflow, setHasOverflow] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const [activeDragTabId, setActiveDragTabId] = useState<string | null>(null);
+  const isDraggingTab = activeDragTabId !== null;
+  const [optimisticOrder, setOptimisticOrder] = useState<readonly string[] | null>(null);
+  const commitSeqRef = useRef(0);
+  const pendingCommitsRef = useRef(0);
+  const needsPropSyncRef = useRef(false);
+  const sectionsOrderKey = sections.map((s) => s.path).join('\0');
+
+  useEffect(() => {
+    if (pendingCommitsRef.current === 0) {
+      needsPropSyncRef.current = false;
+      setOptimisticOrder(null);
+    } else {
+      needsPropSyncRef.current = true;
+    }
+  }, [sectionsOrderKey]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const displayedSections = useMemo<readonly FolderSection[]>(() => {
+    if (!optimisticOrder) {
+      return sections;
+    }
+    const sectionMap = new Map(sections.map((s) => [s.path, s]));
+    const result: FolderSection[] = [];
+    const seen = new Set<string>();
+    for (const path of optimisticOrder) {
+      const sec = sectionMap.get(path);
+      if (sec && !seen.has(path)) {
+        result.push(sec);
+        seen.add(path);
+      }
+    }
+    for (const sec of sections) {
+      if (!seen.has(sec.path)) {
+        result.push(sec);
+        seen.add(sec.path);
+      }
+    }
+    return result;
+  }, [sections, optimisticOrder]);
+
+  const folderTabIds = useMemo(
+    () => displayedSections.map((s) => s.path),
+    [displayedSections]
+  );
 
   const resolvedEffectiveTabId = useMemo(
     () =>
@@ -90,7 +167,7 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
         label: strings.favorites,
       });
     }
-    sections.forEach((section, index) => {
+    displayedSections.forEach((section, index) => {
       list.push({
         id: section.path,
         htmlId: `shelf-tab-folder-${index}`,
@@ -100,7 +177,12 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
       });
     });
     return list;
-  }, [sections, favoritesCount, strings.all_folders, strings.favorites]);
+  }, [displayedSections, favoritesCount, strings.all_folders, strings.favorites]);
+
+  const activeDragTab = useMemo(
+    () => (activeDragTabId ? tabs.find((t) => t.kind === 'folder' && t.id === activeDragTabId) ?? null : null),
+    [activeDragTabId, tabs]
+  );
 
   const updateScrollState = useCallback(() => {
     const el = tablistRef.current;
@@ -161,6 +243,7 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
 
   const handleTabKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+      if (event.defaultPrevented || isDraggingTab) return;
       if (tabs.length === 0) return;
 
       let nextIndex: number | null = null;
@@ -182,8 +265,58 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
       onTabSelect(targetTab.id);
       tabRefs.current.get(targetTab.id)?.focus();
     },
-    [tabs, onTabSelect]
+    [tabs, onTabSelect, isDraggingTab]
   );
+
+  const handleDragStart = useCallback(({ active }: DragStartEvent) => {
+    setActiveDragTabId(String(active.id));
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDragTabId(null);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    async ({ active, over }: DragEndEvent) => {
+      setActiveDragTabId(null);
+      if (!over || active.id === over.id) return;
+      const oldOrder = folderTabIds;
+      const oldIndex = oldOrder.indexOf(String(active.id));
+      const newIndex = oldOrder.indexOf(String(over.id));
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+      const newOrder = arrayMove([...oldOrder], oldIndex, newIndex);
+      const movedPath = String(active.id);
+
+      const seq = ++commitSeqRef.current;
+      pendingCommitsRef.current += 1;
+      needsPropSyncRef.current = false;
+      setOptimisticOrder(newOrder);
+      try {
+        await onTabReorder?.(oldOrder, newOrder, movedPath);
+      } catch (err) {
+        console.error('[ShelfTabs] Failed to reorder folder tabs:', {
+          movedPath: sanitizeUserPaths(movedPath ?? ''),
+          error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
+        if (seq === commitSeqRef.current) {
+          setOptimisticOrder(null);
+          onShowToast?.(strings.toast_tab_reorder_failed);
+        }
+      } finally {
+        pendingCommitsRef.current -= 1;
+        if (pendingCommitsRef.current === 0 && needsPropSyncRef.current) {
+          needsPropSyncRef.current = false;
+          setOptimisticOrder(null);
+        }
+      }
+    },
+    [folderTabIds, onTabReorder, onShowToast, strings.toast_tab_reorder_failed]
+  );
+
+  const pinnedTabs = useMemo(() => tabs.filter((t) => t.kind !== 'folder'), [tabs]);
+  const folderTabs = useMemo(() => tabs.filter((t) => t.kind === 'folder'), [tabs]);
 
   return (
     <div className="shelf-tabs-bar" data-has-overflow={hasOverflow ? 'true' : 'false'}>
@@ -208,52 +341,104 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
         </svg>
       </button>
 
-      <div
-        ref={tablistRef}
-        className="shelf-tabs-list"
-        role="tablist"
-        aria-label={strings.shelf_folders_aria}
-        onScroll={updateScrollState}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
-        {tabs.map((tab, index) => {
-          const isActive = tab.id === resolvedEffectiveTabId;
-          return (
-            <button
-              key={tab.id}
-              ref={(node) => {
-                tabRefs.current.set(tab.id, node);
-                if (tab.kind === 'all') {
-                  allTabRef.current = node;
-                }
-              }}
-              id={tab.htmlId}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              tabIndex={isActive ? 0 : -1}
-              className={`shelf-tab${isActive ? ' is-active' : ''}`}
-              onClick={() => onTabSelect(tab.id)}
-              onKeyDown={(e) => handleTabKeyDown(e, index)}
+        <div
+          ref={tablistRef}
+          className="shelf-tabs-list"
+          role="tablist"
+          aria-label={strings.shelf_folders_aria}
+          onScroll={updateScrollState}
+        >
+          {pinnedTabs.map((tab, index) => {
+            const isActive = tab.id === resolvedEffectiveTabId;
+            return (
+              <button
+                key={tab.id}
+                ref={(node) => {
+                  tabRefs.current.set(tab.id, node);
+                  if (tab.kind === 'all') {
+                    allTabRef.current = node;
+                  }
+                }}
+                id={tab.htmlId}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                className={`shelf-tab${isActive ? ' is-active' : ''}`}
+                onClick={() => onTabSelect(tab.id)}
+                onKeyDown={(e) => handleTabKeyDown(e, index)}
+              >
+                {tab.kind === 'fav' && (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                )}
+                <span className="shelf-tab-label">{tab.label}</span>
+              </button>
+            );
+          })}
+
+          <SortableContext items={folderTabIds} strategy={horizontalListSortingStrategy}>
+            {folderTabs.map((tab, folderIndex) => {
+              const index = pinnedTabs.length + folderIndex;
+              const isActive = tab.id === resolvedEffectiveTabId;
+              return (
+                <SortableTabItem
+                  key={tab.id}
+                  ref={(node) => {
+                    if (node) {
+                      tabRefs.current.set(tab.id, node);
+                    } else {
+                      tabRefs.current.delete(tab.id);
+                    }
+                  }}
+                  id={tab.id}
+                  htmlId={tab.htmlId}
+                  label={tab.label}
+                  count={tab.count}
+                  isActive={isActive}
+                  index={index}
+                  onSelect={onTabSelect}
+                  onTabKeyDown={handleTabKeyDown}
+                />
+              );
+            })}
+          </SortableContext>
+        </div>
+
+        <DragOverlay
+          style={{
+            zIndex: 'var(--zIndex-tab-drag, 500)' as unknown as number,
+            pointerEvents: 'none',
+          }}
+        >
+          {activeDragTab ? (
+            <div
+              className={`shelf-tab is-drag-overlay${
+                activeDragTab.id === resolvedEffectiveTabId ? ' is-active' : ''
+              }`}
             >
-              {tab.kind === 'fav' && (
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
+              <span className="shelf-tab-label">{activeDragTab.label}</span>
+              {activeDragTab.count !== undefined && (
+                <span className="shelf-tab-count">{activeDragTab.count}</span>
               )}
-              <span className="shelf-tab-label">{tab.label}</span>
-              {tab.kind === 'folder' && (
-                <span className="shelf-tab-count">{tab.count}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       <button
         type="button"

@@ -366,6 +366,24 @@ describe('path-subsumption', () => {
         'G:/Unmentioned',
       ]);
     });
+
+    it('normalizes darwin NFD/NFC paths symmetrically and preserves original configured NFD strings for roots and subsumed children', () => {
+      const nfdRootA = '/Users/me/Games/\u304b\u3099'; // か + ゙ (NFD)
+      const nfdChildA = '/Users/me/Games/\u304b\u3099/Sub';
+      const nfdRootB = '/Users/me/VisualNovels/\u306f\u309a'; // は + ゚ (NFD)
+      const nfcRootA = '/Users/me/Games/\u304c'; // が (NFC)
+      const nfcRootB = '/Users/me/VisualNovels/\u3071'; // ぱ (NFC)
+
+      expect(normalizePathForPlatform(nfdRootA, 'darwin')).toBe(
+        normalizePathForPlatform(nfcRootA, 'darwin')
+      );
+
+      const allConfigured = [nfdChildA, nfdRootB, nfdRootA];
+      const reorderedRoots = [nfcRootB, nfcRootA];
+
+      const result = reorderLibraryPathsWithSubsumption(allConfigured, reorderedRoots, 'darwin');
+      expect(result).toEqual([nfdRootB, nfdRootA, nfdChildA]);
+    });
   });
 
   describe('folder alias lifecycle independence', () => {

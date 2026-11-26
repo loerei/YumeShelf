@@ -5,6 +5,7 @@ import type {
   LibrarySectionsProjection,
 } from '../library/library-sections';
 import type { LibraryViewItem } from '../library-stacks';
+import { useStableItemIds } from '../hooks/useStableItemIds';
 import type { UiStorageAdapter } from '../state/ui-runtime-state';
 import { FolderAccordionToolbar } from './FolderAccordionToolbar';
 import { FolderSection } from './FolderSection';
@@ -131,6 +132,13 @@ export interface FolderAccordionProps {
   readonly isFiltered?: boolean;
   readonly renderTitle?: (section: FolderSectionModel) => React.ReactNode;
   readonly renderEmptyFolder?: (section: FolderSectionModel) => React.ReactNode;
+  readonly isDragActive?: boolean;
+  readonly renderSectionContainer?: (
+    containerId: string,
+    itemIds: readonly string[],
+    renderGrid: (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => React.ReactNode,
+    options?: { readonly disabled?: boolean }
+  ) => React.ReactNode;
 }
 
 /**
@@ -144,6 +152,8 @@ export const FolderAccordion: React.FC<FolderAccordionProps> = ({
   isFiltered = false,
   renderTitle,
   renderEmptyFolder,
+  isDragActive = false,
+  renderSectionContainer,
 }) => {
   const resolvedStorage = storage ?? defaultStorage;
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() =>
@@ -187,19 +197,29 @@ export const FolderAccordion: React.FC<FolderAccordionProps> = ({
   }, [projection.folderSections, resolvedStorage]);
 
   const favorites = projection.favoritesSection ?? [];
+  const favItemIds = useStableItemIds(favorites, 'fav');
   const folderSections = projection.folderSections ?? [];
   const showFavorites =
     projection.effectiveTabId === 'fav' ||
-    (projection.effectiveTabId === 'all' && favorites.length > 0);
+    (projection.effectiveTabId === 'all' && (favorites.length > 0 || Boolean(isDragActive)));
   const showFolders = projection.effectiveTabId !== 'fav';
+
+  const renderFavGrid = (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => (
+    <div
+      ref={droppableRef}
+      id="fav-grid"
+      className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+    >
+      {favorites.map((item) => renderItem(item, 'fav'))}
+    </div>
+  );
 
   return (
     <div id="game-grid-wrapper" className="folder-accordion-container">
-      {showFavorites && (
-        <div id="fav-grid" className="game-grid grid-section drop-zone">
-          {favorites.map((item) => renderItem(item, 'fav'))}
-        </div>
-      )}
+      {showFavorites &&
+        (renderSectionContainer
+          ? renderSectionContainer('fav', favItemIds, renderFavGrid)
+          : renderFavGrid())}
 
       {showFavorites && showFolders && folderSections.length > 0 && (
         <div id="favorites-separator" className="favorites-separator-container">
@@ -227,6 +247,7 @@ export const FolderAccordion: React.FC<FolderAccordionProps> = ({
                 isFiltered={isFiltered}
                 renderTitle={renderTitle}
                 renderEmptyFolder={renderEmptyFolder}
+                renderSectionContainer={renderSectionContainer}
               />
             );
           })}

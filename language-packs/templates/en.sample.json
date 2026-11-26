@@ -440,6 +440,11 @@
     "error_outside_enclosing_folder": "Selected file must be inside this folder.",
     "error_root_level_executable": "Executable cannot be placed directly at the library root.",
     "error_unresolvable_executable": "Could not resolve a valid game executable.",
-    "error_degraded_database": "Library database is currently unavailable."
+    "error_degraded_database": "Library database is currently unavailable.",
+    "reorder_library_path": "Reorder library path",
+    "drag_to_reorder": "Drag to reorder",
+    "toast_favorite_update_failed": "Failed to update favorite status",
+    "toast_tab_reorder_failed": "Failed to reorder folder tabs",
+    "toast_path_reorder_failed": "Failed to reorder library paths"
   }
 }

@@ -63,12 +63,15 @@ export interface InstallLanguagePackResult {
     offline?: boolean;
 }
 
+export type UpdateLibraryConfigRequest = Omit<Partial<LibraryConfig>, 'libraryPath'>;
+export type UpdateLibraryConfigResponse = LibraryConfig;
+
 export interface ElectronAPI {
     // App Bootstrap & Configuration
     bootstrapApp: (options: any) => Promise<any>;
     checkConfig: () => Promise<any>;
     setupLibrary: (type: string) => Promise<any>;
-    updateLibraryConfig: (updates: any) => Promise<any>;
+    updateLibraryConfig: (updates: UpdateLibraryConfigRequest) => Promise<UpdateLibraryConfigResponse>;
     setFolderAlias: (folderPath: string, alias: string) => Promise<{ ok: boolean; config?: LibraryConfig; error?: string }>;
     addLibraryPath: () => Promise<any>;
     removeLibraryPath: (path: string) => Promise<any>;

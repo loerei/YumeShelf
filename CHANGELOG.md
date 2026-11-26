@@ -27,6 +27,8 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [search] Connected `AppShell.handleLaunch` to localized `launching_game` `ToastPill` feedback, switched `SearchBar` result launching to `onDoubleClick`/`Enter` (ignoring key-repeat) with single-click visual feedback while keeping the dropdown open, and guarded against Windows TSF IME `1 -> 0 -> 1` composition flashes.
 - [library] Added `By Folder` (`folder`) view mode on top of an extracted `FlatLibraryGrid` seam in `LibraryGrid`, backed by pure section projection (`library-sections.ts` with `subsumeLibraryPaths` ancestor grouping and macOS NFC/NFD normalization), `ShelfTabs` (roving `tabIndex`, zero-favorite fallback, overflow chevron tracking), and `FolderAccordion`/`FolderSection` (`inert` collapsed grids and versioned `UiStorageAdapter` persistence).
 - [library] Added `FolderTitle` (single-click / `F2` inline rename synced to `currentLibraryConfig`) and `EmptyFolderPrompt` (manual executable ingestion with `getGames()` + `annotateGamesForDisplay` refresh and post-commit focus handoff), moved canonical `GameEntry`/`LibraryConfig` types into `src/shared/types/game.ts`, and added 22 folder-sort/error keys across all 4 locales (`en`, `ja`, `zh`, `vi`) plus `en.sample.json`.
+- [dnd] Rebuilt drag-and-drop reordering for folder tabs, library cards/stacks, and Settings library paths on `@dnd-kit` (`@dnd-kit/core`, `@dnd-kit/sortable`) with path-subsumption validation, monotonic commit-sequence guards, and optimistic rollback.
+- [library] Rebuilt non-drag WAAPI card layout FLIP animations gated against active drags, and disabled accidental text selection across `#game-grid-wrapper` while keeping rename inputs selectable.
 
 ---
 

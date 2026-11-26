@@ -12,6 +12,12 @@ describe('Stylesheet Contract: folder-sort.css, theme.css & style.css', () => {
     expect(themeCss).toMatch(/--zIndex-shelf-tabs:\s*200;/);
   });
 
+  it('defines drag overlay z-index tokens in src/styles/theme.css', () => {
+    expect(themeCss).toMatch(/--zIndex-tab-drag:\s*500;/);
+    expect(themeCss).toMatch(/--zIndex-card-drag:\s*1650;/);
+    expect(themeCss).toMatch(/--zIndex-path-row-drag:\s*2100;/);
+  });
+
   it('imports folder-sort.css strictly after settings.css and before responsive.css in src/style.css', () => {
     const settingsIdx = styleCss.indexOf('@import "./styles/settings.css";');
     const folderSortIdx = styleCss.indexOf('@import "./styles/folder-sort.css";');

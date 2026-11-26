@@ -101,6 +101,13 @@
     border-color: var(--accent);
 }
 
+.shelf-tab.is-drag-overlay {
+    background: var(--card-bg);
+    border-color: var(--accent);
+    color: var(--text-main);
+    box-shadow: var(--menu-shadow);
+}
+
 .shelf-tab-label {
     min-width: 0;
     overflow: hidden;

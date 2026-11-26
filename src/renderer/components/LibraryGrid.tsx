@@ -51,6 +51,7 @@ import { EmptyFolderPrompt } from './EmptyFolderPrompt';
 import { SortableGameCard } from './SortableGameCard';
 import { GameDndContext } from '../dnd/GameDndContext';
 import { useStableItemIds } from '../hooks/useStableItemIds';
+import { useCardLayoutFlip } from '../hooks/useCardLayoutFlip';
 
 const ACTIVE_FOLDER_TAB_KEY = 'yumeshelf_active_folder_tab';
 
@@ -147,6 +148,21 @@ function areCustomOrdersEqual(
   return true;
 }
 
+function areFolderAliasesEqual(
+  prev?: Readonly<Record<string, string>>,
+  next?: Readonly<Record<string, string>>
+): boolean {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  const prevKeys = Object.keys(prev);
+  const nextKeys = Object.keys(next);
+  if (prevKeys.length !== nextKeys.length) return false;
+  for (const key of prevKeys) {
+    if (prev[key] !== next[key]) return false;
+  }
+  return true;
+}
+
 function findCategoryNameById(nodes: readonly CategoryNode[], id: string): string | undefined {
   for (const node of nodes) {
     if (node.id === id) return node.name;
@@ -224,6 +240,11 @@ export function LibraryGrid({
   const committedCustomOrderRef = useRef<readonly string[] | null | undefined>(customOrder);
   const committedCustomOrderPropRef = useRef<readonly string[] | null | undefined>(customOrder);
   const committedStorageRef = useRef<UiStorageAdapter | undefined>(storage);
+  const committedTabIdRef = useRef<string>(activeTabId);
+  const committedCategoryIdRef = useRef<string | null>(activeCategoryId);
+  const committedRootPathsRef = useRef<readonly string[]>(rootPaths);
+  const committedFolderAliasesRef = useRef<Readonly<Record<string, string>> | undefined>(folderAliases);
+  const committedStructuralLayoutRevisionRef = useRef<number>(0);
   const hasCommittedRef = useRef<boolean>(false);
 
   const visibleGames = useMemo(
@@ -231,7 +252,7 @@ export function LibraryGrid({
     [allGames, activeCategoryId]
   );
 
-  const { viewItems, resolvedCustomOrder } = useMemo(() => {
+  const { viewItems, resolvedCustomOrder, didRebuildViewItems } = useMemo(() => {
     const prevSort = committedSortRef.current;
     const prevGames = committedGamesRef.current;
     const prevItems = committedItemsRef.current;
@@ -253,6 +274,7 @@ export function LibraryGrid({
       return {
         viewItems: prevItems.length === 0 ? prevItems : ([] as readonly LibraryViewItem[]),
         resolvedCustomOrder: customOrder !== undefined ? customOrder : prevCustomOrder ?? null,
+        didRebuildViewItems: prevItems.length !== 0,
       };
     }
 
@@ -288,6 +310,7 @@ export function LibraryGrid({
       return {
         viewItems: built.items,
         resolvedCustomOrder: currentResolvedCustomOrder,
+        didRebuildViewItems: true,
       };
     }
 
@@ -300,8 +323,40 @@ export function LibraryGrid({
     return {
       viewItems: patched,
       resolvedCustomOrder: currentResolvedCustomOrder,
+      didRebuildViewItems: false,
     };
   }, [visibleGames, allGames, currentSort, customOrder, storage, resolvedStorage, customOrderRevision]);
+
+  const structuralLayoutRevision = useMemo(() => {
+    if (!hasCommittedRef.current) {
+      return committedStructuralLayoutRevisionRef.current;
+    }
+    const layoutChanged =
+      didRebuildViewItems ||
+      committedSortRef.current !== currentSort ||
+      committedTabIdRef.current !== activeTabId ||
+      committedCategoryIdRef.current !== activeCategoryId ||
+      !areStringArraysEqual(committedRootPathsRef.current, rootPaths) ||
+      !areFolderAliasesEqual(committedFolderAliasesRef.current, folderAliases) ||
+      committedCustomOrderRevisionRef.current !== customOrderRevision;
+    return committedStructuralLayoutRevisionRef.current + (layoutChanged ? 1 : 0);
+  }, [
+    viewItems,
+    didRebuildViewItems,
+    currentSort,
+    activeTabId,
+    activeCategoryId,
+    rootPaths,
+    folderAliases,
+    customOrderRevision,
+  ]);
+
+  useCardLayoutFlip({
+    cardRefs,
+    structuralLayoutRevision,
+    isDragging: isDraggingCard,
+    currentSort,
+  });
 
   // Post-commit ref synchronization: purely isolated from render phase
   useEffect(() => {
@@ -312,8 +367,26 @@ export function LibraryGrid({
     committedCustomOrderPropRef.current = customOrder;
     committedStorageRef.current = storage;
     committedCustomOrderRevisionRef.current = customOrderRevision;
+    committedTabIdRef.current = activeTabId;
+    committedCategoryIdRef.current = activeCategoryId;
+    committedRootPathsRef.current = rootPaths;
+    committedFolderAliasesRef.current = folderAliases;
+    committedStructuralLayoutRevisionRef.current = structuralLayoutRevision;
     hasCommittedRef.current = true;
-  }, [visibleGames, viewItems, currentSort, resolvedCustomOrder, customOrder, storage, customOrderRevision]);
+  }, [
+    visibleGames,
+    viewItems,
+    currentSort,
+    resolvedCustomOrder,
+    customOrder,
+    storage,
+    customOrderRevision,
+    activeTabId,
+    activeCategoryId,
+    rootPaths,
+    folderAliases,
+    structuralLayoutRevision,
+  ]);
 
   const getCardRefCallback = useCallback((key: string, sectionScope = 'flat') => {
     const scopedKey = `${sectionScope}::${key}`;

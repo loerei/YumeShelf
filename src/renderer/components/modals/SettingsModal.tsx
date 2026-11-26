@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ElectronAPI } from '../../../shared/types/ipc';
 import type { PlatformInput } from '../../../shared/path-subsumption';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
@@ -347,6 +347,8 @@ export function SettingsModal({
   const maxDepth = typeof config?.maxDepth === 'number' ? config.maxDepth : 5;
   const titleDisplayMode = config?.titleDisplayMode ?? 'metadata';
   const displayProductCodes = Boolean(config?.displayProductCodes);
+  const autoAllowLargeSaves = Boolean(config?.autoAllowLargeSaves);
+  const largeSavesTipId = useId();
   const autoLaunchValue =
     config?.autoLaunch === 'minimized' ? 'minimized' : config?.autoLaunch ? 'on' : 'off';
   const minimizeToTray = Boolean(config?.minimizeToTray);
@@ -377,6 +379,7 @@ export function SettingsModal({
   const handleUpdateDisplayConfig = async (updates: {
     titleDisplayMode?: 'metadata' | 'legacy_folder';
     displayProductCodes?: boolean;
+    autoAllowLargeSaves?: boolean;
   }) => {
     if (isUpdatingConfig) return;
     setIsUpdatingConfig(true);
@@ -1116,6 +1119,50 @@ export function SettingsModal({
               </label>
               <div className="setting-control-zone">
                 <MaxDepthStepper value={maxDepth} onChange={handleMaxDepthChange} />
+              </div>
+            </div>
+
+            <div className="setting-item">
+              <div className="setting-label-with-info">
+                <label htmlFor="auto-allow-large-saves-select">
+                  {strings.setting_auto_allow_large_saves_label ||
+                    'Auto-Allow Large Saves (>64 MB)'}
+                </label>
+                <span className="setting-info-wrap">
+                  <button
+                    type="button"
+                    className="setting-info-btn"
+                    aria-label={
+                      strings.setting_auto_allow_large_saves_info ||
+                      'Very large save files can take longer to open and use more memory while editing.'
+                    }
+                    aria-describedby={largeSavesTipId}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
+                    </svg>
+                  </button>
+                  <span id={largeSavesTipId} role="tooltip" className="setting-info-tooltip">
+                    {strings.setting_auto_allow_large_saves_info ||
+                      'Very large save files can take longer to open and use more memory while editing.'}
+                  </span>
+                </span>
+              </div>
+              <div className="setting-control-zone">
+                <select
+                  id="auto-allow-large-saves-select"
+                  value={autoAllowLargeSaves ? 'on' : 'off'}
+                  aria-disabled={isUpdatingConfig}
+                  style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+                  onChange={(e) =>
+                    handleUpdateDisplayConfig({
+                      autoAllowLargeSaves: e.target.value === 'on',
+                    })
+                  }
+                >
+                  <option value="off">{strings.option_off || 'Off'}</option>
+                  <option value="on">{strings.option_on || 'On'}</option>
+                </select>
               </div>
             </div>
           </div>

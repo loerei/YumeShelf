@@ -74,10 +74,14 @@ export function SaveEditorFooter({
         throw new Error('writeSaveData API unavailable');
       }
 
+      const allowLargeSaves =
+        snapshot.fileStatus.state === 'loaded' && snapshot.fileStatus.allowLargeSaves === true;
+
       const result = await api.writeSaveData({
         gameKey: targetGameKey,
         fileName: targetFileName,
         updates: inFlightUpdates,
+        ...(allowLargeSaves ? { options: { allowLargeSaves: true } } : {}),
       });
 
       if (!result || result.ok !== true) {

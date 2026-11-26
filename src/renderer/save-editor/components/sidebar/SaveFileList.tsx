@@ -28,7 +28,7 @@ export interface SaveFileListProps {
   onRenameFile?: (fileName: string, nextName: string) => Promise<void>;
   folderRevision?: number;
   initialFile?: string;
-  retryRequest?: { readonly fileName: string; readonly requestId: number } | null;
+  retryRequest?: { readonly fileName: string; readonly requestId: number; readonly allowLargeSaves?: boolean } | null;
   listFocusRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -598,7 +598,10 @@ export function SaveFileList(props: SaveFileListProps) {
     invalidatePendingLoads();
   }, [props.folderRevision]);
 
-  const handleSelectSlot = async (fileName: string, options?: { forceDiscard?: boolean }) => {
+  const handleSelectSlot = async (
+    fileName: string,
+    options?: { forceDiscard?: boolean; allowLargeSaves?: boolean }
+  ) => {
     if (fileName === activeLoadingSlotRef.current) return;
 
     // Intercept slot switch if active session has uncommitted modifications
@@ -637,10 +640,15 @@ export function SaveFileList(props: SaveFileListProps) {
     }
 
     try {
-      const { forceDiscard: _forceDiscard, ...loadOptions } = options ?? {};
-      const res = await electronAPI.loadSaveData({ gameKey, fileName, ...loadOptions });
+      const { forceDiscard: _forceDiscard, allowLargeSaves, ...loadOptions } = options ?? {};
+      const res = await electronAPI.loadSaveData({
+        gameKey,
+        fileName,
+        ...loadOptions,
+        ...(allowLargeSaves ? { options: { allowLargeSaves: true } } : {}),
+      });
       if (loadToken !== currentLoadTokenRef.current) return;
-      dispatch.setFileLoaded(res);
+      dispatch.setFileLoaded(res, allowLargeSaves ? { allowLargeSaves: true } : undefined);
     } catch (err: any) {
       if (loadToken !== currentLoadTokenRef.current) return;
       if (isCancellationError(err)) {
@@ -667,7 +675,10 @@ export function SaveFileList(props: SaveFileListProps) {
 
   useEffect(() => {
     if (props.retryRequest && props.retryRequest.requestId > 0) {
-      void handleSelectSlot(props.retryRequest.fileName);
+      void handleSelectSlot(
+        props.retryRequest.fileName,
+        props.retryRequest.allowLargeSaves ? { allowLargeSaves: true } : undefined
+      );
     }
   }, [props.retryRequest?.requestId]);
 

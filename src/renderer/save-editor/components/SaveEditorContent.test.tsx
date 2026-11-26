@@ -492,7 +492,52 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
         ])
       );
     });
-    expect(screen.getByRole('textbox', { name: 'Gold' })).toHaveValue('500');
+      expect(screen.getByRole('textbox', { name: 'Gold' })).toHaveValue('500');
+    });
+
+    it('renders >64 MB recovery UI with actual file size, info tooltip, auto-allow checkbox, and Proceed anyway bypass', async () => {
+      const store = createSaveEditorStore('game-1');
+      const onRetryLoad = vi.fn();
+      const onChangeFile = vi.fn();
+      const updateLibraryConfig = vi.fn().mockResolvedValue({ autoAllowLargeSaves: true });
+      const mockApi = { updateLibraryConfig } as any;
+
+      render(
+        <SaveEditorStoreProvider store={store} electronAPI={mockApi}>
+          <SaveEditorContent
+            onRetryLoad={onRetryLoad}
+            onChangeFile={onChangeFile}
+          />
+        </SaveEditorStoreProvider>
+      );
+
+      const bytes78Mb = Math.round(78.4 * 1024 * 1024);
+      act(() => {
+        store.setFileError(
+          'big.rvdata2',
+          `SAVE_TOO_LARGE:${bytes78Mb}:${64 * 1024 * 1024}: Save file exceeds maximum allowed size`
+        );
+      });
+
+      const alert = screen.getByRole('alert');
+      expect(alert.textContent).toContain('78.4 MB');
+      const tooltip = screen.getByRole('tooltip');
+      expect(tooltip.textContent).toMatch(/longer to open|use more memory/i);
+
+      // 1. Proceed without auto-allow checkbox: skips updateLibraryConfig, triggers one-time allowLargeSaves bypass
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Proceed anyway' }));
+      });
+      expect(updateLibraryConfig).not.toHaveBeenCalled();
+      expect(onRetryLoad).toHaveBeenCalledWith('big.rvdata2', { allowLargeSaves: true });
+
+      // 2. Check auto-allow checkbox and click Proceed anyway: persists config then retries with allowLargeSaves
+      fireEvent.click(screen.getByRole('checkbox'));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Proceed anyway' }));
+      });
+      expect(updateLibraryConfig).toHaveBeenCalledWith({ autoAllowLargeSaves: true });
+      expect(onRetryLoad).toHaveBeenCalledTimes(2);
   });
 
   it('virtualizes 10,000+ fields deterministically in HappyDOM via initialRect with calibrated estimateSize (48 section / 64 boolean / 104 number row) and getItemKey', () => {

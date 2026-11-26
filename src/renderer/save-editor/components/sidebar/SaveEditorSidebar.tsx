@@ -18,7 +18,7 @@ export interface SaveEditorSidebarProps {
   gameKey?: string;
   electronAPI?: ElectronAPI;
   initialFile?: string;
-  retryRequest?: { readonly fileName: string; readonly requestId: number } | null;
+  retryRequest?: { readonly fileName: string; readonly requestId: number; readonly allowLargeSaves?: boolean } | null;
   listFocusRef?: React.RefObject<HTMLDivElement | null>;
 }
 

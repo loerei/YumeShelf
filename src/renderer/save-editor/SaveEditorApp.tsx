@@ -41,6 +41,7 @@ export function SaveEditorShell({
   const [retryRequest, setRetryRequest] = useState<{
     fileName: string;
     requestId: number;
+    allowLargeSaves?: boolean;
   } | null>(null);
 
   useFindShortcut(
@@ -112,8 +113,12 @@ export function SaveEditorShell({
     };
   }, [store, dispatch]);
 
-  const handleRetryLoad = (fileName: string) => {
-    setRetryRequest({ fileName, requestId: ++retryCounterRef.current });
+  const handleRetryLoad = (fileName: string, options?: { allowLargeSaves?: boolean }) => {
+    setRetryRequest({
+      fileName,
+      requestId: ++retryCounterRef.current,
+      ...(options?.allowLargeSaves ? { allowLargeSaves: true } : {}),
+    });
   };
 
   const handleChangeFile = () => {

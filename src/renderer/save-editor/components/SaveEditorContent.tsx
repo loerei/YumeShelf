@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -11,6 +12,7 @@ import {
   useVirtualizer,
 } from '@tanstack/react-virtual';
 import type { SaveFieldScalar } from '@yumeshelf/engine/types';
+import { formatBytesMiB, parseSaveTooLargeError } from '../../../shared/save-size-limit';
 import { useLocaleStrings } from '../../i18n/locale-strings';
 import {
   buildVirtualRows,
@@ -35,7 +37,7 @@ import {
 import { SaveFieldRow } from './SaveFieldRow';
 
 export interface SaveEditorContentProps {
-  onRetryLoad?: (fileName: string) => void;
+  onRetryLoad?: (fileName: string, options?: { allowLargeSaves?: boolean }) => void;
   onChangeFile?: () => void;
 }
 
@@ -70,6 +72,9 @@ export function SaveEditorContent({
 
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const columnCount = computeGridColumnCount(containerWidth);
+  const largeSaveTipId = useId();
+  const [autoAllowLargeSavesChecked, setAutoAllowLargeSavesChecked] = useState(false);
+  const [isProceedingLargeSave, setIsProceedingLargeSave] = useState(false);
   const [expandingTabs, setExpandingTabs] = useState<ReadonlySet<string>>(() => new Set());
   const [prevCollapsed, setPrevCollapsed] = useState<ReadonlySet<string>>(collapsedSections);
   const expandTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -438,30 +443,115 @@ export function SaveEditorContent({
       </div>
     );
   } else if (fileStatus.state === 'error') {
-    content = (
-      <div className="save-editor-error-box" role="alert">
-        <div className="save-editor-error-title">
-          {(strings.save_editor_failed_load_file || 'Failed to load {file}').replace('{file}', fileStatus.fileName)}
+    const largeSaveInfo = parseSaveTooLargeError(fileStatus.errorMessage);
+    if (largeSaveInfo) {
+      const handleProceedLargeSave = async () => {
+        if (isProceedingLargeSave) return;
+        setIsProceedingLargeSave(true);
+        try {
+          if (autoAllowLargeSavesChecked && typeof contextApi?.updateLibraryConfig === 'function') {
+            await contextApi.updateLibraryConfig({ autoAllowLargeSaves: true }).catch((err) => {
+              console.warn('[SaveEditorContent] Failed to persist autoAllowLargeSaves setting:', err);
+            });
+          }
+          onRetryLoad?.(fileStatus.fileName, { allowLargeSaves: true });
+        } finally {
+          setIsProceedingLargeSave(false);
+        }
+      };
+
+      const sizeDesc =
+        largeSaveInfo.actualBytes !== null
+          ? (
+              strings.save_editor_large_file_desc ||
+              'This save file is {size}, which is larger than the 64 MB limit.'
+            ).replace('{size}', formatBytesMiB(largeSaveInfo.actualBytes))
+          : strings.save_editor_large_file_desc_unknown ||
+            'This save file expands beyond the 64 MB limit.';
+
+      const warningInfoText =
+        strings.setting_auto_allow_large_saves_info ||
+        'Very large save files can take longer to open and use more memory while editing.';
+
+      content = (
+        <div className="save-editor-error-box" role="alert">
+          <div className="save-editor-error-title">
+            {strings.save_editor_large_file_title || 'Large Save File (>64 MB)'}
+          </div>
+          <p className="save-editor-large-file-desc">{sizeDesc}</p>
+          <div className="save-editor-large-file-opt">
+            <label>
+              <input
+                type="checkbox"
+                checked={autoAllowLargeSavesChecked}
+                onChange={(e) => setAutoAllowLargeSavesChecked(e.target.checked)}
+              />
+              <span>
+                {strings.save_editor_large_file_auto_allow ||
+                  'Auto-allow saves over 64 MB from now on'}
+              </span>
+            </label>
+            <span className="save-editor-info-wrap">
+              <button
+                type="button"
+                className="save-editor-info-btn"
+                aria-label={warningInfoText}
+                aria-describedby={largeSaveTipId}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
+                </svg>
+              </button>
+              <span id={largeSaveTipId} role="tooltip" className="save-editor-info-tooltip">
+                {warningInfoText}
+              </span>
+            </span>
+          </div>
+          <div className="save-editor-error-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              aria-disabled={isProceedingLargeSave}
+              onClick={() => void handleProceedLargeSave()}
+            >
+              {strings.save_editor_large_file_proceed || 'Proceed anyway'}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => onChangeFile?.()}
+            >
+              {strings.save_editor_choose_another_file || 'Choose Another File'}
+            </button>
+          </div>
         </div>
-        <code>{fileStatus.errorMessage}</code>
-        <div className="save-editor-error-actions">
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={() => onRetryLoad?.(fileStatus.fileName)}
-          >
-            {strings.save_editor_retry || 'Retry'}
-          </button>
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={() => onChangeFile?.()}
-          >
-            {strings.save_editor_choose_another_file || 'Choose Another File'}
-          </button>
+      );
+    } else {
+      content = (
+        <div className="save-editor-error-box" role="alert">
+          <div className="save-editor-error-title">
+            {(strings.save_editor_failed_load_file || 'Failed to load {file}').replace('{file}', fileStatus.fileName)}
+          </div>
+          <code>{fileStatus.errorMessage}</code>
+          <div className="save-editor-error-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={() => onRetryLoad?.(fileStatus.fileName)}
+            >
+              {strings.save_editor_retry || 'Retry'}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => onChangeFile?.()}
+            >
+              {strings.save_editor_choose_another_file || 'Choose Another File'}
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   } else if (totalFilteredFields === 0) {
     content =
       searchQuery.trim().length > 0 ? (

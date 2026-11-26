@@ -17,7 +17,7 @@ import {
 export type SaveFileStatus =
   | { readonly state: 'idle' }
   | { readonly state: 'loading'; readonly fileName: string; readonly percent?: number }
-  | { readonly state: 'loaded'; readonly dto: NormalizedSaveDto }
+  | { readonly state: 'loaded'; readonly dto: NormalizedSaveDto; readonly allowLargeSaves?: boolean }
   | { readonly state: 'error'; readonly fileName: string; readonly errorMessage: string };
 
 export type SaveOperationStatus =
@@ -67,7 +67,7 @@ export interface ObservableSaveEditorStore {
   getSnapshot(): SaveEditorStoreSnapshot;
   setFileLoading(fileName: string): void;
   setFileProgress(fileName: string, percent?: number): void;
-  setFileLoaded(dto: NormalizedSaveDto): void;
+  setFileLoaded(dto: NormalizedSaveDto, options?: { allowLargeSaves?: boolean }): void;
   setFileError(fileName: string, errorMessage: string): void;
   setFileIdle(): void;
   renameActiveFile(newFileName: string, expectedCurrentName?: string): void;
@@ -93,7 +93,7 @@ export interface ObservableSaveEditorStore {
 export interface SaveEditorActionDispatchers {
   setFileLoading: (fileName: string) => void;
   setFileProgress: (fileName: string, percent?: number) => void;
-  setFileLoaded: (dto: NormalizedSaveDto) => void;
+  setFileLoaded: (dto: NormalizedSaveDto, options?: { allowLargeSaves?: boolean }) => void;
   setFileError: (fileName: string, errorMessage: string) => void;
   setFileIdle: () => void;
   renameActiveFile: (newFileName: string, expectedCurrentName?: string) => void;
@@ -254,7 +254,7 @@ class SaveEditorStore implements ObservableSaveEditorStore {
     this.invalidateSnapshot();
   }
 
-  setFileLoaded(dto: NormalizedSaveDto): void {
+  setFileLoaded(dto: NormalizedSaveDto, options?: { allowLargeSaves?: boolean }): void {
     const normalizedFields = (dto.fields || []).map((f) => ({
       ...f,
       label: (f.label || '').normalize('NFC'),
@@ -291,6 +291,7 @@ class SaveEditorStore implements ObservableSaveEditorStore {
     this.fileStatus = {
       state: 'loaded',
       dto: { ...dto, fields: normalizedFields },
+      ...(options?.allowLargeSaves ? { allowLargeSaves: true } : {}),
     };
     this.saveStatus = { state: 'idle' };
     this.invalidateSnapshot();
@@ -609,7 +610,7 @@ export function SaveEditorStoreProvider({
     () => ({
       setFileLoading: (fileName) => resolvedStore.setFileLoading(fileName),
       setFileProgress: (fileName, percent) => resolvedStore.setFileProgress(fileName, percent),
-      setFileLoaded: (dto) => resolvedStore.setFileLoaded(dto),
+      setFileLoaded: (dto, options) => resolvedStore.setFileLoaded(dto, options),
       setFileError: (fileName, errorMessage) =>
         resolvedStore.setFileError(fileName, errorMessage),
       setFileIdle: () => resolvedStore.setFileIdle(),

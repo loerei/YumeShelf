@@ -117,6 +117,10 @@ async function performPointerDrag(
       pointerId: 1,
     });
   });
+  // @dnd-kit PointerSensor keeps a capture-phase document click stopper for 50ms after pointerup
+  await act(async () => {
+    await new Promise<void>((resolve) => setTimeout(resolve, 60));
+  });
 }
 
 async function startPointerDrag(

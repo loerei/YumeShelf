@@ -525,5 +525,30 @@ describe('SearchBar', () => {
       vi.advanceTimersByTime(60);
     });
     expect(container.querySelector('.search-dropdown')).toBeNull();
+
+    // Variant 3: composition ends while input remains empty -> grace timer closes stale dropdown
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '' } });
+    expect(container.querySelector('.search-dropdown.show')).toBeTruthy();
+    fireEvent.compositionEnd(input);
+    act(() => {
+      vi.advanceTimersByTime(60);
+    });
+    expect(container.querySelector('.search-dropdown')).toBeNull();
+
+    // Held Enter repeat events do not trigger duplicate launches
+    fireEvent.change(input, { target: { value: 'f' } });
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    const prevCalls = onSelectGame.mock.calls.length;
+    fireEvent.keyDown(input, { key: 'Enter', repeat: false });
+    fireEvent.keyDown(input, { key: 'Enter', repeat: true });
+    expect(onSelectGame).toHaveBeenCalledTimes(prevCalls + 1);
   });
 });

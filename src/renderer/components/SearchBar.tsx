@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GameEntry } from '../types/game';
 import { GameIcon } from './GameIcon';
 import { useLocaleStrings } from '../i18n/locale-strings';
@@ -260,7 +260,7 @@ export function SearchBar({
 }: SearchBarProps): React.ReactElement {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [clickedPulse, setClickedPulse] = useState<{ gameKey: string; seq: number } | null>(null);
   const [bonkQuote, setBonkQuote] = useState<string | null>(null);
 
@@ -316,40 +316,48 @@ export function SearchBar({
     };
   }, []);
 
+  const resetOnEmpty = useCallback(() => {
+    debouncedQueryRef.current = '';
+    setDebouncedQuery('');
+    setIsOpen(false);
+    setSelectedGameKey(null);
+    if (clickedTimerRef.current) {
+      clearTimeout(clickedTimerRef.current);
+      clickedTimerRef.current = null;
+    }
+    setClickedPulse(null);
+  }, []);
+
+  const scheduleEmptyClose = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (debouncedQueryRef.current.trim().length === 0) {
+      resetOnEmpty();
+      return;
+    }
+    // Guard against transient 1 -> 0 -> 1 query flashes from IME composition resets (e.g. Windows TSF).
+    const graceMs = Math.min(debounceMs, EMPTY_CLOSE_GRACE_MS);
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      if (!isComposingRef.current) {
+        resetOnEmpty();
+      }
+    }, graceMs);
+  }, [debounceMs, resetOnEmpty]);
+
   useEffect(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
 
-    const resetOnEmpty = () => {
-      debouncedQueryRef.current = '';
-      setDebouncedQuery('');
-      setIsOpen(false);
-      setSelectedIndex(-1);
-      if (clickedTimerRef.current) {
-        clearTimeout(clickedTimerRef.current);
-        clickedTimerRef.current = null;
-      }
-      setClickedPulse(null);
-    };
-
     if (query.trim().length === 0) {
       if (isComposingRef.current) {
         return;
       }
-      if (debouncedQueryRef.current.trim().length === 0) {
-        resetOnEmpty();
-        return;
-      }
-      // Guard against transient 1 -> 0 -> 1 query flashes from IME composition resets (e.g. Windows TSF).
-      const graceMs = Math.min(debounceMs, EMPTY_CLOSE_GRACE_MS);
-      debounceTimerRef.current = setTimeout(() => {
-        debounceTimerRef.current = null;
-        if (!isComposingRef.current) {
-          resetOnEmpty();
-        }
-      }, graceMs);
+      scheduleEmptyClose();
       return () => {
         if (debounceTimerRef.current) {
           clearTimeout(debounceTimerRef.current);
@@ -365,7 +373,7 @@ export function SearchBar({
       setDebouncedQuery(query);
       setIsOpen(true);
       if (!unchanged) {
-        setSelectedIndex(-1);
+        setSelectedGameKey(null);
         onSearch?.(query);
       }
     }, debounceMs);
@@ -376,7 +384,7 @@ export function SearchBar({
         debounceTimerRef.current = null;
       }
     };
-  }, [query, debounceMs, onSearch]);
+  }, [query, debounceMs, onSearch, scheduleEmptyClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -411,6 +419,11 @@ export function SearchBar({
     return matched;
   }, [games, debouncedQuery]);
 
+  const selectedIndex = useMemo(
+    () => (selectedGameKey ? visibleMatches.findIndex((m) => m.gameKey === selectedGameKey) : -1),
+    [selectedGameKey, visibleMatches]
+  );
+
   const handleFocus = () => {
     if (suppressFocusReopenRef.current) {
       suppressFocusReopenRef.current = false;
@@ -421,8 +434,8 @@ export function SearchBar({
     }
   };
 
-  const triggerClickFeedback = (gameKey: string, index: number) => {
-    setSelectedIndex(index);
+  const triggerClickFeedback = (gameKey: string, _index: number) => {
+    setSelectedGameKey(gameKey);
     setClickedPulse((prev) => ({ gameKey, seq: (prev?.seq ?? 0) + 1 }));
     if (clickedTimerRef.current) {
       clearTimeout(clickedTimerRef.current);
@@ -449,7 +462,7 @@ export function SearchBar({
     }
     debouncedQueryRef.current = '';
     setDebouncedQuery('');
-    setSelectedIndex(-1);
+    setSelectedGameKey(null);
     onQueryChange('');
     setIsOpen(false);
     if (onLocateGame) {
@@ -474,7 +487,7 @@ export function SearchBar({
     }
     debouncedQueryRef.current = '';
     setDebouncedQuery('');
-    setSelectedIndex(-1);
+    setSelectedGameKey(null);
     if (clickedTimerRef.current) {
       clearTimeout(clickedTimerRef.current);
       clickedTimerRef.current = null;
@@ -494,7 +507,7 @@ export function SearchBar({
       if (isOpen) {
         e.preventDefault();
         setIsOpen(false);
-        setSelectedIndex(-1);
+        setSelectedGameKey(null);
         if (document.activeElement !== inputRef.current) {
           suppressFocusReopenRef.current = true;
           inputRef.current?.focus();
@@ -507,11 +520,14 @@ export function SearchBar({
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev < 0 ? 0 : Math.min(prev + 1, visibleMatches.length - 1)));
+      const nextIdx = selectedIndex < 0 ? 0 : Math.min(selectedIndex + 1, visibleMatches.length - 1);
+      setSelectedGameKey(visibleMatches[nextIdx]?.gameKey ?? null);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev <= 0 ? 0 : prev - 1));
+      const nextIdx = selectedIndex <= 0 ? 0 : selectedIndex - 1;
+      setSelectedGameKey(visibleMatches[nextIdx]?.gameKey ?? null);
     } else if (e.key === 'Enter') {
+      if (e.repeat) return;
       const targetIndex = selectedIndex >= 0 ? selectedIndex : 0;
       const target = visibleMatches[targetIndex];
       if (target) {
@@ -537,8 +553,11 @@ export function SearchBar({
           onCompositionStart={() => {
             isComposingRef.current = true;
           }}
-          onCompositionEnd={() => {
+          onCompositionEnd={(e) => {
             isComposingRef.current = false;
+            if (e.currentTarget.value.trim().length === 0) {
+              scheduleEmptyClose();
+            }
           }}
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}

@@ -648,13 +648,25 @@ export function AppShell({
           }
         }}
         onSelectGame={(gameKey) => {
-          const targetGame = store.getSnapshot().allGames.find(
-            (g) =>
+          const games = store.getSnapshot().allGames;
+          let targetGame: GameEntry | undefined;
+          for (const g of games) {
+            if (
               g.gameKey === gameKey ||
               g.gameId === gameKey ||
-              g.primaryInstance?.gameKey === gameKey ||
-              g.instances?.some((inst) => inst.gameKey === gameKey || inst.gameId === gameKey)
-          );
+              g.primaryInstance?.gameKey === gameKey
+            ) {
+              targetGame = g;
+              break;
+            }
+            const matchedInstance = g.instances?.find(
+              (inst) => inst.gameKey === gameKey || inst.gameId === gameKey
+            );
+            if (matchedInstance) {
+              targetGame = matchedInstance;
+              break;
+            }
+          }
           if (targetGame) handleLaunch(targetGame);
         }}
         onRefreshLibrary={bootstrapState.refresh}

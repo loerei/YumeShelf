@@ -303,6 +303,10 @@ describe('App root shell', () => {
     const expectedToast = enLocale.strings.launching_game.replace('{name}', 'Alpha Quest');
     expect((await screen.findByText(expectedToast)).closest('[role="status"]')).toBeTruthy();
 
+    // Dismiss first toast so search-launch toast is verified independently
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+    expect(screen.queryByText(expectedToast)).toBeNull();
+
     // 2. Search dropdown: single-click animates without launching; double-click launches + shows toast while keeping dropdown open
     const searchInput = screen.getByRole('textbox', { name: 'Search library games' }) as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'Alpha' } });

@@ -198,9 +198,11 @@ test('SaveDataEngine - renameSave handles success, collision, overwrite, format 
     const engine = new SaveDataEngine(mockConfig);
 
     const originalFile = 'save01.json';
+    const backupDir = path.join(saveDir, '.yumeshelf-backups');
     const originalBak = 'save01.json.bak';
+    await fs.mkdir(backupDir, { recursive: true });
     await fs.writeFile(path.join(saveDir, originalFile), JSON.stringify({ gold: 100 }), 'utf8');
-    await fs.writeFile(path.join(saveDir, originalBak), JSON.stringify({ gold: 90 }), 'utf8');
+    await fs.writeFile(path.join(backupDir, originalBak), JSON.stringify({ gold: 90 }), 'utf8');
 
     // 1. Success rename
     const renameRes = await engine.renameSave('game:test', originalFile, 'save02.json');
@@ -210,7 +212,7 @@ test('SaveDataEngine - renameSave handles success, collision, overwrite, format 
 
     const filesAfterRename = await engine.listSaveFiles('game:test');
     assert.deepEqual(filesAfterRename, ['save02.json']);
-    assert.ok(await fs.stat(path.join(saveDir, 'save02.json.bak')).catch(() => false), 'Backup file must also be renamed');
+    assert.ok(await fs.stat(path.join(backupDir, 'save02.json.bak')).catch(() => false), 'Backup file must also be renamed');
 
     // 2. Same name returns renamed: false
     const sameNameRes = await engine.renameSave('game:test', 'save02.json', 'save02.json');
@@ -268,9 +270,12 @@ test('SaveDataEngine - deleteSave deletes save and backup files safely', async (
     const engine = new SaveDataEngine(mockConfig);
 
     const targetFile = 'to_delete.json';
+    const backupDir = path.join(saveDir, '.yumeshelf-backups');
     const targetBak = 'to_delete.json.bak';
+    await fs.mkdir(backupDir, { recursive: true });
     await fs.writeFile(path.join(saveDir, targetFile), JSON.stringify({ gold: 50 }), 'utf8');
-    await fs.writeFile(path.join(saveDir, targetBak), JSON.stringify({ gold: 40 }), 'utf8');
+    await fs.writeFile(path.join(backupDir, targetBak), JSON.stringify({ gold: 40 }), 'utf8');
+    await fs.writeFile(path.join(saveDir, targetBak), JSON.stringify({ gold: 30 }), 'utf8');
 
     const delRes = await engine.deleteSave('game:test', targetFile);
     assert.equal(delRes.ok, true);
@@ -278,7 +283,8 @@ test('SaveDataEngine - deleteSave deletes save and backup files safely', async (
     const filesAfterDelete = await engine.listSaveFiles('game:test');
     assert.deepEqual(filesAfterDelete, []);
     assert.ok(!(await fs.stat(path.join(saveDir, targetFile)).catch(() => false)), 'Save file must be removed');
-    assert.ok(!(await fs.stat(path.join(saveDir, targetBak)).catch(() => false)), 'Backup file must also be removed');
+    assert.ok(!(await fs.stat(path.join(backupDir, targetBak)).catch(() => false)), 'Subfolder backup file must also be removed');
+    assert.ok(!(await fs.stat(path.join(saveDir, targetBak)).catch(() => false)), 'Legacy backup file must also be removed');
 
     // Deleting non-existent file is safe
     const nonExistentRes = await engine.deleteSave('game:test', 'nonexistent.json');

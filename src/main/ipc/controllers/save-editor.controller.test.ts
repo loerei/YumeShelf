@@ -193,10 +193,27 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             const { handlers } = createIpcHarness();
             const handler = handlers.get('save-folder:open')!;
 
-            for (const badKey of ['__proto__', 'constructor', 'prototype', '', '   ', null, undefined, 123 as any]) {
+            for (const badKey of [
+                '__proto__',
+                'constructor',
+                'prototype',
+                '../evil',
+                'a/../b',
+                'a/__proto__',
+                'a\\b',
+                '/abs',
+                'a/',
+                'a//b',
+                '',
+                '   ',
+                null,
+                undefined,
+                123 as any,
+            ]) {
                 const res = await handler({}, badKey);
                 expect(res).toEqual({ ok: false, error: 'invalid-payload' });
             }
+            expect(await handler({}, 'Parent/Game')).toEqual({ ok: false, error: 'no-record' });
         });
     });
 
@@ -278,6 +295,9 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             listener({}, '');
             listener({}, '   ');
             listener({}, null);
+            listener({}, '../evil');
+            listener({}, 'a\\b');
+            listener({}, 'a/__proto__');
             expect(mockBrowserWindow).not.toHaveBeenCalled();
 
             listener({}, 'valid-game');
@@ -308,7 +328,7 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             const { controller, listeners, mockWindowInstance } = createIpcHarness({ diagnosticBufferCapacity: 3 });
             const listener = listeners.get('save-editor:open-window')!;
 
-            listener({}, 'C:\\Users\\alice\\game-1');
+            listener({}, 'C:/Users/alice/game-1');
             mockWindowInstance.webContents.emit(
                 'console-message',
                 { sender: { isDestroyed: () => false } },
@@ -316,12 +336,12 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                 'Loaded C:\\Users\\alice\\save.dat'
             );
 
-            const buf = controller.getLogBuffer('C:\\Users\\alice\\game-1');
+            const buf = controller.getLogBuffer('C:/Users/alice/game-1');
             expect(buf.toArray()).toHaveLength(1);
             expect(buf.toArray()[0]).toContain('<USER_DIR>\\save.dat');
             expect(buf.toArray()[0]).not.toContain('alice');
 
-            const filtered = controller.getLogEntries('C:\\Users\\alice\\game-1');
+            const filtered = controller.getLogEntries('C:/Users/alice/game-1');
             expect(filtered).toHaveLength(1);
         });
 
@@ -446,7 +466,19 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
             const handler = handlers.get('save-editor:set-save-folder-override')!;
 
             const safePath = path.resolve(process.cwd(), 'valid_save');
-            for (const badKey of ['__proto__', 'constructor', 'prototype', '', '   ', null, undefined]) {
+            for (const badKey of [
+                '__proto__',
+                'constructor',
+                'prototype',
+                '../evil',
+                'a/../b',
+                'a/__proto__',
+                'a\\b',
+                '',
+                '   ',
+                null,
+                undefined,
+            ]) {
                 const res = await handler({}, { gameKey: badKey, folderPath: safePath });
                 expect(res).toEqual({ ok: false, error: 'invalid-payload' });
             }
@@ -703,13 +735,36 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                 const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
                 const handler = handlers.get('save-editor:load-data')!;
 
-                for (const badKey of ['', '  ', '__proto__', 'constructor', 'prototype', 'a/b', 'a\\b', null]) {
+                for (const badKey of [
+                    '',
+                    '  ',
+                    '__proto__',
+                    'constructor',
+                    'prototype',
+                    '../evil',
+                    'a/../b',
+                    './a',
+                    '/abs',
+                    'a/',
+                    'a//b',
+                    'a\\b',
+                    'a/__proto__',
+                    'a/constructor',
+                    'a\0b',
+                    null,
+                ]) {
                     await expect(handler({}, { gameKey: badKey, fileName: 'save01.json' })).rejects.toThrow('invalid-payload');
                 }
                 for (const badFile of BAD_FILENAMES) {
                     await expect(handler({}, { gameKey: 'valid-game', fileName: badFile })).rejects.toThrow('invalid-payload');
                 }
                 expect(mockSaveEditorService.loadSaveData).not.toHaveBeenCalled();
+
+                await expect(handler({}, { gameKey: 'Parent/Game', fileName: 'save01.json' })).rejects.toSatisfy((e: Error) => {
+                    expect(e.message).not.toContain('John Doe');
+                    expect(e.message).toContain('<USER_DIR>');
+                    return true;
+                });
 
                 await expect(handler({}, { gameKey: 'valid-game', fileName: 'save01.json' })).rejects.toSatisfy((e: Error) => {
                     expect(e.message).not.toContain('John Doe');
@@ -743,10 +798,34 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                 const { handlers } = createIpcHarness({ saveEditorService: mockSaveEditorService });
                 const handler = handlers.get('save-editor:list-files')!;
 
-                for (const badKey of ['', '  ', '__proto__', 'constructor', 'prototype', null, 123]) {
+                for (const badKey of [
+                    '',
+                    '  ',
+                    '__proto__',
+                    'constructor',
+                    'prototype',
+                    '../evil',
+                    'a/../b',
+                    './a',
+                    '/abs',
+                    'a/',
+                    'a//b',
+                    'a\\b',
+                    'a/__proto__',
+                    'a/constructor',
+                    'a\0b',
+                    null,
+                    123,
+                ]) {
                     await expect(handler({}, badKey)).rejects.toThrow('invalid-payload');
                 }
                 expect(mockSaveEditorService.listSaveFiles).not.toHaveBeenCalled();
+
+                await expect(handler({}, 'Parent/Game')).rejects.toSatisfy((e: Error) => {
+                    expect(e.message).not.toContain('John Doe');
+                    expect(e.message).toContain('<USER_DIR>');
+                    return true;
+                });
 
                 await expect(handler({}, 'valid-game')).rejects.toSatisfy((e: Error) => {
                     expect(e.message).not.toContain('John Doe');
@@ -805,12 +884,26 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                         error: 'invalid-payload',
                     });
                 }
-                expect(await deleteHandler({}, { gameKey: 'a/b', fileName: 'ok.json' })).toEqual({
-                    ok: false,
-                    error: 'invalid-payload',
-                });
+                for (const badKey of ['../evil', 'a/../b', 'a/__proto__', 'a\\b', '/abs', 'a/', 'a//b']) {
+                    expect(await renameHandler({}, { gameKey: badKey, oldFileName: 'ok.json', newFileName: 'ok2.json' })).toEqual({
+                        ok: false,
+                        error: 'invalid-payload',
+                    });
+                    expect(await deleteHandler({}, { gameKey: badKey, fileName: 'ok.json' })).toEqual({
+                        ok: false,
+                        error: 'invalid-payload',
+                    });
+                }
                 expect(mockSaveEditorService.renameSaveFile).not.toHaveBeenCalled();
                 expect(mockSaveEditorService.deleteSaveFile).not.toHaveBeenCalled();
+
+                await expect(
+                    renameHandler({}, { gameKey: 'Parent/Game', oldFileName: 'old.json', newFileName: 'new.json' })
+                ).rejects.toSatisfy((e: Error) => {
+                    expect(e.message).not.toContain('John Doe');
+                    expect(e.message).toContain('<USER_DIR>');
+                    return true;
+                });
 
                 await expect(
                     renameHandler({}, { gameKey: 'valid-game', oldFileName: 'old.json', newFileName: 'new.json' })
@@ -865,11 +958,40 @@ describe('SaveEditorIpcController & SaveEditorService (Manual Save Folder Select
                 ).toEqual({ ok: false, error: 'invalid-payload' });
 
                 // Path traversal & prototype pollution identifiers in gameKey / fileName
-                for (const badKey of ['', '  ', '__proto__', 'constructor', 'prototype', '../evil', 'a/b', 'a\\b', null]) {
+                for (const badKey of [
+                    '',
+                    '  ',
+                    '__proto__',
+                    'constructor',
+                    'prototype',
+                    '../evil',
+                    'a/../b',
+                    './a',
+                    '/abs',
+                    'a/',
+                    'a//b',
+                    'a\\b',
+                    'a/__proto__',
+                    'a/constructor',
+                    'a\0b',
+                    null,
+                ]) {
                     expect(
                         await handler({}, { gameKey: badKey, fileName: 'save01.json', updates: { 'variables:1': 5 } })
                     ).toEqual({ ok: false, error: 'invalid-payload' });
                 }
+
+                // Nested relative gameKeys must be accepted by write-data
+                expect(
+                    await handler({}, { gameKey: 'Parent/Game', fileName: 'save01.json', updates: { 'variables:1': 5 } })
+                ).toEqual({ ok: true });
+                expect(mockSaveEditorService.writeSaveData).toHaveBeenCalledWith(
+                    'Parent/Game',
+                    'save01.json',
+                    { 'variables:1': 5 },
+                    { isUpdates: true }
+                );
+                mockSaveEditorService.writeSaveData.mockClear();
                 for (const badFile of BAD_FILENAMES) {
                     expect(
                         await handler({}, { gameKey: 'valid-game', fileName: badFile, updates: { 'variables:1': 5 } })

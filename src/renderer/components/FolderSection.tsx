@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocaleStrings } from '../i18n/locale-strings';
 import type { FolderSection as FolderSectionModel } from '../library/library-sections';
 import type { LibraryViewItem } from '../library-stacks';
+import { useStableItemIds } from '../hooks/useStableItemIds';
 
 export interface FolderSectionProps {
   readonly section: FolderSectionModel;
@@ -11,6 +12,12 @@ export interface FolderSectionProps {
   readonly isFiltered?: boolean;
   readonly renderTitle?: (section: FolderSectionModel) => React.ReactNode;
   readonly renderEmptyFolder?: (section: FolderSectionModel) => React.ReactNode;
+  readonly renderSectionContainer?: (
+    containerId: string,
+    itemIds: readonly string[],
+    renderGrid: (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => React.ReactNode,
+    options?: { readonly disabled?: boolean }
+  ) => React.ReactNode;
 }
 
 /**
@@ -24,9 +31,11 @@ export const FolderSection: React.FC<FolderSectionProps> = ({
   isFiltered = false,
   renderTitle,
   renderEmptyFolder,
+  renderSectionContainer,
 }) => {
   const strings = useLocaleStrings();
   const effectiveExpanded = !section.isCollapsible || isExpanded;
+  const itemIds = useStableItemIds(section.games, section.path);
 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const prevExpandedRef = useRef(effectiveExpanded);
@@ -64,6 +73,25 @@ export const FolderSection: React.FC<FolderSectionProps> = ({
   ]
     .filter(Boolean)
     .join(' ');
+
+  const renderGrid = (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => (
+    <div
+      ref={effectiveExpanded ? droppableRef : undefined}
+      className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+    >
+      {section.games.length === 0 ? (
+        !isFiltered && renderEmptyFolder ? (
+          renderEmptyFolder(section)
+        ) : (
+          <div className="filtered-folder-empty-state">
+            {strings.no_matching_games_in_folder}
+          </div>
+        )
+      ) : (
+        section.games.map((item) => renderItem(item, section.path))
+      )}
+    </div>
+  );
 
   return (
     <section className={sectionClassName}>
@@ -109,19 +137,11 @@ export const FolderSection: React.FC<FolderSectionProps> = ({
         onTransitionEnd={handleTransitionEnd}
       >
         <div className="folder-section-grid-inner">
-          <div className="game-grid grid-section drop-zone">
-            {section.games.length === 0 ? (
-              !isFiltered && renderEmptyFolder ? (
-                renderEmptyFolder(section)
-              ) : (
-                <div className="filtered-folder-empty-state">
-                  {strings.no_matching_games_in_folder}
-                </div>
-              )
-            ) : (
-              section.games.map((item) => renderItem(item, section.path))
-            )}
-          </div>
+          {renderSectionContainer
+            ? renderSectionContainer(section.path, itemIds, renderGrid, {
+                disabled: !effectiveExpanded,
+              })
+            : renderGrid()}
         </div>
       </div>
     </section>

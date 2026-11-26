@@ -6,7 +6,13 @@
 }
 
 #game-grid-wrapper {
+    user-select: none;
     transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+#game-grid-wrapper input,
+#game-grid-wrapper textarea {
+    user-select: text;
 }
 
 #game-grid-wrapper.is-refreshing {

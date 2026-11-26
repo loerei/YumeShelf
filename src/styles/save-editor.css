@@ -395,23 +395,38 @@
     filter: brightness(1.1);
 }
 
-.save-editor-error-box button[aria-disabled="true"] {
-    opacity: 0.6;
-    cursor: default;
+.save-editor-large-file-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+    padding: 32px 24px;
+    max-width: 440px;
+    margin: 0 auto;
+}
+
+.save-editor-large-file-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #ef4444;
 }
 
 .save-editor-large-file-desc {
     margin: 0;
-    font-size: 0.82rem;
-    line-height: 1.45;
-    color: var(--text-main, #e5e7eb);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--text-muted, #9ca3af);
 }
 
 .save-editor-large-file-opt {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     color: var(--text-main, #e5e7eb);
 }
 
@@ -422,13 +437,38 @@
     cursor: pointer;
 }
 
+.save-editor-large-file-actions {
+    margin-top: 4px;
+}
+
+.save-editor-large-file-actions button.primary-btn {
+    padding: 8px 18px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent, #0078d4);
+    color: #fff;
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.save-editor-large-file-actions button.primary-btn:hover {
+    filter: brightness(1.1);
+}
+
+.save-editor-large-file-actions button[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: default;
+}
+
 .save-editor-info-wrap {
     position: relative;
     display: inline-flex;
     align-items: center;
 }
 
-.save-editor-error-box button.save-editor-info-btn {
+button.save-editor-info-btn {
     width: auto;
     padding: 3px;
     display: inline-flex;
@@ -438,10 +478,11 @@
     color: var(--text-muted, #9ca3af);
     background: transparent;
     border: none;
+    cursor: pointer;
 }
 
-.save-editor-error-box button.save-editor-info-btn:hover,
-.save-editor-error-box button.save-editor-info-btn:focus-visible {
+button.save-editor-info-btn:hover,
+button.save-editor-info-btn:focus-visible {
     color: var(--text-main, #ffffff);
     background: rgba(255, 255, 255, 0.08);
 }

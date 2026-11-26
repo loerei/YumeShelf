@@ -435,13 +435,11 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
   it('handles idle, loading, and error states cleanly while calling useActiveTabFields unconditionally across transitions', () => {
     const store = createSaveEditorStore('game-1');
     const onRetryLoad = vi.fn();
-    const onChangeFile = vi.fn();
 
     const { container } = render(
       <SaveEditorStoreProvider store={store}>
         <SaveEditorContent
           onRetryLoad={onRetryLoad}
-          onChangeFile={onChangeFile}
         />
       </SaveEditorStoreProvider>
     );
@@ -473,9 +471,7 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetryLoad).toHaveBeenCalledTimes(1);
     expect(onRetryLoad).toHaveBeenCalledWith('slot1.sav');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Choose Another File' }));
-    expect(onChangeFile).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Choose Another File' })).toBeNull();
 
     // Transitioning to loaded succeeds without React hook-order violations
     act(() => {
@@ -495,10 +491,9 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
       expect(screen.getByRole('textbox', { name: 'Gold' })).toHaveValue('500');
     });
 
-    it('renders >64 MB recovery UI with actual file size, info tooltip, auto-allow checkbox, and Proceed anyway bypass', async () => {
+    it('renders >64 MB recovery UI centered in content without error-box, with actual file size, info tooltip, auto-allow checkbox, and Proceed anyway bypass', async () => {
       const store = createSaveEditorStore('game-1');
       const onRetryLoad = vi.fn();
-      const onChangeFile = vi.fn();
       const updateLibraryConfig = vi.fn().mockResolvedValue({ autoAllowLargeSaves: true });
       const mockApi = { updateLibraryConfig } as any;
 
@@ -506,7 +501,6 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
         <SaveEditorStoreProvider store={store} electronAPI={mockApi}>
           <SaveEditorContent
             onRetryLoad={onRetryLoad}
-            onChangeFile={onChangeFile}
           />
         </SaveEditorStoreProvider>
       );
@@ -520,7 +514,10 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
       });
 
       const alert = screen.getByRole('alert');
+      expect(alert).toHaveClass('save-editor-large-file-state');
+      expect(alert).not.toHaveClass('save-editor-error-box');
       expect(alert.textContent).toContain('78.4 MB');
+      expect(screen.queryByRole('button', { name: 'Choose Another File' })).toBeNull();
       const tooltip = screen.getByRole('tooltip');
       expect(tooltip.textContent).toMatch(/longer to open|use more memory/i);
 

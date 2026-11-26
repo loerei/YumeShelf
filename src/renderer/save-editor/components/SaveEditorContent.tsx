@@ -38,7 +38,6 @@ import { SaveFieldRow } from './SaveFieldRow';
 
 export interface SaveEditorContentProps {
   onRetryLoad?: (fileName: string, options?: { allowLargeSaves?: boolean }) => void;
-  onChangeFile?: () => void;
 }
 
 const EMPTY_VIRTUAL_ROWS: readonly SaveVirtualRow[] = [];
@@ -50,7 +49,6 @@ const EMPTY_SECTION_TAB_IDS: readonly string[] = [];
  */
 export function SaveEditorContent({
   onRetryLoad,
-  onChangeFile,
 }: SaveEditorContentProps): React.JSX.Element {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const scrollViewportRef = useRef<HTMLDivElement | null>(null);
@@ -474,8 +472,8 @@ export function SaveEditorContent({
         'Very large save files can take longer to open and use more memory while editing.';
 
       content = (
-        <div className="save-editor-error-box" role="alert">
-          <div className="save-editor-error-title">
+        <div className="save-editor-large-file-state" role="alert">
+          <div className="save-editor-large-file-title">
             {strings.save_editor_large_file_title || 'Large Save File (>64 MB)'}
           </div>
           <p className="save-editor-large-file-desc">{sizeDesc}</p>
@@ -507,7 +505,7 @@ export function SaveEditorContent({
               </span>
             </span>
           </div>
-          <div className="save-editor-error-actions">
+          <div className="save-editor-large-file-actions">
             <button
               type="button"
               className="primary-btn"
@@ -515,13 +513,6 @@ export function SaveEditorContent({
               onClick={() => void handleProceedLargeSave()}
             >
               {strings.save_editor_large_file_proceed || 'Proceed anyway'}
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => onChangeFile?.()}
-            >
-              {strings.save_editor_choose_another_file || 'Choose Another File'}
             </button>
           </div>
         </div>
@@ -540,13 +531,6 @@ export function SaveEditorContent({
               onClick={() => onRetryLoad?.(fileStatus.fileName)}
             >
               {strings.save_editor_retry || 'Retry'}
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => onChangeFile?.()}
-            >
-              {strings.save_editor_choose_another_file || 'Choose Another File'}
             </button>
           </div>
         </div>

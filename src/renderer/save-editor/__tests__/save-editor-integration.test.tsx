@@ -704,7 +704,7 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
       expect(baseStore.getSnapshot().saveStatus).toEqual({ state: 'saved' });
     });
 
-    // 3. Load corrupted save02.sav -> Choose Another File dispatches setFileIdle() and focuses sidebar list
+    // 3. Load corrupted save02.sav -> renders error alert without Choose Another File; sidebar remains accessible to switch slots
     await user.click(screen.getByRole('button', { name: 'save02.sav' }));
     const slot2Alert = await screen.findByRole('alert');
     expect(baseStore.getSnapshot().fileStatus).toEqual({
@@ -712,10 +712,8 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
       fileName: 'save02.sav',
       errorMessage: 'Corrupt header in <USER_DIR>\\save02.sav',
     });
-
-    await user.click(within(slot2Alert).getByRole('button', { name: 'Choose Another File' }));
-    expect(baseStore.getSnapshot().fileStatus).toEqual({ state: 'idle' });
-    expect(document.activeElement).toBe(screen.getByTestId('save-file-list'));
+    expect(within(slot2Alert).queryByRole('button', { name: 'Choose Another File' })).toBeNull();
+    expect(screen.getByTestId('save-file-list')).toBeInTheDocument();
 
     // 4. AppErrorBoundary catches render crash, propagates electronAPI, scrubs paths, and restores focus on Retry
     shouldThrowInRender = true;

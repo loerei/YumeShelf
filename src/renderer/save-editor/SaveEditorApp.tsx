@@ -121,11 +121,6 @@ export function SaveEditorShell({
     });
   };
 
-  const handleChangeFile = () => {
-    dispatch.setFileIdle();
-    sidebarListFocusRef.current?.focus();
-  };
-
   return (
     <div className="save-editor-overlay">
       <div className="save-editor-panel">
@@ -154,7 +149,6 @@ export function SaveEditorShell({
             </div>
             <SaveEditorContent
               onRetryLoad={handleRetryLoad}
-              onChangeFile={handleChangeFile}
             />
           </main>
         </div>

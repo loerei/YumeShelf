@@ -16,6 +16,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Quick search shortcut (`Ctrl+F` / `Cmd+F`): pressing Ctrl+F (or Cmd+F on macOS) focuses and selects the search bar in both the main library and the Save Editor so you can filter without clicking.
 - Search launch & double-click: double-clicking (or pressing Enter on) a search result launches the game with the launch toast while keeping the search dropdown open, and single-clicking selects the row with visual feedback.
 - Sort by Folder view: added a `By Folder` sort mode with top shelf tabs (All Folders, Favorites, and each library root), collapsible folder sections with Expand All / Collapse All controls, inline folder alias renaming (click or press `F2`), and direct manual game addition inside empty folders.
+- Save Editor nested game support and backup isolation: fixed `invalid-payload` errors when loading or editing saves for games in nested library subfolders, removed the default 64 MB save file size limit, and moved `.bak` save backups into a `.yumeshelf-backups` subfolder inside each save directory.
 
 ### For the Nerds
 - [renderer] Rebuilt the main renderer (`src/renderer/`) in React 19 with strict TypeScript, replacing imperative DOM modules and legacy dual-FLIP animations with declarative components, `useSyncExternalStore` state bridging, portal overlays, and a multi-page Vite build (`index.html`, `save-editor.html`).
@@ -29,6 +30,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [library] Added `FolderTitle` (single-click / `F2` inline rename synced to `currentLibraryConfig`) and `EmptyFolderPrompt` (manual executable ingestion with `getGames()` + `annotateGamesForDisplay` refresh and post-commit focus handoff), moved canonical `GameEntry`/`LibraryConfig` types into `src/shared/types/game.ts`, and added 22 folder-sort/error keys across all 4 locales (`en`, `ja`, `zh`, `vi`) plus `en.sample.json`.
 - [dnd] Rebuilt drag-and-drop reordering for folder tabs, library cards/stacks, and Settings library paths on `@dnd-kit` (`@dnd-kit/core`, `@dnd-kit/sortable`) with path-subsumption validation, monotonic commit-sequence guards, and optimistic rollback.
 - [library] Rebuilt non-drag WAAPI card layout FLIP animations gated against active drags, and disabled accidental text selection across `#game-grid-wrapper` while keeping rename inputs selectable.
+- [save-editor] Unified `SaveEditorIpcController` `isValidGameKey` validation per segment (allowing `/` for nested library `gameKey`s while blocking `\`, control chars, `.`/`..`, empty segments, and `DANGEROUS_KEYS`), removed the default 64 MB ceiling across `@yumeshelf/engine` codecs and `SaveDataEngine` (opt-in via `maxBufferSizeBytes`), and relocated `.bak` backups into `<saveDir>/.yumeshelf-backups/`.
 
 ---
 

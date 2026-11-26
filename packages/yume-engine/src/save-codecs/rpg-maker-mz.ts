@@ -1,7 +1,7 @@
 import * as zlib from 'node:zlib';
 import { SaveCodecError } from './errors.js';
 import { safeJsonParse, sanitizeDeep } from './sanitize.js';
-import { DEFAULT_MAX_DECOMPRESSED_BYTES, type SaveCodecContext } from '../types.js';
+import type { SaveCodecContext } from '../types.js';
 import { safeLog } from './schema/index.js';
 
 export class RpgMakerMzSaveCodec {
@@ -9,8 +9,13 @@ export class RpgMakerMzSaveCodec {
     if (!rawData || rawData.length === 0) {
       throw new SaveCodecError('RPG Maker MZ save file is empty', 'PARSE_FAILED');
     }
+    const rawMax = context?.options?.maxBufferSizeBytes;
     const maxDecompressedBytes =
-      context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+      typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0
+        ? Math.trunc(rawMax)
+        : undefined;
+    const inflateOpts =
+      maxDecompressedBytes !== undefined ? { maxOutputLength: maxDecompressedBytes } : undefined;
 
     try {
       // 1. Try RPG Maker MZ standard UTF-8 string decoding
@@ -19,16 +24,12 @@ export class RpgMakerMzSaveCodec {
       for (let i = 0; i < str.length; i++) {
         rawBytes[i] = str.codePointAt(i) || 0;
       }
-      const decompressedBuffer = zlib.inflateSync(rawBytes, {
-        maxOutputLength: maxDecompressedBytes,
-      });
+      const decompressedBuffer = zlib.inflateSync(rawBytes, inflateOpts);
       return safeJsonParse(decompressedBuffer.toString('utf8'));
     } catch {
       // 2. Fallback to direct raw binary zlib inflate
       try {
-        const decompressedBuffer = zlib.inflateSync(rawData, {
-          maxOutputLength: maxDecompressedBytes,
-        });
+        const decompressedBuffer = zlib.inflateSync(rawData, inflateOpts);
         return safeJsonParse(decompressedBuffer.toString('utf8'));
       } catch (err: any) {
         safeLog(context?.options?.logger, 'error', 'Failed to decompress RPG Maker MZ save', {

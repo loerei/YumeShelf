@@ -10,10 +10,9 @@ import {
   defaultStalenessErrorMessage,
   type StalenessTrackerOptions,
 } from '../utils/staleness-tracker.js';
-import {
-  DEFAULT_MAX_DECOMPRESSED_BYTES,
-  type SaveCodecContext,
-  type CodecProgressUpdate,
+import type {
+  SaveCodecContext,
+  CodecProgressUpdate,
 } from '../types.js';
 
 // CRC-32 precomputed lookup table
@@ -1888,8 +1887,13 @@ export interface ZipEntry {
 export class ZipContainer {
   static extractEntries(
     buf: Buffer,
-    maxDecompressedBytes = DEFAULT_MAX_DECOMPRESSED_BYTES
+    maxDecompressedBytes?: number
   ): ZipEntry[] {
+    const hasMaxCap =
+      typeof maxDecompressedBytes === 'number' &&
+      Number.isFinite(maxDecompressedBytes) &&
+      maxDecompressedBytes > 0;
+    const inflateOpts = hasMaxCap ? { maxOutputLength: Math.trunc(maxDecompressedBytes) } : undefined;
     const entries: ZipEntry[] = [];
     if (!buf || buf.length < 22) {
       throw new SaveCodecError('Buffer too small to be a ZIP container', 'PARSE_FAILED');
@@ -1931,10 +1935,10 @@ export class ZipContainer {
           if (compressionMethod === 8) {
             uncompressedData =
               compressedSize > 0
-                ? zlib.inflateRawSync(compressedData, { maxOutputLength: maxDecompressedBytes })
+                ? zlib.inflateRawSync(compressedData, inflateOpts)
                 : Buffer.alloc(0);
           } else if (compressionMethod === 0) {
-            if (compressedData.length > maxDecompressedBytes) {
+            if (hasMaxCap && compressedData.length > maxDecompressedBytes!) {
               throw new SaveCodecError(
                 `ZIP entry ${fileName} exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
                 'DECOMPRESSION_FAILED'
@@ -1949,7 +1953,7 @@ export class ZipContainer {
           }
 
           totalDecompressedBytes += uncompressedData.length;
-          if (totalDecompressedBytes > maxDecompressedBytes) {
+          if (hasMaxCap && totalDecompressedBytes > maxDecompressedBytes!) {
             throw new SaveCodecError(
               `Decompressed ZIP container exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
               'DECOMPRESSION_FAILED'
@@ -1981,10 +1985,10 @@ export class ZipContainer {
         if (compressionMethod === 8) {
           uncompressedData =
             compressedSize > 0
-              ? zlib.inflateRawSync(compressedData, { maxOutputLength: maxDecompressedBytes })
+              ? zlib.inflateRawSync(compressedData, inflateOpts)
               : Buffer.alloc(0);
         } else if (compressionMethod === 0) {
-          if (compressedData.length > maxDecompressedBytes) {
+          if (hasMaxCap && compressedData.length > maxDecompressedBytes!) {
             throw new SaveCodecError(
               `ZIP entry ${fileName} exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
               'DECOMPRESSION_FAILED'
@@ -1999,7 +2003,7 @@ export class ZipContainer {
         }
 
         totalDecompressedBytes += uncompressedData.length;
-        if (totalDecompressedBytes > maxDecompressedBytes) {
+        if (hasMaxCap && totalDecompressedBytes > maxDecompressedBytes!) {
           throw new SaveCodecError(
             `Decompressed ZIP container exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
             'DECOMPRESSION_FAILED'
@@ -2155,8 +2159,11 @@ export class RenpyPickleSaveCodec {
 
     let pickleBuf: Buffer;
 
+    const rawMax = context?.options?.maxBufferSizeBytes;
     const maxDecompressedBytes =
-      context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+      typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0
+        ? Math.trunc(rawMax)
+        : undefined;
 
     // Check if buffer is a ZIP container
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
@@ -2303,8 +2310,11 @@ export class RenpyPickleSaveCodec {
     }
 
     let pickleBuf: Buffer;
+    const rawMax = context?.options?.maxBufferSizeBytes;
     const maxDecompressedBytes =
-      context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+      typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0
+        ? Math.trunc(rawMax)
+        : undefined;
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
       try {
         const entries = ZipContainer.extractEntries(rawData, maxDecompressedBytes);

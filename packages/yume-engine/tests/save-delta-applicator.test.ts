@@ -288,14 +288,17 @@ describe('Surgical Save Delta Applicator (applySaveUpdates)', () => {
       assert.ok(warnedKeys.has('variables:foo'));
     });
 
-    it('rejects payloads exceeding the 64MB decompressed ceiling', async () => {
-      assert.equal(DEFAULT_MAX_DECOMPRESSED_BYTES, 64 * 1024 * 1024);
+    it('defaults to unlimited decompression ceiling and enforces explicit maxBufferSizeBytes opt-in', async () => {
+      assert.equal(DEFAULT_MAX_DECOMPRESSED_BYTES, Number.POSITIVE_INFINITY);
 
-      // Create a small compressed RPG Maker MZ buffer whose decompressed size exceeds a custom or 64MB ceiling
-      const oversizedPayload = Buffer.alloc(65 * 1024 * 1024, 0x20); // 65 MB of spaces
+      // Default (omitted maxBufferSizeBytes) allows >64MB decompressed payloads without error
+      const oversizedPayload = Buffer.alloc(65 * 1024 * 1024, 0x20);
       const deflated = zlib.deflateSync(oversizedPayload, { level: 1 });
       await assert.rejects(
-        () => YumeEngine.applySaveUpdates('rpg-maker-mz', deflated, { 'variables:1': 10 }),
+        () =>
+          YumeEngine.applySaveUpdates('rpg-maker-mz', deflated, { 'variables:1': 10 }, {
+            maxBufferSizeBytes: 512,
+          }),
         (err: unknown) => err instanceof SaveCodecError && err.code === 'DECOMPRESSION_FAILED'
       );
     });

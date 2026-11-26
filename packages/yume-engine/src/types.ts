@@ -306,7 +306,7 @@ export interface NormalizedSaveDto {
   fields: SaveFieldDto[];
 }
 
-export const DEFAULT_MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024; // 64 MB
+export const DEFAULT_MAX_DECOMPRESSED_BYTES = Number.POSITIVE_INFINITY;
 
 export interface SaveCodecContext {
   fileName?: string;

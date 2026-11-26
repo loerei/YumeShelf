@@ -16,8 +16,13 @@ import type {
   SaveUpdatesPayload,
   SupportedSaveStrategy,
 } from '../types.js';
-import { DEFAULT_MAX_DECOMPRESSED_BYTES } from '../types.js';
 import { extractSaveSchema, safeLog, resolveMetadataLabel } from './schema/index.js';
+
+function resolveOptionalMaxBytes(raw?: unknown): number | undefined {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0
+    ? Math.trunc(raw)
+    : undefined;
+}
 
 export * from './errors.js';
 export * from './sanitize.js';
@@ -536,8 +541,8 @@ export async function applySaveUpdates(
     return rawBuffer;
   }
 
-  const maxDecompressedBytes = options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
-  if (rawBuffer.length > maxDecompressedBytes) {
+  const maxDecompressedBytes = resolveOptionalMaxBytes(options?.maxBufferSizeBytes);
+  if (maxDecompressedBytes !== undefined && rawBuffer.length > maxDecompressedBytes) {
     throw new SaveCodecError(
       `Save buffer exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
       'DECOMPRESSION_FAILED'

@@ -1,0 +1,491 @@
+import React from 'react';
+import type { FlattenedCategoryItem } from '../../domain/category-tree';
+import type { LocaleStrings } from '../../i18n/locale-strings';
+
+export type LibraryAsyncStatus = 'idle' | 'submitting' | 'success' | 'error';
+
+export interface SettingsLibraryPathsListProps {
+  libraryPaths: readonly string[];
+  isMutating: boolean;
+  isScanning: boolean;
+  strings: LocaleStrings;
+  pathListContainerRef: React.RefObject<HTMLDivElement | null>;
+  pathItemRefs: React.MutableRefObject<Map<string, HTMLElement>>;
+  onOpenPath: (dirPath: string) => void;
+  onChangePath: (dirPath: string) => void;
+  onRemovePath: (dirPath: string) => void;
+}
+
+export interface SettingsLibraryTabProps {
+  language: string;
+  strings: LocaleStrings;
+  libraryPaths: readonly string[];
+  isMutating: boolean;
+  isScanning: boolean;
+  isAddingGame: boolean;
+  onAddLibraryPath: () => void;
+  onAddManualGame: () => void;
+  onOpenPath: (dirPath: string) => void;
+  onChangePath: (dirPath: string) => void;
+  onRemovePath: (dirPath: string) => void;
+  pathListContainerRef: React.RefObject<HTMLDivElement | null>;
+  pathItemRefs: React.MutableRefObject<Map<string, HTMLElement>>;
+  /** Optional slot seam for replacing the default configured library paths list (e.g. PathReorderList). */
+  renderPathsList?: (props: SettingsLibraryPathsListProps) => React.ReactNode;
+  /** Optional ReactNode slot for replacing the default configured library paths list. */
+  pathsListSlot?: React.ReactNode;
+
+  // Category management
+  flattenedCategories: readonly FlattenedCategoryItem[];
+  isCreatingCategory: boolean;
+  newCategoryName: string;
+  categoryCreateStatus: LibraryAsyncStatus;
+  categoryCreateError: string | null;
+  newCategoryInputRef: React.RefObject<HTMLInputElement | null>;
+  onStartCreateCategory: () => void;
+  onCancelCreateCategory: () => void;
+  onNewCategoryNameChange: (name: string) => void;
+  onCreateCategorySubmit: (e: React.FormEvent) => void;
+
+  renamingCategoryId: string | null;
+  renameCategoryDraft: string;
+  categoryRenameStatus: LibraryAsyncStatus;
+  categoryRenameError: string | null;
+  onStartRenameCategory: (categoryId: string, currentName: string) => void;
+  onCancelRenameCategory: () => void;
+  onRenameCategoryDraftChange: (draft: string) => void;
+  onRenameCategorySubmit: (e: React.FormEvent, categoryId: string) => void;
+
+  pendingDeleteCategoryId: string | null;
+  isDeletingCategory: boolean;
+  categoryDeleteError: string | null;
+  onRequestDeleteCategory: (categoryId: string) => void;
+  onCancelDeleteCategory: (categoryId: string) => void;
+  onConfirmDeleteCategory: (categoryId: string, index: number) => void;
+
+  categoryListContainerRef: React.RefObject<HTMLDivElement | null>;
+  categoryItemRefs: React.MutableRefObject<Map<string, HTMLElement>>;
+  deleteTriggerRefs: React.MutableRefObject<Map<string, HTMLButtonElement>>;
+}
+
+function DefaultLibraryPathsList({
+  libraryPaths,
+  isMutating,
+  isScanning,
+  strings,
+  pathListContainerRef,
+  pathItemRefs,
+  onOpenPath,
+  onChangePath,
+  onRemovePath,
+}: SettingsLibraryPathsListProps): React.JSX.Element {
+  return (
+    <div
+      ref={pathListContainerRef}
+      tabIndex={-1}
+      className="library-paths-list"
+      aria-label="Configured library paths"
+    >
+      {libraryPaths.length === 0 ? (
+        <p className="empty-list-hint">
+          {strings.settings_paths_empty || 'No library directories configured.'}
+        </p>
+      ) : (
+        libraryPaths.map((dirPath) => {
+          const canRemove = libraryPaths.length > 1;
+          return (
+            <div
+              key={dirPath}
+              ref={(el) => {
+                if (el) {
+                  pathItemRefs.current.set(dirPath, el);
+                } else {
+                  pathItemRefs.current.delete(dirPath);
+                }
+              }}
+              tabIndex={-1}
+              className="library-path-entry"
+            >
+              <span className="library-path-icon" aria-hidden="true">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </span>
+              <button
+                type="button"
+                className="library-path-link"
+                title={dirPath}
+                onClick={() => onOpenPath(dirPath)}
+              >
+                {dirPath}
+              </button>
+              <div className="library-path-actions">
+                <button
+                  type="button"
+                  className="library-path-action-btn change-btn"
+                  aria-label={`Change path ${dirPath}`}
+                  aria-disabled={isMutating || isScanning}
+                  style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
+                  onClick={() => onChangePath(dirPath)}
+                >
+                  {strings.change || 'Change'}
+                </button>
+                <button
+                  type="button"
+                  className="library-path-action-btn remove-btn"
+                  aria-label={`Remove path ${dirPath}`}
+                  disabled={!canRemove}
+                  aria-disabled={!canRemove || isMutating || isScanning}
+                  style={
+                    !canRemove || isMutating || isScanning
+                      ? { pointerEvents: 'none' }
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (canRemove) onRemovePath(dirPath);
+                  }}
+                >
+                  {strings.btn_remove || 'Remove'}
+                </button>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+export function SettingsLibraryTab({
+  language,
+  strings,
+  libraryPaths,
+  isMutating,
+  isScanning,
+  isAddingGame,
+  onAddLibraryPath,
+  onAddManualGame,
+  onOpenPath,
+  onChangePath,
+  onRemovePath,
+  pathListContainerRef,
+  pathItemRefs,
+  renderPathsList,
+  pathsListSlot,
+  flattenedCategories,
+  isCreatingCategory,
+  newCategoryName,
+  categoryCreateStatus,
+  categoryCreateError,
+  newCategoryInputRef,
+  onStartCreateCategory,
+  onCancelCreateCategory,
+  onNewCategoryNameChange,
+  onCreateCategorySubmit,
+  renamingCategoryId,
+  renameCategoryDraft,
+  categoryRenameStatus,
+  categoryRenameError,
+  onStartRenameCategory,
+  onCancelRenameCategory,
+  onRenameCategoryDraftChange,
+  onRenameCategorySubmit,
+  pendingDeleteCategoryId,
+  isDeletingCategory,
+  categoryDeleteError,
+  onRequestDeleteCategory,
+  onCancelDeleteCategory,
+  onConfirmDeleteCategory,
+  categoryListContainerRef,
+  categoryItemRefs,
+  deleteTriggerRefs,
+}: SettingsLibraryTabProps): React.JSX.Element {
+  const pathsListProps: SettingsLibraryPathsListProps = {
+    libraryPaths,
+    isMutating,
+    isScanning,
+    strings,
+    pathListContainerRef,
+    pathItemRefs,
+    onOpenPath,
+    onChangePath,
+    onRemovePath,
+  };
+
+  return (
+    <div
+      id="settings-panel-library"
+      role="tabpanel"
+      aria-labelledby="settings-tab-library"
+      className="settings-tab-panel"
+    >
+      <div className="setting-section">
+        <div className="setting-item">
+          <span className="setting-label">
+            {language === 'en' ? 'Library Paths' : strings.path || 'Library Paths'}
+          </span>
+          <div className="setting-field-group">
+            <button
+              id="btn-add-library-path"
+              type="button"
+              className="small-btn text-btn"
+              aria-disabled={isMutating || isScanning}
+              style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
+              onClick={onAddLibraryPath}
+            >
+              {strings.btn_add_path || '+ Add Path'}
+            </button>
+            <button
+              id="btn-add-manual-game"
+              type="button"
+              className="small-btn text-btn"
+              aria-disabled={isMutating || isScanning}
+              style={isMutating || isScanning ? { pointerEvents: 'none' } : undefined}
+              onClick={onAddManualGame}
+            >
+              {isAddingGame ? 'Adding...' : strings.btn_add_game || '+ Add Game'}
+            </button>
+          </div>
+        </div>
+
+        {isScanning && (
+          <div className="library-scan-status" role="status" aria-live="polite">
+            <span className="scan-spinner" aria-hidden="true" />
+            <span>Scanning library directories...</span>
+          </div>
+        )}
+
+        {pathsListSlot !== undefined
+          ? pathsListSlot
+          : renderPathsList
+            ? renderPathsList(pathsListProps)
+            : <DefaultLibraryPathsList {...pathsListProps} />}
+      </div>
+
+      <div className="setting-section">
+        <div className="setting-item">
+          <span className="setting-label">
+            {strings.settings_categories_label || 'Categories'}
+          </span>
+          <button
+            type="button"
+            className="small-btn text-btn"
+            onClick={onStartCreateCategory}
+          >
+            {strings.btn_add_category || '+ Add Category'}
+          </button>
+        </div>
+
+        {isCreatingCategory && (
+          <form className="category-create-form" onSubmit={onCreateCategorySubmit}>
+            <input
+              ref={newCategoryInputRef}
+              type="text"
+              value={newCategoryName}
+              aria-label="New category name"
+              aria-invalid={categoryCreateError ? 'true' : undefined}
+              aria-describedby={categoryCreateError ? 'category-create-error' : undefined}
+              placeholder="Category name"
+              onChange={(e) => onNewCategoryNameChange(e.target.value)}
+            />
+            <button
+              type="submit"
+              className="small-btn"
+              aria-disabled={categoryCreateStatus === 'submitting'}
+              style={
+                categoryCreateStatus === 'submitting'
+                  ? { pointerEvents: 'none', opacity: 0.6 }
+                  : undefined
+              }
+            >
+              {categoryCreateStatus === 'submitting' ? 'Saving...' : 'Create'}
+            </button>
+            <button
+              type="button"
+              className="small-btn secondary-btn"
+              aria-disabled={categoryCreateStatus === 'submitting'}
+              onClick={() => {
+                if (categoryCreateStatus === 'submitting') return;
+                onCancelCreateCategory();
+              }}
+            >
+              Cancel
+            </button>
+            {categoryCreateError && (
+              <p id="category-create-error" className="category-validation-error" role="alert">
+                {categoryCreateError}
+              </p>
+            )}
+          </form>
+        )}
+
+        <div
+          ref={categoryListContainerRef}
+          tabIndex={-1}
+          className="category-list"
+          aria-label="Categories list"
+        >
+          {flattenedCategories.length === 0 ? (
+            <p className="empty-list-hint">
+              {strings.settings_categories_empty || 'No categories created.'}
+            </p>
+          ) : (
+            flattenedCategories.map((category, index) => (
+              <div
+                key={category.id}
+                ref={(el) => {
+                  if (el) {
+                    categoryItemRefs.current.set(category.id, el);
+                  } else {
+                    categoryItemRefs.current.delete(category.id);
+                  }
+                }}
+                tabIndex={-1}
+                className="category-row"
+              >
+                {renamingCategoryId === category.id ? (
+                  <form
+                    className="category-rename-form"
+                    onSubmit={(e) => onRenameCategorySubmit(e, category.id)}
+                  >
+                    <input
+                      type="text"
+                      value={renameCategoryDraft}
+                      aria-label={`Rename category ${category.name}`}
+                      aria-invalid={categoryRenameError ? 'true' : undefined}
+                      aria-describedby={
+                        categoryRenameError ? `category-rename-error-${category.id}` : undefined
+                      }
+                      onChange={(e) => onRenameCategoryDraftChange(e.target.value)}
+                    />
+                    <button
+                      type="submit"
+                      className="small-btn"
+                      aria-disabled={categoryRenameStatus === 'submitting'}
+                      style={
+                        categoryRenameStatus === 'submitting'
+                          ? { pointerEvents: 'none', opacity: 0.6 }
+                          : undefined
+                      }
+                    >
+                      {categoryRenameStatus === 'submitting' ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      className="small-btn secondary-btn"
+                      aria-disabled={categoryRenameStatus === 'submitting'}
+                      onClick={() => {
+                        if (categoryRenameStatus === 'submitting') return;
+                        onCancelRenameCategory();
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    {categoryRenameError && (
+                      <p
+                        id={`category-rename-error-${category.id}`}
+                        className="category-validation-error"
+                        role="alert"
+                      >
+                        {categoryRenameError}
+                      </p>
+                    )}
+                  </form>
+                ) : (
+                  <>
+                    <span className="category-name">{category.trailLabel}</span>
+                    <div className="category-actions">
+                      <button
+                        type="button"
+                        className="small-btn"
+                        aria-label={`Rename ${category.name}`}
+                        onClick={() => onStartRenameCategory(category.id, category.name)}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        ref={(el) => {
+                          if (el) {
+                            deleteTriggerRefs.current.set(category.id, el);
+                          } else {
+                            deleteTriggerRefs.current.delete(category.id);
+                          }
+                        }}
+                        type="button"
+                        className="small-btn danger-btn"
+                        aria-label={`Delete ${category.name}`}
+                        onClick={() => onRequestDeleteCategory(category.id)}
+                      >
+                        Delete
+                      </button>
+
+                      {pendingDeleteCategoryId === category.id && (
+                        <div
+                          className="category-delete-confirm-popover"
+                          role="dialog"
+                          aria-label={`Confirm deletion of ${category.name}`}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onCancelDeleteCategory(category.id);
+                            }
+                          }}
+                        >
+                          <p className="confirm-text">
+                            Delete this category? Games in it will become uncategorized.
+                          </p>
+                          {categoryDeleteError && (
+                            <p className="category-delete-error" role="alert">
+                              {categoryDeleteError}
+                            </p>
+                          )}
+                          <div className="confirm-actions">
+                            <button
+                              type="button"
+                              className="small-btn danger-btn"
+                              aria-disabled={isDeletingCategory}
+                              style={
+                                isDeletingCategory
+                                  ? { pointerEvents: 'none', opacity: 0.6 }
+                                  : undefined
+                              }
+                              onClick={() => onConfirmDeleteCategory(category.id, index)}
+                            >
+                              {isDeletingCategory ? 'Deleting...' : 'Delete'}
+                            </button>
+                            <button
+                              type="button"
+                              className="small-btn secondary-btn"
+                              aria-disabled={isDeletingCategory}
+                              style={
+                                isDeletingCategory
+                                  ? { pointerEvents: 'none', opacity: 0.6 }
+                                  : undefined
+                              }
+                              onClick={() => onCancelDeleteCategory(category.id)}
+                              autoFocus
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

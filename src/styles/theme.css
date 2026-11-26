@@ -27,11 +27,14 @@
 
     /* ELEVATION SCALE TOKENS */
     --zIndex-shelf-tabs: 200;
+    --zIndex-tab-drag: 500;
     --zIndex-dropdown: 1000;
     --zIndex-widget: 1600;
+    --zIndex-card-drag: 1650;
     --zIndex-widget-overlay: 1700;
     --zIndex-notification: 1800;
     --zIndex-modal: 2000;
+    --zIndex-path-row-drag: 2100;
     --zIndex-overlay: 6000;
     --zIndex-tooltip: 10000;
     --zIndex-toast: 10005;

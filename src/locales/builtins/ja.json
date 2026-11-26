@@ -440,6 +440,11 @@
     "error_outside_enclosing_folder": "選択されたファイルはこのフォルダ内にある必要があります。",
     "error_root_level_executable": "実行ファイルをライブラリのルート直下に配置することはできません。",
     "error_unresolvable_executable": "有効なゲーム実行ファイルを解決できませんでした。",
-    "error_degraded_database": "ライブラリデータベースが現在利用できません。"
+    "error_degraded_database": "ライブラリデータベースが現在利用できません。",
+    "reorder_library_path": "ライブラリパスの並び替え",
+    "drag_to_reorder": "ドラッグして並び替え",
+    "toast_favorite_update_failed": "お気に入り状態の更新に失敗しました",
+    "toast_tab_reorder_failed": "フォルダタブの並び替えに失敗しました",
+    "toast_path_reorder_failed": "ライブラリパスの並び替えに失敗しました"
   }
 }

@@ -441,6 +441,11 @@
     "error_outside_enclosing_folder": "所选文件必须位于此文件夹内。",
     "error_root_level_executable": "可执行文件不能直接放在库根目录下。",
     "error_unresolvable_executable": "无法解析有效的游戏可执行文件。",
-    "error_degraded_database": "游戏库数据库当前不可用。"
+    "error_degraded_database": "游戏库数据库当前不可用。",
+    "reorder_library_path": "重新排序库路径",
+    "drag_to_reorder": "拖动以重新排序",
+    "toast_favorite_update_failed": "更新收藏状态失败",
+    "toast_tab_reorder_failed": "重新排序文件夹标签失败",
+    "toast_path_reorder_failed": "重新排序库路径失败"
   }
 }

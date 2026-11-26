@@ -1198,4 +1198,151 @@ describe('LibraryGrid', () => {
 
     expect(document.activeElement).toBe(externalBtn);
   });
+
+  it('persists horizontal tab reorder via reorderLibraryPathsWithSubsumption (including darwin NFD/NFC) and guards stale responses', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      if (this.classList?.contains('shelf-tab') && !this.classList.contains('is-drag-overlay')) {
+        const allTabs = Array.from(
+          document.querySelectorAll('.shelf-tab:not(.is-drag-overlay)')
+        );
+        const idx = allTabs.indexOf(this);
+        const left = (idx >= 0 ? idx : 0) * 120;
+        return {
+          left,
+          right: left + 120,
+          top: 0,
+          bottom: 32,
+          width: 120,
+          height: 32,
+          x: left,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      if (
+        this.classList?.contains('is-drag-overlay') ||
+        this.firstElementChild?.classList?.contains('is-drag-overlay')
+      ) {
+        return {
+          left: 0,
+          right: 120,
+          top: 0,
+          bottom: 32,
+          width: 120,
+          height: 32,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      return {
+        left: 0,
+        right: 1200,
+        top: 0,
+        bottom: 800,
+        width: 1200,
+        height: 800,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+
+    const nfdRootA = '/Users/me/Games/\u304b\u3099'; // が in NFD
+    const nfdChildA = '/Users/me/Games/\u304b\u3099/Sub';
+    const nfdRootB = '/Users/me/VisualNovels/\u306f\u309a'; // ぱ in NFD
+
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState(storage);
+    store.setCurrentLibraryConfig(makeLibraryConfig([nfdRootA, nfdChildA, nfdRootB]));
+    store.setCurrentSort('folder');
+
+    let resolveFirst!: (cfg: any) => void;
+    let resolveSecond!: (cfg: any) => void;
+    const updateLibraryConfig = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          })
+      );
+
+    const api = createMockElectronAPI({ updateLibraryConfig });
+    render(
+      <LibraryStateProvider store={store}>
+        <LibraryGrid electronAPI={api} storage={storage} targetPlatform="darwin" />
+      </LibraryStateProvider>
+    );
+
+    const firstFolderTab = document.getElementById('shelf-tab-folder-0') as HTMLButtonElement;
+    firstFolderTab.focus();
+    await act(async () => {
+      fireEvent.keyDown(firstFolderTab, { key: ' ', code: 'Space' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(firstFolderTab, { key: 'ArrowRight', code: 'ArrowRight' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(firstFolderTab, { key: ' ', code: 'Space' });
+    });
+
+    expect(updateLibraryConfig).toHaveBeenCalledTimes(1);
+    expect(updateLibraryConfig).toHaveBeenNthCalledWith(1, {
+      libraryPaths: [nfdRootB, nfdRootA, nfdChildA],
+    });
+
+    // Trigger a second reorder before the first resolves
+    firstFolderTab.focus();
+    await act(async () => {
+      fireEvent.keyDown(firstFolderTab, { key: ' ', code: 'Space' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(firstFolderTab, { key: 'ArrowLeft', code: 'ArrowLeft' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(firstFolderTab, { key: ' ', code: 'Space' });
+    });
+
+    expect(updateLibraryConfig).toHaveBeenCalledTimes(2);
+
+    const secondConfig = {
+      libraryPath: nfdRootA,
+      libraryPaths: [nfdRootA, nfdChildA, nfdRootB],
+      folderAliases: {},
+    };
+    const staleFirstConfig = {
+      libraryPath: nfdRootB,
+      libraryPaths: [nfdRootB, nfdRootA, nfdChildA],
+      folderAliases: {},
+    };
+
+    // Resolve #2 first, then stale #1
+    await act(async () => {
+      resolveSecond(secondConfig);
+    });
+    expect(store.getSnapshot().currentLibraryConfig?.libraryPaths).toEqual([
+      nfdRootA,
+      nfdChildA,
+      nfdRootB,
+    ]);
+
+    await act(async () => {
+      resolveFirst(staleFirstConfig);
+    });
+    // Stale #1 response must be ignored
+    expect(store.getSnapshot().currentLibraryConfig?.libraryPaths).toEqual([
+      nfdRootA,
+      nfdChildA,
+      nfdRootB,
+    ]);
+  });
 });

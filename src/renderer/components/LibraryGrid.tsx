@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sanitizeUserPaths } from '../../shared/path-sanitizer';
-import type { PlatformInput } from '../../shared/path-subsumption';
+import {
+  reorderLibraryPathsWithSubsumption,
+  type PlatformInput,
+} from '../../shared/path-subsumption';
 import type { ElectronAPI } from '../../shared/types/ipc';
 import {
   useActiveCategoryId,
@@ -202,6 +205,7 @@ export function LibraryGrid({
   const cardRefCallbacksRef = useRef(new Map<string, (el: HTMLDivElement | null) => void>());
   const activeToggledKeyRef = useRef<string | null>(null);
   const pendingFocusKeyRef = useRef<string | null>(null);
+  const reorderSeqRef = useRef(0);
   const localInFlightRef = useRef<Set<string>>(new Set());
   const inFlightRef = inFlightFavoriteKeysRef ?? localInFlightRef;
 
@@ -717,6 +721,27 @@ export function LibraryGrid({
     [resolvedStorage]
   );
 
+  const handleTabReorder = useCallback(
+    async (_oldOrder: readonly string[], newOrder: readonly string[]) => {
+      const seq = ++reorderSeqRef.current;
+      const nextLibraryPaths = reorderLibraryPathsWithSubsumption(
+        [...rootPaths],
+        [...newOrder],
+        targetPlatform
+      );
+      const updatedConfig = await api?.updateLibraryConfig?.({ libraryPaths: nextLibraryPaths });
+      const latestConfig = store.getSnapshot().currentLibraryConfig;
+      if (seq === reorderSeqRef.current) {
+        const nextConfig =
+          updatedConfig ?? (latestConfig ? { ...latestConfig, libraryPaths: nextLibraryPaths } : null);
+        if (nextConfig) {
+          dispatch.setCurrentLibraryConfig(nextConfig);
+        }
+      }
+    },
+    [rootPaths, targetPlatform, api, store, dispatch]
+  );
+
   const activeCategoryName = useMemo(
     () => (activeCategoryId ? findCategoryNameById(categoryTree, activeCategoryId) : undefined),
     [categoryTree, activeCategoryId]
@@ -776,6 +801,8 @@ export function LibraryGrid({
             favoritesCount={favoritesCount}
             targetPlatform={targetPlatform}
             onTabSelect={handleTabSelect}
+            onTabReorder={handleTabReorder}
+            onShowToast={onShowToast}
           />
           <FolderAccordion
             projection={projection}

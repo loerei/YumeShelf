@@ -47,7 +47,8 @@ export function normalizePathForPlatform(p: string, targetPlatform?: PlatformInp
   }
 
   const resolved = resolvePlatform(targetPlatform);
-  let cleaned = p.trim().replace(/\\/g, '/');
+  const input = resolved === 'darwin' ? p.normalize('NFC') : p;
+  let cleaned = input.trim().replace(/\\/g, '/');
 
   if (/^[A-Za-z]:$/.test(cleaned)) {
     cleaned += '/';

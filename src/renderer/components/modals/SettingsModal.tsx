@@ -1126,7 +1126,7 @@ export function SettingsModal({
               <div className="setting-label-with-info">
                 <label htmlFor="auto-allow-large-saves-select">
                   {strings.setting_auto_allow_large_saves_label ||
-                    'Auto-Allow Large Saves (>64 MB)'}
+                    'Always Allow Large Saves (>64 MB)'}
                 </label>
                 <span className="setting-info-wrap">
                   <button

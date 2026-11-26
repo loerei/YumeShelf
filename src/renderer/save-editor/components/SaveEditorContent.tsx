@@ -488,7 +488,7 @@ export function SaveEditorContent({
               />
               <span>
                 {strings.save_editor_large_file_auto_allow ||
-                  'Auto-allow saves over 64 MB from now on'}
+                  'Always allow saves over 64 MB from now on'}
               </span>
             </label>
             <span className="save-editor-info-wrap">

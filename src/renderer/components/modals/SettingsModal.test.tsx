@@ -396,7 +396,7 @@ describe('SettingsModal', () => {
       const electronAPI = createMockElectronAPI();
       renderSettingsModal({ electronAPI });
 
-      const select = screen.getByLabelText('Auto-Allow Large Saves (>64 MB)') as HTMLSelectElement;
+      const select = screen.getByLabelText('Always Allow Large Saves (>64 MB)') as HTMLSelectElement;
       expect(select.value).toBe('off');
       expect(screen.getByRole('tooltip').textContent).toMatch(/longer to open|use more memory/i);
 

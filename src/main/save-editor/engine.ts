@@ -1,7 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { YumeEngine, normalizeSaveStrategy, type SaveCodecOptions } from '@yumeshelf/engine';
+import {
+  DEFAULT_MAX_DECOMPRESSED_BYTES,
+  YumeEngine,
+  normalizeSaveStrategy,
+  type SaveCodecOptions,
+} from '@yumeshelf/engine';
 import { sanitizeUserPaths } from '../../shared/path-sanitizer';
+import { formatSaveTooLargeError } from '../../shared/save-size-limit';
 import SaveMappingManager from './mapping-manager';
 import { resilientRename, sweepOrphanedSaveTmpFiles } from './fs-utils';
 
@@ -50,11 +56,19 @@ export interface SaveDataEngineConfig {
   fsPromises?: typeof fs | typeof fs.promises;
 }
 
-function resolveMaxBufferSizeBytes(raw?: unknown): number {
-  const DEFAULT_MAX_BYTES = 64 * 1024 * 1024;
+const BACKUP_SUBDIR_NAME = '.yumeshelf-backups';
+
+function getBackupPath(saveDir: string, fileName: string): string {
+  return path.join(saveDir, BACKUP_SUBDIR_NAME, `${fileName}.bak`);
+}
+
+function resolveMaxBufferSizeBytes(raw?: unknown, allowLargeSaves?: boolean): number | undefined {
+  if (allowLargeSaves === true || raw === Number.POSITIVE_INFINITY) {
+    return undefined;
+  }
   return typeof raw === 'number' && Number.isFinite(raw) && raw > 0
     ? Math.trunc(raw)
-    : DEFAULT_MAX_BYTES;
+    : DEFAULT_MAX_DECOMPRESSED_BYTES;
 }
 
 export class SaveDataEngine {
@@ -195,9 +209,9 @@ export class SaveDataEngine {
         throw new Error(`Target save file is empty (0 bytes): ${fileName}`);
       }
 
-      const maxBytes = resolveMaxBufferSizeBytes(options?.maxBufferSizeBytes);
-      if (stat.size > maxBytes) {
-        throw new Error(`Save file exceeds maximum allowed size (${stat.size} > ${maxBytes})`);
+      const maxBytes = resolveMaxBufferSizeBytes(options?.maxBufferSizeBytes, options?.allowLargeSaves);
+      if (maxBytes !== undefined && stat.size > maxBytes) {
+        throw new Error(formatSaveTooLargeError(stat.size, maxBytes));
       }
 
       const rawData = await fsImpl.readFile(savePath);
@@ -299,9 +313,9 @@ export class SaveDataEngine {
         if (!stat.isFile()) {
           throw new Error(`Target save path is not a regular file: ${fileName}`);
         }
-        const maxBytes = resolveMaxBufferSizeBytes(options?.maxBufferSizeBytes);
-        if (stat.size > maxBytes) {
-          throw new Error(`Save file exceeds maximum allowed size (${stat.size} > ${maxBytes})`);
+        const maxBytes = resolveMaxBufferSizeBytes(options?.maxBufferSizeBytes, options?.allowLargeSaves);
+        if (maxBytes !== undefined && stat.size > maxBytes) {
+          throw new Error(formatSaveTooLargeError(stat.size, maxBytes));
         }
         const rawBuffer = await fsImpl.readFile(savePath);
         if (rawBuffer.length === 0) {
@@ -364,11 +378,15 @@ export class SaveDataEngine {
           }
         }
 
-        // Backup creation before atomic replacement:
+        // Backup creation before atomic replacement (stored inside .yumeshelf-backups/ subfolder):
         if (options?.createBackup !== false && (await this.exists(savePath, fsImpl))) {
-          await fsImpl.copyFile(savePath, `${savePath}.bak`).catch((err: any) => {
+          const bakPath = getBackupPath(paths.saveDir, fileName);
+          try {
+            await fsImpl.mkdir(path.dirname(bakPath), { recursive: true });
+            await fsImpl.copyFile(savePath, bakPath);
+          } catch (err: any) {
             console.warn('[SaveDataEngine] Failed to create backup file:', sanitizeUserPaths(err?.message || String(err)));
-          });
+          }
         }
 
         await resilientRename(tempPath, savePath, 5, 50, { promises: fsImpl } as unknown as typeof fs);
@@ -412,6 +430,30 @@ export class SaveDataEngine {
     const normNew = this.normalizeMutexKey(newPath);
     const isCaseOnlyRename = normOld === normNew;
 
+    const oldBak = getBackupPath(paths.saveDir, oldFileName);
+    const newBak = getBackupPath(paths.saveDir, trimmedNewName);
+    const legacyOldBak = `${oldPath}.bak`;
+    const legacyNewBak = `${newPath}.bak`;
+
+    const migrateBackup = async () => {
+      const sourceBak = (await this.exists(oldBak, fsImpl))
+        ? oldBak
+        : (await this.exists(legacyOldBak, fsImpl))
+          ? legacyOldBak
+          : null;
+      if (!sourceBak) return;
+      try {
+        await fsImpl.mkdir(path.dirname(newBak), { recursive: true });
+        await resilientRename(sourceBak, newBak, 5, 50, { promises: fsImpl } as unknown as typeof fs);
+      } catch (err: any) {
+        console.warn('[SaveDataEngine] Failed to migrate backup file:', {
+          source: sanitizeUserPaths(sourceBak),
+          dest: sanitizeUserPaths(newBak),
+          error: sanitizeUserPaths(err?.message || String(err)),
+        });
+      }
+    };
+
     if (isCaseOnlyRename) {
       // Single mutex lock acquisition for case-only rename to prevent self-deadlock
       return this.queueWrite(oldPath, async () => {
@@ -419,11 +461,7 @@ export class SaveDataEngine {
           throw new Error(`Original save file does not exist: ${oldFileName}`);
         }
         await resilientRename(oldPath, newPath, 5, 50, { promises: fsImpl } as unknown as typeof fs);
-        const oldBak = `${oldPath}.bak`;
-        const newBak = `${newPath}.bak`;
-        if (await this.exists(oldBak, fsImpl)) {
-          await resilientRename(oldBak, newBak, 5, 50, { promises: fsImpl } as unknown as typeof fs).catch(() => {});
-        }
+        await migrateBackup();
         return { ok: true, renamed: true, fileName: trimmedNewName };
       });
     }
@@ -439,30 +477,27 @@ export class SaveDataEngine {
           throw new Error(`Original save file does not exist: ${oldFileName}`);
         }
         const targetExists = await this.exists(newPath, fsImpl);
-        if (targetExists) {
-          if (!overwrite) {
-            return {
-              ok: false,
-              error: 'FILE_EXISTS',
-              message: `Target save file already exists: ${trimmedNewName}`,
-            };
-          }
-          const oldBakExists = await this.exists(`${oldPath}.bak`, fsImpl);
-          const newBakExists = await this.exists(`${newPath}.bak`, fsImpl);
-          if (!oldBakExists && newBakExists) {
-            await fsImpl.unlink(`${newPath}.bak`).catch(() => {});
-          }
+        if (targetExists && !overwrite) {
+          return {
+            ok: false,
+            error: 'FILE_EXISTS',
+            message: `Target save file already exists: ${trimmedNewName}`,
+          };
         }
         await resilientRename(oldPath, newPath, 5, 50, { promises: fsImpl } as unknown as typeof fs);
-        if (await this.exists(`${oldPath}.bak`, fsImpl)) {
-          await resilientRename(
-            `${oldPath}.bak`,
-            `${newPath}.bak`,
-            5,
-            50,
-            { promises: fsImpl } as unknown as typeof fs
-          ).catch(() => {});
+        if (targetExists && overwrite) {
+          const hasSourceBak =
+            (await this.exists(oldBak, fsImpl)) || (await this.exists(legacyOldBak, fsImpl));
+          if (!hasSourceBak) {
+            if (await this.exists(newBak, fsImpl)) {
+              await fsImpl.unlink(newBak).catch(() => {});
+            }
+          }
+          if (await this.exists(legacyNewBak, fsImpl)) {
+            await fsImpl.unlink(legacyNewBak).catch(() => {});
+          }
         }
+        await migrateBackup();
         return { ok: true, renamed: true, fileName: trimmedNewName };
       })
     );
@@ -480,13 +515,14 @@ export class SaveDataEngine {
         await fsImpl.unlink(savePath);
       }
 
-      const bakPath = `${savePath}.bak`;
-      try {
-        if (await this.exists(bakPath, fsImpl)) {
-          await fsImpl.unlink(bakPath);
+      for (const bakPath of [getBackupPath(paths.saveDir, fileName), `${savePath}.bak`]) {
+        try {
+          if (await this.exists(bakPath, fsImpl)) {
+            await fsImpl.unlink(bakPath);
+          }
+        } catch (err: any) {
+          console.warn('[SaveDataEngine] Failed to unlink backup file:', sanitizeUserPaths(err?.message || String(err)));
         }
-      } catch (err: any) {
-        console.warn('[SaveDataEngine] Failed to unlink backup file:', sanitizeUserPaths(err?.message || String(err)));
       }
 
       return { ok: true };

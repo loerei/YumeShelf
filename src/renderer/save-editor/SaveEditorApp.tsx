@@ -41,6 +41,7 @@ export function SaveEditorShell({
   const [retryRequest, setRetryRequest] = useState<{
     fileName: string;
     requestId: number;
+    allowLargeSaves?: boolean;
   } | null>(null);
 
   useFindShortcut(
@@ -112,13 +113,12 @@ export function SaveEditorShell({
     };
   }, [store, dispatch]);
 
-  const handleRetryLoad = (fileName: string) => {
-    setRetryRequest({ fileName, requestId: ++retryCounterRef.current });
-  };
-
-  const handleChangeFile = () => {
-    dispatch.setFileIdle();
-    sidebarListFocusRef.current?.focus();
+  const handleRetryLoad = (fileName: string, options?: { allowLargeSaves?: boolean }) => {
+    setRetryRequest({
+      fileName,
+      requestId: ++retryCounterRef.current,
+      ...(options?.allowLargeSaves ? { allowLargeSaves: true } : {}),
+    });
   };
 
   return (
@@ -149,7 +149,6 @@ export function SaveEditorShell({
             </div>
             <SaveEditorContent
               onRetryLoad={handleRetryLoad}
-              onChangeFile={handleChangeFile}
             />
           </main>
         </div>

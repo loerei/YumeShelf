@@ -395,6 +395,126 @@
     filter: brightness(1.1);
 }
 
+.save-editor-large-file-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+    padding: 32px 24px;
+    max-width: 440px;
+    margin: 0 auto;
+}
+
+.save-editor-large-file-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #ef4444;
+}
+
+.save-editor-large-file-desc {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--text-muted, #9ca3af);
+}
+
+.save-editor-large-file-opt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--text-main, #e5e7eb);
+}
+
+.save-editor-large-file-opt label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.save-editor-large-file-actions {
+    margin-top: 4px;
+}
+
+.save-editor-large-file-actions button.primary-btn {
+    padding: 8px 18px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    background: var(--accent, #0078d4);
+    color: #fff;
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.save-editor-large-file-actions button.primary-btn:hover {
+    filter: brightness(1.1);
+}
+
+.save-editor-large-file-actions button[aria-disabled="true"] {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.save-editor-info-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+button.save-editor-info-btn {
+    width: auto;
+    padding: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: var(--text-muted, #9ca3af);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+button.save-editor-info-btn:hover,
+button.save-editor-info-btn:focus-visible {
+    color: var(--text-main, #ffffff);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.save-editor-info-tooltip {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 6px);
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 260px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--bg-panel, #1e1e24);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
+    color: var(--text-main, #f3f4f6);
+    font-size: 0.74rem;
+    line-height: 1.35;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 20;
+}
+
+.save-editor-info-wrap:hover .save-editor-info-tooltip,
+.save-editor-info-wrap:focus-within .save-editor-info-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
 .empty-state.warning-state {
     display: flex;
     flex-direction: column;

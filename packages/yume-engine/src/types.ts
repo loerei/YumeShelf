@@ -202,6 +202,7 @@ export interface SaveSchemaOptions {
   metadata?: SaveMetadataDto;
   logger?: EngineLogger;
   maxBufferSizeBytes?: number;
+  allowLargeSaves?: boolean;
 }
 
 export interface SaveCodecOptions {
@@ -216,6 +217,7 @@ export interface SaveCodecOptions {
   metadata?: SaveMetadataDto;
   logger?: EngineLogger; // BYO-Logger seam defaulting to zero-allocation no-op
   maxBufferSizeBytes?: number;
+  allowLargeSaves?: boolean;
   savePath?: string;
   originalBuffer?: Buffer;
   wrapInZip?: boolean;

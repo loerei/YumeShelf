@@ -131,7 +131,7 @@ export interface ElectronAPI {
     loadSaveData: (data: { gameKey: string; fileName: string; earlyExit?: boolean; stalenessTimeoutMs?: number; options?: SaveSchemaOptions }) => Promise<NormalizedSaveDto>;
     cancelLoadSaveData: (params: { gameKey: string; fileName: string }) => Promise<{ cancelled: boolean }>;
     onSaveLoadProgress: (callback: (payload: { gameKey: string, fileName: string, percent: number, current: number, total: number, unit: string, pos?: number, totalBytes?: number }) => void) => () => void;
-    writeSaveData: (data: { gameKey: string; fileName: string; updates: SaveUpdatesPayload; options?: SaveCodecOptions & { isUpdates?: boolean; createBackup?: boolean; preserveBackup?: boolean; maxBackups?: number; maxBufferSizeBytes?: number } }) => Promise<{ ok: boolean; error?: string; code?: string }>;
+    writeSaveData: (data: { gameKey: string; fileName: string; updates: SaveUpdatesPayload; options?: SaveCodecOptions & { isUpdates?: boolean; createBackup?: boolean; preserveBackup?: boolean; maxBackups?: number; maxBufferSizeBytes?: number; allowLargeSaves?: boolean } }) => Promise<{ ok: boolean; error?: string; code?: string }>;
     renameSaveFile: (data: { gameKey: string, oldFileName: string, newFileName: string, overwrite?: boolean }) => Promise<{ ok: boolean, error?: string, message?: string, renamed?: boolean, fileName?: string }>;
     deleteSaveFile: (data: { gameKey: string, fileName: string }) => Promise<{ ok: boolean }>;
     openSaveEditorWindow: (gameKey: string) => Promise<void>;

@@ -47,6 +47,7 @@ export interface LibraryConfig extends LibraryPathConfig {
   exposeBetaOptions?: boolean;
   titleDisplayMode?: 'metadata' | 'legacy_folder';
   displayProductCodes?: boolean;
+  autoAllowLargeSaves?: boolean;
   preferredLocale?: string;
   folderAliases?: Record<string, string>;
 }

@@ -1,15 +1,19 @@
-import { SaveCodecError } from './errors.js';
+import {
+  SaveCodecError,
+  formatSaveTooLargeCodecMessage,
+  resolveMaxDecompressedBytes,
+} from './errors.js';
 import { LZString } from './lz-string.js';
 import { safeJsonParse, sanitizeDeep } from './sanitize.js';
-import { DEFAULT_MAX_DECOMPRESSED_BYTES, type SaveCodecContext } from '../types.js';
+import type { SaveCodecContext } from '../types.js';
 import { safeLog } from './schema/index.js';
 
 export class RpgMakerMvSaveCodec {
   static decode(rawData: Buffer, context?: SaveCodecContext): any {
-    const maxBytes = context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
-    if (rawData && rawData.length > maxBytes) {
+    const maxBytes = resolveMaxDecompressedBytes(context?.options);
+    if (maxBytes !== undefined && rawData && rawData.length > maxBytes) {
       throw new SaveCodecError(
-        `RPG Maker MV save exceeds maximum allowed size (${maxBytes} bytes)`,
+        formatSaveTooLargeCodecMessage(rawData.length, maxBytes, 'RPG Maker MV save'),
         'DECOMPRESSION_FAILED'
       );
     }
@@ -21,9 +25,10 @@ export class RpgMakerMvSaveCodec {
     try {
       const decompressed = LZString.decompressFromBase64(str);
       if (decompressed && typeof decompressed === 'string') {
-        if (Buffer.byteLength(decompressed, 'utf8') > maxBytes) {
+        const byteLen = Buffer.byteLength(decompressed, 'utf8');
+        if (maxBytes !== undefined && byteLen > maxBytes) {
           throw new SaveCodecError(
-            `Decompressed RPG Maker MV save exceeds maximum allowed payload size (${maxBytes} bytes)`,
+            formatSaveTooLargeCodecMessage(byteLen, maxBytes, 'Decompressed RPG Maker MV save'),
             'DECOMPRESSION_FAILED'
           );
         }

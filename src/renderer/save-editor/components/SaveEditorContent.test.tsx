@@ -435,13 +435,11 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
   it('handles idle, loading, and error states cleanly while calling useActiveTabFields unconditionally across transitions', () => {
     const store = createSaveEditorStore('game-1');
     const onRetryLoad = vi.fn();
-    const onChangeFile = vi.fn();
 
     const { container } = render(
       <SaveEditorStoreProvider store={store}>
         <SaveEditorContent
           onRetryLoad={onRetryLoad}
-          onChangeFile={onChangeFile}
         />
       </SaveEditorStoreProvider>
     );
@@ -473,9 +471,7 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetryLoad).toHaveBeenCalledTimes(1);
     expect(onRetryLoad).toHaveBeenCalledWith('slot1.sav');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Choose Another File' }));
-    expect(onChangeFile).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Choose Another File' })).toBeNull();
 
     // Transitioning to loaded succeeds without React hook-order violations
     act(() => {
@@ -492,7 +488,53 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
         ])
       );
     });
-    expect(screen.getByRole('textbox', { name: 'Gold' })).toHaveValue('500');
+      expect(screen.getByRole('textbox', { name: 'Gold' })).toHaveValue('500');
+    });
+
+    it('renders >64 MB recovery UI centered in content without error-box, with actual file size, info tooltip, auto-allow checkbox, and Proceed anyway bypass', async () => {
+      const store = createSaveEditorStore('game-1');
+      const onRetryLoad = vi.fn();
+      const updateLibraryConfig = vi.fn().mockResolvedValue({ autoAllowLargeSaves: true });
+      const mockApi = { updateLibraryConfig } as any;
+
+      render(
+        <SaveEditorStoreProvider store={store} electronAPI={mockApi}>
+          <SaveEditorContent
+            onRetryLoad={onRetryLoad}
+          />
+        </SaveEditorStoreProvider>
+      );
+
+      const bytes78Mb = Math.round(78.4 * 1024 * 1024);
+      act(() => {
+        store.setFileError(
+          'big.rvdata2',
+          `SAVE_TOO_LARGE:${bytes78Mb}:${64 * 1024 * 1024}: Save file exceeds maximum allowed size`
+        );
+      });
+
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveClass('save-editor-large-file-state');
+      expect(alert).not.toHaveClass('save-editor-error-box');
+      expect(alert.textContent).toContain('78.4 MB');
+      expect(screen.queryByRole('button', { name: 'Choose Another File' })).toBeNull();
+      const tooltip = screen.getByRole('tooltip');
+      expect(tooltip.textContent).toMatch(/longer to open|use more memory/i);
+
+      // 1. Proceed without auto-allow checkbox: skips updateLibraryConfig, triggers one-time allowLargeSaves bypass
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Proceed anyway' }));
+      });
+      expect(updateLibraryConfig).not.toHaveBeenCalled();
+      expect(onRetryLoad).toHaveBeenCalledWith('big.rvdata2', { allowLargeSaves: true });
+
+      // 2. Check auto-allow checkbox and click Proceed anyway: persists config then retries with allowLargeSaves
+      fireEvent.click(screen.getByRole('checkbox'));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Proceed anyway' }));
+      });
+      expect(updateLibraryConfig).toHaveBeenCalledWith({ autoAllowLargeSaves: true });
+      expect(onRetryLoad).toHaveBeenCalledTimes(2);
   });
 
   it('virtualizes 10,000+ fields deterministically in HappyDOM via initialRect with calibrated estimateSize (48 section / 64 boolean / 104 number row) and getItemKey', () => {

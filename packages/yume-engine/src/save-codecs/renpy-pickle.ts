@@ -2,7 +2,12 @@ import * as zlib from 'node:zlib';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { SaveCodecError } from './errors.js';
+import {
+  SaveCodecError,
+  formatSaveTooLargeCodecMessage,
+  isZlibBufferLimitError,
+  resolveMaxDecompressedBytes,
+} from './errors.js';
 import { createSafeDict, isDangerousKey, sanitizeDeep } from './sanitize.js';
 import {
   StalenessTracker,
@@ -1888,8 +1893,14 @@ export interface ZipEntry {
 export class ZipContainer {
   static extractEntries(
     buf: Buffer,
-    maxDecompressedBytes = DEFAULT_MAX_DECOMPRESSED_BYTES
+    maxDecompressedBytes: number | undefined = DEFAULT_MAX_DECOMPRESSED_BYTES
   ): ZipEntry[] {
+    const hasMaxCap =
+      typeof maxDecompressedBytes === 'number' &&
+      Number.isFinite(maxDecompressedBytes) &&
+      maxDecompressedBytes > 0;
+    const capBytes = hasMaxCap ? Math.trunc(maxDecompressedBytes) : undefined;
+    const inflateOpts = capBytes !== undefined ? { maxOutputLength: capBytes } : undefined;
     const entries: ZipEntry[] = [];
     if (!buf || buf.length < 22) {
       throw new SaveCodecError('Buffer too small to be a ZIP container', 'PARSE_FAILED');
@@ -1929,14 +1940,25 @@ export class ZipContainer {
 
           let uncompressedData: Buffer;
           if (compressionMethod === 8) {
-            uncompressedData =
-              compressedSize > 0
-                ? zlib.inflateRawSync(compressedData, { maxOutputLength: maxDecompressedBytes })
-                : Buffer.alloc(0);
+            try {
+              uncompressedData =
+                compressedSize > 0
+                  ? zlib.inflateRawSync(compressedData, inflateOpts)
+                  : Buffer.alloc(0);
+            } catch (zErr: any) {
+              if (capBytes !== undefined && isZlibBufferLimitError(zErr)) {
+                throw new SaveCodecError(
+                  formatSaveTooLargeCodecMessage(null, capBytes, `ZIP entry ${fileName}`),
+                  'DECOMPRESSION_FAILED',
+                  { cause: zErr }
+                );
+              }
+              throw zErr;
+            }
           } else if (compressionMethod === 0) {
-            if (compressedData.length > maxDecompressedBytes) {
+            if (capBytes !== undefined && compressedData.length > capBytes) {
               throw new SaveCodecError(
-                `ZIP entry ${fileName} exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
+                formatSaveTooLargeCodecMessage(compressedData.length, capBytes, `ZIP entry ${fileName}`),
                 'DECOMPRESSION_FAILED'
               );
             }
@@ -1949,9 +1971,9 @@ export class ZipContainer {
           }
 
           totalDecompressedBytes += uncompressedData.length;
-          if (totalDecompressedBytes > maxDecompressedBytes) {
+          if (capBytes !== undefined && totalDecompressedBytes > capBytes) {
             throw new SaveCodecError(
-              `Decompressed ZIP container exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
+              formatSaveTooLargeCodecMessage(totalDecompressedBytes, capBytes, 'Decompressed ZIP container'),
               'DECOMPRESSION_FAILED'
             );
           }
@@ -1979,14 +2001,25 @@ export class ZipContainer {
 
         let uncompressedData: Buffer;
         if (compressionMethod === 8) {
-          uncompressedData =
-            compressedSize > 0
-              ? zlib.inflateRawSync(compressedData, { maxOutputLength: maxDecompressedBytes })
-              : Buffer.alloc(0);
+          try {
+            uncompressedData =
+              compressedSize > 0
+                ? zlib.inflateRawSync(compressedData, inflateOpts)
+                : Buffer.alloc(0);
+          } catch (zErr: any) {
+            if (capBytes !== undefined && isZlibBufferLimitError(zErr)) {
+              throw new SaveCodecError(
+                formatSaveTooLargeCodecMessage(null, capBytes, `ZIP entry ${fileName}`),
+                'DECOMPRESSION_FAILED',
+                { cause: zErr }
+              );
+            }
+            throw zErr;
+          }
         } else if (compressionMethod === 0) {
-          if (compressedData.length > maxDecompressedBytes) {
+          if (capBytes !== undefined && compressedData.length > capBytes) {
             throw new SaveCodecError(
-              `ZIP entry ${fileName} exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
+              formatSaveTooLargeCodecMessage(compressedData.length, capBytes, `ZIP entry ${fileName}`),
               'DECOMPRESSION_FAILED'
             );
           }
@@ -1999,9 +2032,9 @@ export class ZipContainer {
         }
 
         totalDecompressedBytes += uncompressedData.length;
-        if (totalDecompressedBytes > maxDecompressedBytes) {
+        if (capBytes !== undefined && totalDecompressedBytes > capBytes) {
           throw new SaveCodecError(
-            `Decompressed ZIP container exceeds maximum allowed payload size (${maxDecompressedBytes} bytes)`,
+            formatSaveTooLargeCodecMessage(totalDecompressedBytes, capBytes, 'Decompressed ZIP container'),
             'DECOMPRESSION_FAILED'
           );
         }
@@ -2155,8 +2188,7 @@ export class RenpyPickleSaveCodec {
 
     let pickleBuf: Buffer;
 
-    const maxDecompressedBytes =
-      context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+    const maxDecompressedBytes = resolveMaxDecompressedBytes(context?.options);
 
     // Check if buffer is a ZIP container
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
@@ -2303,8 +2335,7 @@ export class RenpyPickleSaveCodec {
     }
 
     let pickleBuf: Buffer;
-    const maxDecompressedBytes =
-      context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
+    const maxDecompressedBytes = resolveMaxDecompressedBytes(context?.options);
     if (rawData.length >= 4 && rawData.readUInt32LE(0) === 0x04034b50) {
       try {
         const entries = ZipContainer.extractEntries(rawData, maxDecompressedBytes);

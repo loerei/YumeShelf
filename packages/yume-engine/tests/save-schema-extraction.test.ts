@@ -598,7 +598,7 @@ describe('Headless Save Schema Extraction & DTO Contracts (Ticket 08.1.1)', () =
         }
       );
 
-      // Verify decompression ceiling enforcement (using maxBufferSizeBytes override to avoid allocating 64MB in unit test)
+      // Verify default 64MB decompression ceiling and explicit maxBufferSizeBytes enforcement
       assert.equal(DEFAULT_MAX_DECOMPRESSED_BYTES, 64 * 1024 * 1024);
       const largePayload = JSON.stringify({ data: 'x'.repeat(2048) });
       const compressedMz = zlib.deflateSync(Buffer.from(largePayload, 'utf8'));

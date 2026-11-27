@@ -8,6 +8,7 @@ const PERMISSIBLE_CONFIG_KEYS = new Set<string>([
     'telemetryEnabled',
     'titleDisplayMode',
     'displayProductCodes',
+    'autoAllowLargeSaves',
     'preferredLocale',
     'maxDepth',
     'autoLaunch',

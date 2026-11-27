@@ -1,14 +1,18 @@
-import { SaveCodecError } from './errors.js';
+import {
+  SaveCodecError,
+  formatSaveTooLargeCodecMessage,
+  resolveMaxDecompressedBytes,
+} from './errors.js';
 import { safeJsonParse, sanitizeDeep } from './sanitize.js';
-import { DEFAULT_MAX_DECOMPRESSED_BYTES, type SaveCodecContext } from '../types.js';
+import type { SaveCodecContext } from '../types.js';
 import { safeLog } from './schema/index.js';
 
 export class PureJsonSaveCodec {
   static decode(rawData: Buffer, context?: SaveCodecContext): any {
-    const maxBytes = context?.options?.maxBufferSizeBytes ?? DEFAULT_MAX_DECOMPRESSED_BYTES;
-    if (rawData && rawData.length > maxBytes) {
+    const maxBytes = resolveMaxDecompressedBytes(context?.options);
+    if (maxBytes !== undefined && rawData && rawData.length > maxBytes) {
       throw new SaveCodecError(
-        `Pure JSON save payload exceeds maximum allowed size (${maxBytes} bytes)`,
+        formatSaveTooLargeCodecMessage(rawData.length, maxBytes, 'Pure JSON save payload'),
         'DECOMPRESSION_FAILED'
       );
     }

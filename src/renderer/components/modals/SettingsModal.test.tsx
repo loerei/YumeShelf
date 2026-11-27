@@ -391,6 +391,20 @@ describe('SettingsModal', () => {
         expect(electronAPI.updateLibraryConfig).toHaveBeenCalledWith({ maxDepth: 9 });
       });
     });
+
+    it('defaults Auto-Allow Large Saves (>64 MB) to Off, exposes info tooltip, and persists toggle', async () => {
+      const electronAPI = createMockElectronAPI();
+      renderSettingsModal({ electronAPI });
+
+      const select = screen.getByLabelText('Always Allow Large Saves (>64 MB)') as HTMLSelectElement;
+      expect(select.value).toBe('off');
+      expect(screen.getByRole('tooltip').textContent).toMatch(/longer to open|use more memory/i);
+
+      fireEvent.change(select, { target: { value: 'on' } });
+      await waitFor(() => {
+        expect(electronAPI.updateLibraryConfig).toHaveBeenCalledWith({ autoAllowLargeSaves: true });
+      });
+    });
   });
 
   describe('Library paths & rescan watchdog', () => {

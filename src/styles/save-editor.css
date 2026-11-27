@@ -487,34 +487,6 @@ button.save-editor-info-btn:focus-visible {
     background: rgba(255, 255, 255, 0.08);
 }
 
-.save-editor-info-tooltip {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 6px);
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: 260px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: var(--bg-panel, #1e1e24);
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
-    color: var(--text-main, #f3f4f6);
-    font-size: 0.74rem;
-    line-height: 1.35;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    z-index: 20;
-}
-
-.save-editor-info-wrap:hover .save-editor-info-tooltip,
-.save-editor-info-wrap:focus-within .save-editor-info-tooltip {
-    opacity: 1;
-    visibility: visible;
-}
-
 .empty-state.warning-state {
     display: flex;
     flex-direction: column;

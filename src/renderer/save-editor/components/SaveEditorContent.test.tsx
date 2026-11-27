@@ -518,8 +518,8 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
       expect(alert).not.toHaveClass('save-editor-error-box');
       expect(alert.textContent).toContain('78.4 MB');
       expect(screen.queryByRole('button', { name: 'Choose Another File' })).toBeNull();
-      const tooltip = screen.getByRole('tooltip');
-      expect(tooltip.textContent).toMatch(/longer to open|use more memory/i);
+      const infoBtn = screen.getByRole('button', { name: /longer to open|use more memory/i });
+      expect(infoBtn.getAttribute('data-tooltip')).toMatch(/longer to open|use more memory/i);
 
       // 1. Proceed without auto-allow checkbox: skips updateLibraryConfig, triggers one-time allowLargeSaves bypass
       await act(async () => {

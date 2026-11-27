@@ -98,35 +98,6 @@
     background: rgba(255, 255, 255, 0.08);
 }
 
-.setting-info-tooltip {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 6px);
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: 260px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: var(--bg-panel, #1e1e24);
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
-    color: var(--text-main);
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 1.35;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    z-index: 20;
-}
-
-.setting-info-wrap:hover .setting-info-tooltip,
-.setting-info-wrap:focus-within .setting-info-tooltip {
-    opacity: 1;
-    visibility: visible;
-}
-
 .setting-control-zone {
     width: 390px;
     display: flex;

@@ -1,7 +1,6 @@
 import React, {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -70,7 +69,6 @@ export function SaveEditorContent({
 
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const columnCount = computeGridColumnCount(containerWidth);
-  const largeSaveTipId = useId();
   const [autoAllowLargeSavesChecked, setAutoAllowLargeSavesChecked] = useState(false);
   const [isProceedingLargeSave, setIsProceedingLargeSave] = useState(false);
   const [expandingTabs, setExpandingTabs] = useState<ReadonlySet<string>>(() => new Set());
@@ -489,21 +487,17 @@ export function SaveEditorContent({
                   'Always allow saves over 64 MB from now on'}
               </span>
             </label>
-            <span className="save-editor-info-wrap">
-              <button
-                type="button"
-                className="save-editor-info-btn"
-                aria-label={warningInfoText}
-                aria-describedby={largeSaveTipId}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                  <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
-                </svg>
-              </button>
-              <span id={largeSaveTipId} role="tooltip" className="save-editor-info-tooltip">
-                {warningInfoText}
-              </span>
-            </span>
+            <button
+              type="button"
+              className="save-editor-info-btn"
+              aria-label={warningInfoText}
+              data-tooltip={warningInfoText}
+              data-tooltip-compact="true"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
+              </svg>
+            </button>
           </div>
           <div className="save-editor-large-file-actions">
             <button

@@ -398,7 +398,8 @@ describe('SettingsModal', () => {
 
       const select = screen.getByLabelText('Always Allow Large Saves (>64 MB)') as HTMLSelectElement;
       expect(select.value).toBe('off');
-      expect(screen.getByRole('tooltip').textContent).toMatch(/longer to open|use more memory/i);
+      const infoBtn = screen.getByRole('button', { name: /longer to open|use more memory/i });
+      expect(infoBtn.getAttribute('data-tooltip')).toMatch(/longer to open|use more memory/i);
 
       fireEvent.change(select, { target: { value: 'on' } });
       await waitFor(() => {

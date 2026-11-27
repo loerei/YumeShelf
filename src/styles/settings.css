@@ -88,14 +88,16 @@
     border: none;
     border-radius: 999px;
     background: transparent;
-    color: var(--text-muted, #9ca3af);
+    color: var(--text-main);
+    opacity: var(--icon-idle-opacity, 0.6);
     cursor: pointer;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
 }
 
 .setting-info-btn:hover,
 .setting-info-btn:focus-visible {
-    color: var(--text-main);
-    background: rgba(255, 255, 255, 0.08);
+    opacity: 1;
+    background: var(--hover-bg);
 }
 
 .setting-control-zone {

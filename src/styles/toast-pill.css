@@ -85,7 +85,7 @@
   color: inherit;
   border-radius: 4px;
   cursor: pointer;
-  opacity: 0.7;
+  opacity: var(--icon-idle-opacity, 0.6);
   transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 

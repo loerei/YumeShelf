@@ -35,14 +35,15 @@
     background: transparent;
     border: none;
     padding: 6px;
-    color: var(--text-sub);
+    color: var(--text-main);
+    opacity: var(--icon-idle-opacity, 0.6);
     font: inherit;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     border-radius: 6px;
-    transition: color 0.15s ease, background-color 0.15s ease;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
 .shelf-tab-scroll-btn svg {
@@ -52,11 +53,12 @@
 }
 
 .shelf-tab-scroll-btn:hover:not([aria-disabled="true"]) {
-    color: var(--text-main);
+    opacity: 1;
     background: var(--hover-bg);
 }
 
 .shelf-tab-scroll-btn:focus-visible {
+    opacity: 1;
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
@@ -169,14 +171,15 @@
     background: transparent;
     border: none;
     padding: 4px;
-    color: var(--text-sub);
+    color: var(--text-main);
+    opacity: var(--icon-idle-opacity, 0.6);
     font: inherit;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     border-radius: 6px;
-    transition: color 0.15s ease, background-color 0.15s ease;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
 .folder-section-toggle svg {
@@ -191,11 +194,12 @@
 }
 
 .folder-section-toggle:hover {
-    color: var(--text-main);
+    opacity: 1;
     background: var(--hover-bg);
 }
 
 .folder-section-toggle:focus-visible {
+    opacity: 1;
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }

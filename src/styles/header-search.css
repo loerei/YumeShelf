@@ -31,7 +31,7 @@
     border: 0;
     padding: 0;
     transition: all 0.2s ease;
-    opacity: 0.6;
+    opacity: var(--icon-idle-opacity, 0.6);
     color: var(--text-main);
     user-select: none;
     width: 32px;
@@ -570,23 +570,30 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     padding: 0;
     border: none;
     border-radius: 50%;
     background: transparent;
-    color: var(--text-sub);
+    color: var(--text-main);
+    opacity: var(--icon-idle-opacity, 0.6);
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.search-clear-btn .icon-svg {
+    width: 14px;
+    height: 14px;
 }
 
 .search-clear-btn:hover {
     background: var(--hover-bg);
-    color: var(--text-main);
+    opacity: 1;
 }
 
 .search-clear-btn:focus-visible {
+    opacity: 1;
     outline: 2px solid var(--accent);
     outline-offset: 1px;
 }

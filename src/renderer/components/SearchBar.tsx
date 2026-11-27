@@ -1,8 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import yumeBonked from '../../../assets/yume_bonked.png';
+import yumeBonkedTooMuch from '../../../assets/yume_bonkedtoomuch.png';
+import yumeSmug from '../../../assets/yume_smug.png';
 import type { GameEntry } from '../types/game';
 import { GameIcon } from './GameIcon';
 import { useLocaleStrings } from '../i18n/locale-strings';
+import { MASCOT_CARD_KEY, type MascotExpression } from '../mascot/mascot-domain';
 import { useOptionalMascotSearch } from '../providers/MascotProvider';
+
+const MASCOT_SEARCH_IMAGES: Record<MascotExpression, string> = {
+  smug: yumeSmug,
+  bonked: yumeBonked,
+  bonkedTooMuch: yumeBonkedTooMuch,
+};
 import { formatBytes } from '../utils/formatting';
 import { useFindShortcut } from '../hooks/useFindShortcut';
 
@@ -381,11 +391,24 @@ export function SearchBar({
     };
   }, [isOpen]);
 
+  const searchableGames = useMemo<readonly SearchBarGameItem[]>(() => {
+    if (!mascotSearch?.isHideAndSeekCardActive || games.length === 0) {
+      return games;
+    }
+    const mascotItem: SearchBarGameItem = {
+      gameKey: MASCOT_CARD_KEY,
+      name: mascotSearch.getMascotCardTitle(localeStrings),
+      iconUrl: MASCOT_SEARCH_IMAGES[mascotSearch.expression],
+      iconFit: 'contain',
+    };
+    return [...games, mascotItem];
+  }, [games, mascotSearch, localeStrings]);
+
   const visibleMatches = useMemo(() => {
     const normalizedQuery = debouncedQuery.trim().toLowerCase().normalize('NFC');
     if (!normalizedQuery) return [];
     const matched: SearchBarGameItem[] = [];
-    for (const g of games) {
+    for (const g of searchableGames) {
       const name = (g.name || '').normalize('NFC').toLowerCase();
       const folderName = (g.folderName || '').normalize('NFC').toLowerCase();
       const relativePath = String(g.relativePath || '').normalize('NFC').toLowerCase();
@@ -399,7 +422,7 @@ export function SearchBar({
       }
     }
     return matched;
-  }, [games, debouncedQuery]);
+  }, [searchableGames, debouncedQuery]);
 
   const selectedIndex = useMemo(
     () => (selectedGameKey ? visibleMatches.findIndex((m) => m.gameKey === selectedGameKey) : -1),
@@ -434,6 +457,10 @@ export function SearchBar({
 
   const handleLaunchSelected = (gameKey: string, index: number) => {
     triggerClickFeedback(gameKey, index);
+    if (gameKey === MASCOT_CARD_KEY) {
+      handleLocate(MASCOT_CARD_KEY);
+      return;
+    }
     onSelectGame(gameKey);
   };
 

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MAX_DROPDOWN_RESULTS, SearchBar, type SearchBarGameItem } from './SearchBar';
+import { MASCOT_CARD_KEY, MASCOT_STORAGE_KEYS } from '../mascot/mascot-domain';
+import type { UiStorageAdapter } from '../state/ui-runtime-state';
 import {
   MascotProvider,
   useMascot,
@@ -567,5 +569,106 @@ describe('SearchBar', () => {
     fireEvent.keyDown(input, { key: 'Enter', repeat: false });
     fireEvent.keyDown(input, { key: 'Enter', repeat: true });
     expect(onSelectGame).toHaveBeenCalledTimes(prevCalls + 1);
+  });
+
+  it('surfaces MASCOT_CARD_KEY only when isHideAndSeekCardActive && games.length > 0 with mascot iconUrl and locates mascot card on click, Enter, and double-click', () => {
+    vi.useFakeTimers();
+    const map = new Map<string, string>([
+      [MASCOT_STORAGE_KEYS.hideAndSeek, 'yeaaa'],
+    ]);
+    const storage: UiStorageAdapter = {
+      getItem: (key) => map.get(key) ?? null,
+      setItem: (key, val) => {
+        map.set(key, val);
+      },
+      removeItem: (key) => {
+        map.delete(key);
+      },
+    };
+    const onSelectGame = vi.fn();
+    const scrollIntoViewSpy = vi.fn();
+
+    const { rerender } = render(
+      <MascotProvider storage={storage} rng={() => 0}>
+        <div className="game-card mascot-game-card" data-game-key={MASCOT_CARD_KEY} />
+        <ControlledSearchHarness
+          games={[]}
+          debounceMs={100}
+          onSelectGame={onSelectGame}
+        />
+      </MascotProvider>
+    );
+
+    const domMascotCard = document.querySelector(
+      `.game-card[data-game-key="${MASCOT_CARD_KEY}"]`
+    ) as HTMLElement;
+    domMascotCard.scrollIntoView = scrollIntoViewSpy;
+
+    // Empty games list: MASCOT_CARD_KEY must NOT appear
+    const input = screen.getByRole('textbox', { name: 'Search library games' });
+    fireEvent.change(input, { target: { value: 'Yume' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(screen.queryByRole('listitem')).toBeNull();
+
+    // Non-empty games list: MASCOT_CARD_KEY appears with mascot iconUrl (not fallback 🎮)
+    rerender(
+      <MascotProvider storage={storage} rng={() => 0}>
+        <div className="game-card mascot-game-card" data-game-key={MASCOT_CARD_KEY} />
+        <ControlledSearchHarness
+          games={[{ gameKey: 'g1', name: 'Clannad' }]}
+          debounceMs={100}
+          onSelectGame={onSelectGame}
+        />
+      </MascotProvider>
+    );
+
+    fireEvent.change(input, { target: { value: 'Yume' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    const mascotItem = screen.getByRole('listitem');
+    expect(mascotItem.textContent).not.toContain('🎮');
+    const img = mascotItem.querySelector('.search-item-icon img') as HTMLImageElement;
+    expect(img).toBeTruthy();
+    expect(img.getAttribute('src')).toBeTruthy();
+
+    // 1. Click locate button
+    const locateBtn = mascotItem.querySelector('button.search-launch-icon-wrapper') as HTMLButtonElement;
+    fireEvent.click(locateBtn);
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(domMascotCard.classList.contains('glow')).toBe(true);
+    expect(onSelectGame).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(domMascotCard.classList.contains('glow')).toBe(false);
+
+    // 2. Enter key
+    fireEvent.change(input, { target: { value: 'Yume' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    fireEvent.keyDown(input, { key: 'Enter', repeat: false });
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(2);
+    expect(domMascotCard.classList.contains('glow')).toBe(true);
+    expect(onSelectGame).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    // 3. Double-click
+    fireEvent.change(input, { target: { value: 'Yume' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    fireEvent.doubleClick(screen.getByRole('listitem'));
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(3);
+    expect(domMascotCard.classList.contains('glow')).toBe(true);
+    expect(onSelectGame).not.toHaveBeenCalled();
   });
 });

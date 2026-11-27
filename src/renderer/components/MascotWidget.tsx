@@ -665,6 +665,9 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
             {strings.mascot_menu_scale || 'Scale'}
           </label>
           <div className="volume-slider-container">
+            <span className="volume-value-label" id="mascot-menu-scale-value">
+              {`${effectiveScale}%`}
+            </span>
             <input
               type="range"
               id="mascot-menu-scale-slider"
@@ -686,9 +689,6 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
                 }
               }}
             />
-            <span className="volume-value-label" id="mascot-menu-scale-value">
-              {`${effectiveScale}%`}
-            </span>
           </div>
         </div>
         <div className="mascot-menu-row">
@@ -700,6 +700,9 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
             {strings.mascot_menu_volume || 'Volume'}
           </label>
           <div className="volume-slider-container">
+            <span className="volume-value-label" id="mascot-menu-volume-value">
+              {`${effectiveVolume}%`}
+            </span>
             <input
               type="range"
               id="mascot-menu-volume-slider"
@@ -721,9 +724,6 @@ export const MascotWidget: React.FC<MascotWidgetProps> = ({
                 }
               }}
             />
-            <span className="volume-value-label" id="mascot-menu-volume-value">
-              {`${effectiveVolume}%`}
-            </span>
           </div>
         </div>
       </div>

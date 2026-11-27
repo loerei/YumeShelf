@@ -194,10 +194,17 @@
     width: 125px;
     min-width: 125px;
     max-width: 125px;
+    gap: 8px;
+}
+
+.mascot-menu-row .volume-slider-container input[type="range"] {
+    min-width: 0;
 }
 
 .mascot-menu-row .volume-value-label {
-    min-width: 32px;
+    min-width: 34px;
+    flex-shrink: 0;
+    text-align: right;
     font-size: 12px;
 }
 

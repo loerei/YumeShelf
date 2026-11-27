@@ -18,7 +18,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Sort by Folder view: added a `By Folder` sort mode with top shelf tabs (All Folders, Favorites, and each library root), collapsible folder sections with Expand All / Collapse All controls, inline folder alias renaming (click or press `F2`), and direct manual game addition inside empty folders.
 - Save Editor nested folders, large saves, and cleaner backups: fixed opening saves for games inside nested library subfolders, added a 64 MB warning with an inline `Proceed anyway` prompt and `Always Allow Large Saves (>64 MB)` setting (default Off), and moved `.bak` backups into a `.yumeshelf-backups` subfolder.
 - Save Editor quick math and undo: click the save folder path to open it in File Explorer, click a field's change badge (or press Ctrl+Z when no new edits remain) to revert it, and type simple +, -, *, / expressions into number fields (with an inline red warning on division by zero or invalid syntax that reverts on click).
-- Hide-and-Seek mascot restored: enabling Hide-and-Seek in Settings now hides the corner mascot inside the game grid and search results as an interactive card, and bonking it enough times returns it to the corner immediately without restarting.
+- Yume-chan is now less laggy.
 
 ### For the Nerds
 - [renderer] Rebuilt the main renderer (`src/renderer/`) in React 19 with strict TypeScript, replacing imperative DOM modules and legacy dual-FLIP animations with declarative components, `useSyncExternalStore` state bridging, portal overlays, and a multi-page Vite build (`index.html`, `save-editor.html`).

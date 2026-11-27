@@ -651,20 +651,11 @@ export function createMascotAudioPlayer(): MascotAudioPlayer {
       // Best-effort rewind before replay
     }
 
+    let playResult: unknown;
     try {
       activeAudio = audio;
       activeAudio.volume = vol;
-      const playPromise = activeAudio.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        void playPromise.catch((err: unknown) => {
-          console.warn('[MascotAudioPlayer] Audio playback failed:', {
-            soundKey,
-            volumePercent,
-            error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
-            stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
-          });
-        });
-      }
+      playResult = activeAudio.play();
     } catch (err) {
       activeAudio = null;
       console.warn('[MascotAudioPlayer] Failed to initialize audio element:', {
@@ -672,6 +663,22 @@ export function createMascotAudioPlayer(): MascotAudioPlayer {
         volumePercent,
         error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
         stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      return;
+    }
+    if (
+      typeof playResult === 'object' &&
+      playResult !== null &&
+      'catch' in playResult &&
+      typeof (playResult as PromiseLike<unknown> & { catch: unknown }).catch === 'function'
+    ) {
+      void (playResult as Promise<void>).catch((err: unknown) => {
+        console.warn('[MascotAudioPlayer] Audio playback failed:', {
+          soundKey,
+          volumePercent,
+          error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
       });
     }
   }

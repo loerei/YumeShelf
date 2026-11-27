@@ -59,22 +59,24 @@
 .modal-close-btn {
     background: transparent;
     border: none;
-    color: var(--text-sub, #b3b3b3);
+    color: var(--text-main, #ffffff);
+    opacity: var(--icon-idle-opacity, 0.6);
     cursor: pointer;
     padding: 6px;
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.15s ease, opacity 0.15s ease;
 }
 
 .modal-close-btn:hover {
     background: var(--hover-bg, #2a2a2a);
-    color: var(--text-main, #ffffff);
+    opacity: 1;
 }
 
 .modal-close-btn:focus-visible {
+    opacity: 1;
     outline: 2px solid var(--accent, #0078d4);
     outline-offset: 1px;
 }

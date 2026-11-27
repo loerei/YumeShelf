@@ -10,6 +10,7 @@ export interface SaveFolderBarProps {
   isLoading?: boolean;
   folderError?: string | null;
   onRetryFolder?: () => void;
+  onOpenFolder?: () => void | Promise<void>;
   onSelectDirectory: () => Promise<void>;
   onResetDirectory: () => Promise<void>;
 }
@@ -22,6 +23,7 @@ export function SaveFolderBar({
   isLoading = false,
   folderError = null,
   onRetryFolder,
+  onOpenFolder,
   onSelectDirectory,
   onResetDirectory,
 }: SaveFolderBarProps) {
@@ -34,6 +36,7 @@ export function SaveFolderBar({
     ? (strings.save_editor_folder_resolving || 'Resolving save folder...')
     : (saveDir || strings.save_editor_folder_default || 'Default Save Directory');
   const isControlsDisabled = disabled || isActionPending || isLoading;
+  const canOpenFolder = Boolean(onOpenFolder && saveDir && !isLoading && !isMissing && !folderError);
 
   const handleRetry = () => {
     if (isControlsDisabled || !onRetryFolder) return;
@@ -71,9 +74,21 @@ export function SaveFolderBar({
         <span className="save-folder-label">{strings.save_editor_folder_label || 'Save Folder'}</span>
         {isOverride && <span className="save-folder-badge">{strings.save_editor_folder_override || 'Override'}</span>}
       </div>
-      <div className="save-folder-path" title={displayPath} style={{ minWidth: 0 }}>
-        {displayPath}
-      </div>
+      {canOpenFolder ? (
+        <button
+          type="button"
+          className="save-folder-path save-folder-path-btn"
+          title={displayPath}
+          style={{ minWidth: 0 }}
+          onClick={() => void onOpenFolder?.()}
+        >
+          {displayPath}
+        </button>
+      ) : (
+        <div className="save-folder-path" title={displayPath} style={{ minWidth: 0 }}>
+          {displayPath}
+        </div>
+      )}
       {folderError && !isLoading ? (
         <div className="save-folder-missing-alert" role="alert">
           <span>{folderError}</span>

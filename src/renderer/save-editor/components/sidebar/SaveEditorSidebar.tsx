@@ -196,6 +196,17 @@ export function SaveEditorSidebar(props: SaveEditorSidebarProps) {
     }
   };
 
+  const handleOpenFolder = async () => {
+    if (isFolderLoading || folderInfo.isMissing || folderError || !folderInfo.path) return;
+    if (gameKey && typeof electronAPI?.openSaveFolder === 'function') {
+      await electronAPI.openSaveFolder(gameKey);
+      return;
+    }
+    if (typeof electronAPI?.openPath === 'function') {
+      electronAPI.openPath(folderInfo.path);
+    }
+  };
+
   return (
     <aside ref={sidebarFallbackRef} tabIndex={-1} className="save-editor-sidebar">
       <SaveFolderBar
@@ -205,6 +216,7 @@ export function SaveEditorSidebar(props: SaveEditorSidebarProps) {
         isLoading={isFolderLoading}
         folderError={folderError}
         onRetryFolder={() => setFolderRetryCount((c) => c + 1)}
+        onOpenFolder={handleOpenFolder}
         disabled={saveStatus.state === 'saving' || isMutatingFile}
         onSelectDirectory={handleSelectDirectory}
         onResetDirectory={handleResetDirectory}

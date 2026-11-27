@@ -225,4 +225,57 @@ describe('SaveFolderBar', () => {
       /\.standalone-save-editor\s+\.save-editor-overlay\s*\{[^}]*position:\s*static;[^}]*z-index:\s*auto;/s
     );
   });
+
+  it('renders path as a clickable button when onOpenFolder is provided for a valid folder and stays non-clickable when loading, missing, or errored', () => {
+    const dir = 'C:\\Games\\YumeNikki\\Save';
+    const onOpenFolder = vi.fn();
+    const onSelect = vi.fn().mockResolvedValue(undefined);
+    const onReset = vi.fn().mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <SaveFolderBar
+        saveDir={dir}
+        onOpenFolder={onOpenFolder}
+        onSelectDirectory={onSelect}
+        onResetDirectory={onReset}
+      />
+    );
+
+    const pathBtn = screen.getByRole('button', { name: dir });
+    fireEvent.click(pathBtn);
+    expect(onOpenFolder).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <SaveFolderBar
+        saveDir={dir}
+        isLoading={true}
+        onOpenFolder={onOpenFolder}
+        onSelectDirectory={onSelect}
+        onResetDirectory={onReset}
+      />
+    );
+    expect(screen.queryByRole('button', { name: 'Resolving save folder...' })).toBeNull();
+
+    rerender(
+      <SaveFolderBar
+        saveDir={dir}
+        isMissing={true}
+        onOpenFolder={onOpenFolder}
+        onSelectDirectory={onSelect}
+        onResetDirectory={onReset}
+      />
+    );
+    expect(screen.queryByRole('button', { name: dir })).toBeNull();
+
+    rerender(
+      <SaveFolderBar
+        saveDir={dir}
+        folderError="Failed"
+        onOpenFolder={onOpenFolder}
+        onSelectDirectory={onSelect}
+        onResetDirectory={onReset}
+      />
+    );
+    expect(screen.queryByRole('button', { name: dir })).toBeNull();
+  });
 });

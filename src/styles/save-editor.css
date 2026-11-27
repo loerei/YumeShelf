@@ -296,6 +296,23 @@
     min-width: 0;
     display: block;
     cursor: default;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    text-align: left;
+}
+
+.save-folder-path-btn {
+    cursor: pointer;
+}
+
+.save-folder-path-btn:hover,
+.save-folder-path-btn:focus-visible {
+    color: var(--accent, #0078d4);
+    text-decoration: underline;
+    outline: none;
 }
 
 .save-folder-missing-alert {

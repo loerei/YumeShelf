@@ -499,5 +499,82 @@ describe('mascot-domain', () => {
       expect(constructedInstances[0].play).toHaveBeenCalledTimes(2);
       expect(constructedInstances[0].volume).toBe(0.6);
     });
+
+    it('uses Web Audio API decoded AudioBuffer cache when AudioContext is available and stops active source cleanly', async () => {
+      const origAudioContext = globalThis.AudioContext;
+      const origFetch = globalThis.fetch;
+
+      const createdSources: Array<{
+        buffer: unknown;
+        connect: ReturnType<typeof vi.fn>;
+        start: ReturnType<typeof vi.fn>;
+        stop: ReturnType<typeof vi.fn>;
+        disconnect: ReturnType<typeof vi.fn>;
+        onended: (() => void) | null;
+      }> = [];
+      const createdGains: Array<{
+        gain: { value: number };
+        connect: ReturnType<typeof vi.fn>;
+      }> = [];
+      const resumeMock = vi.fn().mockResolvedValue(undefined);
+      const decodeMock = vi.fn().mockImplementation(async () => ({ duration: 0.2 }));
+
+      globalThis.AudioContext = vi.fn().mockImplementation(function () {
+        return {
+          state: 'suspended',
+          destination: { kind: 'dest' },
+          resume: resumeMock,
+          decodeAudioData: decodeMock,
+          createBufferSource: vi.fn(() => {
+            const src = {
+              buffer: null,
+              connect: vi.fn(),
+              start: vi.fn(),
+              stop: vi.fn(),
+              disconnect: vi.fn(),
+              onended: null,
+            };
+            createdSources.push(src);
+            return src;
+          }),
+          createGain: vi.fn(() => {
+            const gainNode = {
+              gain: { value: 1 },
+              connect: vi.fn(),
+            };
+            createdGains.push(gainNode);
+            return gainNode;
+          }),
+        };
+      }) as unknown as typeof globalThis.AudioContext;
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+      }) as unknown as typeof globalThis.fetch;
+
+      try {
+        const AudioMock = installMockAudio();
+        const player = createMascotAudioPlayer();
+
+        player.warmup?.();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+        expect(decodeMock).toHaveBeenCalledTimes(2);
+
+        player.play('squeaker', 40);
+        expect(AudioMock).not.toHaveBeenCalled();
+        expect(resumeMock).toHaveBeenCalledTimes(1);
+        expect(createdGains[0].gain.value).toBe(0.4);
+        expect(createdSources[0].start).toHaveBeenCalledWith(0);
+
+        player.stop();
+        expect(createdSources[0].stop).toHaveBeenCalledTimes(1);
+      } finally {
+        globalThis.AudioContext = origAudioContext;
+        globalThis.fetch = origFetch;
+      }
+    });
   });
 });

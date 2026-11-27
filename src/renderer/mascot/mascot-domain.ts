@@ -449,9 +449,91 @@ export function recoverToSmug(): MascotRecoveryState {
 
 export function createMascotAudioPlayer(): MascotAudioPlayer {
   const audioCache = new Map<Exclude<MascotSoundKey, 'none'>, HTMLAudioElement>();
+  const bufferCache = new Map<Exclude<MascotSoundKey, 'none'>, AudioBuffer>();
+  const pendingDecodes = new Map<
+    Exclude<MascotSoundKey, 'none'>,
+    Promise<AudioBuffer | null>
+  >();
   let activeAudio: HTMLAudioElement | null = null;
+  let audioCtx: AudioContext | null = null;
+  let activeSource: AudioBufferSourceNode | null = null;
+
+  function getAudioContextCtor(): (new (options?: AudioContextOptions) => AudioContext) | null {
+    if (typeof globalThis === 'undefined') return null;
+    const ctor =
+      globalThis.AudioContext ??
+      (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    return typeof ctor === 'function' ? ctor : null;
+  }
+
+  function ensureAudioContext(): AudioContext | null {
+    if (audioCtx) return audioCtx;
+    const AudioCtx = getAudioContextCtor();
+    if (!AudioCtx) return null;
+    try {
+      audioCtx = new AudioCtx({ latencyHint: 'interactive' });
+      return audioCtx;
+    } catch {
+      try {
+        audioCtx = new AudioCtx();
+        return audioCtx;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  function loadAudioBuffer(
+    soundKey: Exclude<MascotSoundKey, 'none'>
+  ): Promise<AudioBuffer | null> {
+    const cached = bufferCache.get(soundKey);
+    if (cached) return Promise.resolve(cached);
+
+    const inflight = pendingDecodes.get(soundKey);
+    if (inflight) return inflight;
+
+    const ctx = ensureAudioContext();
+    if (!ctx || typeof fetch !== 'function') return Promise.resolve(null);
+
+    const task = fetch(SOUND_SOURCES[soundKey])
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} loading mascot sound`);
+        }
+        return res.arrayBuffer();
+      })
+      .then((arrayBuf) => ctx.decodeAudioData(arrayBuf))
+      .then((decoded) => {
+        bufferCache.set(soundKey, decoded);
+        return decoded;
+      })
+      .catch((err: unknown) => {
+        console.warn('[MascotAudioPlayer] Failed to decode Web Audio buffer:', {
+          soundKey,
+          error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+          stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+        });
+        return null;
+      })
+      .finally(() => {
+        pendingDecodes.delete(soundKey);
+      });
+
+    pendingDecodes.set(soundKey, task);
+    return task;
+  }
 
   function stop(): void {
+    if (activeSource) {
+      const sourceToStop = activeSource;
+      activeSource = null;
+      try {
+        sourceToStop.stop();
+        sourceToStop.disconnect();
+      } catch {
+        // Best-effort cleanup
+      }
+    }
     if (!activeAudio) return;
     const audioToStop = activeAudio;
     activeAudio = null;
@@ -489,6 +571,13 @@ export function createMascotAudioPlayer(): MascotAudioPlayer {
   }
 
   function warmup(): void {
+    if (getAudioContextCtor() && typeof fetch === 'function') {
+      ensureAudioContext();
+      void loadAudioBuffer('squeaker');
+      void loadAudioBuffer('metal-pipe');
+      return;
+    }
+
     for (const key of ['squeaker', 'metal-pipe'] as const) {
       const audio = getOrCreateAudio(key, 0);
       if (!audio) continue;
@@ -502,6 +591,43 @@ export function createMascotAudioPlayer(): MascotAudioPlayer {
     }
   }
 
+  function playWithWebAudio(
+    soundKey: Exclude<MascotSoundKey, 'none'>,
+    vol: number
+  ): boolean {
+    const ctx = ensureAudioContext();
+    if (!ctx) return false;
+
+    const buffer = bufferCache.get(soundKey);
+    if (!buffer) {
+      void loadAudioBuffer(soundKey);
+      return false;
+    }
+
+    try {
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        void ctx.resume().catch(() => {});
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const gain = ctx.createGain();
+      gain.gain.value = vol;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      activeSource = source;
+      source.onended = () => {
+        if (activeSource === source) {
+          activeSource = null;
+        }
+      };
+      source.start(0);
+      return true;
+    } catch {
+      activeSource = null;
+      return false;
+    }
+  }
+
   function play(soundKey: MascotSoundKey | string, volumePercent: number): void {
     stop();
 
@@ -511,6 +637,10 @@ export function createMascotAudioPlayer(): MascotAudioPlayer {
 
     const vol = Math.min(1, Math.max(0, volumePercent / 100));
     if (vol <= 0) return;
+
+    if (playWithWebAudio(soundKey, vol)) {
+      return;
+    }
 
     const audio = getOrCreateAudio(soundKey, volumePercent);
     if (!audio) return;

@@ -1,7 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import yumeBonked from '../../../assets/yume_bonked.png';
+import yumeBonkedTooMuch from '../../../assets/yume_bonkedtoomuch.png';
+import yumeSmug from '../../../assets/yume_smug.png';
 import type { GameEntry } from '../types/game';
 import { GameIcon } from './GameIcon';
 import { useLocaleStrings } from '../i18n/locale-strings';
+import { MASCOT_CARD_KEY, type MascotExpression } from '../mascot/mascot-domain';
+import { useOptionalMascotSearch } from '../providers/MascotProvider';
+
+const MASCOT_SEARCH_IMAGES: Record<MascotExpression, string> = {
+  smug: yumeSmug,
+  bonked: yumeBonked,
+  bonkedTooMuch: yumeBonkedTooMuch,
+};
 import { formatBytes } from '../utils/formatting';
 import { useFindShortcut } from '../hooks/useFindShortcut';
 
@@ -262,7 +273,6 @@ export function SearchBar({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedGameKey, setSelectedGameKey] = useState<string | null>(null);
   const [clickedPulse, setClickedPulse] = useState<{ gameKey: string; seq: number } | null>(null);
-  const [bonkQuote, setBonkQuote] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -290,31 +300,13 @@ export function SearchBar({
       ? placeholderList
       : localeStrings.placeholders;
 
-  const activeOverridePlaceholder = temporaryPlaceholder ?? bonkQuote;
+  const mascotSearch = useOptionalMascotSearch();
+  const activeOverridePlaceholder = temporaryPlaceholder ?? mascotSearch?.activeBonkQuote ?? null;
   const { text: placeholderText, isFadingOut } = useRotatingPlaceholder(
     effectivePlaceholders,
     PLACEHOLDER_ROTATION_MS,
     Boolean(activeOverridePlaceholder) || query.trim().length > 0
   );
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleBonk = (e: Event) => {
-      const quote = (e as CustomEvent<{ quote?: string }>).detail?.quote;
-      if (typeof quote === 'string' && quote.length > 0) {
-        setBonkQuote(quote);
-      }
-    };
-    const handleRecover = () => {
-      setBonkQuote(null);
-    };
-    window.addEventListener('yumeshelf:mascot-bonk', handleBonk);
-    window.addEventListener('yumeshelf:mascot-recover', handleRecover);
-    return () => {
-      window.removeEventListener('yumeshelf:mascot-bonk', handleBonk);
-      window.removeEventListener('yumeshelf:mascot-recover', handleRecover);
-    };
-  }, []);
 
   const resetOnEmpty = useCallback(() => {
     debouncedQueryRef.current = '';
@@ -399,11 +391,24 @@ export function SearchBar({
     };
   }, [isOpen]);
 
+  const searchableGames = useMemo<readonly SearchBarGameItem[]>(() => {
+    if (!mascotSearch?.isHideAndSeekCardActive || games.length === 0) {
+      return games;
+    }
+    const mascotItem: SearchBarGameItem = {
+      gameKey: MASCOT_CARD_KEY,
+      name: mascotSearch.getMascotCardTitle(localeStrings),
+      iconUrl: MASCOT_SEARCH_IMAGES[mascotSearch.expression],
+      iconFit: 'contain',
+    };
+    return [...games, mascotItem];
+  }, [games, mascotSearch, localeStrings]);
+
   const visibleMatches = useMemo(() => {
     const normalizedQuery = debouncedQuery.trim().toLowerCase().normalize('NFC');
     if (!normalizedQuery) return [];
     const matched: SearchBarGameItem[] = [];
-    for (const g of games) {
+    for (const g of searchableGames) {
       const name = (g.name || '').normalize('NFC').toLowerCase();
       const folderName = (g.folderName || '').normalize('NFC').toLowerCase();
       const relativePath = String(g.relativePath || '').normalize('NFC').toLowerCase();
@@ -417,7 +422,7 @@ export function SearchBar({
       }
     }
     return matched;
-  }, [games, debouncedQuery]);
+  }, [searchableGames, debouncedQuery]);
 
   const selectedIndex = useMemo(
     () => (selectedGameKey ? visibleMatches.findIndex((m) => m.gameKey === selectedGameKey) : -1),
@@ -452,6 +457,10 @@ export function SearchBar({
 
   const handleLaunchSelected = (gameKey: string, index: number) => {
     triggerClickFeedback(gameKey, index);
+    if (gameKey === MASCOT_CARD_KEY) {
+      handleLocate(MASCOT_CARD_KEY);
+      return;
+    }
     onSelectGame(gameKey);
   };
 

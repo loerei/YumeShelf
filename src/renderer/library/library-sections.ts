@@ -129,7 +129,8 @@ export function mapGameToRootFolder(
 export function selectFolderTabProjection(
   baseProjection: LibrarySectionsProjection,
   activeTabId: string,
-  targetPlatform?: PlatformInput
+  targetPlatform?: PlatformInput,
+  options?: { readonly allowEmptyFavoritesTab?: boolean }
 ): LibrarySectionsProjection {
   const allFolders = baseProjection.allFolderSections ?? baseProjection.folderSections ?? [];
   const favoritesSection = baseProjection.favoritesSection;
@@ -144,7 +145,7 @@ export function selectFolderTabProjection(
   }
 
   if (activeTabId === 'fav') {
-    if (!favoritesSection || favoritesSection.length === 0) {
+    if ((!favoritesSection || favoritesSection.length === 0) && options?.allowEmptyFavoritesTab !== true) {
       return baseProjection;
     }
     return {

@@ -45,7 +45,10 @@ import {
 import { StackCard, type StackCardProps } from './StackCard';
 import { FilteredEmptyState, LibraryEmptyState } from './LibraryEmptyState';
 import { ShelfTabs } from './ShelfTabs';
-import { FolderAccordion } from './FolderAccordion';
+import { FolderAccordion, type MascotGridSlot } from './FolderAccordion';
+import { MascotCard } from './MascotCard';
+import { MASCOT_CARD_KEY } from '../mascot/mascot-domain';
+import { useOptionalMascotHideAndSeek } from '../providers/MascotProvider';
 import { FolderTitle } from './FolderTitle';
 import { EmptyFolderPrompt } from './EmptyFolderPrompt';
 import { SortableGameCard } from './SortableGameCard';
@@ -244,6 +247,7 @@ export function LibraryGrid({
   const committedCategoryIdRef = useRef<string | null>(activeCategoryId);
   const committedRootPathsRef = useRef<readonly string[]>(rootPaths);
   const committedFolderAliasesRef = useRef<Readonly<Record<string, string>> | undefined>(folderAliases);
+  const committedHideAndSeekActiveRef = useRef<boolean>(false);
   const committedStructuralLayoutRevisionRef = useRef<number>(0);
   const hasCommittedRef = useRef<boolean>(false);
 
@@ -251,6 +255,11 @@ export function LibraryGrid({
     () => (activeCategoryId ? allGames.filter((g) => g.categoryIds?.includes(activeCategoryId)) : allGames),
     [allGames, activeCategoryId]
   );
+
+  const mascotHideAndSeek = useOptionalMascotHideAndSeek();
+  const isHideAndSeekCardActive = Boolean(mascotHideAndSeek?.isHideAndSeekCardActive);
+  const isCardStarred = Boolean(mascotHideAndSeek?.isCardStarred);
+  const sessionSlotFraction = mascotHideAndSeek?.sessionSlotFraction ?? 0;
 
   const { viewItems, resolvedCustomOrder, didRebuildViewItems } = useMemo(() => {
     const prevSort = committedSortRef.current;
@@ -338,7 +347,8 @@ export function LibraryGrid({
       committedCategoryIdRef.current !== activeCategoryId ||
       !areStringArraysEqual(committedRootPathsRef.current, rootPaths) ||
       !areFolderAliasesEqual(committedFolderAliasesRef.current, folderAliases) ||
-      committedCustomOrderRevisionRef.current !== customOrderRevision;
+      committedCustomOrderRevisionRef.current !== customOrderRevision ||
+      committedHideAndSeekActiveRef.current !== isHideAndSeekCardActive;
     return committedStructuralLayoutRevisionRef.current + (layoutChanged ? 1 : 0);
   }, [
     viewItems,
@@ -349,6 +359,7 @@ export function LibraryGrid({
     rootPaths,
     folderAliases,
     customOrderRevision,
+    isHideAndSeekCardActive,
   ]);
 
   useCardLayoutFlip({
@@ -371,6 +382,7 @@ export function LibraryGrid({
     committedCategoryIdRef.current = activeCategoryId;
     committedRootPathsRef.current = rootPaths;
     committedFolderAliasesRef.current = folderAliases;
+    committedHideAndSeekActiveRef.current = isHideAndSeekCardActive;
     committedStructuralLayoutRevisionRef.current = structuralLayoutRevision;
     hasCommittedRef.current = true;
   }, [
@@ -385,6 +397,7 @@ export function LibraryGrid({
     activeCategoryId,
     rootPaths,
     folderAliases,
+    isHideAndSeekCardActive,
     structuralLayoutRevision,
   ]);
 
@@ -438,11 +451,14 @@ export function LibraryGrid({
     [viewItems]
   );
 
-  // Prune stale per-key ref callbacks post-commit when viewItems changes
+  // Prune stale per-key ref callbacks post-commit when viewItems or Hide-and-Seek changes
   useEffect(() => {
     const activeKeys = new Set<string>();
     for (const item of viewItems) {
       activeKeys.add(item.isStack ? item.groupKey : item.representativeKey);
+    }
+    if (isHideAndSeekCardActive) {
+      activeKeys.add(MASCOT_CARD_KEY);
     }
     for (const cachedKey of cardRefCallbacksRef.current.keys()) {
       const rawKey = cardRawKeysRef.current.get(cachedKey) ?? cachedKey;
@@ -451,7 +467,7 @@ export function LibraryGrid({
         cardRawKeysRef.current.delete(cachedKey);
       }
     }
-  }, [viewItems]);
+  }, [viewItems, isHideAndSeekCardActive]);
 
   const handleToggleFavoriteGame = useCallback(
     async (game: GameEntry) => {
@@ -838,15 +854,18 @@ export function LibraryGrid({
   const favorites = useMemo(() => viewItems.filter((item) => item.favorite), [viewItems]);
   const nonFavorites = useMemo(() => viewItems.filter((item) => !item.favorite), [viewItems]);
   const favoritesCount = favorites.length;
+  const hasVirtualFavorite = Boolean(
+    isHideAndSeekCardActive && isCardStarred && viewItems.length > 0
+  );
 
   const isFolderViewActive = currentSort === 'folder' && rootPaths.length > 0;
 
   useEffect(() => {
-    if (isFolderViewActive && activeTabId === 'fav' && favoritesCount === 0) {
+    if (isFolderViewActive && activeTabId === 'fav' && favoritesCount === 0 && !hasVirtualFavorite) {
       setActiveTabId('all');
       writeActiveFolderTab('all', resolvedStorage);
     }
-  }, [isFolderViewActive, activeTabId, favoritesCount, resolvedStorage]);
+  }, [isFolderViewActive, activeTabId, favoritesCount, hasVirtualFavorite, resolvedStorage]);
 
   const baseProjection = useMemo<LibrarySectionsProjection | null>(() => {
     if (!isFolderViewActive) return null;
@@ -862,8 +881,10 @@ export function LibraryGrid({
 
   const projection = useMemo<LibrarySectionsProjection | null>(() => {
     if (!baseProjection) return null;
-    return selectFolderTabProjection(baseProjection, activeTabId, targetPlatform);
-  }, [baseProjection, activeTabId, targetPlatform]);
+    return selectFolderTabProjection(baseProjection, activeTabId, targetPlatform, {
+      allowEmptyFavoritesTab: hasVirtualFavorite,
+    });
+  }, [baseProjection, activeTabId, targetPlatform, hasVirtualFavorite]);
 
   const handleTabSelect = useCallback(
     (tabId: string) => {
@@ -909,6 +930,101 @@ export function LibraryGrid({
     }
     return ['fav', 'unfav'];
   }, [isFolderViewActive, projection]);
+
+  const handleMascotDismissFocusHandoff = useCallback(() => {
+    const container = resolvedGridContainerRef.current;
+    if (!container) return;
+    const allCards = Array.from(
+      container.querySelectorAll<HTMLElement>('.game-card[data-game-key]')
+    );
+    const mascotEl = allCards.find((el) => el.dataset.gameKey === MASCOT_CARD_KEY);
+    if (mascotEl) {
+      const mascotIdx = allCards.indexOf(mascotEl);
+      const adjacentCard =
+        allCards
+          .slice(mascotIdx + 1)
+          .find((el) => el.dataset.gameKey !== MASCOT_CARD_KEY && isFocusableCardElement(el)) ??
+        allCards
+          .slice(0, mascotIdx)
+          .reverse()
+          .find((el) => el.dataset.gameKey !== MASCOT_CARD_KEY && isFocusableCardElement(el));
+      if (adjacentCard) {
+        adjacentCard.focus();
+        return;
+      }
+    }
+    const firstSurviving = allCards.find(
+      (el) => el.dataset.gameKey !== MASCOT_CARD_KEY && isFocusableCardElement(el)
+    );
+    if (firstSurviving) {
+      firstSurviving.focus();
+      return;
+    }
+    container.focus();
+  }, [resolvedGridContainerRef]);
+
+  const canShowMascotCard = isHideAndSeekCardActive && viewItems.length > 0;
+
+  const mascotSlot = useMemo<MascotGridSlot | null>(() => {
+    if (!canShowMascotCard || !isFolderViewActive || !projection) {
+      return null;
+    }
+
+    const folderSections = projection.folderSections ?? [];
+    let targetScope: string;
+    let targetLength: number;
+
+    if (projection.effectiveTabId === 'fav') {
+      targetScope = 'fav';
+      targetLength = favorites.length;
+    } else if (projection.effectiveTabId === 'all') {
+      if (isCardStarred || folderSections.length === 0) {
+        targetScope = 'fav';
+        targetLength = favorites.length;
+      } else {
+        const sectionIdx = Math.min(
+          folderSections.length - 1,
+          Math.max(0, Math.floor(sessionSlotFraction * folderSections.length))
+        );
+        const selectedSection = folderSections[sectionIdx];
+        targetScope = selectedSection.path;
+        targetLength = selectedSection.games.length;
+      }
+    } else {
+      targetScope = projection.effectiveTabId;
+      const matchedSection = folderSections.find((s) => s.path === projection.effectiveTabId);
+      targetLength = matchedSection?.games.length ?? 0;
+    }
+
+    const insertIndex = Math.max(
+      0,
+      Math.min(targetLength, Math.floor(sessionSlotFraction * (targetLength + 1)))
+    );
+
+    return {
+      targetScope,
+      insertIndex,
+      renderCard: (sectionScope: string) => (
+        <MascotCard
+          key={MASCOT_CARD_KEY}
+          ref={getCardRefCallback(MASCOT_CARD_KEY, sectionScope)}
+          onDismissFocusHandoff={handleMascotDismissFocusHandoff}
+        />
+      ),
+    };
+  }, [
+    canShowMascotCard,
+    isFolderViewActive,
+    projection,
+    favorites.length,
+    isCardStarred,
+    sessionSlotFraction,
+    getCardRefCallback,
+    handleMascotDismissFocusHandoff,
+  ]);
+
+  const flatMascotScope: 'fav' | 'unfav' | null =
+    !canShowMascotCard || isFolderViewActive ? null : isCardStarred ? 'fav' : 'unfav';
 
   const renderItem = useCallback(
     (item: LibraryViewItem, sectionScope = 'flat') => {
@@ -958,6 +1074,7 @@ export function LibraryGrid({
             activeTabId={activeTabId}
             effectiveTabId={projection.effectiveTabId}
             favoritesCount={favoritesCount}
+            hasVirtualFavorite={hasVirtualFavorite}
             targetPlatform={targetPlatform}
             onTabSelect={handleTabSelect}
             onTabReorder={handleTabReorder}
@@ -985,6 +1102,7 @@ export function LibraryGrid({
                 storage={resolvedStorage}
                 isFiltered={Boolean(activeCategoryId)}
                 isDragActive={isDraggingCard}
+                mascotSlot={mascotSlot}
                 renderItem={renderItem}
                 renderTitle={renderTitle}
                 renderEmptyFolder={renderEmptyFolder}
@@ -1021,33 +1139,79 @@ export function LibraryGrid({
           CardComponent={CardComponent}
           StackComponent={StackComponent}
         >
-          {({ renderSectionContainer }) => (
-            <div id="game-grid-wrapper">
-              {renderSectionContainer('fav', flatFavItemIds, (droppableRef, isOver) => (
-                <div
-                  ref={droppableRef}
-                  id="fav-grid"
-                  className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
-                >
-                  {favorites.map((item) => renderItem(item, 'fav'))}
-                </div>
-              ))}
-              {favorites.length > 0 && nonFavorites.length > 0 && (
-                <div id="favorites-separator" className="favorites-separator-container">
-                  <div className="favorites-separator" />
-                </div>
-              )}
-              {renderSectionContainer('unfav', flatUnfavItemIds, (droppableRef, isOver) => (
-                <div
-                  ref={droppableRef}
-                  id="unfav-grid"
-                  className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
-                >
-                  {nonFavorites.map((item) => renderItem(item, 'unfav'))}
-                </div>
-              ))}
-            </div>
-          )}
+          {({ renderSectionContainer }) => {
+            const renderedFavs = favorites.map((item) => renderItem(item, 'fav'));
+            if (flatMascotScope === 'fav') {
+              const favInsertIdx = Math.max(
+                0,
+                Math.min(
+                  renderedFavs.length,
+                  Math.floor(sessionSlotFraction * (renderedFavs.length + 1))
+                )
+              );
+              renderedFavs.splice(
+                favInsertIdx,
+                0,
+                <MascotCard
+                  key={MASCOT_CARD_KEY}
+                  ref={getCardRefCallback(MASCOT_CARD_KEY, 'fav')}
+                  onDismissFocusHandoff={handleMascotDismissFocusHandoff}
+                />
+              );
+            }
+
+            const renderedUnfavs = nonFavorites.map((item) => renderItem(item, 'unfav'));
+            if (flatMascotScope === 'unfav') {
+              const unfavInsertIdx = Math.max(
+                0,
+                Math.min(
+                  renderedUnfavs.length,
+                  Math.floor(sessionSlotFraction * (renderedUnfavs.length + 1))
+                )
+              );
+              renderedUnfavs.splice(
+                unfavInsertIdx,
+                0,
+                <MascotCard
+                  key={MASCOT_CARD_KEY}
+                  ref={getCardRefCallback(MASCOT_CARD_KEY, 'unfav')}
+                  onDismissFocusHandoff={handleMascotDismissFocusHandoff}
+                />
+              );
+            }
+
+            const showSeparator =
+              (favorites.length > 0 || flatMascotScope === 'fav') &&
+              (nonFavorites.length > 0 || flatMascotScope === 'unfav');
+
+            return (
+              <div id="game-grid-wrapper">
+                {renderSectionContainer('fav', flatFavItemIds, (droppableRef, isOver) => (
+                  <div
+                    ref={droppableRef}
+                    id="fav-grid"
+                    className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+                  >
+                    {renderedFavs}
+                  </div>
+                ))}
+                {showSeparator && (
+                  <div id="favorites-separator" className="favorites-separator-container">
+                    <div className="favorites-separator" />
+                  </div>
+                )}
+                {renderSectionContainer('unfav', flatUnfavItemIds, (droppableRef, isOver) => (
+                  <div
+                    ref={droppableRef}
+                    id="unfav-grid"
+                    className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+                  >
+                    {renderedUnfavs}
+                  </div>
+                ))}
+              </div>
+            );
+          }}
         </GameDndContext>
       )}
     </div>

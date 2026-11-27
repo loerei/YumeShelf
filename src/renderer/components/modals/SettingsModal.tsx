@@ -12,6 +12,20 @@ import {
   useLocaleStrings,
 } from '../../i18n/locale-strings';
 import { useNotification } from '../../providers/NotificationProvider';
+import {
+  MASCOT_STORAGE_KEYS,
+  normalizeHideAndSeekMode,
+  normalizeMascotScale,
+  normalizeMascotSound,
+  normalizeMascotVolume,
+  parseMascotPreferences,
+  type HideAndSeekMode,
+  type MascotPreferencesState,
+} from '../../mascot/mascot-domain';
+import {
+  useOptionalMascot,
+  type MascotPreferencesPatch,
+} from '../../providers/MascotProvider';
 import type { UiStorageAdapter } from '../../state/ui-runtime-state';
 import type { LibraryConfig } from '../../types/game';
 import { applyTheme } from '../../utils/theme';
@@ -221,23 +235,15 @@ export function SettingsModal({
   );
 
   // Mascot preferences
-  const [mascotShow, setMascotShow] = useState<boolean>(
-    () => (resolvedStorage?.getItem('yumeshelf_mascot_show') || 'on') === 'on'
+  const mascot = useOptionalMascot();
+  const [standaloneMascotPrefs, setStandaloneMascotPrefs] = useState<MascotPreferencesState>(() =>
+    parseMascotPreferences(resolvedStorage)
   );
-  const [hideAndSeek, setHideAndSeek] = useState<string>(
-    () => resolvedStorage?.getItem('yumeshelf_hide_and_seek') || 'out'
-  );
-  const [mascotScale, setMascotScale] = useState<number>(() => {
-    const raw = Number(resolvedStorage?.getItem('yumeshelf_mascot_scale') || '30');
-    return Number.isFinite(raw) ? Math.min(100, Math.max(25, raw)) : 30;
-  });
-  const [mascotSound, setMascotSound] = useState<string>(
-    () => resolvedStorage?.getItem('yumeshelf_mascot_sound') || 'squeaker'
-  );
-  const [mascotVolume, setMascotVolume] = useState<number>(() => {
-    const raw = Number(resolvedStorage?.getItem('yumeshelf_mascot_volume') || '20');
-    return Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : 20;
-  });
+  const mascotShow = mascot ? mascot.show : standaloneMascotPrefs.show;
+  const hideAndSeek = mascot ? mascot.hideAndSeek : standaloneMascotPrefs.hideAndSeek;
+  const mascotScale = mascot ? mascot.scale : standaloneMascotPrefs.scale;
+  const mascotSound = mascot ? mascot.sound : standaloneMascotPrefs.sound;
+  const mascotVolume = mascot ? mascot.volume : standaloneMascotPrefs.volume;
 
   // Library path & scan state
   const [isMutating, setIsMutating] = useState(false);
@@ -910,24 +916,66 @@ export function SettingsModal({
     }
   };
 
-  const updateMascotPreferences = (patch: Partial<MascotPreferences>) => {
-    const next: MascotPreferences = {
-      show: patch.show ?? mascotShow,
-      scale: patch.scale ?? mascotScale,
-      sound: patch.sound ?? mascotSound,
-      volume: patch.volume ?? mascotVolume,
-    };
-    setMascotShow(next.show);
-    setMascotScale(next.scale);
-    setMascotSound(next.sound);
-    setMascotVolume(next.volume);
+  const persistStandaloneMascotSetting = (key: string, value: string) => {
+    if (!resolvedStorage) return;
+    try {
+      resolvedStorage.setItem(key, value);
+    } catch (err) {
+      console.warn('[SettingsModal] Failed to persist mascot setting:', {
+        key,
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+    }
+  };
 
-    resolvedStorage?.setItem('yumeshelf_mascot_show', next.show ? 'on' : 'off');
-    resolvedStorage?.setItem('yumeshelf_mascot_scale', String(next.scale));
-    resolvedStorage?.setItem('yumeshelf_mascot_sound', next.sound);
-    resolvedStorage?.setItem('yumeshelf_mascot_volume', String(next.volume));
+  const updateMascotPreferences = (patch: MascotPreferencesPatch) => {
+    const nextShow = patch.show ?? mascotShow;
+    const nextScale =
+      patch.scale !== undefined ? normalizeMascotScale(patch.scale, mascotScale) : mascotScale;
+    const nextSound =
+      patch.sound !== undefined ? normalizeMascotSound(patch.sound) : mascotSound;
+    const nextVolume =
+      patch.volume !== undefined ? normalizeMascotVolume(patch.volume, mascotVolume) : mascotVolume;
+    const nextHideAndSeek: HideAndSeekMode =
+      patch.hideAndSeek !== undefined
+        ? normalizeHideAndSeekMode(patch.hideAndSeek)
+        : hideAndSeek;
 
-    onMascotSettingsChanged?.(next);
+    if (mascot) {
+      mascot.updatePreferences(patch);
+    } else {
+      setStandaloneMascotPrefs({
+        show: nextShow,
+        scale: nextScale,
+        sound: nextSound,
+        volume: nextVolume,
+        hideAndSeek: nextHideAndSeek,
+      });
+
+      if (patch.show !== undefined) {
+        persistStandaloneMascotSetting(MASCOT_STORAGE_KEYS.show, nextShow ? 'on' : 'off');
+      }
+      if (patch.scale !== undefined) {
+        persistStandaloneMascotSetting(MASCOT_STORAGE_KEYS.scale, String(nextScale));
+      }
+      if (patch.sound !== undefined) {
+        persistStandaloneMascotSetting(MASCOT_STORAGE_KEYS.sound, nextSound);
+      }
+      if (patch.volume !== undefined) {
+        persistStandaloneMascotSetting(MASCOT_STORAGE_KEYS.volume, String(nextVolume));
+      }
+      if (patch.hideAndSeek !== undefined) {
+        persistStandaloneMascotSetting(MASCOT_STORAGE_KEYS.hideAndSeek, nextHideAndSeek);
+      }
+    }
+
+    onMascotSettingsChanged?.({
+      show: nextShow,
+      scale: nextScale,
+      sound: nextSound,
+      volume: nextVolume,
+    });
   };
 
   return (
@@ -1395,11 +1443,11 @@ export function SettingsModal({
                   id="hide-and-seek-select"
                   value={hideAndSeek}
                   disabled={!mascotShow}
-                  onChange={(e) => {
-                    const nextVal = e.target.value;
-                    setHideAndSeek(nextVal);
-                    resolvedStorage?.setItem('yumeshelf_hide_and_seek', nextVal);
-                  }}
+                  onChange={(e) =>
+                    updateMascotPreferences({
+                      hideAndSeek: normalizeHideAndSeekMode(e.target.value),
+                    })
+                  }
                 >
                   <option value="yeaaa">{strings.hide_and_seek_yeaaa || 'YEAAA'}</option>
                   <option value="out">{strings.hide_and_seek_out || "I'm out"}</option>

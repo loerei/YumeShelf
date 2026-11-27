@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LibraryStateProvider } from '../../context/LibraryStateContext';
+import { MascotProvider, useMascot } from '../../providers/MascotProvider';
 import { NotificationProvider } from '../../providers/NotificationProvider';
 import { createUiRuntimeState, type ObservableUiRuntimeStore, type UiStorageAdapter } from '../../state/ui-runtime-state';
 import type { ElectronAPI } from '../../../shared/types/ipc';
@@ -723,6 +724,117 @@ describe('SettingsModal', () => {
     expect(onMascotSettingsChanged).toHaveBeenCalledWith(
       expect.objectContaining<Partial<MascotPreferences>>({ scale: 60 })
     );
+  });
+
+  it('logs sanitized console.warn when standalone mascot storage write throws', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = createMemoryStorage();
+    storage.setItem.mockImplementation(() => {
+      throw new Error('QuotaExceededError at C:\\Users\\alice\\AppData\\Local\\YumeShelf');
+    });
+
+    renderSettingsModal({ storage });
+    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+
+    const hideSelect = screen.getByLabelText('Hide And Seek?');
+    fireEvent.change(hideSelect, { target: { value: 'yeaaa' } });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[SettingsModal] Failed to persist mascot setting:',
+      expect.objectContaining({
+        key: 'yumeshelf_hide_and_seek',
+        error: expect.not.stringContaining('alice'),
+      })
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('synchronizes mascot and hide-and-seek controls directly with MascotProvider without onMascotSettingsChanged', () => {
+    const storage = createMemoryStorage();
+    const store = createUiRuntimeState();
+    const electronAPI = createMockElectronAPI();
+    store.setCurrentLibraryConfig({
+      libraryPath: '',
+      libraryPaths: [],
+      maxDepth: 3,
+      autoLaunch: false,
+      minimizeToTray: false,
+    });
+
+    let latestMascot: ReturnType<typeof useMascot> | null = null;
+    function MascotObserver() {
+      latestMascot = useMascot();
+      return (
+        <div
+          data-testid="mascot-observer"
+          data-show={String(latestMascot.show)}
+          data-hide-and-seek={latestMascot.hideAndSeek}
+          data-scale={String(latestMascot.scale)}
+          data-sound={latestMascot.sound}
+          data-volume={String(latestMascot.volume)}
+          data-widget-visible={String(latestMascot.isWidgetVisible)}
+          data-card-active={String(latestMascot.isHideAndSeekCardActive)}
+        />
+      );
+    }
+
+    render(
+      <LibraryStateProvider store={store}>
+        <NotificationProvider electronAPI={electronAPI}>
+          <MascotProvider storage={storage}>
+            <MascotObserver />
+            <SettingsModal
+              isOpen={true}
+              onClose={vi.fn()}
+              electronAPI={electronAPI}
+              storage={storage}
+            />
+          </MascotProvider>
+        </NotificationProvider>
+      </LibraryStateProvider>
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+
+    const observer = screen.getByTestId('mascot-observer');
+    expect(observer.getAttribute('data-show')).toBe('true');
+    expect(observer.getAttribute('data-hide-and-seek')).toBe('out');
+    expect(observer.getAttribute('data-widget-visible')).toBe('true');
+    expect(observer.getAttribute('data-card-active')).toBe('false');
+
+    // Toggle Hide And Seek -> YEAAA: corner widget hides, card becomes active immediately
+    fireEvent.change(screen.getByLabelText('Hide And Seek?'), { target: { value: 'yeaaa' } });
+    expect(observer.getAttribute('data-hide-and-seek')).toBe('yeaaa');
+    expect(observer.getAttribute('data-widget-visible')).toBe('false');
+    expect(observer.getAttribute('data-card-active')).toBe('true');
+    expect(storage.getItem('yumeshelf_hide_and_seek')).toBe('yeaaa');
+
+    const initialSlotFraction = latestMascot!.sessionSlotFraction;
+
+    // Adjust scale, sound, volume directly via MascotProvider without resetting Hide-and-Seek session
+    fireEvent.change(screen.getByLabelText('Mascot Scale'), { target: { value: '75' } });
+    expect(observer.getAttribute('data-scale')).toBe('75');
+    expect(latestMascot!.sessionSlotFraction).toBe(initialSlotFraction);
+
+    fireEvent.change(screen.getByLabelText('Bonk Sound'), { target: { value: 'metal-pipe' } });
+    expect(observer.getAttribute('data-sound')).toBe('metal-pipe');
+
+    fireEvent.change(screen.getByLabelText('Mascot Volume'), { target: { value: '0' } });
+    expect(observer.getAttribute('data-volume')).toBe('0');
+
+    // Toggle Show Mascot -> Off: both widget and card become inactive
+    fireEvent.change(screen.getByLabelText('Show Mascot'), { target: { value: 'off' } });
+    expect(observer.getAttribute('data-show')).toBe('false');
+    expect(observer.getAttribute('data-widget-visible')).toBe('false');
+    expect(observer.getAttribute('data-card-active')).toBe('false');
+
+    // Toggle Show Mascot -> On and Hide And Seek -> out
+    fireEvent.change(screen.getByLabelText('Show Mascot'), { target: { value: 'on' } });
+    fireEvent.change(screen.getByLabelText('Hide And Seek?'), { target: { value: 'out' } });
+    expect(observer.getAttribute('data-show')).toBe('true');
+    expect(observer.getAttribute('data-hide-and-seek')).toBe('out');
+    expect(observer.getAttribute('data-widget-visible')).toBe('true');
+    expect(observer.getAttribute('data-card-active')).toBe('false');
   });
 
   it('transfers focus to fallbackFocusRef when invoking trigger is disconnected on close', () => {

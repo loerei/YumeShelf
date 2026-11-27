@@ -128,6 +128,14 @@ describe('library-sections', () => {
     expect(favFallback.effectiveTabId).toBe('all');
     expect(favFallback.folderSections).toHaveLength(2);
 
+    const favAllowed = selectFolderTabProjection(baseNoFav, 'fav', 'win32', {
+      allowEmptyFavoritesTab: true,
+    });
+    expect(favAllowed.effectiveTabId).toBe('fav');
+    expect(favAllowed.favoritesSection).toEqual([]);
+    expect(favAllowed.folderSections).toBeUndefined();
+    expect(favAllowed.allFolderSections).toHaveLength(2);
+
     const invalidFallback = selectFolderTabProjection(baseNoFav, 'C:/Missing', 'win32');
     expect(invalidFallback.effectiveTabId).toBe('all');
     expect(invalidFallback.folderSections).toHaveLength(2);

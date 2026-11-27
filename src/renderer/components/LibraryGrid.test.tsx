@@ -6,6 +6,9 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { LibraryGrid } from './LibraryGrid';
 import { LibraryEmptyState } from './LibraryEmptyState';
 import { LibraryStateProvider } from '../context/LibraryStateContext';
+import { MascotProvider, useMascot } from '../providers/MascotProvider';
+import { MASCOT_CARD_KEY, MASCOT_STORAGE_KEYS } from '../mascot/mascot-domain';
+import * as cardFlipModule from '../hooks/useCardLayoutFlip';
 import { createUiRuntimeState, type ObservableUiRuntimeStore, type UiStorageAdapter } from '../state/ui-runtime-state';
 import type { GameEntry } from '../types/game';
 import type { ElectronAPI } from '../../shared/types/ipc';
@@ -1344,5 +1347,207 @@ describe('LibraryGrid', () => {
       nfdChildA,
       nfdRootB,
     ]);
+  });
+
+  it('renders MascotCard only when isHideAndSeekCardActive && viewItems.length > 0, keeps it non-draggable, updates structuralLayoutRevision, transfers focus on dismissal, and causes 0 LibraryGrid re-renders on bonk/scale/volume', async () => {
+    vi.useFakeTimers();
+    const flipSpy = vi.spyOn(cardFlipModule, 'useCardLayoutFlip');
+    const storage = createMemoryStorage({
+      [MASCOT_STORAGE_KEYS.hideAndSeek]: 'yeaaa',
+    });
+    const store = createUiRuntimeState(storage);
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'Game 1', favorite: false }),
+      makeGame({ gameKey: 'g2', name: 'Game 2', favorite: false }),
+    ]);
+    store.setCurrentSort('az');
+
+    let mascotActions!: ReturnType<typeof useMascot>;
+    let gridRenderCount = 0;
+    const RenderCounterGrid: React.FC<React.ComponentProps<typeof LibraryGrid>> = (props) => {
+      gridRenderCount += 1;
+      return <LibraryGrid {...props} />;
+    };
+    function MascotHarness() {
+      mascotActions = useMascot();
+      return null;
+    }
+
+    // rng 0.9 => isCardStarred = false, threshold = 10
+    const { rerender } = render(
+      <MascotProvider storage={storage} rng={() => 0.9}>
+        <MascotHarness />
+        <LibraryStateProvider store={store}>
+          <RenderCounterGrid storage={storage} electronAPI={createMockElectronAPI()} />
+        </LibraryStateProvider>
+      </MascotProvider>
+    );
+
+    const mascotCard = document.querySelector(`.game-card[data-game-key="${MASCOT_CARD_KEY}"]`) as HTMLElement;
+    expect(mascotCard).toBeTruthy();
+    expect(mascotCard.getAttribute('draggable')).toBe('false');
+    expect(document.getElementById('unfav-grid')?.contains(mascotCard)).toBe(true);
+
+    const initialRenderCount = gridRenderCount;
+    const initialRevision = flipSpy.mock.calls.at(-1)?.[0].structuralLayoutRevision ?? 0;
+
+    // bonk(), setScale(), and setVolume() cause 0 LibraryGrid re-renders
+    act(() => {
+      mascotActions.bonk({ clientX: 10, clientY: 10 });
+      mascotActions.setScale(50);
+      mascotActions.setVolume(80);
+    });
+    expect(gridRenderCount).toBe(initialRenderCount);
+
+    // Focus mascot card and dismiss via returnFromHideAndSeek -> structuralLayoutRevision increments
+    mascotCard.focus();
+    expect(document.activeElement).toBe(mascotCard);
+
+    act(() => {
+      mascotActions.returnFromHideAndSeek(5, 3000);
+    });
+    expect(document.querySelector(`.game-card[data-game-key="${MASCOT_CARD_KEY}"]`)).toBeNull();
+    const afterDismissRevision = flipSpy.mock.calls.at(-1)?.[0].structuralLayoutRevision ?? 0;
+    expect(afterDismissRevision).toBeGreaterThan(initialRevision);
+
+    // Empty library (viewItems.length === 0) must not render MascotCard even if hideAndSeek is active
+    act(() => {
+      mascotActions.setHideAndSeek('yeaaa');
+      store.setAllGames([]);
+    });
+    rerender(
+      <MascotProvider storage={storage} rng={() => 0.9}>
+        <MascotHarness />
+        <LibraryStateProvider store={store}>
+          <RenderCounterGrid storage={storage} electronAPI={createMockElectronAPI()} />
+        </LibraryStateProvider>
+      </MascotProvider>
+    );
+    expect(document.querySelector(`.game-card[data-game-key="${MASCOT_CARD_KEY}"]`)).toBeNull();
+  });
+
+  it('handles folder sort Hide-and-Seek routing across fav, folder tab, all, and empty-favorites virtual tab without bouncing', () => {
+    const storage = createMemoryStorage({
+      [MASCOT_STORAGE_KEYS.hideAndSeek]: 'yeaaa',
+      yumeshelf_active_folder_tab: 'fav',
+    });
+    const store = createUiRuntimeState(storage);
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'Game 1', folderPath: 'D:/Games/VN/G1', favorite: false }),
+      makeGame({ gameKey: 'g2', name: 'Game 2', folderPath: 'D:/Games/RPG/G2', favorite: false }),
+    ]);
+    store.setCurrentSort('folder');
+    store.setCurrentLibraryConfig({
+      libraryPath: 'D:/Games/VN',
+      libraryPaths: ['D:/Games/VN', 'D:/Games/RPG'],
+      maxDepth: 2,
+      autoLaunch: false,
+      minimizeToTray: false,
+    });
+
+    // rng 0.1 => isCardStarred = true; favorites.length === 0, activeTabId === 'fav' must stay 'fav' without bouncing
+    const { unmount } = render(
+      <MascotProvider storage={storage} rng={() => 0.1}>
+        <LibraryStateProvider store={store}>
+          <LibraryGrid storage={storage} targetPlatform="win32" electronAPI={createMockElectronAPI()} />
+        </LibraryStateProvider>
+      </MascotProvider>
+    );
+
+    const favTab = document.getElementById('shelf-tab-fav');
+    expect(favTab).toBeTruthy();
+    expect(favTab?.getAttribute('aria-selected')).toBe('true');
+    const favGrid = document.getElementById('fav-grid');
+    expect(favGrid?.querySelector(`.game-card[data-game-key="${MASCOT_CARD_KEY}"]`)).toBeTruthy();
+    unmount();
+
+    // ('<folderPath>', isCardStarred = true) -> renders inside that folder section
+    const folderStorage = createMemoryStorage({
+      [MASCOT_STORAGE_KEYS.hideAndSeek]: 'yeaaa',
+      yumeshelf_active_folder_tab: 'D:/Games/RPG',
+    });
+    const { unmount: unmountFolder } = render(
+      <MascotProvider storage={folderStorage} rng={() => 0.1}>
+        <LibraryStateProvider store={store}>
+          <LibraryGrid
+            storage={folderStorage}
+            targetPlatform="win32"
+            electronAPI={createMockElectronAPI()}
+          />
+        </LibraryStateProvider>
+      </MascotProvider>
+    );
+    const rpgTab = screen.getByRole('tab', { name: /RPG/ });
+    expect(rpgTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.querySelector(`.folder-section .game-card[data-game-key="${MASCOT_CARD_KEY}"]`)).toBeTruthy();
+    unmountFolder();
+
+    // ('all', !isCardStarred) -> renders inside a folder section; ('fav', !isCardStarred) -> renders in #fav-grid
+    const allStorage = createMemoryStorage({
+      [MASCOT_STORAGE_KEYS.hideAndSeek]: 'yeaaa',
+      yumeshelf_active_folder_tab: 'all',
+    });
+    render(
+      <MascotProvider storage={allStorage} rng={() => 0.9}>
+        <LibraryStateProvider store={store}>
+          <LibraryGrid
+            storage={allStorage}
+            targetPlatform="win32"
+            electronAPI={createMockElectronAPI()}
+          />
+        </LibraryStateProvider>
+      </MascotProvider>
+    );
+    expect(document.querySelector(`.folder-section .game-card[data-game-key="${MASCOT_CARD_KEY}"]`)).toBeTruthy();
+  });
+
+  it('transfers focus to an adjacent surviving card when MascotCard triggers onDismissFocusHandoff', () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'matchMedia').mockImplementation(() => ({
+      matches: true,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    const storage = createMemoryStorage({
+      [MASCOT_STORAGE_KEYS.hideAndSeek]: 'yeaaa',
+    });
+    const store = createUiRuntimeState(storage);
+    store.setAllGames([
+      makeGame({ gameKey: 'g1', name: 'Game 1', favorite: false }),
+      makeGame({ gameKey: 'g2', name: 'Game 2', favorite: false }),
+    ]);
+    store.setCurrentSort('az');
+
+    // rng 0.9 => isCardStarred = false, threshold = 10, slotFraction = 0.9 (end of unfav list)
+    render(
+      <MascotProvider storage={storage} rng={() => 0.9}>
+        <LibraryStateProvider store={store}>
+          <LibraryGrid storage={storage} electronAPI={createMockElectronAPI()} />
+        </LibraryStateProvider>
+      </MascotProvider>
+    );
+
+    const mascotCard = document.querySelector(`.game-card[data-game-key="${MASCOT_CARD_KEY}"]`) as HTMLElement;
+    expect(mascotCard).toBeTruthy();
+    mascotCard.focus();
+    expect(document.activeElement).toBe(mascotCard);
+
+    for (let i = 0; i < 10; i++) {
+      fireEvent.click(mascotCard, { clientX: 20, clientY: 20 });
+    }
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(document.querySelector(`.game-card[data-game-key="${MASCOT_CARD_KEY}"]`)).toBeNull();
+    const activeEl = document.activeElement as HTMLElement | null;
+    expect(activeEl?.classList.contains('game-card')).toBe(true);
+    expect(activeEl?.dataset.gameKey).not.toBe(MASCOT_CARD_KEY);
   });
 });

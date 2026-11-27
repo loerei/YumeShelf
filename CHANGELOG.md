@@ -4,7 +4,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
-## [2.3.0] - working
+## [2.3.0] - 2026-11-27 — released
 
 ### What Changed
 - Versioning: YumeShelf follows Semantic Versioning (SemVer) from 2.3.0 onward.

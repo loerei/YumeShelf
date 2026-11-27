@@ -145,7 +145,7 @@ describe('SaveFieldInputs (Pure Presentational Typed Inputs)', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps invalid draft visible with aria-invalid and error message on Enter, retains focus, and reverts on blur', async () => {
+  it('keeps invalid draft visible with aria-invalid and error message on Enter and blur, and reverts when clicking the error badge', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
 
@@ -173,12 +173,120 @@ describe('SaveFieldInputs (Pure Presentational Typed Inputs)', () => {
     expect(errorEl).toHaveAttribute('role', 'alert');
     expect(errorEl?.textContent).toBe('Invalid number');
 
+    // Blur keeps invalid draft and error visible
     fireEvent.blur(input);
+    expect(input.value).toBe('abc');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById('field-variables:3-error')).not.toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+
+    // Clicking error badge reverts draft, clears error, and focuses input
+    await user.click(errorEl!);
     expect(input.value).toBe('50');
     expect(input).toHaveAttribute('aria-invalid', 'false');
     expect(input).not.toHaveAttribute('aria-describedby');
     expect(document.getElementById('field-variables:3-error')).toBeNull();
+    expect(document.activeElement).toBe(input);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('evaluates + - * / expressions on Enter and blur, and flags division by zero in red until clicked to revert', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    function ControlledMathHarness() {
+      const [val, setVal] = useState(100);
+      return (
+        <NumberInput
+          id="field-variables:4"
+          label="Exp"
+          value={val}
+          onChange={(next) => {
+            onChange(next);
+            setVal(next);
+          }}
+        />
+      );
+    }
+
+    render(<ControlledMathHarness />);
+    const input = screen.getByRole('textbox', { name: 'Exp' }) as HTMLInputElement;
+
+    await user.clear(input);
+    await user.type(input, '100 + 50 * 2{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith(200);
+    expect(input.value).toBe('200');
+    expect(input).toHaveAttribute('aria-invalid', 'false');
+
+    await user.clear(input);
+    await user.type(input, '(200 - 50) / 4');
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenLastCalledWith(37.5);
+    expect(input.value).toBe('37.5');
+
+    // Division by zero shows red error on both Enter and blur, and clicking error reverts
+    await user.clear(input);
+    await user.type(input, '10 / 0{Enter}');
+    expect(input.value).toBe('10 / 0');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    const divZeroBtn = document.getElementById('field-variables:4-error');
+    expect(divZeroBtn?.textContent).toBe('Cannot divide by 0');
+
+    fireEvent.blur(input);
+    expect(input.value).toBe('10 / 0');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+
+    await user.click(divZeroBtn!);
+    expect(input.value).toBe('37.5');
+    expect(input).toHaveAttribute('aria-invalid', 'false');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('prioritizes native undo for uncommitted draft on Ctrl+Z and invokes onUndo delta only when no uncommitted draft remains', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onUndo = vi.fn();
+
+    render(
+      <NumberInput
+        id="field-variables:5"
+        label="Money"
+        value={99900}
+        onChange={onChange}
+        onUndo={onUndo}
+      />
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Money' }) as HTMLInputElement;
+    await user.click(input);
+    await user.type(input, '+100');
+    expect(input.value).toBe('99900+100');
+
+    // While uncommitted draft exists, Ctrl+Z is not intercepted for delta undo
+    const draftUndoEvent = new KeyboardEvent('keydown', {
+      key: 'z',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    input.dispatchEvent(draftUndoEvent);
+    expect(draftUndoEvent.defaultPrevented).toBe(false);
+    expect(onUndo).not.toHaveBeenCalled();
+
+    // Once draft matches committed value, Ctrl+Z triggers onUndo
+    await user.clear(input);
+    await user.type(input, '99900');
+    expect(input.value).toBe('99900');
+
+    const deltaUndoEvent = new KeyboardEvent('keydown', {
+      key: 'z',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    input.dispatchEvent(deltaUndoEvent);
+    expect(deltaUndoEvent.defaultPrevented).toBe(true);
+    expect(onUndo).toHaveBeenCalledTimes(1);
   });
 
   it('renders TextInput with virtualized-table-text-input class, id, aria-label, disabled, and string onChange', async () => {

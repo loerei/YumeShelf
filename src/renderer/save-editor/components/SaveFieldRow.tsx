@@ -170,17 +170,16 @@ export const SaveFieldRow = React.memo(
               {label}
             </label>
           </div>
-          <div className="data-value-wrapper">
-            <NumberInput
-              id={inputId}
-              label={label}
-              value={numericValue}
-              disabled={field.readOnly}
-              invalidNumberText={invalidNumberText}
-              onChange={(val) => onChange(field.id, val)}
-            />
-            {deltaNode}
-          </div>
+          <NumberInput
+            id={inputId}
+            label={label}
+            value={numericValue}
+            disabled={field.readOnly}
+            invalidNumberText={invalidNumberText}
+            delta={deltaNode}
+            onUndo={!field.readOnly && isDirty && value !== field.value ? handleUndo : undefined}
+            onChange={(val) => onChange(field.id, val)}
+          />
         </div>
       );
     }

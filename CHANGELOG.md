@@ -17,6 +17,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - Search launch & double-click: double-clicking (or pressing Enter on) a search result launches the game with the launch toast while keeping the search dropdown open, and single-clicking selects the row with visual feedback.
 - Sort by Folder view: added a `By Folder` sort mode with top shelf tabs (All Folders, Favorites, and each library root), collapsible folder sections with Expand All / Collapse All controls, inline folder alias renaming (click or press `F2`), and direct manual game addition inside empty folders.
 - Save Editor nested folders, large saves, and cleaner backups: fixed opening saves for games inside nested library subfolders, added a 64 MB warning with an inline `Proceed anyway` prompt and `Always Allow Large Saves (>64 MB)` setting (default Off), and moved `.bak` backups into a `.yumeshelf-backups` subfolder.
+- Save Editor quick math and undo: click the save folder path to open it in File Explorer, click a field's change badge (or press Ctrl+Z when no new edits remain) to revert it, and type simple +, -, *, / expressions into number fields (with an inline red warning on division by zero or invalid syntax that reverts on click).
 
 ### For the Nerds
 - [renderer] Rebuilt the main renderer (`src/renderer/`) in React 19 with strict TypeScript, replacing imperative DOM modules and legacy dual-FLIP animations with declarative components, `useSyncExternalStore` state bridging, portal overlays, and a multi-page Vite build (`index.html`, `save-editor.html`).
@@ -31,6 +32,7 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 - [dnd] Rebuilt drag-and-drop reordering for folder tabs, library cards/stacks, and Settings library paths on `@dnd-kit` (`@dnd-kit/core`, `@dnd-kit/sortable`) with path-subsumption validation, monotonic commit-sequence guards, and optimistic rollback.
 - [library] Rebuilt non-drag WAAPI card layout FLIP animations gated against active drags, and disabled accidental text selection across `#game-grid-wrapper` while keeping rename inputs selectable.
 - [save-editor] Unified `SaveEditorIpcController` `gameKey` segment validation to accept nested `/` paths and segment-edge whitespace while rejecting traversal and prototype keys, restored the 64 MB default ceiling with an opt-in `autoAllowLargeSaves` setting (default `false`) and inline recovery prompt (`SAVE_TOO_LARGE` IPC contract, localized across all 5 language packs), and isolated `.bak` backups inside `<saveDir>/.yumeshelf-backups/` with post-rename target backup purging.
+- [save-editor] Unified standalone Save Editor tooltip skinning and theme initialization via `TooltipProvider` and `applyTheme()`, wired `SaveFolderBar` path clicks to `save-folder:open`, made `SaveFieldRow` delta badges clickable to revert with input focus retention, and added a recursive-descent arithmetic evaluator (`+`, `-`, `*`, `/`, parentheses) with inline error-revert badges and 2-tier `Ctrl+Z` undo to `NumberInput`.
 
 ---
 

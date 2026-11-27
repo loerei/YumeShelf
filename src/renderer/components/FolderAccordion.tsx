@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { sanitizeUserPaths } from '../../shared/path-sanitizer';
 import type {
   FolderSection as FolderSectionModel,
@@ -124,6 +124,12 @@ function writeCollapsedFolders(nextSet: ReadonlySet<string>, storage: UiStorageA
   }
 }
 
+export interface MascotGridSlot {
+  readonly targetScope: 'fav' | string; // 'fav' or matching folder section.path
+  readonly insertIndex: number;
+  readonly renderCard: (sectionScope: string) => React.ReactNode;
+}
+
 export interface FolderAccordionProps {
   readonly projection: LibrarySectionsProjection;
   readonly storage?: UiStorageAdapter;
@@ -133,6 +139,7 @@ export interface FolderAccordionProps {
   readonly renderTitle?: (section: FolderSectionModel) => React.ReactNode;
   readonly renderEmptyFolder?: (section: FolderSectionModel) => React.ReactNode;
   readonly isDragActive?: boolean;
+  readonly mascotSlot?: MascotGridSlot | null;
   readonly renderSectionContainer?: (
     containerId: string,
     itemIds: readonly string[],
@@ -153,6 +160,7 @@ export const FolderAccordion: React.FC<FolderAccordionProps> = ({
   renderTitle,
   renderEmptyFolder,
   isDragActive = false,
+  mascotSlot = null,
   renderSectionContainer,
 }) => {
   const resolvedStorage = storage ?? defaultStorage;
@@ -199,20 +207,46 @@ export const FolderAccordion: React.FC<FolderAccordionProps> = ({
   const favorites = projection.favoritesSection ?? [];
   const favItemIds = useStableItemIds(favorites, 'fav');
   const folderSections = projection.folderSections ?? [];
+  const hasFavMascotSlot = mascotSlot?.targetScope === 'fav';
   const showFavorites =
     projection.effectiveTabId === 'fav' ||
-    (projection.effectiveTabId === 'all' && (favorites.length > 0 || Boolean(isDragActive)));
+    (projection.effectiveTabId === 'all' &&
+      (favorites.length > 0 || Boolean(isDragActive) || hasFavMascotSlot));
   const showFolders = projection.effectiveTabId !== 'fav';
 
-  const renderFavGrid = (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => (
-    <div
-      ref={droppableRef}
-      id="fav-grid"
-      className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
-    >
-      {favorites.map((item) => renderItem(item, 'fav'))}
-    </div>
-  );
+  const resolvedFolderMascotSlot = useMemo<MascotGridSlot | null>(() => {
+    if (!mascotSlot || mascotSlot.targetScope === 'fav') {
+      return null;
+    }
+    if (mascotSlot.targetScope === 'folder:auto') {
+      if (folderSections.length === 0) return null;
+      const selectedSection =
+        folderSections.find((section) => !section.isCollapsible || !collapsedFolders.has(section.path)) ??
+        folderSections[0];
+      return {
+        ...mascotSlot,
+        targetScope: selectedSection.path,
+      };
+    }
+    return mascotSlot;
+  }, [mascotSlot, folderSections, collapsedFolders]);
+
+  const renderFavGrid = (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => {
+    const renderedFavItems = favorites.map((item) => renderItem(item, 'fav'));
+    if (hasFavMascotSlot && mascotSlot) {
+      const idx = Math.max(0, Math.min(mascotSlot.insertIndex, renderedFavItems.length));
+      renderedFavItems.splice(idx, 0, mascotSlot.renderCard('fav'));
+    }
+    return (
+      <div
+        ref={droppableRef}
+        id="fav-grid"
+        className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+      >
+        {renderedFavItems}
+      </div>
+    );
+  };
 
   return (
     <div id="game-grid-wrapper" className="folder-accordion-container">
@@ -247,6 +281,7 @@ export const FolderAccordion: React.FC<FolderAccordionProps> = ({
                 isFiltered={isFiltered}
                 renderTitle={renderTitle}
                 renderEmptyFolder={renderEmptyFolder}
+                mascotSlot={resolvedFolderMascotSlot}
                 renderSectionContainer={renderSectionContainer}
               />
             );

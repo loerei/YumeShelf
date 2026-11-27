@@ -3,6 +3,7 @@ import { useLocaleStrings } from '../i18n/locale-strings';
 import type { FolderSection as FolderSectionModel } from '../library/library-sections';
 import type { LibraryViewItem } from '../library-stacks';
 import { useStableItemIds } from '../hooks/useStableItemIds';
+import type { MascotGridSlot } from './FolderAccordion';
 
 export interface FolderSectionProps {
   readonly section: FolderSectionModel;
@@ -12,6 +13,7 @@ export interface FolderSectionProps {
   readonly isFiltered?: boolean;
   readonly renderTitle?: (section: FolderSectionModel) => React.ReactNode;
   readonly renderEmptyFolder?: (section: FolderSectionModel) => React.ReactNode;
+  readonly mascotSlot?: MascotGridSlot | null;
   readonly renderSectionContainer?: (
     containerId: string,
     itemIds: readonly string[],
@@ -31,10 +33,12 @@ export const FolderSection: React.FC<FolderSectionProps> = ({
   isFiltered = false,
   renderTitle,
   renderEmptyFolder,
+  mascotSlot = null,
   renderSectionContainer,
 }) => {
   const strings = useLocaleStrings();
-  const effectiveExpanded = !section.isCollapsible || isExpanded;
+  const hasMascotSlot = mascotSlot?.targetScope === section.path;
+  const effectiveExpanded = !section.isCollapsible || isExpanded || hasMascotSlot;
   const itemIds = useStableItemIds(section.games, section.path);
 
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -74,24 +78,32 @@ export const FolderSection: React.FC<FolderSectionProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  const renderGrid = (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => (
-    <div
-      ref={effectiveExpanded ? droppableRef : undefined}
-      className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
-    >
-      {section.games.length === 0 ? (
-        !isFiltered && renderEmptyFolder ? (
-          renderEmptyFolder(section)
+  const renderGrid = (droppableRef?: React.Ref<HTMLDivElement>, isOver?: boolean) => {
+    const renderedItems = section.games.map((item) => renderItem(item, section.path));
+    if (hasMascotSlot && mascotSlot) {
+      const idx = Math.max(0, Math.min(mascotSlot.insertIndex, renderedItems.length));
+      renderedItems.splice(idx, 0, mascotSlot.renderCard(section.path));
+    }
+
+    return (
+      <div
+        ref={effectiveExpanded ? droppableRef : undefined}
+        className={`game-grid grid-section drop-zone${isOver ? ' drag-over' : ''}`}
+      >
+        {renderedItems.length === 0 ? (
+          !isFiltered && renderEmptyFolder ? (
+            renderEmptyFolder(section)
+          ) : (
+            <div className="filtered-folder-empty-state">
+              {strings.no_matching_games_in_folder}
+            </div>
+          )
         ) : (
-          <div className="filtered-folder-empty-state">
-            {strings.no_matching_games_in_folder}
-          </div>
-        )
-      ) : (
-        section.games.map((item) => renderItem(item, section.path))
-      )}
-    </div>
-  );
+          renderedItems
+        )}
+      </div>
+    );
+  };
 
   return (
     <section className={sectionClassName}>

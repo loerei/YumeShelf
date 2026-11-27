@@ -444,4 +444,149 @@ describe('FolderAccordion & FolderSection', () => {
     );
     expect(gridWrapper.classList.contains('is-transitioning')).toBe(false);
   });
+
+  it('renders display-only MascotGridSlot in #fav-grid when favoritesSection is empty without polluting SortableContext itemIds', () => {
+    const storage = createMemoryStorage();
+    const sections = [makeSection('D:/Games/VN', 'VN', [makeItem('g1')])];
+    const containerItemIds = new Map<string, readonly string[]>();
+
+    render(
+      <FolderAccordion
+        projection={{
+          effectiveTabId: 'all',
+          favoritesSection: [],
+          folderSections: sections,
+          allFolderSections: sections,
+        }}
+        storage={storage}
+        mascotSlot={{
+          targetScope: 'fav',
+          insertIndex: 0,
+          renderCard: (scope) => (
+            <div key="__mascot_card__" data-testid="mascot-slot" data-scope={scope}>
+              Mascot
+            </div>
+          ),
+        }}
+        renderSectionContainer={(containerId, itemIds, renderGrid) => {
+          containerItemIds.set(containerId, itemIds);
+          return <React.Fragment key={containerId}>{renderGrid()}</React.Fragment>;
+        }}
+        renderItem={(item, scope) => (
+          <div key={`${scope}-${item.representativeKey}`}>{item.representativeKey}</div>
+        )}
+      />
+    );
+
+    const favGrid = document.getElementById('fav-grid');
+    expect(favGrid).toBeTruthy();
+    const mascotEl = screen.getByTestId('mascot-slot');
+    expect(favGrid?.contains(mascotEl)).toBe(true);
+    expect(mascotEl.getAttribute('data-scope')).toBe('fav');
+    expect(containerItemIds.get('fav')).toEqual([]);
+    expect(containerItemIds.get('fav')).not.toContain('__mascot_card__');
+  });
+
+  it('renders MascotGridSlot in an empty FolderSection and temporarily expands a collapsed folder without mutating storage', () => {
+    const persistedPayload = JSON.stringify({
+      schemaVersion: 1,
+      collapsed: ['D:/Games/Empty'],
+    });
+    const storage = createMemoryStorage({
+      yumeshelf_collapsed_folders: persistedPayload,
+    });
+    const sections = [
+      makeSection('D:/Games/Empty', 'Empty', []),
+      makeSection('D:/Games/VN', 'VN', [makeItem('g1')]),
+    ];
+    const containerItemIds = new Map<string, readonly string[]>();
+
+    render(
+      <FolderAccordion
+        projection={{
+          effectiveTabId: 'all',
+          favoritesSection: [],
+          folderSections: sections,
+          allFolderSections: sections,
+        }}
+        storage={storage}
+        mascotSlot={{
+          targetScope: 'D:/Games/Empty',
+          insertIndex: 0,
+          renderCard: (scope) => (
+            <div key="__mascot_card__" data-testid="mascot-slot" data-scope={scope}>
+              Mascot
+            </div>
+          ),
+        }}
+        renderEmptyFolder={() => <div data-testid="empty-prompt">Empty Folder</div>}
+        renderSectionContainer={(containerId, itemIds, renderGrid) => {
+          containerItemIds.set(containerId, itemIds);
+          return <React.Fragment key={containerId}>{renderGrid()}</React.Fragment>;
+        }}
+        renderItem={(item, scope) => (
+          <div key={`${scope}-${item.representativeKey}`}>{item.representativeKey}</div>
+        )}
+      />
+    );
+
+    const emptySection = document.querySelectorAll('.folder-section')[0];
+    const gridWrapper = emptySection.querySelector('.folder-section-grid');
+    expect(gridWrapper?.hasAttribute('inert')).toBe(false);
+    expect(gridWrapper?.classList.contains('is-collapsed')).toBe(false);
+    expect(screen.queryByTestId('empty-prompt')).toBeNull();
+
+    const mascotEl = screen.getByTestId('mascot-slot');
+    expect(emptySection.contains(mascotEl)).toBe(true);
+    expect(mascotEl.getAttribute('data-scope')).toBe('D:/Games/Empty');
+
+    expect(emptySection.querySelector('.library-section-count')?.textContent).toBe('0');
+    expect(containerItemIds.get('D:/Games/Empty')).toEqual([]);
+    expect(containerItemIds.get('D:/Games/Empty')).not.toContain('__mascot_card__');
+    expect(storage.map.get('yumeshelf_collapsed_folders')).toBe(persistedPayload);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('routes folder:auto MascotGridSlot to the first expanded folder section', () => {
+    const storage = createMemoryStorage({
+      yumeshelf_collapsed_folders: JSON.stringify({
+        schemaVersion: 1,
+        collapsed: ['D:/Games/Collapsed'],
+      }),
+    });
+    const sections = [
+      makeSection('D:/Games/Collapsed', 'Collapsed', [makeItem('g1')]),
+      makeSection('D:/Games/Expanded', 'Expanded', [makeItem('g2'), makeItem('g3')]),
+    ];
+
+    render(
+      <FolderAccordion
+        projection={{
+          effectiveTabId: 'all',
+          favoritesSection: [],
+          folderSections: sections,
+          allFolderSections: sections,
+        }}
+        storage={storage}
+        mascotSlot={{
+          targetScope: 'folder:auto',
+          insertIndex: 1,
+          renderCard: (scope) => (
+            <div key="__mascot_card__" data-testid="mascot-slot" data-scope={scope}>
+              Mascot
+            </div>
+          ),
+        }}
+        renderItem={(item, scope) => (
+          <div key={`${scope}-${item.representativeKey}`}>{item.representativeKey}</div>
+        )}
+      />
+    );
+
+    const mascotEl = screen.getByTestId('mascot-slot');
+    expect(mascotEl.getAttribute('data-scope')).toBe('D:/Games/Expanded');
+    const expandedSection = document.querySelectorAll('.folder-section')[1];
+    expect(expandedSection.contains(mascotEl)).toBe(true);
+    expect(expandedSection.querySelector('.library-section-count')?.textContent).toBe('2');
+  });
 });

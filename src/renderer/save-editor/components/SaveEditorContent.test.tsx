@@ -145,7 +145,7 @@ describe('SaveFieldInputs (Pure Presentational Typed Inputs)', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps invalid draft visible with aria-invalid and error message on Enter, retains focus, and reverts on blur', async () => {
+  it('keeps invalid draft visible with aria-invalid and error message on Enter and blur, and reverts when clicking the error badge', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
 
@@ -173,12 +173,120 @@ describe('SaveFieldInputs (Pure Presentational Typed Inputs)', () => {
     expect(errorEl).toHaveAttribute('role', 'alert');
     expect(errorEl?.textContent).toBe('Invalid number');
 
+    // Blur keeps invalid draft and error visible
     fireEvent.blur(input);
+    expect(input.value).toBe('abc');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById('field-variables:3-error')).not.toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+
+    // Clicking error badge reverts draft, clears error, and focuses input
+    await user.click(errorEl!);
     expect(input.value).toBe('50');
     expect(input).toHaveAttribute('aria-invalid', 'false');
     expect(input).not.toHaveAttribute('aria-describedby');
     expect(document.getElementById('field-variables:3-error')).toBeNull();
+    expect(document.activeElement).toBe(input);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('evaluates + - * / expressions on Enter and blur, and flags division by zero in red until clicked to revert', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    function ControlledMathHarness() {
+      const [val, setVal] = useState(100);
+      return (
+        <NumberInput
+          id="field-variables:4"
+          label="Exp"
+          value={val}
+          onChange={(next) => {
+            onChange(next);
+            setVal(next);
+          }}
+        />
+      );
+    }
+
+    render(<ControlledMathHarness />);
+    const input = screen.getByRole('textbox', { name: 'Exp' }) as HTMLInputElement;
+
+    await user.clear(input);
+    await user.type(input, '100 + 50 * 2{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith(200);
+    expect(input.value).toBe('200');
+    expect(input).toHaveAttribute('aria-invalid', 'false');
+
+    await user.clear(input);
+    await user.type(input, '(200 - 50) / 4');
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenLastCalledWith(37.5);
+    expect(input.value).toBe('37.5');
+
+    // Division by zero shows red error on both Enter and blur, and clicking error reverts
+    await user.clear(input);
+    await user.type(input, '10 / 0{Enter}');
+    expect(input.value).toBe('10 / 0');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    const divZeroBtn = document.getElementById('field-variables:4-error');
+    expect(divZeroBtn?.textContent).toBe('Cannot divide by 0');
+
+    fireEvent.blur(input);
+    expect(input.value).toBe('10 / 0');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+
+    await user.click(divZeroBtn!);
+    expect(input.value).toBe('37.5');
+    expect(input).toHaveAttribute('aria-invalid', 'false');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('prioritizes native undo for uncommitted draft on Ctrl+Z and invokes onUndo delta only when no uncommitted draft remains', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onUndo = vi.fn();
+
+    render(
+      <NumberInput
+        id="field-variables:5"
+        label="Money"
+        value={99900}
+        onChange={onChange}
+        onUndo={onUndo}
+      />
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Money' }) as HTMLInputElement;
+    await user.click(input);
+    await user.type(input, '+100');
+    expect(input.value).toBe('99900+100');
+
+    // While uncommitted draft exists, Ctrl+Z is not intercepted for delta undo
+    const draftUndoEvent = new KeyboardEvent('keydown', {
+      key: 'z',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    input.dispatchEvent(draftUndoEvent);
+    expect(draftUndoEvent.defaultPrevented).toBe(false);
+    expect(onUndo).not.toHaveBeenCalled();
+
+    // Once draft matches committed value, Ctrl+Z triggers onUndo
+    await user.clear(input);
+    await user.type(input, '99900');
+    expect(input.value).toBe('99900');
+
+    const deltaUndoEvent = new KeyboardEvent('keydown', {
+      key: 'z',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    input.dispatchEvent(deltaUndoEvent);
+    expect(deltaUndoEvent.defaultPrevented).toBe(true);
+    expect(onUndo).toHaveBeenCalledTimes(1);
   });
 
   it('renders TextInput with virtualized-table-text-input class, id, aria-label, disabled, and string onChange', async () => {
@@ -518,8 +626,8 @@ describe('SaveEditorContent (Virtualized Table Container)', () => {
       expect(alert).not.toHaveClass('save-editor-error-box');
       expect(alert.textContent).toContain('78.4 MB');
       expect(screen.queryByRole('button', { name: 'Choose Another File' })).toBeNull();
-      const tooltip = screen.getByRole('tooltip');
-      expect(tooltip.textContent).toMatch(/longer to open|use more memory/i);
+      const infoBtn = screen.getByRole('button', { name: /longer to open|use more memory/i });
+      expect(infoBtn.getAttribute('data-tooltip')).toMatch(/longer to open|use more memory/i);
 
       // 1. Proceed without auto-allow checkbox: skips updateLibraryConfig, triggers one-time allowLargeSaves bypass
       await act(async () => {
@@ -1054,6 +1162,116 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     expect(idleSvg).not.toBeNull();
     expect(idleSvg?.getAttribute('width')).toBe('48');
     expect(idleSvg?.getAttribute('height')).toBe('48');
+  });
+
+  it('reverts field to original value and transfers focus to input when clicking .data-delta', () => {
+    const onChange = vi.fn();
+    const { container, rerender } = render(
+      <SaveFieldRow
+        field={{
+          id: 'variables:1',
+          tabId: 'variables',
+          key: '1',
+          label: 'Gold',
+          value: 100,
+          type: 'number',
+        }}
+        value={250}
+        isDirty={true}
+        label="Gold"
+        onChange={onChange}
+      />
+    );
+
+    const posBtn = container.querySelector('button.data-delta.data-delta--positive') as HTMLButtonElement;
+    expect(posBtn).not.toBeNull();
+    posBtn.focus();
+    fireEvent.click(posBtn);
+    expect(onChange).toHaveBeenCalledWith('variables:1', 100);
+    expect(document.activeElement).toBe(container.querySelector('#field-variables\\:1'));
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'variables:2',
+          tabId: 'variables',
+          key: '2',
+          label: 'HP',
+          value: 100,
+          type: 'number',
+        }}
+        value={40}
+        isDirty={true}
+        label="HP"
+        onChange={onChange}
+      />
+    );
+    const negBtn = container.querySelector('button.data-delta.data-delta--negative') as HTMLButtonElement;
+    expect(negBtn).not.toBeNull();
+    fireEvent.click(negBtn);
+    expect(onChange).toHaveBeenCalledWith('variables:2', 100);
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'switches:2',
+          tabId: 'switches',
+          key: '2',
+          label: 'Boss',
+          value: false,
+          type: 'boolean',
+        }}
+        value={true}
+        isDirty={true}
+        label="Boss"
+        onChange={onChange}
+      />
+    );
+    const boolBtn = container.querySelector('button.data-delta.data-delta--changed') as HTMLButtonElement;
+    expect(boolBtn).not.toBeNull();
+    fireEvent.click(boolBtn);
+    expect(onChange).toHaveBeenCalledWith('switches:2', false);
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'variables:3',
+          tabId: 'variables',
+          key: '3',
+          label: 'Name',
+          value: 'Alice',
+          type: 'string',
+        }}
+        value="Bob"
+        isDirty={true}
+        label="Name"
+        onChange={onChange}
+      />
+    );
+    const strBtn = container.querySelector('button.data-delta.data-delta--changed') as HTMLButtonElement;
+    expect(strBtn).not.toBeNull();
+    fireEvent.click(strBtn);
+    expect(onChange).toHaveBeenCalledWith('variables:3', 'Alice');
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'variables:4',
+          tabId: 'variables',
+          key: '4',
+          label: 'Locked',
+          value: 10,
+          type: 'number',
+          readOnly: true,
+        }}
+        value={20}
+        isDirty={true}
+        label="Locked"
+        onChange={onChange}
+      />
+    );
+    expect(container.querySelector('button.data-delta')).toBeNull();
+    expect(container.querySelector('span.data-delta.data-delta--positive')).not.toBeNull();
   });
 
   it('applies save-grid-virtual-row--expanding briefly when expanding a collapsed section in All tab', () => {

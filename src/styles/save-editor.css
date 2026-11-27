@@ -296,6 +296,23 @@
     min-width: 0;
     display: block;
     cursor: default;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    text-align: left;
+}
+
+.save-folder-path-btn {
+    cursor: pointer;
+}
+
+.save-folder-path-btn:hover,
+.save-folder-path-btn:focus-visible {
+    color: var(--accent, #0078d4);
+    text-decoration: underline;
+    outline: none;
 }
 
 .save-folder-missing-alert {
@@ -485,34 +502,6 @@ button.save-editor-info-btn:hover,
 button.save-editor-info-btn:focus-visible {
     color: var(--text-main, #ffffff);
     background: rgba(255, 255, 255, 0.08);
-}
-
-.save-editor-info-tooltip {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 6px);
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: 260px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: var(--bg-panel, #1e1e24);
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
-    color: var(--text-main, #f3f4f6);
-    font-size: 0.74rem;
-    line-height: 1.35;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    z-index: 20;
-}
-
-.save-editor-info-wrap:hover .save-editor-info-tooltip,
-.save-editor-info-wrap:focus-within .save-editor-info-tooltip {
-    opacity: 1;
-    visibility: visible;
 }
 
 .empty-state.warning-state {
@@ -1357,6 +1346,25 @@ button.save-editor-info-btn:focus-visible {
     font-weight: 700;
     white-space: nowrap;
     flex-shrink: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    line-height: inherit;
+}
+
+button.data-delta {
+    cursor: pointer;
+    border-radius: 3px;
+    transition: opacity 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+button.data-delta:hover,
+button.data-delta:focus-visible {
+    text-decoration: underline;
+    opacity: 0.85;
+    outline: none;
 }
 
 .data-delta--positive {
@@ -1404,9 +1412,24 @@ button.save-editor-info-btn:focus-visible {
 }
 
 .number-input-error {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 700;
     color: #ff6b6b;
     line-height: 1.3;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.number-input-error:hover,
+.number-input-error:focus-visible {
+    text-decoration: underline;
+    outline: none;
 }
 
 .save-grid {

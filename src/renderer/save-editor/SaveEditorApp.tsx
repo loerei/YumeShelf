@@ -14,6 +14,7 @@ import { SaveEditorSearchBar } from './components/SaveEditorSearchBar';
 import { SaveEditorFilterBar } from './components/SaveEditorFilterBar';
 import { SaveEditorContent } from './components/SaveEditorContent';
 import { SaveEditorFooter } from './components/SaveEditorFooter';
+import { TooltipProvider } from '../providers/TooltipProvider';
 import { useFindShortcut } from '../hooks/useFindShortcut';
 
 export interface SaveEditorAppProps {
@@ -205,13 +206,15 @@ export function SaveEditorApp({
 
   return (
     <AppErrorBoundary electronAPI={electronAPI}>
-      <SaveEditorStoreProvider
-        gameKey={resolvedGameKey}
-        store={store}
-        electronAPI={electronAPI}
-      >
-        <SaveEditorShell onClose={handleClose} initialFile={resolvedInitialFile} />
-      </SaveEditorStoreProvider>
+      <TooltipProvider>
+        <SaveEditorStoreProvider
+          gameKey={resolvedGameKey}
+          store={store}
+          electronAPI={electronAPI}
+        >
+          <SaveEditorShell onClose={handleClose} initialFile={resolvedInitialFile} />
+        </SaveEditorStoreProvider>
+      </TooltipProvider>
     </AppErrorBoundary>
   );
 }

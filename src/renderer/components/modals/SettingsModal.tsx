@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ElectronAPI } from '../../../shared/types/ipc';
 import type { PlatformInput } from '../../../shared/path-subsumption';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
@@ -348,7 +348,6 @@ export function SettingsModal({
   const titleDisplayMode = config?.titleDisplayMode ?? 'metadata';
   const displayProductCodes = Boolean(config?.displayProductCodes);
   const autoAllowLargeSaves = Boolean(config?.autoAllowLargeSaves);
-  const largeSavesTipId = useId();
   const autoLaunchValue =
     config?.autoLaunch === 'minimized' ? 'minimized' : config?.autoLaunch ? 'on' : 'off';
   const minimizeToTray = Boolean(config?.minimizeToTray);
@@ -1128,25 +1127,23 @@ export function SettingsModal({
                   {strings.setting_auto_allow_large_saves_label ||
                     'Always Allow Large Saves (>64 MB)'}
                 </label>
-                <span className="setting-info-wrap">
-                  <button
-                    type="button"
-                    className="setting-info-btn"
-                    aria-label={
-                      strings.setting_auto_allow_large_saves_info ||
-                      'Very large save files can take longer to open and use more memory while editing.'
-                    }
-                    aria-describedby={largeSavesTipId}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                      <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
-                    </svg>
-                  </button>
-                  <span id={largeSavesTipId} role="tooltip" className="setting-info-tooltip">
-                    {strings.setting_auto_allow_large_saves_info ||
-                      'Very large save files can take longer to open and use more memory while editing.'}
-                  </span>
-                </span>
+                <button
+                  type="button"
+                  className="setting-info-btn"
+                  aria-label={
+                    strings.setting_auto_allow_large_saves_info ||
+                    'Very large save files can take longer to open and use more memory while editing.'
+                  }
+                  data-tooltip={
+                    strings.setting_auto_allow_large_saves_info ||
+                    'Very large save files can take longer to open and use more memory while editing.'
+                  }
+                  data-tooltip-compact="true"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
+                  </svg>
+                </button>
               </div>
               <div className="setting-control-zone">
                 <select

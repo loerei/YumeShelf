@@ -4,6 +4,7 @@ import { SaveEditorApp } from './renderer/save-editor/SaveEditorApp';
 import type { ObservableSaveEditorStore } from './renderer/save-editor/store/save-editor-store';
 import type { ElectronAPI } from './shared/types/ipc';
 import { registerGlobalErrorSanitizer, sanitizeUserPaths } from './shared/path-sanitizer';
+import { applyTheme } from './renderer/utils/theme';
 
 declare global {
   interface Window {
@@ -38,6 +39,7 @@ export async function mountStandaloneSaveEditor(
       : false;
   if (typeof document !== 'undefined' && document.body) {
     document.body.classList.add('standalone-save-editor');
+    applyTheme(undefined, typeof window !== 'undefined' ? window.localStorage : undefined);
   }
   const unbindSanitizer = registerGlobalErrorSanitizer(window, '[SaveEditor]');
 

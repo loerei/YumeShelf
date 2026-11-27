@@ -265,4 +265,31 @@ describe('SaveEditorSidebar', () => {
 
     expect(loadSaveData).toHaveBeenCalledWith({ gameKey: 'game-1', fileName: 'slot1.sav' });
   });
+
+  it('opens the resolved save folder via openSaveFolder when clicking the folder path', async () => {
+    const openSaveFolder = vi.fn().mockResolvedValue({ ok: true, path: 'C:\\Games\\YumeNikki\\Save' });
+    const api = {
+      getSaveFolder: vi.fn().mockResolvedValue({ path: 'C:\\Games\\YumeNikki\\Save', source: 'deterministic' }),
+      listSaveFiles: vi.fn().mockResolvedValue([]),
+      openSaveFolder,
+    } as unknown as ElectronAPI;
+
+    const store = createSaveEditorStore('game-1');
+    render(
+      <SaveEditorStoreProvider store={store} electronAPI={api}>
+        <SaveEditorSidebar />
+      </SaveEditorStoreProvider>
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pathBtn = screen.getByRole('button', { name: 'C:\\Games\\YumeNikki\\Save' });
+    await act(async () => {
+      fireEvent.click(pathBtn);
+    });
+
+    expect(openSaveFolder).toHaveBeenCalledWith('game-1');
+  });
 });

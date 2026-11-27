@@ -10,7 +10,7 @@ import { AboutModal } from './components/modals/AboutModal';
 import { DuplicateStackModal } from './components/modals/DuplicateStackModal';
 import { LanguagePackModal } from './components/modals/LanguagePackModal';
 import { Modal } from './components/modals/Modal';
-import { SettingsModal, type MascotPreferences } from './components/modals/SettingsModal';
+import { SettingsModal } from './components/modals/SettingsModal';
 import { LibraryStateProvider } from './context/LibraryStateContext';
 import { useLocaleStrings } from './i18n/locale-strings';
 import { useBootstrapLibrary } from './hooks/useBootstrapLibrary';
@@ -22,7 +22,7 @@ import {
   resolveFavoriteLockKey,
   type LibraryViewItem,
 } from './library-stacks';
-import { MascotProvider, useOptionalMascot } from './providers/MascotProvider';
+import { MascotProvider } from './providers/MascotProvider';
 import { NotificationProvider, useNotification } from './providers/NotificationProvider';
 import { OverlayProvider, useOverlay } from './providers/OverlayProvider';
 import { TooltipProvider } from './providers/TooltipProvider';
@@ -100,8 +100,6 @@ export function AppShell({
       loadingOverlayRef.current?.focus();
     }
   }, [bootstrapState.status]);
-
-  const mascot = useOptionalMascot();
 
   const [pendingDeleteGame, setPendingDeleteGame] = useState<GameEntry | null>(null);
   const [isDeletingGame, setIsDeletingGame] = useState(false);
@@ -687,7 +685,6 @@ export function AppShell({
           fallbackFocusRef={gridContainerRef}
           electronAPI={api}
           storage={storage}
-          onMascotSettingsChanged={mascot?.updatePreferences}
           onOpenLanguagePack={() => openModal('language-pack')}
           onOpenAbout={() => openModal('about')}
         />

@@ -1346,6 +1346,25 @@ button.save-editor-info-btn:focus-visible {
     font-weight: 700;
     white-space: nowrap;
     flex-shrink: 0;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-family: inherit;
+    line-height: inherit;
+}
+
+button.data-delta {
+    cursor: pointer;
+    border-radius: 3px;
+    transition: opacity 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+button.data-delta:hover,
+button.data-delta:focus-visible {
+    text-decoration: underline;
+    opacity: 0.85;
+    outline: none;
 }
 
 .data-delta--positive {

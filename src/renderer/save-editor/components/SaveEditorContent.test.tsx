@@ -1056,6 +1056,116 @@ describe('Save Editor Content & Typed Inputs Stylesheet Contract', () => {
     expect(idleSvg?.getAttribute('height')).toBe('48');
   });
 
+  it('reverts field to original value and transfers focus to input when clicking .data-delta', () => {
+    const onChange = vi.fn();
+    const { container, rerender } = render(
+      <SaveFieldRow
+        field={{
+          id: 'variables:1',
+          tabId: 'variables',
+          key: '1',
+          label: 'Gold',
+          value: 100,
+          type: 'number',
+        }}
+        value={250}
+        isDirty={true}
+        label="Gold"
+        onChange={onChange}
+      />
+    );
+
+    const posBtn = container.querySelector('button.data-delta.data-delta--positive') as HTMLButtonElement;
+    expect(posBtn).not.toBeNull();
+    posBtn.focus();
+    fireEvent.click(posBtn);
+    expect(onChange).toHaveBeenCalledWith('variables:1', 100);
+    expect(document.activeElement).toBe(container.querySelector('#field-variables\\:1'));
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'variables:2',
+          tabId: 'variables',
+          key: '2',
+          label: 'HP',
+          value: 100,
+          type: 'number',
+        }}
+        value={40}
+        isDirty={true}
+        label="HP"
+        onChange={onChange}
+      />
+    );
+    const negBtn = container.querySelector('button.data-delta.data-delta--negative') as HTMLButtonElement;
+    expect(negBtn).not.toBeNull();
+    fireEvent.click(negBtn);
+    expect(onChange).toHaveBeenCalledWith('variables:2', 100);
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'switches:2',
+          tabId: 'switches',
+          key: '2',
+          label: 'Boss',
+          value: false,
+          type: 'boolean',
+        }}
+        value={true}
+        isDirty={true}
+        label="Boss"
+        onChange={onChange}
+      />
+    );
+    const boolBtn = container.querySelector('button.data-delta.data-delta--changed') as HTMLButtonElement;
+    expect(boolBtn).not.toBeNull();
+    fireEvent.click(boolBtn);
+    expect(onChange).toHaveBeenCalledWith('switches:2', false);
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'variables:3',
+          tabId: 'variables',
+          key: '3',
+          label: 'Name',
+          value: 'Alice',
+          type: 'string',
+        }}
+        value="Bob"
+        isDirty={true}
+        label="Name"
+        onChange={onChange}
+      />
+    );
+    const strBtn = container.querySelector('button.data-delta.data-delta--changed') as HTMLButtonElement;
+    expect(strBtn).not.toBeNull();
+    fireEvent.click(strBtn);
+    expect(onChange).toHaveBeenCalledWith('variables:3', 'Alice');
+
+    rerender(
+      <SaveFieldRow
+        field={{
+          id: 'variables:4',
+          tabId: 'variables',
+          key: '4',
+          label: 'Locked',
+          value: 10,
+          type: 'number',
+          readOnly: true,
+        }}
+        value={20}
+        isDirty={true}
+        label="Locked"
+        onChange={onChange}
+      />
+    );
+    expect(container.querySelector('button.data-delta')).toBeNull();
+    expect(container.querySelector('span.data-delta.data-delta--positive')).not.toBeNull();
+  });
+
   it('applies save-grid-virtual-row--expanding briefly when expanding a collapsed section in All tab', () => {
     vi.useFakeTimers();
     try {

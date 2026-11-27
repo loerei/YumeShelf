@@ -25,30 +25,48 @@ function renderDelta(
   value: number | string | boolean,
   isDirty: boolean,
   deltaWasTemplate = '(was: {value})',
-  deltaChangedText = '(changed)'
+  deltaChangedText = '(changed)',
+  onUndo?: () => void
 ): React.ReactNode {
   if (!isDirty || value === field.value) return null;
+
+  const renderBadge = (modifierClass: string, content: React.ReactNode) => {
+    if (!field.readOnly && onUndo) {
+      const undoLabel = `Undo change (revert to ${String(field.value)})`;
+      return (
+        <button
+          type="button"
+          className={`data-delta ${modifierClass}`}
+          onClick={onUndo}
+          title={undoLabel}
+          aria-label={undoLabel}
+        >
+          {content}
+        </button>
+      );
+    }
+    return <span className={`data-delta ${modifierClass}`}>{content}</span>;
+  };
 
   if (typeof value === 'number' && typeof field.value === 'number') {
     const diff = value - field.value;
     if (diff > 0) {
-      return <span className="data-delta data-delta--positive">+{diff}</span>;
+      return renderBadge('data-delta--positive', `+${diff}`);
     }
     if (diff < 0) {
-      return <span className="data-delta data-delta--negative">{diff}</span>;
+      return renderBadge('data-delta--negative', diff);
     }
     return null;
   }
 
   if (typeof value === 'boolean') {
-    return (
-      <span className="data-delta data-delta--changed">
-        {deltaWasTemplate.replace('{value}', String(field.value))}
-      </span>
+    return renderBadge(
+      'data-delta--changed',
+      deltaWasTemplate.replace('{value}', String(field.value))
     );
   }
 
-  return <span className="data-delta data-delta--changed">{deltaChangedText}</span>;
+  return renderBadge('data-delta--changed', deltaChangedText);
 }
 
 /**
@@ -80,7 +98,21 @@ export const SaveFieldRow = React.memo(
       : 'save-field-label';
     const isBooleanField = field.type === 'boolean' || typeof field.value === 'boolean';
     const idBadge = field.key ? <span className="data-id">#{field.key}</span> : null;
-    const deltaNode = renderDelta(field, value, isDirty, deltaWasTemplate, deltaChangedText);
+    const handleUndo = () => {
+      if (field.readOnly) return;
+      if (typeof document !== 'undefined') {
+        document.getElementById(inputId)?.focus();
+      }
+      onChange(field.id, field.value);
+    };
+    const deltaNode = renderDelta(
+      field,
+      value,
+      isDirty,
+      deltaWasTemplate,
+      deltaChangedText,
+      handleUndo
+    );
     const pinButton = onTogglePin ? (
       <button
         type="button"

@@ -193,6 +193,40 @@ describe('ShelfTabs', () => {
     expect(document.activeElement).toBe(extBtn);
   });
 
+  it('keeps #shelf-tab-fav mounted and activeTabId="fav" stable when favoritesCount is 0 and hasVirtualFavorite is true, then bounces when false', () => {
+    const onTabSelect = vi.fn();
+    const sections = [makeSection('D:/Games/VN', 'VN', 1)];
+
+    const { rerender } = render(
+      <ShelfTabs
+        sections={sections}
+        activeTabId="fav"
+        favoritesCount={0}
+        hasVirtualFavorite={true}
+        onTabSelect={onTabSelect}
+      />
+    );
+
+    const favTab = document.getElementById('shelf-tab-fav') as HTMLButtonElement;
+    expect(favTab).toBeTruthy();
+    expect(favTab.getAttribute('aria-selected')).toBe('true');
+    expect(favTab.tabIndex).toBe(0);
+    expect(onTabSelect).not.toHaveBeenCalled();
+
+    rerender(
+      <ShelfTabs
+        sections={sections}
+        activeTabId="fav"
+        favoritesCount={0}
+        hasVirtualFavorite={false}
+        onTabSelect={onTabSelect}
+      />
+    );
+
+    expect(document.getElementById('shelf-tab-fav')).toBeNull();
+    expect(onTabSelect).toHaveBeenCalledWith('all');
+  });
+
   it('falls back to #shelf-tab-all when activeTabId is invalid', () => {
     const sections = [makeSection('D:/Games/VN', 'VN', 1)];
 

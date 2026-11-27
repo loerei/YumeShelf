@@ -27,6 +27,7 @@ export interface ShelfTabsProps {
   readonly activeTabId: string;
   readonly effectiveTabId?: string;
   readonly favoritesCount: number;
+  readonly hasVirtualFavorite?: boolean;
   readonly targetPlatform?: PlatformInput;
   readonly onTabSelect: (tabId: string) => void;
   readonly onTabReorder?: (
@@ -52,14 +53,14 @@ interface TabDescriptor {
 function resolveFallbackEffectiveTabId(
   activeTabId: string,
   sections: readonly FolderSection[],
-  favoritesCount: number,
+  hasFavorites: boolean,
   targetPlatform?: PlatformInput
 ): string {
   if (activeTabId === 'all') {
     return 'all';
   }
   if (activeTabId === 'fav') {
-    return favoritesCount > 0 ? 'fav' : 'all';
+    return hasFavorites ? 'fav' : 'all';
   }
   const normActive = normalizeLibraryPath(activeTabId, targetPlatform);
   if (!normActive) {
@@ -79,11 +80,13 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
   activeTabId,
   effectiveTabId,
   favoritesCount,
+  hasVirtualFavorite = false,
   targetPlatform,
   onTabSelect,
   onTabReorder,
   onShowToast,
 }) => {
+  const hasFavorites = favoritesCount > 0 || Boolean(hasVirtualFavorite);
   const strings = useLocaleStrings();
   const tablistRef = useRef<HTMLDivElement | null>(null);
   const allTabRef = useRef<HTMLButtonElement | null>(null);
@@ -146,8 +149,8 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
   const resolvedEffectiveTabId = useMemo(
     () =>
       effectiveTabId ??
-      resolveFallbackEffectiveTabId(activeTabId, sections, favoritesCount, targetPlatform),
-    [effectiveTabId, activeTabId, sections, favoritesCount, targetPlatform]
+      resolveFallbackEffectiveTabId(activeTabId, sections, hasFavorites, targetPlatform),
+    [effectiveTabId, activeTabId, sections, hasFavorites, targetPlatform]
   );
 
   const tabs = useMemo<readonly TabDescriptor[]>(() => {
@@ -159,7 +162,7 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
         label: strings.all_folders,
       },
     ];
-    if (favoritesCount > 0) {
+    if (hasFavorites) {
       list.push({
         id: 'fav',
         htmlId: 'shelf-tab-fav',
@@ -177,7 +180,7 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
       });
     });
     return list;
-  }, [displayedSections, favoritesCount, strings.all_folders, strings.favorites]);
+  }, [displayedSections, hasFavorites, strings.all_folders, strings.favorites]);
 
   const activeDragTab = useMemo(
     () => (activeDragTabId ? tabs.find((t) => t.kind === 'folder' && t.id === activeDragTabId) ?? null : null),
@@ -199,7 +202,7 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
 
   useEffect(() => {
     updateScrollState();
-  }, [sections, favoritesCount, updateScrollState]);
+  }, [sections, hasFavorites, updateScrollState]);
 
   useEffect(() => {
     const el = tablistRef.current;
@@ -216,13 +219,13 @@ export const ShelfTabs: React.FC<ShelfTabsProps> = ({
   }, [updateScrollState]);
 
   useEffect(() => {
-    if (activeTabId === 'fav' && favoritesCount === 0) {
+    if (activeTabId === 'fav' && !hasFavorites) {
       onTabSelect('all');
       if (!document.activeElement || document.activeElement === document.body) {
         allTabRef.current?.focus();
       }
     }
-  }, [activeTabId, favoritesCount, onTabSelect]);
+  }, [activeTabId, hasFavorites, onTabSelect]);
 
   useEffect(() => {
     const tabEl = tabRefs.current.get(resolvedEffectiveTabId);

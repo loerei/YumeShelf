@@ -18,6 +18,7 @@ src/tmp/
 .serena/
 # Purritize tool caches & temporary files
 .purritize/
+.hoversourcerc
 
 YumeShelf/  
 

@@ -22,6 +22,7 @@ import {
   resolveFavoriteLockKey,
   type LibraryViewItem,
 } from './library-stacks';
+import { MascotProvider, useOptionalMascot } from './providers/MascotProvider';
 import { NotificationProvider, useNotification } from './providers/NotificationProvider';
 import { OverlayProvider, useOverlay } from './providers/OverlayProvider';
 import { TooltipProvider } from './providers/TooltipProvider';
@@ -100,16 +101,7 @@ export function AppShell({
     }
   }, [bootstrapState.status]);
 
-  const [mascotPreferences, setMascotPreferences] = useState<MascotPreferences>(() => {
-    const rawVol = storage?.getItem('yumeshelf_mascot_volume');
-    const parsedVol = rawVol !== null && rawVol !== undefined && rawVol !== '' ? Number(rawVol) : 20;
-    return {
-      show: storage?.getItem('yumeshelf_mascot_show') !== 'off',
-      scale: Number(storage?.getItem('yumeshelf_mascot_scale')) || 30,
-      sound: storage?.getItem('yumeshelf_mascot_sound') || 'squeaker',
-      volume: Number.isFinite(parsedVol) ? parsedVol : 20,
-    };
-  });
+  const mascot = useOptionalMascot();
 
   const [pendingDeleteGame, setPendingDeleteGame] = useState<GameEntry | null>(null);
   const [isDeletingGame, setIsDeletingGame] = useState(false);
@@ -687,7 +679,7 @@ export function AppShell({
         onLaunch={handleLaunch}
         onMenuAction={handleMenuAction}
       />
-      <MascotWidget {...mascotPreferences} storage={storage} />
+      <MascotWidget />
       {isModalOpen('settings') && (
         <SettingsModal
           isOpen
@@ -695,7 +687,7 @@ export function AppShell({
           fallbackFocusRef={gridContainerRef}
           electronAPI={api}
           storage={storage}
-          onMascotSettingsChanged={setMascotPreferences}
+          onMascotSettingsChanged={mascot?.updatePreferences}
           onOpenLanguagePack={() => openModal('language-pack')}
           onOpenAbout={() => openModal('about')}
         />
@@ -813,13 +805,15 @@ export function App({
         <TooltipProvider>
           <OverlayProvider>
             <NotificationProvider electronAPI={electronAPI}>
-              <AppShell
-                store={resolvedStore}
-                electronAPI={electronAPI}
-                launcher={launcher}
-                storage={effectiveStorage}
-                onRefreshError={onRefreshError}
-              />
+              <MascotProvider storage={effectiveStorage}>
+                <AppShell
+                  store={resolvedStore}
+                  electronAPI={electronAPI}
+                  launcher={launcher}
+                  storage={effectiveStorage}
+                  onRefreshError={onRefreshError}
+                />
+              </MascotProvider>
             </NotificationProvider>
           </OverlayProvider>
         </TooltipProvider>

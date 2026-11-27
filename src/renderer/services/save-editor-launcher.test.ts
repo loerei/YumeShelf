@@ -96,7 +96,7 @@ describe('mountStandaloneSaveEditor', () => {
     expect(removeListenerSpy).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
 
     const callsAfterFirstDispose = removeListenerSpy.mock.calls.length;
-    expect(callsAfterFirstDispose).toBe(5);
+    expect(callsAfterFirstDispose).toBe(7);
 
     // Idempotent second cleanup
     act(() => {

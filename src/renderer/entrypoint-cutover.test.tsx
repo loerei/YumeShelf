@@ -8,6 +8,7 @@ import { initRenderer } from '../renderer';
 import { App, AppShell } from './App';
 import { LibraryGrid, type LibraryGridProps } from './components/LibraryGrid';
 import { LibraryStateProvider } from './context/LibraryStateContext';
+import { MascotProvider } from './providers/MascotProvider';
 import { NotificationProvider, useNotification } from './providers/NotificationProvider';
 import { OverlayProvider } from './providers/OverlayProvider';
 import { TooltipProvider } from './providers/TooltipProvider';
@@ -330,14 +331,17 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     }
 
     const store = createUiRuntimeState();
+    const memoryStorage = createMemoryStorage();
     const { unmount } = render(
       <LibraryStateProvider store={store}>
         <TooltipProvider>
           <OverlayProvider>
             <NotificationProvider electronAPI={api}>
-              <FallbackTracker>
-                <AppShell store={store} electronAPI={api} storage={createMemoryStorage()} />
-              </FallbackTracker>
+              <MascotProvider storage={memoryStorage}>
+                <FallbackTracker>
+                  <AppShell store={store} electronAPI={api} storage={memoryStorage} />
+                </FallbackTracker>
+              </MascotProvider>
             </NotificationProvider>
           </OverlayProvider>
         </TooltipProvider>

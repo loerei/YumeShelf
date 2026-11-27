@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MAX_DROPDOWN_RESULTS, SearchBar, type SearchBarGameItem } from './SearchBar';
+import {
+  MascotProvider,
+  useMascot,
+  type MascotContextValue,
+} from '../providers/MascotProvider';
 
 function ControlledSearchHarness({
   initialQuery = '',
@@ -313,23 +318,33 @@ describe('SearchBar', () => {
       { gameKey: 'g1', name: 'Clannad', relativePathDisplay: 'VN/Clannad' },
     ];
 
+    let mascotCtx!: MascotContextValue;
+    const MascotProbe = () => {
+      mascotCtx = useMascot();
+      return null;
+    };
+
     const { container } = render(
-      <SearchBar
-        query="clan"
-        onQueryChange={vi.fn()}
-        onSelectGame={onSelectGame}
-        onLocateGame={onLocateGame}
-        games={games}
-        debounceMs={100}
-      />
+      <MascotProvider>
+        <MascotProbe />
+        <SearchBar
+          query="clan"
+          onQueryChange={vi.fn()}
+          onSelectGame={onSelectGame}
+          onLocateGame={onLocateGame}
+          games={games}
+          debounceMs={100}
+        />
+      </MascotProvider>
     );
 
     // Mascot bonk quote overrides placeholder when query is cleared
     act(() => {
-      window.dispatchEvent(new CustomEvent('yumeshelf:mascot-bonk', { detail: { quote: 'OIIIIIIII!!!' } }));
+      mascotCtx.bonk();
     });
     const placeholder = container.querySelector('#search-placeholder') as HTMLElement;
-    expect(placeholder.textContent).toBe('OIIIIIIII!!!');
+    expect(placeholder.textContent).toBeTruthy();
+    expect(placeholder.textContent).toBe(mascotCtx.activeBonkQuote);
     expect(placeholder.style.display).toBe('none');
 
     act(() => {
@@ -350,8 +365,10 @@ describe('SearchBar', () => {
     expect(onSelectGame).not.toHaveBeenCalled();
 
     act(() => {
-      window.dispatchEvent(new CustomEvent('yumeshelf:mascot-recover'));
+      vi.advanceTimersByTime(4000);
     });
+    expect(mascotCtx.activeBonkQuote).toBeNull();
+    expect(placeholder.textContent).not.toBe('');
   });
 
   it('matches games by folderName or relativePath, renders GameIcon, and attaches tooltip metadata', () => {

@@ -362,8 +362,10 @@ describe('mascot-domain', () => {
     let originalAudio: typeof globalThis.Audio;
     let constructedInstances: Array<{
       src: string;
+      preload: string;
       volume: number;
       currentTime: number;
+      load: ReturnType<typeof vi.fn>;
       play: ReturnType<typeof vi.fn>;
       pause: ReturnType<typeof vi.fn>;
     }>;
@@ -384,8 +386,10 @@ describe('mascot-domain', () => {
       const AudioMock = vi.fn().mockImplementation(function (src: string) {
         const instance = {
           src,
+          preload: '',
           volume: 1,
           currentTime: 5,
+          load: vi.fn(),
           play: vi.fn(playImpl),
           pause: vi.fn(pauseImpl),
         };
@@ -466,7 +470,8 @@ describe('mascot-domain', () => {
         throw new Error('Audio ctor failed at /home/charlie/yume');
       }) as unknown as typeof globalThis.Audio;
 
-      expect(() => player.play('squeaker', 50)).not.toThrow();
+      const throwingPlayer = createMascotAudioPlayer();
+      expect(() => throwingPlayer.play('squeaker', 50)).not.toThrow();
       expect(warnSpy).toHaveBeenCalledWith(
         '[MascotAudioPlayer] Failed to initialize audio element:',
         expect.objectContaining({
@@ -475,6 +480,24 @@ describe('mascot-domain', () => {
           error: 'Audio ctor failed at <USER_DIR>/yume',
         })
       );
+    });
+
+    it('warmup() preloads audio elements and play() reuses cached instances without reconstructing', () => {
+      const AudioMock = installMockAudio();
+      const player = createMascotAudioPlayer();
+
+      player.warmup?.();
+      expect(AudioMock).toHaveBeenCalledTimes(2);
+      expect(constructedInstances[0].preload).toBe('auto');
+      expect(constructedInstances[0].load).toHaveBeenCalledTimes(1);
+      expect(constructedInstances[1].preload).toBe('auto');
+      expect(constructedInstances[1].load).toHaveBeenCalledTimes(1);
+
+      player.play('squeaker', 30);
+      player.play('squeaker', 60);
+      expect(AudioMock).toHaveBeenCalledTimes(2);
+      expect(constructedInstances[0].play).toHaveBeenCalledTimes(2);
+      expect(constructedInstances[0].volume).toBe(0.6);
     });
   });
 });

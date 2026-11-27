@@ -1056,6 +1056,10 @@ export function MascotProvider({
   store.setActions(actions);
 
   useEffect(() => {
+    resolvedAudioPlayer.warmup?.();
+  }, [resolvedAudioPlayer]);
+
+  useEffect(() => {
     return () => {
       clearRecoveryTimers();
       audioPlayerRef.current.stop();

@@ -142,6 +142,7 @@ export interface MascotPreferencesState {
 export interface MascotAudioPlayer {
   play(soundKey: MascotSoundKey | string, volumePercent: number): void;
   stop(): void;
+  warmup?(): void;
 }
 
 const SOUND_SOURCES: Record<Exclude<MascotSoundKey, 'none'>, string> = {
@@ -447,6 +448,7 @@ export function recoverToSmug(): MascotRecoveryState {
 }
 
 export function createMascotAudioPlayer(): MascotAudioPlayer {
+  const audioCache = new Map<Exclude<MascotSoundKey, 'none'>, HTMLAudioElement>();
   let activeAudio: HTMLAudioElement | null = null;
 
   function stop(): void {
@@ -461,24 +463,66 @@ export function createMascotAudioPlayer(): MascotAudioPlayer {
     }
   }
 
+  function getOrCreateAudio(
+    soundKey: Exclude<MascotSoundKey, 'none'>,
+    volumePercent: number
+  ): HTMLAudioElement | null {
+    const cached = audioCache.get(soundKey);
+    if (cached) return cached;
+    if (typeof Audio === 'undefined') return null;
+
+    const soundSrc = SOUND_SOURCES[soundKey];
+    try {
+      const audio = new Audio(soundSrc);
+      audio.preload = 'auto';
+      audioCache.set(soundKey, audio);
+      return audio;
+    } catch (err) {
+      console.warn('[MascotAudioPlayer] Failed to initialize audio element:', {
+        soundKey,
+        volumePercent,
+        error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+        stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+      });
+      return null;
+    }
+  }
+
+  function warmup(): void {
+    for (const key of ['squeaker', 'metal-pipe'] as const) {
+      const audio = getOrCreateAudio(key, 0);
+      if (!audio) continue;
+      try {
+        if (typeof audio.load === 'function') {
+          audio.load();
+        }
+      } catch {
+        // Best-effort preload in non-media runtimes
+      }
+    }
+  }
+
   function play(soundKey: MascotSoundKey | string, volumePercent: number): void {
     stop();
 
     if (soundKey === 'none') return;
     if (!Number.isFinite(volumePercent) || volumePercent <= 0) return;
-
-    const soundSrc =
-      soundKey === 'squeaker' || soundKey === 'metal-pipe'
-        ? SOUND_SOURCES[soundKey]
-        : undefined;
-    if (!soundSrc) return;
+    if (soundKey !== 'squeaker' && soundKey !== 'metal-pipe') return;
 
     const vol = Math.min(1, Math.max(0, volumePercent / 100));
     if (vol <= 0) return;
-    if (typeof Audio === 'undefined') return;
+
+    const audio = getOrCreateAudio(soundKey, volumePercent);
+    if (!audio) return;
 
     try {
-      activeAudio = new Audio(soundSrc);
+      audio.currentTime = 0;
+    } catch {
+      // Best-effort rewind before replay
+    }
+
+    try {
+      activeAudio = audio;
       activeAudio.volume = vol;
       const playPromise = activeAudio.play();
       if (playPromise && typeof playPromise.catch === 'function') {
@@ -502,5 +546,5 @@ export function createMascotAudioPlayer(): MascotAudioPlayer {
     }
   }
 
-  return { play, stop };
+  return { play, stop, warmup };
 }

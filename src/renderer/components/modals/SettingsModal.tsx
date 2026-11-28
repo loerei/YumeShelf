@@ -30,14 +30,12 @@ import type { UiStorageAdapter } from '../../state/ui-runtime-state';
 import type { LibraryConfig } from '../../types/game';
 import { applyTheme } from '../../utils/theme';
 import { Modal } from './Modal';
+import { SettingsGeneralTab } from './SettingsGeneralTab';
 import { SettingsLibraryTab } from './SettingsLibraryTab';
+import { SettingsSystemTab, type MascotPreferences } from './SettingsSystemTab';
+import { SettingsUpdatesTab } from './SettingsUpdatesTab';
 
-export interface MascotPreferences {
-  show: boolean;
-  scale: number;
-  sound: string;
-  volume: number;
-}
+export type { MascotPreferences };
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -75,118 +73,6 @@ function getDefaultStorage(): UiStorageAdapter | undefined {
     return window.localStorage;
   }
   return undefined;
-}
-
-function MaxDepthStepper({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (next: number) => void;
-}) {
-  const [draft, setDraft] = useState(String(value));
-  const skipBlurCommitRef = useRef(false);
-
-  useEffect(() => {
-    skipBlurCommitRef.current = false;
-    setDraft(String(value));
-  }, [value]);
-
-  const handleCommit = (fromEnter = false) => {
-    const parsed = parseInt(draft, 10);
-    if (Number.isFinite(parsed)) {
-      skipBlurCommitRef.current = fromEnter;
-      const clamped = Math.min(12, Math.max(0, parsed));
-      setDraft(String(clamped));
-      if (clamped !== value) {
-        onChange(clamped);
-      }
-    } else {
-      skipBlurCommitRef.current = false;
-      setDraft(String(value));
-    }
-  };
-
-  const atMin = value <= 0;
-  const atMax = value >= 12;
-  return (
-    <div className="max-depth-stepper">
-      <button
-        type="button"
-        className="max-depth-stepper-btn"
-        title="Decrease max depth"
-        aria-label="Decrease max depth"
-        aria-disabled={atMin}
-        style={atMin ? { pointerEvents: 'none' } : undefined}
-        onClick={() => {
-          if (!atMin) onChange(Math.max(0, value - 1));
-        }}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <path d="M6 12h12" />
-        </svg>
-      </button>
-      <input
-        id="max-depth-input"
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        maxLength={2}
-        value={draft}
-        aria-label="Max scan depth"
-        onChange={(e) => {
-          skipBlurCommitRef.current = false;
-          setDraft(e.target.value);
-        }}
-        onBlur={() => {
-          if (skipBlurCommitRef.current) {
-            skipBlurCommitRef.current = false;
-            return;
-          }
-          handleCommit(false);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            handleCommit(true);
-          }
-        }}
-      />
-      <button
-        type="button"
-        className="max-depth-stepper-btn"
-        title="Increase max depth"
-        aria-label="Increase max depth"
-        aria-disabled={atMax}
-        style={atMax ? { pointerEvents: 'none' } : undefined}
-        onClick={() => {
-          if (!atMax) onChange(Math.min(12, value + 1));
-        }}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <path d="M12 6v12" />
-          <path d="M6 12h12" />
-        </svg>
-      </button>
-    </div>
-  );
 }
 
 export function SettingsModal({
@@ -365,6 +251,17 @@ export function SettingsModal({
     const resolved = applyTheme(nextTheme, resolvedStorage);
     setTheme(resolved);
     showToast('Theme updated');
+  };
+
+  const handleLanguageChange = (nextLang: string) => {
+    setLanguage(nextLang);
+    resolvedStorage?.setItem('yumeshelf_lang', nextLang);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('yumeshelf:language-changed', { detail: { code: nextLang } })
+      );
+    }
+    showToast('Language updated');
   };
 
   const handleLocationDisplayModeChange = (nextMode: 'parent' | 'full') => {
@@ -1020,198 +917,24 @@ export function SettingsModal({
 
       <Modal.Body className="settings-body">
         {activeTab === 'general' && (
-          <div
-            id="settings-panel-general"
-            role="tabpanel"
-            aria-labelledby="settings-tab-general"
-            className="settings-tab-panel"
-          >
-            <div className="setting-item">
-              <label htmlFor="theme-select">
-                {language === 'en' ? 'Theme' : strings.theme || 'Theme'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="theme-select"
-                  value={theme}
-                  onChange={(e) => handleThemeChange(e.target.value)}
-                >
-                  <option value="system">{strings.theme_system || 'System'}</option>
-                  <option value="dark">{strings.theme_dark || 'Dark'}</option>
-                  <option value="light">{strings.theme_light || 'Light'}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="language-select">{strings.lang || 'Language'}</label>
-              <div className="setting-control-zone setting-field-group">
-                <button
-                  type="button"
-                  className="small-btn secondary-btn"
-                  onClick={() => onOpenLanguagePack?.()}
-                >
-                  {strings.settings_more_languages || 'More languages...'}
-                </button>
-                <select
-                  id="language-select"
-                  value={language}
-                  onChange={(e) => {
-                    const nextLang = e.target.value;
-                    setLanguage(nextLang);
-                    resolvedStorage?.setItem('yumeshelf_lang', nextLang);
-                    if (typeof window !== 'undefined') {
-                      window.dispatchEvent(
-                        new CustomEvent('yumeshelf:language-changed', { detail: { code: nextLang } })
-                      );
-                    }
-                    showToast('Language updated');
-                  }}
-                >
-                  {installedLanguages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="location-display-select">
-                {language === 'en'
-                  ? 'Location Display'
-                  : strings.location_display_label || 'Location Display'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="location-display-select"
-                  value={locationDisplayMode}
-                  onChange={(e) =>
-                    handleLocationDisplayModeChange(e.target.value as 'parent' | 'full')
-                  }
-                >
-                  <option value="parent">
-                    {language === 'en'
-                      ? 'Parent Folder'
-                      : strings.location_display_parent || 'Parent Folder'}
-                  </option>
-                  <option value="full">
-                    {language === 'en'
-                      ? 'Full Path'
-                      : strings.location_display_full || 'Full Path'}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="title-display-select">
-                {strings.title_display_label || 'Title Display'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="title-display-select"
-                  value={titleDisplayMode}
-                  aria-disabled={isUpdatingConfig}
-                  style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
-                  onChange={(e) =>
-                    handleUpdateDisplayConfig({
-                      titleDisplayMode: e.target.value as 'metadata' | 'legacy_folder',
-                    })
-                  }
-                >
-                  <option value="metadata">
-                    {language === 'en'
-                      ? 'Metadata Title'
-                      : strings.title_display_metadata || 'Metadata Title'}
-                  </option>
-                  <option value="legacy_folder">
-                    {language === 'en'
-                      ? 'Folder Name'
-                      : strings.title_display_legacy || 'Folder Name'}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="product-codes-select">
-                {language === 'en'
-                  ? 'Product Codes'
-                  : strings.display_codes_label || 'Product Codes'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="product-codes-select"
-                  value={displayProductCodes ? 'on' : 'off'}
-                  aria-disabled={isUpdatingConfig}
-                  style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
-                  onChange={(e) =>
-                    handleUpdateDisplayConfig({
-                      displayProductCodes: e.target.value === 'on',
-                    })
-                  }
-                >
-                  <option value="off">{strings.option_off || 'Off'}</option>
-                  <option value="on">{strings.option_on || 'On'}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="max-depth-input">
-                {language === 'en'
-                  ? 'Max Scan Depth'
-                  : strings.max_depth_label || 'Max Scan Depth'}
-              </label>
-              <div className="setting-control-zone">
-                <MaxDepthStepper value={maxDepth} onChange={handleMaxDepthChange} />
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <div className="setting-label-with-info">
-                <label htmlFor="auto-allow-large-saves-select">
-                  {strings.setting_auto_allow_large_saves_label ||
-                    'Always Allow Large Saves (>64 MB)'}
-                </label>
-                <button
-                  type="button"
-                  className="setting-info-btn"
-                  aria-label={
-                    strings.setting_auto_allow_large_saves_info ||
-                    'Very large save files can take longer to open and use more memory while editing.'
-                  }
-                  data-tooltip={
-                    strings.setting_auto_allow_large_saves_info ||
-                    'Very large save files can take longer to open and use more memory while editing.'
-                  }
-                  data-tooltip-compact="true"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
-                  </svg>
-                </button>
-              </div>
-              <div className="setting-control-zone">
-                <select
-                  id="auto-allow-large-saves-select"
-                  value={autoAllowLargeSaves ? 'on' : 'off'}
-                  aria-disabled={isUpdatingConfig}
-                  style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
-                  onChange={(e) =>
-                    handleUpdateDisplayConfig({
-                      autoAllowLargeSaves: e.target.value === 'on',
-                    })
-                  }
-                >
-                  <option value="off">{strings.option_off || 'Off'}</option>
-                  <option value="on">{strings.option_on || 'On'}</option>
-                </select>
-              </div>
-            </div>
-          </div>
+          <SettingsGeneralTab
+            language={language}
+            strings={strings}
+            theme={theme}
+            installedLanguages={installedLanguages}
+            locationDisplayMode={locationDisplayMode}
+            titleDisplayMode={titleDisplayMode}
+            displayProductCodes={displayProductCodes}
+            maxDepth={maxDepth}
+            autoAllowLargeSaves={autoAllowLargeSaves}
+            isUpdatingConfig={isUpdatingConfig}
+            onThemeChange={handleThemeChange}
+            onLanguageChange={handleLanguageChange}
+            onOpenLanguagePack={onOpenLanguagePack}
+            onLocationDisplayModeChange={handleLocationDisplayModeChange}
+            onUpdateDisplayConfig={(updates) => void handleUpdateDisplayConfig(updates)}
+            onMaxDepthChange={(nextDepth) => void handleMaxDepthChange(nextDepth)}
+          />
         )}
 
         {activeTab === 'library' && (
@@ -1289,244 +1012,33 @@ export function SettingsModal({
         )}
 
         {activeTab === 'updates' && (
-          <div
-            id="settings-panel-updates"
-            role="tabpanel"
-            aria-labelledby="settings-tab-updates"
-            className="settings-tab-panel"
-          >
-            <div className="setting-item">
-              <label htmlFor="app-updates-select">
-                {strings.app_updates_label || 'App Updates'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="app-updates-select"
-                  value={appUpdateMode}
-                  onChange={(e) => handleAppUpdateModeChange(e.target.value)}
-                >
-                  <option value="automatic">
-                    {strings.update_mode_automatic || 'Automatic'}
-                  </option>
-                  <option value="notify">
-                    {language === 'en'
-                      ? 'Notify Only'
-                      : strings.update_mode_notify || 'Notify Only'}
-                  </option>
-                  <option value="off">{strings.update_mode_off || 'Off'}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="lang-pack-updates-select">
-                {strings.language_pack_updates_label || 'Language Pack Updates'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="lang-pack-updates-select"
-                  value={langPackUpdateMode}
-                  onChange={(e) => handleLangPackUpdateModeChange(e.target.value)}
-                >
-                  <option value="automatic">
-                    {strings.update_mode_automatic || 'Automatic'}
-                  </option>
-                  <option value="notify">
-                    {language === 'en'
-                      ? 'Notify Only'
-                      : strings.update_mode_notify || 'Notify Only'}
-                  </option>
-                  <option value="off">{strings.update_mode_off || 'Off'}</option>
-                </select>
-              </div>
-            </div>
-          </div>
+          <SettingsUpdatesTab
+            language={language}
+            strings={strings}
+            appUpdateMode={appUpdateMode}
+            langPackUpdateMode={langPackUpdateMode}
+            onAppUpdateModeChange={handleAppUpdateModeChange}
+            onLangPackUpdateModeChange={handleLangPackUpdateModeChange}
+          />
         )}
 
         {activeTab === 'system' && (
-          <div
-            id="settings-panel-system"
-            role="tabpanel"
-            aria-labelledby="settings-tab-system"
-            className="settings-tab-panel"
-          >
-            <div className="setting-item">
-              <label htmlFor="auto-launch-select">
-                {language === 'en'
-                  ? 'Launch on Startup'
-                  : strings.auto_launch_label || 'Launch on Startup'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="auto-launch-select"
-                  value={autoLaunchValue}
-                  onChange={(e) => handleAutoLaunchChange(e.target.value)}
-                >
-                  <option value="off">{strings.option_off || 'Off'}</option>
-                  <option value="on">{strings.option_on || 'On'}</option>
-                  <option value="minimized">
-                    {language === 'en'
-                      ? 'Minimized'
-                      : strings.option_minimized || 'Minimized'}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="minimize-tray-select">
-                {language === 'en'
-                  ? 'Minimize to Tray'
-                  : strings.minimize_to_tray_label || 'Minimize to Tray'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="minimize-tray-select"
-                  value={minimizeToTray ? 'on' : 'off'}
-                  onChange={(e) => handleMinimizeToTrayChange(e.target.value === 'on')}
-                >
-                  <option value="off">{strings.option_off || 'Off'}</option>
-                  <option value="on">{strings.option_on || 'On'}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="expose-beta-select">
-                {strings.expose_beta_label || 'Expose Beta Options'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="expose-beta-select"
-                  value={exposeBetaOptions ? 'on' : 'off'}
-                  onChange={(e) => handleExposeBetaChange(e.target.value === 'on')}
-                >
-                  <option value="off">{strings.option_off || 'Off'}</option>
-                  <option value="on">{strings.option_on || 'On'}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="mascot-show-select">
-                {language === 'en'
-                  ? 'Show Mascot'
-                  : strings.mascot_show_label || 'Show Mascot'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="mascot-show-select"
-                  value={mascotShow ? 'on' : 'off'}
-                  onChange={(e) =>
-                    updateMascotPreferences({ show: e.target.value === 'on' })
-                  }
-                >
-                  <option value="on">
-                    {language === 'en'
-                      ? 'On'
-                      : strings.mascot_show_on || strings.option_on || 'On'}
-                  </option>
-                  <option value="off">
-                    {language === 'en'
-                      ? 'Off'
-                      : strings.mascot_show_off || strings.option_off || 'Off'}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item" id="setting-item-hide-and-seek">
-              <label htmlFor="hide-and-seek-select">
-                {strings.hide_and_seek_label || 'Hide And Seek?'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="hide-and-seek-select"
-                  value={hideAndSeek}
-                  disabled={!mascotShow}
-                  onChange={(e) =>
-                    updateMascotPreferences({
-                      hideAndSeek: normalizeHideAndSeekMode(e.target.value),
-                    })
-                  }
-                >
-                  <option value="yeaaa">{strings.hide_and_seek_yeaaa || 'YEAAA'}</option>
-                  <option value="out">{strings.hide_and_seek_out || "I'm out"}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="mascot-scale-slider">
-                {language === 'en'
-                  ? 'Mascot Scale'
-                  : strings.mascot_scale_label || 'Mascot Scale'}
-              </label>
-              <div className="setting-control-zone">
-                <div className="volume-slider-container">
-                  <input
-                    id="mascot-scale-slider"
-                    type="range"
-                    min={25}
-                    max={100}
-                    value={mascotScale}
-                    aria-valuetext={`${mascotScale}%`}
-                    onChange={(e) =>
-                      updateMascotPreferences({ scale: Number(e.target.value) })
-                    }
-                  />
-                  <span id="mascot-scale-value" className="volume-value-label">
-                    {mascotScale}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="mascot-sound-select">
-                {language === 'en'
-                  ? 'Bonk Sound'
-                  : strings.mascot_sound_label || strings.mascot_menu_sound || 'Bonk Sound'}
-              </label>
-              <div className="setting-control-zone">
-                <select
-                  id="mascot-sound-select"
-                  value={mascotSound}
-                  onChange={(e) => updateMascotPreferences({ sound: e.target.value })}
-                >
-                  <option value="squeaker">{strings.sound_squeaker || 'Squeaky'}</option>
-                  <option value="metal-pipe">{strings.sound_metal_pipe || 'Metal pipe'}</option>
-                  <option value="none">{strings.sound_none || 'None'}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="setting-item">
-              <label htmlFor="mascot-volume-slider">
-                {language === 'en'
-                  ? 'Mascot Volume'
-                  : strings.mascot_volume_label || 'Mascot Volume'}
-              </label>
-              <div className="setting-control-zone">
-                <div className="volume-slider-container">
-                  <input
-                    id="mascot-volume-slider"
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={mascotVolume}
-                    aria-valuetext={`${mascotVolume}%`}
-                    onChange={(e) =>
-                      updateMascotPreferences({ volume: Number(e.target.value) })
-                    }
-                  />
-                  <span id="mascot-volume-value" className="volume-value-label">
-                    {mascotVolume}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <SettingsSystemTab
+            language={language}
+            strings={strings}
+            autoLaunchValue={autoLaunchValue}
+            minimizeToTray={minimizeToTray}
+            exposeBetaOptions={exposeBetaOptions}
+            mascotShow={mascotShow}
+            hideAndSeek={hideAndSeek}
+            mascotScale={mascotScale}
+            mascotSound={mascotSound}
+            mascotVolume={mascotVolume}
+            onAutoLaunchChange={(value) => void handleAutoLaunchChange(value)}
+            onMinimizeToTrayChange={(enabled) => void handleMinimizeToTrayChange(enabled)}
+            onExposeBetaChange={(enabled) => void handleExposeBetaChange(enabled)}
+            onUpdateMascotPreferences={updateMascotPreferences}
+          />
         )}
 
         <div className="settings-info">

@@ -982,6 +982,7 @@ export function SettingsModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      modalType="settings"
       id="settings-modal"
       className="settings-overlay"
       panelClassName="settings-panel"

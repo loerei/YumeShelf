@@ -125,6 +125,7 @@ export function DuplicateStackModalContent({
     <Modal
       isOpen
       onClose={onClose}
+      modalType="duplicate-stack"
       title={stack.primaryGame.name}
       panelClassName="stack-overlay-panel"
       fallbackFocusRef={fallbackFocusRef}

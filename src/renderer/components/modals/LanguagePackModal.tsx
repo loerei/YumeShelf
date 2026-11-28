@@ -288,6 +288,7 @@ export const LanguagePackModal: React.FC<LanguagePackModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      modalType="language-pack"
       fallbackFocusRef={fallbackFocusRef}
       className="settings-overlay"
       panelClassName="language-pack-panel"

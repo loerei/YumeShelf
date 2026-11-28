@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { createRef } from 'react';
+import { createRef, useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { OverlayProvider, useOverlay } from '../../providers/OverlayProvider';
 import { Modal } from './Modal';
 
 describe('Modal compound shell', () => {
@@ -276,6 +277,76 @@ describe('Modal compound shell', () => {
     });
     dialog.dispatchEvent(escapeEvent);
     expect(escapeEvent.defaultPrevented).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores local Escape during IME composition (isComposing or keyCode 229)', () => {
+    const onClose = vi.fn();
+
+    render(
+      <Modal isOpen={true} onClose={onClose}>
+        <Modal.Header title="IME Escape Test" />
+        <Modal.Body>Content</Modal.Body>
+      </Modal>
+    );
+
+    const dialog = screen.getByRole('dialog');
+    const composingEvent = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      isComposing: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    dialog.dispatchEvent(composingEvent);
+    expect(composingEvent.defaultPrevented).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+
+    const imeKeyCodeEvent = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      keyCode: 229,
+      bubbles: true,
+      cancelable: true,
+    });
+    dialog.dispatchEvent(imeKeyCodeEvent);
+    expect(imeKeyCodeEvent.defaultPrevented).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('delegates Escape to OverlayProvider when modalType is coordinated without double-invoking onClose', () => {
+    const onClose = vi.fn();
+
+    function CoordinatedModalHarness() {
+      const { openModal, isModalOpen } = useOverlay();
+
+      useEffect(() => {
+        openModal('settings');
+      }, [openModal]);
+
+      return (
+        <Modal isOpen={isModalOpen('settings')} modalType="settings" onClose={onClose}>
+          <Modal.Header title="Coordinated Settings" />
+          <Modal.Body>Settings content</Modal.Body>
+        </Modal>
+      );
+    }
+
+    render(
+      <OverlayProvider>
+        <CoordinatedModalHarness />
+      </OverlayProvider>
+    );
+
+    const dialog = screen.getByRole('dialog');
+    const composingEvent = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      isComposing: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    dialog.dispatchEvent(composingEvent);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

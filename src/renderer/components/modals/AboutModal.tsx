@@ -103,6 +103,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      modalType="about"
       fallbackFocusRef={fallbackFocusRef}
       className="settings-overlay"
       panelClassName="about-panel"

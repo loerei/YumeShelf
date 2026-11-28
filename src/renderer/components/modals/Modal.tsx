@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useId, useMemo, useRef } from 'react';
 import type React from 'react';
 import { createPortal } from 'react-dom';
+import { useOptionalOverlay, type ModalType } from '../../providers/OverlayProvider';
 
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
+  modalType?: ModalType;
   title?: string;
   id?: string;
   className?: string;
@@ -50,6 +52,7 @@ const FOCUSABLE_SELECTOR = [
 function ModalRoot({
   isOpen,
   onClose,
+  modalType,
   title,
   id,
   className,
@@ -60,13 +63,24 @@ function ModalRoot({
   const generatedId = useId();
   const titleId = id ? `${id}-title` : `modal-title-${generatedId}`;
 
+  const overlay = useOptionalOverlay();
+  const registerDismissHandler = overlay?.registerDismissHandler;
+  const isOverlayCoordinated = Boolean(overlay && modalType && overlay.isModalOpen(modalType));
+
   const backdropRef = useRef<HTMLDivElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const pointerDownOnBackdropRef = useRef(false);
   const wasOpenRef = useRef(false);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const fallbackFocusRefLatest = useRef(fallbackFocusRef);
   fallbackFocusRefLatest.current = fallbackFocusRef;
+
+  useEffect(() => {
+    if (!registerDismissHandler || !modalType || !isOpen) return;
+    return registerDismissHandler(modalType, () => onCloseRef.current());
+  }, [registerDismissHandler, modalType, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -160,6 +174,8 @@ function ModalRoot({
 
     if (e.defaultPrevented) return;
     if (e.key === 'Escape') {
+      if (isOverlayCoordinated) return;
+      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
       e.preventDefault();
       onClose();
     }

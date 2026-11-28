@@ -177,22 +177,27 @@ describe('SettingsModal', () => {
     cleanup();
   });
 
-  it('renders WAI-ARIA tablist and switches tabs without arrow-key traps', () => {
+  it('renders WAI-ARIA vertical sidebar tablist and jumps sections without arrow-key traps', () => {
     renderSettingsModal();
 
     const tablist = screen.getByRole('tablist');
-    expect(tablist.className).toContain('settings-tabs-nav');
+    expect(tablist.className).toContain('settings-sidebar');
+    expect(tablist.getAttribute('aria-orientation')).toBe('vertical');
 
     const generalTab = screen.getByRole('tab', { name: 'General' });
     const libraryTab = screen.getByRole('tab', { name: 'Library' });
     const updatesTab = screen.getByRole('tab', { name: 'Updates' });
-    const systemTab = screen.getByRole('tab', { name: 'System & Mascot' });
+    const systemTab = screen.getByRole('tab', { name: 'System' });
+    const mascotTab = screen.getByRole('tab', { name: 'Mascot' });
+    const aboutTab = screen.getByRole('tab', { name: 'About' });
 
-    expect(generalTab.className).toContain('settings-tab-btn');
+    expect(generalTab.className).toContain('settings-nav-btn');
     expect(generalTab.getAttribute('aria-selected')).toBe('true');
     expect(libraryTab.getAttribute('aria-selected')).toBe('false');
     expect(updatesTab.getAttribute('aria-selected')).toBe('false');
     expect(systemTab.getAttribute('aria-selected')).toBe('false');
+    expect(mascotTab.getAttribute('aria-selected')).toBe('false');
+    expect(aboutTab.getAttribute('aria-selected')).toBe('false');
 
     // ArrowRight / ArrowLeft do not intercept focus
     generalTab.focus();
@@ -202,24 +207,28 @@ describe('SettingsModal', () => {
     fireEvent.keyDown(generalTab, { key: 'ArrowLeft' });
     expect(document.activeElement).toBe(generalTab);
 
-    // Click switches tab and mounts tabpanel
+    // Click updates active sidebar selection while continuous scroll keeps all sections mounted
     fireEvent.click(libraryTab);
     expect(libraryTab.getAttribute('aria-selected')).toBe('true');
     expect(generalTab.getAttribute('aria-selected')).toBe('false');
-    expect(screen.getByRole('tabpanel')).toBeTruthy();
+    expect(document.getElementById('settings-panel-library')).toBeInTheDocument();
+    expect(document.getElementById('settings-panel-about')).toBeInTheDocument();
     expect(screen.getByText('Library Paths')).toBeTruthy();
   });
 
-  it('triggers onOpenLanguagePack and onOpenAbout callbacks', () => {
+  it('triggers onOpenLanguagePack and renders inline About section with credits', () => {
     const onOpenLanguagePack = vi.fn();
-    const onOpenAbout = vi.fn();
-    renderSettingsModal({ onOpenLanguagePack, onOpenAbout });
+    renderSettingsModal({ onOpenLanguagePack });
 
     fireEvent.click(screen.getByRole('button', { name: 'More languages...' }));
     expect(onOpenLanguagePack).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'About & Credits' }));
-    expect(onOpenAbout).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('tab', { name: 'About' }));
+    expect(screen.getByText('Acknowledgements & Credits')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'loerei' })).toHaveAttribute(
+      'href',
+      'https://github.com/loerei'
+    );
   });
 
   it('updates theme and locationDisplayMode with store re-annotation', () => {
@@ -790,7 +799,7 @@ describe('SettingsModal', () => {
     const storage = createMemoryStorage();
     renderSettingsModal({ onMascotSettingsChanged, storage });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
 
     // Zero telemetry controls
     expect(screen.queryByText(/telemetry/i)).toBeNull();
@@ -801,6 +810,14 @@ describe('SettingsModal', () => {
 
     const scaleSlider = screen.getByLabelText('Mascot Scale');
     expect(scaleSlider.getAttribute('aria-valuetext')).toBe('30%');
+    const scaleValueEl = document.getElementById('mascot-scale-value');
+    expect(scaleValueEl).toBeTruthy();
+    expect(
+      Boolean(
+        scaleValueEl &&
+          scaleValueEl.compareDocumentPosition(scaleSlider) & Node.DOCUMENT_POSITION_FOLLOWING
+      )
+    ).toBe(true);
 
     const volumeSlider = screen.getByLabelText('Mascot Volume');
     expect(volumeSlider.getAttribute('aria-valuetext')).toBe('20%');
@@ -820,7 +837,7 @@ describe('SettingsModal', () => {
     });
 
     renderSettingsModal({ storage });
-    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
 
     const hideSelect = screen.getByLabelText('Hide And Seek?');
     fireEvent.change(hideSelect, { target: { value: 'yeaaa' } });
@@ -880,7 +897,7 @@ describe('SettingsModal', () => {
       </LibraryStateProvider>
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
 
     const observer = screen.getByTestId('mascot-observer');
     expect(observer.getAttribute('data-show')).toBe('true');
@@ -976,7 +993,7 @@ describe('SettingsModal', () => {
 
     renderSettingsModal({ storage });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
     const hideAndSeekSelect = screen.getByLabelText('Hide And Seek?') as HTMLSelectElement;
     expect(hideAndSeekSelect.value).toBe('out');
 
@@ -990,7 +1007,7 @@ describe('SettingsModal', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'General' }));
     expect(document.getElementById('settings-panel-general')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
     expect((screen.getByLabelText('Hide And Seek?') as HTMLSelectElement).value).toBe('yeaaa');
 
     warnSpy.mockRestore();

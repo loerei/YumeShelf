@@ -937,7 +937,7 @@ export function SettingsModal({
                 : tab.id === 'library'
                   ? exposeBetaOptions
                     ? strings.settings_tab_library || tab.label
-                    : 'Library'
+                    : strings.settings_tab_library_only || 'Library'
                   : tab.id === 'updates'
                     ? strings.settings_tab_updates || tab.label
                     : tab.id === 'system'
@@ -999,7 +999,9 @@ export function SettingsModal({
               className="settings-section-block"
             >
               <h3 className="settings-section-heading">
-                {exposeBetaOptions ? strings.settings_tab_library || 'Library & Categories' : 'Library'}
+                {exposeBetaOptions
+                  ? strings.settings_tab_library || 'Library & Categories'
+                  : strings.settings_tab_library_only || 'Library'}
               </h3>
               <SettingsLibraryTab
                 language={language}

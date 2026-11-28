@@ -425,6 +425,7 @@
     "about_license_text": "YumeShelf is free and open-source software under the MIT License.",
     "settings_tab_general": "General",
     "settings_tab_library": "Library & Categories",
+    "settings_tab_library_only": "Library",
     "settings_tab_updates": "Updates",
     "settings_tab_system": "System & Mascot",
     "settings_tab_system_only": "System",

@@ -426,6 +426,7 @@
     "about_license_text": "YumeShelf 是遵循 MIT 协议的自由及开源软件。",
     "settings_tab_general": "常规",
     "settings_tab_library": "游戏库与分类",
+    "settings_tab_library_only": "游戏库",
     "settings_tab_updates": "更新",
     "settings_tab_system": "系统与吉祥物",
     "settings_tab_system_only": "系统",

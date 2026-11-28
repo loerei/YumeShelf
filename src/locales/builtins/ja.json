@@ -425,6 +425,7 @@
     "about_license_text": "YumeShelf は MIT ライセンスに基づくオープンソースソフトウェアです。",
     "settings_tab_general": "一般",
     "settings_tab_library": "ライブラリとカテゴリ",
+    "settings_tab_library_only": "ライブラリ",
     "settings_tab_updates": "アップデート",
     "settings_tab_system": "システムとマスコット",
     "settings_tab_system_only": "システム",

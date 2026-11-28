@@ -24,6 +24,7 @@ export interface SettingsLibraryTabProps {
   libraryPaths: readonly string[];
   folderAliases?: Readonly<Record<string, string>>;
   targetPlatform?: PlatformInput;
+  exposeBetaOptions?: boolean;
   isMutating: boolean;
   isScanning: boolean;
   isAddingGame: boolean;
@@ -175,6 +176,7 @@ export function SettingsLibraryTab({
   libraryPaths,
   folderAliases,
   targetPlatform,
+  exposeBetaOptions = false,
   isMutating,
   isScanning,
   isAddingGame,
@@ -294,10 +296,11 @@ export function SettingsLibraryTab({
             )}
       </div>
 
-      <div className="setting-section">
-        <div className="setting-item">
-          <span className="setting-label">
-            {strings.settings_categories_label || 'Categories'}
+      {exposeBetaOptions && (
+        <div className="setting-section">
+          <div className="setting-item">
+            <span className="setting-label">
+              {strings.settings_categories_label || 'Categories'}
           </span>
           <button
             type="button"
@@ -509,8 +512,9 @@ export function SettingsLibraryTab({
               </div>
             ))
           )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -17,7 +17,7 @@ ready-for-agent
 
 Verify end-to-end convergence across main, preload, renderer, Vite bundles, and live Electron execution before closing Epic 10:
 
-- [ ] 1. **Full Automated Build, Typecheck & Test Pipeline**:
+- [x] 1. **Full Automated Build, Typecheck & Test Pipeline**:
   - **Files:** **[VERIFY]** [`src/renderer/entrypoint-cutover.test.tsx`](file:///d:/Projects/YumeShelf/src/renderer/entrypoint-cutover.test.tsx), **[VERIFY]** [`src/renderer/components/modals/path-dnd.test.tsx`](file:///d:/Projects/YumeShelf/src/renderer/components/modals/path-dnd.test.tsx), **[VERIFY]** [`src/preload.ts`](file:///d:/Projects/YumeShelf/src/preload.ts), **[VERIFY]** [`src/index.html`](file:///d:/Projects/YumeShelf/src/index.html), **[VERIFY]** [`src/save-editor.html`](file:///d:/Projects/YumeShelf/src/save-editor.html)
   - Execute `npm test && npm run typecheck && npm run build:preload && npm run build:vite && npm run verify:no-ts-nocheck` (verifying full Vitest + Node suites, renderer/main TypeScript compilation, preload bundle, Vite bundling with `ban-engine-runtime-in-renderer` across `src/index.html` and `src/save-editor.html` including `src/style.css`, and zero `@ts-nocheck`).
 - [ ] 2. **Real-Runtime Electron UI Smoke Gate (`npm start`)**:
@@ -27,7 +27,7 @@ Verify end-to-end convergence across main, preload, renderer, Vite bundles, and 
     - Zero console errors, CSP violations, or computed-style/layout regressions.
 
 ## Acceptance Criteria
-- [ ] Full build, test, and lint gates pass (`npm test && npm run typecheck && npm run build:preload && npm run build:vite && npm run verify:no-ts-nocheck`).
+- [x] Full build, test, and lint gates pass (`npm test && npm run typecheck && npm run build:preload && npm run build:vite && npm run verify:no-ts-nocheck`).
 - [ ] Real-runtime Electron UI smoke check (`npm start`) passes across all modals (`SettingsModal` all 4 tabs, `AboutModal`, `LanguagePackModal`, `DuplicateStackModal`, `Delete Game from Library` with single-press `Escape` and focus restoration) and Save Editor shortcuts/persistence with zero console, CSP, or computed-style errors.
 
 ## Verification Command

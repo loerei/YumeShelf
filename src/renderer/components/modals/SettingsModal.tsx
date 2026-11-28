@@ -60,15 +60,15 @@ export interface SettingsModalProps {
   onOpenAbout?: () => void;
 }
 
-type SettingsTabId = 'general' | 'library' | 'updates' | 'system' | 'mascot' | 'about';
+type SettingsTabId = 'general' | 'library' | 'system' | 'mascot' | 'updates' | 'about';
 type AsyncStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 const SETTINGS_TABS: readonly { id: SettingsTabId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'library', label: 'Library & Categories' },
-  { id: 'updates', label: 'Updates' },
   { id: 'system', label: 'System' },
   { id: 'mascot', label: 'Mascot' },
+  { id: 'updates', label: 'Updates' },
   { id: 'about', label: 'About' },
 ];
 
@@ -982,18 +982,9 @@ export function SettingsModal({
                 strings={strings}
                 theme={theme}
                 installedLanguages={installedLanguages}
-                locationDisplayMode={locationDisplayMode}
-                titleDisplayMode={titleDisplayMode}
-                displayProductCodes={displayProductCodes}
-                maxDepth={maxDepth}
-                autoAllowLargeSaves={autoAllowLargeSaves}
-                isUpdatingConfig={isUpdatingConfig}
                 onThemeChange={handleThemeChange}
                 onLanguageChange={handleLanguageChange}
                 onOpenLanguagePack={onOpenLanguagePack}
-                onLocationDisplayModeChange={handleLocationDisplayModeChange}
-                onUpdateDisplayConfig={(updates) => void handleUpdateDisplayConfig(updates)}
-                onMaxDepthChange={(nextDepth) => void handleMaxDepthChange(nextDepth)}
               />
             </section>
 
@@ -1017,6 +1008,14 @@ export function SettingsModal({
                 folderAliases={config?.folderAliases}
                 targetPlatform={targetPlatform}
                 exposeBetaOptions={exposeBetaOptions}
+                locationDisplayMode={locationDisplayMode}
+                titleDisplayMode={titleDisplayMode}
+                displayProductCodes={displayProductCodes}
+                maxDepth={maxDepth}
+                isUpdatingConfig={isUpdatingConfig}
+                onLocationDisplayModeChange={handleLocationDisplayModeChange}
+                onUpdateDisplayConfig={(updates) => void handleUpdateDisplayConfig(updates)}
+                onMaxDepthChange={(nextDepth) => void handleMaxDepthChange(nextDepth)}
                 isMutating={isMutating}
                 isScanning={isScanning}
                 isAddingGame={isAddingGame}
@@ -1090,29 +1089,6 @@ export function SettingsModal({
 
             <section
               ref={(el) => {
-                sectionRefs.current.updates = el;
-              }}
-              className="settings-section-block"
-            >
-              <h3 className="settings-section-heading">
-                {strings.settings_tab_updates || 'Updates'}
-              </h3>
-              <SettingsUpdatesTab
-                language={language}
-                strings={strings}
-                appUpdateMode={appUpdateMode}
-                langPackUpdateMode={langPackUpdateMode}
-                onAppUpdateModeChange={handleAppUpdateModeChange}
-                onLangPackUpdateModeChange={handleLangPackUpdateModeChange}
-              />
-            </section>
-
-            <div className="favorites-separator-container settings-section-separator" aria-hidden="true">
-              <div className="favorites-separator" />
-            </div>
-
-            <section
-              ref={(el) => {
                 sectionRefs.current.system = el;
               }}
               className="settings-section-block"
@@ -1125,9 +1101,12 @@ export function SettingsModal({
                 strings={strings}
                 autoLaunchValue={autoLaunchValue}
                 minimizeToTray={minimizeToTray}
+                autoAllowLargeSaves={autoAllowLargeSaves}
+                isUpdatingConfig={isUpdatingConfig}
                 exposeBetaOptions={exposeBetaOptions}
                 onAutoLaunchChange={(value) => void handleAutoLaunchChange(value)}
                 onMinimizeToTrayChange={(enabled) => void handleMinimizeToTrayChange(enabled)}
+                onUpdateDisplayConfig={(updates) => void handleUpdateDisplayConfig(updates)}
                 onExposeBetaChange={(enabled) => void handleExposeBetaChange(enabled)}
               />
             </section>
@@ -1154,6 +1133,29 @@ export function SettingsModal({
                 mascotSound={mascotSound}
                 mascotVolume={mascotVolume}
                 onUpdateMascotPreferences={updateMascotPreferences}
+              />
+            </section>
+
+            <div className="favorites-separator-container settings-section-separator" aria-hidden="true">
+              <div className="favorites-separator" />
+            </div>
+
+            <section
+              ref={(el) => {
+                sectionRefs.current.updates = el;
+              }}
+              className="settings-section-block"
+            >
+              <h3 className="settings-section-heading">
+                {strings.settings_tab_updates || 'Updates'}
+              </h3>
+              <SettingsUpdatesTab
+                language={language}
+                strings={strings}
+                appUpdateMode={appUpdateMode}
+                langPackUpdateMode={langPackUpdateMode}
+                onAppUpdateModeChange={handleAppUpdateModeChange}
+                onLangPackUpdateModeChange={handleLangPackUpdateModeChange}
               />
             </section>
 

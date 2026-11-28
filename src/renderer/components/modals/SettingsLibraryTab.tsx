@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { PlatformInput } from '../../../shared/path-subsumption';
 import type { FlattenedCategoryItem } from '../../domain/category-tree';
 import type { LocaleStrings } from '../../i18n/locale-strings';
@@ -25,6 +25,18 @@ export interface SettingsLibraryTabProps {
   folderAliases?: Readonly<Record<string, string>>;
   targetPlatform?: PlatformInput;
   exposeBetaOptions?: boolean;
+  locationDisplayMode: 'parent' | 'full';
+  titleDisplayMode: 'metadata' | 'legacy_folder';
+  displayProductCodes: boolean;
+  maxDepth: number;
+  isUpdatingConfig: boolean;
+  onLocationDisplayModeChange: (nextMode: 'parent' | 'full') => void;
+  onUpdateDisplayConfig: (updates: {
+    titleDisplayMode?: 'metadata' | 'legacy_folder';
+    displayProductCodes?: boolean;
+    autoAllowLargeSaves?: boolean;
+  }) => void;
+  onMaxDepthChange: (nextDepth: number) => void;
   isMutating: boolean;
   isScanning: boolean;
   isAddingGame: boolean;
@@ -170,6 +182,118 @@ function DefaultLibraryPathsList({
   );
 }
 
+function MaxDepthStepper({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const skipBlurCommitRef = useRef(false);
+
+  useEffect(() => {
+    skipBlurCommitRef.current = false;
+    setDraft(String(value));
+  }, [value]);
+
+  const handleCommit = (fromEnter = false) => {
+    const parsed = parseInt(draft, 10);
+    if (Number.isFinite(parsed)) {
+      skipBlurCommitRef.current = fromEnter;
+      const clamped = Math.min(12, Math.max(0, parsed));
+      setDraft(String(clamped));
+      if (clamped !== value) {
+        onChange(clamped);
+      }
+    } else {
+      skipBlurCommitRef.current = false;
+      setDraft(String(value));
+    }
+  };
+
+  const atMin = value <= 0;
+  const atMax = value >= 12;
+  return (
+    <div className="max-depth-stepper">
+      <button
+        type="button"
+        className="max-depth-stepper-btn"
+        title="Decrease max depth"
+        aria-label="Decrease max depth"
+        aria-disabled={atMin}
+        style={atMin ? { pointerEvents: 'none' } : undefined}
+        onClick={() => {
+          if (!atMin) onChange(Math.max(0, value - 1));
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 12h12" />
+        </svg>
+      </button>
+      <input
+        id="max-depth-input"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={2}
+        value={draft}
+        aria-label="Max scan depth"
+        onChange={(e) => {
+          skipBlurCommitRef.current = false;
+          setDraft(e.target.value);
+        }}
+        onBlur={() => {
+          if (skipBlurCommitRef.current) {
+            skipBlurCommitRef.current = false;
+            return;
+          }
+          handleCommit(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            handleCommit(true);
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="max-depth-stepper-btn"
+        title="Increase max depth"
+        aria-label="Increase max depth"
+        aria-disabled={atMax}
+        style={atMax ? { pointerEvents: 'none' } : undefined}
+        onClick={() => {
+          if (!atMax) onChange(Math.min(12, value + 1));
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 6v12" />
+          <path d="M6 12h12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export function SettingsLibraryTab({
   language,
   strings,
@@ -177,6 +301,14 @@ export function SettingsLibraryTab({
   folderAliases,
   targetPlatform,
   exposeBetaOptions = false,
+  locationDisplayMode,
+  titleDisplayMode,
+  displayProductCodes,
+  maxDepth,
+  isUpdatingConfig,
+  onLocationDisplayModeChange,
+  onUpdateDisplayConfig,
+  onMaxDepthChange,
   isMutating,
   isScanning,
   isAddingGame,
@@ -294,6 +426,99 @@ export function SettingsLibraryTab({
                 onShowToast={onShowToast}
               />
             )}
+      </div>
+
+      <div className="setting-item">
+        <label htmlFor="max-depth-input">
+          {language === 'en'
+            ? 'Max Scan Depth'
+            : strings.max_depth_label || 'Max Scan Depth'}
+        </label>
+        <div className="setting-control-zone">
+          <MaxDepthStepper value={maxDepth} onChange={onMaxDepthChange} />
+        </div>
+      </div>
+
+      <div className="setting-item">
+        <label htmlFor="location-display-select">
+          {language === 'en'
+            ? 'Location Display'
+            : strings.location_display_label || 'Location Display'}
+        </label>
+        <div className="setting-control-zone">
+          <select
+            id="location-display-select"
+            value={locationDisplayMode}
+            onChange={(e) =>
+              onLocationDisplayModeChange(e.target.value as 'parent' | 'full')
+            }
+          >
+            <option value="parent">
+              {language === 'en'
+                ? 'Parent Folder'
+                : strings.location_display_parent || 'Parent Folder'}
+            </option>
+            <option value="full">
+              {language === 'en'
+                ? 'Full Path'
+                : strings.location_display_full || 'Full Path'}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div className="setting-item">
+        <label htmlFor="title-display-select">
+          {strings.title_display_label || 'Title Display'}
+        </label>
+        <div className="setting-control-zone">
+          <select
+            id="title-display-select"
+            value={titleDisplayMode}
+            aria-disabled={isUpdatingConfig}
+            style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+            onChange={(e) =>
+              onUpdateDisplayConfig({
+                titleDisplayMode: e.target.value as 'metadata' | 'legacy_folder',
+              })
+            }
+          >
+            <option value="metadata">
+              {language === 'en'
+                ? 'Metadata Title'
+                : strings.title_display_metadata || 'Metadata Title'}
+            </option>
+            <option value="legacy_folder">
+              {language === 'en'
+                ? 'Folder Name'
+                : strings.title_display_legacy || 'Folder Name'}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div className="setting-item">
+        <label htmlFor="product-codes-select">
+          {language === 'en'
+            ? 'Product Codes'
+            : strings.display_codes_label || 'Product Codes'}
+        </label>
+        <div className="setting-control-zone">
+          <select
+            id="product-codes-select"
+            value={displayProductCodes ? 'on' : 'off'}
+            aria-disabled={isUpdatingConfig}
+            style={isUpdatingConfig ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+            onChange={(e) =>
+              onUpdateDisplayConfig({
+                displayProductCodes: e.target.value === 'on',
+              })
+            }
+          >
+            <option value="off">{strings.option_off || 'Off'}</option>
+            <option value="on">{strings.option_on || 'On'}</option>
+          </select>
+        </div>
       </div>
 
       {exposeBetaOptions && (

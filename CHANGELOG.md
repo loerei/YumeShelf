@@ -2,6 +2,8 @@
 
 All notable changes to YumeShelf are documented here. Entries follow a two-tier structure: a quick summary for regular users, and technical details for developers.
 
+Versioning: YumeShelf follows Semantic Versioning (SemVer) from `2.3.0` onward.
+
 ---
 
 ## [2.3.1] - working

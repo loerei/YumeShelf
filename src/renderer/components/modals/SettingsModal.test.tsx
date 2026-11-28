@@ -697,6 +697,41 @@ describe('SettingsModal', () => {
       await Promise.resolve();
       expect(document.activeElement).not.toBe(document.body);
     });
+
+    it('renames category with { categoryId, name }, updates store categoryTree, and invokes onCategoryTreeUpdated', async () => {
+      const categories: CategoryNode[] = [
+        { id: 'cat-1', name: 'Action' },
+        { id: 'cat-2', name: 'RPG' },
+      ];
+      const updatedTree: CategoryNode[] = [
+        { id: 'cat-1', name: 'Adventure' },
+        { id: 'cat-2', name: 'RPG' },
+      ];
+      const electronAPI = createMockElectronAPI({
+        renameCategory: vi.fn().mockResolvedValue({
+          ok: true,
+          tree: updatedTree,
+        }),
+      });
+      const onCategoryTreeUpdated = vi.fn();
+
+      const { store } = renderSettingsModal({ electronAPI, onCategoryTreeUpdated }, { categories });
+      fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Rename Action' }));
+      const renameInput = screen.getByLabelText('Rename category Action');
+      fireEvent.change(renameInput, { target: { value: '  Adventure  ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => {
+        expect(electronAPI.renameCategory).toHaveBeenCalledWith({
+          categoryId: 'cat-1',
+          name: 'Adventure',
+        });
+        expect(store.getSnapshot().categoryTree).toEqual(updatedTree);
+        expect(onCategoryTreeUpdated).toHaveBeenCalledWith(updatedTree);
+      });
+    });
   });
 
   it('System & Mascot tab renders no telemetry controls and syncs mascot preferences', () => {

@@ -167,7 +167,7 @@ describe('PathReorderList & SettingsModal path DnD', () => {
       </LibraryStateProvider>
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
 
     const handles = Array.from(document.querySelectorAll('.grip-handle')) as HTMLButtonElement[];
     expect(handles).toHaveLength(3);
@@ -405,7 +405,7 @@ describe('PathReorderList & SettingsModal path DnD', () => {
       </LibraryStateProvider>
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
 
     const handle = document.querySelector('.grip-handle') as HTMLButtonElement;
     await keyboardDrag(handle, 'ArrowDown');

@@ -894,7 +894,9 @@ export function SettingsModal({
             tab.id === 'general'
               ? strings.settings_tab_general || tab.label
               : tab.id === 'library'
-                ? strings.settings_tab_library || tab.label
+                ? exposeBetaOptions
+                  ? strings.settings_tab_library || tab.label
+                  : 'Library'
                 : tab.id === 'updates'
                   ? strings.settings_tab_updates || tab.label
                   : strings.settings_tab_system || tab.label;
@@ -944,6 +946,7 @@ export function SettingsModal({
             libraryPaths={libraryPaths}
             folderAliases={config?.folderAliases}
             targetPlatform={targetPlatform}
+            exposeBetaOptions={exposeBetaOptions}
             isMutating={isMutating}
             isScanning={isScanning}
             isAddingGame={isAddingGame}

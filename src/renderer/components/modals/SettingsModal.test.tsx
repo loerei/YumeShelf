@@ -184,7 +184,7 @@ describe('SettingsModal', () => {
     expect(tablist.className).toContain('settings-tabs-nav');
 
     const generalTab = screen.getByRole('tab', { name: 'General' });
-    const libraryTab = screen.getByRole('tab', { name: 'Library & Categories' });
+    const libraryTab = screen.getByRole('tab', { name: 'Library' });
     const updatesTab = screen.getByRole('tab', { name: 'Updates' });
     const systemTab = screen.getByRole('tab', { name: 'System & Mascot' });
 
@@ -417,7 +417,7 @@ describe('SettingsModal', () => {
       });
 
       renderSettingsModal({ electronAPI, rescanInactivityTimeoutMs: 5000 });
-      fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: '+ Add Path' }));
@@ -492,7 +492,7 @@ describe('SettingsModal', () => {
         onLibraryPathsUpdated,
       });
 
-      fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
 
       // Start Run 1
       await act(async () => {
@@ -550,7 +550,7 @@ describe('SettingsModal', () => {
       });
 
       renderSettingsModal({ electronAPI });
-      fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
 
       fireEvent.click(screen.getByRole('button', { name: '+ Add Path' }));
 
@@ -587,7 +587,7 @@ describe('SettingsModal', () => {
       const setTreeSpy = vi.spyOn(store, 'setCategoryTree');
       const setGamesSpy = vi.spyOn(store, 'setAllGames');
 
-      fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
 
       const removeBtn = screen.getByRole('button', { name: 'Remove path D:\\Games' });
       removeBtn.focus();
@@ -618,7 +618,7 @@ describe('SettingsModal', () => {
       });
 
       const { store } = renderSettingsModal({ electronAPI });
-      fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
 
       const addGameBtn = screen.getByRole('button', { name: '+ Add Game' });
       fireEvent.click(addGameBtn);
@@ -656,7 +656,20 @@ describe('SettingsModal', () => {
       });
       const onCategoryTreeUpdated = vi.fn();
 
-      renderSettingsModal({ electronAPI, onCategoryTreeUpdated }, { categories });
+      renderSettingsModal(
+        { electronAPI, onCategoryTreeUpdated },
+        {
+          categories,
+          config: {
+            libraryPaths: ['D:\\Games', 'E:\\VisualNovels'],
+            libraryPath: 'D:\\Games',
+            maxDepth: 2,
+            autoLaunch: false,
+            minimizeToTray: false,
+            exposeBetaOptions: true,
+          },
+        }
+      );
       fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
 
       // + Add Category auto-focuses input
@@ -715,7 +728,20 @@ describe('SettingsModal', () => {
       });
       const onCategoryTreeUpdated = vi.fn();
 
-      const { store } = renderSettingsModal({ electronAPI, onCategoryTreeUpdated }, { categories });
+      const { store } = renderSettingsModal(
+        { electronAPI, onCategoryTreeUpdated },
+        {
+          categories,
+          config: {
+            libraryPaths: ['D:\\Games', 'E:\\VisualNovels'],
+            libraryPath: 'D:\\Games',
+            maxDepth: 2,
+            autoLaunch: false,
+            minimizeToTray: false,
+            exposeBetaOptions: true,
+          },
+        }
+      );
       fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
 
       fireEvent.click(screen.getByRole('button', { name: 'Rename Action' }));
@@ -731,6 +757,31 @@ describe('SettingsModal', () => {
         expect(store.getSnapshot().categoryTree).toEqual(updatedTree);
         expect(onCategoryTreeUpdated).toHaveBeenCalledWith(updatedTree);
       });
+    });
+
+    it('hides Categories section and uses Library tab label when exposeBetaOptions is false', () => {
+      const categories: CategoryNode[] = [{ id: 'cat-1', name: 'Action' }];
+      renderSettingsModal(
+        {},
+        {
+          categories,
+          config: {
+            libraryPaths: ['D:\\Games'],
+            libraryPath: 'D:\\Games',
+            maxDepth: 2,
+            autoLaunch: false,
+            minimizeToTray: false,
+            exposeBetaOptions: false,
+          },
+        }
+      );
+
+      expect(screen.queryByRole('tab', { name: 'Library & Categories' })).toBeNull();
+      fireEvent.click(screen.getByRole('tab', { name: 'Library' }));
+
+      expect(screen.queryByText('Categories')).toBeNull();
+      expect(screen.queryByRole('button', { name: '+ Add Category' })).toBeNull();
+      expect(screen.queryByLabelText('Categories list')).toBeNull();
     });
   });
 

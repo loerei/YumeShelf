@@ -739,6 +739,7 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
   });
 
   it('supports pre-310 filter keyboard shortcuts (e, i, x) and Shift+Enter save when not typing in an input', async () => {
+    const qsSpy = vi.spyOn(document, 'querySelector');
     const user = userEvent.setup();
     const mockApi = createMockElectronAPI();
     const store = createSaveEditorStore('test-game');
@@ -753,6 +754,17 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     );
 
     const goldInput = await screen.findByRole('textbox', { name: 'Gold' });
+
+    // Shift+Enter while !isDirty must not preventDefault or invoke writeSaveData
+    const cleanShiftEnter = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.body.dispatchEvent(cleanShiftEnter);
+    expect(cleanShiftEnter.defaultPrevented).toBe(false);
+    expect(mockApi.writeSaveData).not.toHaveBeenCalled();
 
     // Single-key shortcuts toggle filters when focus is outside text inputs
     fireEvent.keyDown(document.body, { key: 'e' });
@@ -788,9 +800,12 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
       fileName: 'save01.sav',
       updates: { 'variables:1': 888 },
     });
+    expect(qsSpy).not.toHaveBeenCalledWith('input.save-editor-search');
+    expect(qsSpy).not.toHaveBeenCalledWith('.save-editor-footer .save-btn');
   });
 
   it('focuses and selects input.save-editor-search on Ctrl+F / Cmd+F unless inside a dialog', async () => {
+    const qsSpy = vi.spyOn(document, 'querySelector');
     const user = userEvent.setup();
     const mockApi = createMockElectronAPI();
     const store = createSaveEditorStore('test-game');
@@ -838,6 +853,8 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
     } finally {
       dialog.remove();
     }
+    expect(qsSpy).not.toHaveBeenCalledWith('input.save-editor-search');
+    expect(qsSpy).not.toHaveBeenCalledWith('.save-editor-footer .save-btn');
   });
 
   it('renders localized vi strings for sidebar, tabs, filters, search bar, field row pin, and footer', async () => {

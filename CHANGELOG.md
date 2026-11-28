@@ -9,10 +9,15 @@ Versioning: YumeShelf follows Semantic Versioning (SemVer) from `2.3.0` onward.
 ## [2.3.1] - working
 
 ### What Changed
+- Redesigned Settings into a wider two-column layout with a left sidebar (`General`, `Library`, `System`, `Yume-chan`, `Updates`, `About`) and continuous scrolling across all sections, moving `Max Scan Depth` and card display options into `Library` and `Always Allow Large Saves (>64 MB)` into `System`.
+- Added plain-language info tooltips for `Max Scan Depth`, `Location Display`, `Title Display`, `Product Codes`, and `Expose Beta Options`, and linked the `YumeShelf` heading in `About` to the GitHub repository.
+- Cleaned up mistranslated and awkward UI copy across the English, Japanese, Simplified Chinese, and Vietnamese language packs.
 - Fixed the YumeShelf app icon not appearing in the About & Credits dialog on packaged builds.
 - Hidden incomplete Categories management UI behind the `Expose Beta Options` setting (the Library tab displays `Library` by default).
 
 ### For the Nerds
+- [settings] Redesigned `SettingsModal` (`min(820px, 90vw)` x `min(600px, 82vh)`) with a vertical WAI-ARIA `tablist` sidebar, continuous scroll-spy container, `.favorites-separator` section dividers, and `<= 900px` responsive collapse, extracting `SettingsMascotTab`, `SettingInfoTooltip`, and shared `AboutContent` while keeping `AboutModal` as a wrapper (PR #341).
+- [i18n] Added `settings_tab_library_only`, `settings_tab_system_only`, `settings_tab_mascot`, `settings_tab_about`, and 5 `setting_*_info` keys with 100% schema parity across `en`, `en.sample`, `ja`, `zh`, and `vi`, and replaced machine-translated or inconsistent strings across all 4 language packs.
 - [renderer] Bundled `src/assets/yumeshelf_icon.png` via ES module import in `AboutModal` instead of a static `./assets/yumeshelf_icon.png` string so Vite emits it into `dist/renderer/assets/`.
 - [settings] Gated the Categories section in `SettingsLibraryTab` and the `'Library & Categories'` tab label in `SettingsModal` behind `exposeBetaOptions` (PR #339).
 - [renderer] Unified modal ownership and `Escape` dismissal coordination inside `OverlayProvider` (`'delete-game'` payload, `registerDismissHandler`, `useOptionalOverlay`, IME composition guard), delegated `modalType` through `Modal` and all app dialogs, and removed `pendingDeleteGame` local modal state from `AppShell`.

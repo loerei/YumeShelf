@@ -8,7 +8,11 @@ Versioning: YumeShelf follows Semantic Versioning (SemVer) from `2.3.0` onward.
 
 ## [2.3.1] - working
 
+### What Changed
+- Hidden incomplete Categories management UI behind the `Expose Beta Options` setting (the Library tab displays `Library` by default).
+
 ### For the Nerds
+- [settings] Gated the Categories section in `SettingsLibraryTab` and the `'Library & Categories'` tab label in `SettingsModal` behind `exposeBetaOptions` (PR #339).
 - [renderer] Unified modal ownership and `Escape` dismissal coordination inside `OverlayProvider` (`'delete-game'` payload, `registerDismissHandler`, `useOptionalOverlay`, IME composition guard), delegated `modalType` through `Modal` and all app dialogs, and removed `pendingDeleteGame` local modal state from `AppShell`.
 - [renderer] Decomposed `SettingsModal` into pure-presentational `SettingsGeneralTab`, `SettingsUpdatesTab`, and `SettingsSystemTab` components while keeping modal-lifetime storage and `MascotProvider` bindings in `SettingsModal`, and extracted `useLibraryActions` (`recalculateAfterGameDeletion`, `isDeletingGameRef` re-entrancy latch, `sanitizeUserPaths` diagnostics) out of `App.tsx`.
 - [ipc] Eliminated all remaining `any` signatures across `ElectronAPI` (`src/shared/types/ipc.d.ts`) and `src/preload.ts`, and aligned `renameCategory` / `setAutoLaunch` call sites in `SettingsModal`.

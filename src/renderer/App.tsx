@@ -331,7 +331,7 @@ export function AppShell({
             type="button"
             className="danger-btn"
             onClick={() => {
-              if (!isDeletingGame) handleConfirmDelete();
+              if (!isDeletingGame) void handleConfirmDelete();
             }}
             aria-disabled={isDeletingGame}
             style={isDeletingGame ? { pointerEvents: 'none' } : undefined}

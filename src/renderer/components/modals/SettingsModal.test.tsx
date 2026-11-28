@@ -188,7 +188,7 @@ describe('SettingsModal', () => {
     const libraryTab = screen.getByRole('tab', { name: 'Library' });
     const updatesTab = screen.getByRole('tab', { name: 'Updates' });
     const systemTab = screen.getByRole('tab', { name: 'System' });
-    const mascotTab = screen.getByRole('tab', { name: 'Mascot' });
+    const mascotTab = screen.getByRole('tab', { name: 'Yume-chan' });
     const aboutTab = screen.getByRole('tab', { name: 'About' });
 
     expect(generalTab.className).toContain('settings-nav-btn');
@@ -799,7 +799,7 @@ describe('SettingsModal', () => {
     const storage = createMemoryStorage();
     renderSettingsModal({ onMascotSettingsChanged, storage });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Yume-chan' }));
 
     // Zero telemetry controls
     expect(screen.queryByText(/telemetry/i)).toBeNull();
@@ -837,7 +837,7 @@ describe('SettingsModal', () => {
     });
 
     renderSettingsModal({ storage });
-    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Yume-chan' }));
 
     const hideSelect = screen.getByLabelText('Hide And Seek?');
     fireEvent.change(hideSelect, { target: { value: 'yeaaa' } });
@@ -897,7 +897,7 @@ describe('SettingsModal', () => {
       </LibraryStateProvider>
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Yume-chan' }));
 
     const observer = screen.getByTestId('mascot-observer');
     expect(observer.getAttribute('data-show')).toBe('true');
@@ -993,7 +993,7 @@ describe('SettingsModal', () => {
 
     renderSettingsModal({ storage });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Yume-chan' }));
     const hideAndSeekSelect = screen.getByLabelText('Hide And Seek?') as HTMLSelectElement;
     expect(hideAndSeekSelect.value).toBe('out');
 
@@ -1007,7 +1007,7 @@ describe('SettingsModal', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'General' }));
     expect(document.getElementById('settings-panel-general')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Mascot' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Yume-chan' }));
     expect((screen.getByLabelText('Hide And Seek?') as HTMLSelectElement).value).toBe('yeaaa');
 
     warnSpy.mockRestore();

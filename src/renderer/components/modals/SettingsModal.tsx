@@ -67,7 +67,7 @@ const SETTINGS_TABS: readonly { id: SettingsTabId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'library', label: 'Library & Categories' },
   { id: 'system', label: 'System' },
-  { id: 'mascot', label: 'Mascot' },
+  { id: 'mascot', label: 'Yume-chan' },
   { id: 'updates', label: 'Updates' },
   { id: 'about', label: 'About' },
 ];
@@ -943,7 +943,7 @@ export function SettingsModal({
                     : tab.id === 'system'
                       ? strings.settings_tab_system_only || 'System'
                       : tab.id === 'mascot'
-                        ? strings.settings_tab_mascot || 'Mascot'
+                        ? strings.settings_tab_mascot || 'Yume-chan'
                         : strings.settings_tab_about || 'About';
             return (
               <button
@@ -1122,7 +1122,7 @@ export function SettingsModal({
               className="settings-section-block"
             >
               <h3 className="settings-section-heading">
-                {strings.settings_tab_mascot || 'Mascot'}
+                {strings.settings_tab_mascot || 'Yume-chan'}
               </h3>
               <SettingsMascotTab
                 language={language}

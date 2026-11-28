@@ -3,6 +3,7 @@ import { Modal } from './Modal';
 import type { ElectronAPI } from '../../../shared/types/ipc';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
 import { useLocaleStrings } from '../../i18n/locale-strings';
+import yumeshelfIcon from '../../../assets/yumeshelf_icon.png';
 
 export interface AboutModalProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
       <Modal.Body className="about-body">
         <div className="about-brand">
           <img
-            src="./assets/yumeshelf_icon.png"
+            src={yumeshelfIcon}
             alt="YumeShelf"
             width={64}
             height={64}

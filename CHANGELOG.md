@@ -4,6 +4,16 @@ All notable changes to YumeShelf are documented here. Entries follow a two-tier 
 
 ---
 
+## [2.3.1] - working
+
+### For the Nerds
+- [renderer] Unified modal ownership and `Escape` dismissal coordination inside `OverlayProvider` (`'delete-game'` payload, `registerDismissHandler`, `useOptionalOverlay`, IME composition guard), delegated `modalType` through `Modal` and all app dialogs, and removed `pendingDeleteGame` local modal state from `AppShell`.
+- [renderer] Decomposed `SettingsModal` into pure-presentational `SettingsGeneralTab`, `SettingsUpdatesTab`, and `SettingsSystemTab` components while keeping modal-lifetime storage and `MascotProvider` bindings in `SettingsModal`, and extracted `useLibraryActions` (`recalculateAfterGameDeletion`, `isDeletingGameRef` re-entrancy latch, `sanitizeUserPaths` diagnostics) out of `App.tsx`.
+- [ipc] Eliminated all remaining `any` signatures across `ElectronAPI` (`src/shared/types/ipc.d.ts`) and `src/preload.ts`, and aligned `renameCategory` / `setAutoLaunch` call sites in `SettingsModal`.
+- [save-editor] Replaced `document.querySelector` shortcut lookups in `SaveEditorApp` with `searchInputRef` (`SaveEditorSearchBar`) and `saveButtonRef` (`SaveEditorFooter`), surfaced sanitized `console.warn` diagnostics and `onStorageError` callbacks from `writePinnedIds` in `save-editor-store.ts`, and documented global CSS deferral guardrails in `src/style.css`.
+
+---
+
 ## [2.3.0] - 2026-11-27 — released
 
 ### What Changed

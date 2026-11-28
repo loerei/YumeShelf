@@ -763,7 +763,7 @@ export function SettingsModal({
     const trimmedName = renameCategoryDraft.trim();
 
     try {
-      const res = await api?.renameCategory?.({ id: categoryId, name: trimmedName });
+      const res = await api?.renameCategory?.({ categoryId, name: trimmedName });
       if (!res?.ok) {
         const reason = sanitizeUserPaths(res?.reason || res?.error || 'Failed to rename category');
         if (isMountedRef.current) {
@@ -871,7 +871,7 @@ export function SettingsModal({
     const nextAutoLaunch: boolean | 'minimized' =
       value === 'minimized' ? 'minimized' : value === 'on';
     try {
-      await api?.setAutoLaunch?.(nextAutoLaunch as boolean);
+      await api?.setAutoLaunch?.(nextAutoLaunch);
       const updatedConfig = await api?.updateLibraryConfig?.({ autoLaunch: nextAutoLaunch });
       if (updatedConfig) {
         store.setCurrentLibraryConfig(updatedConfig);

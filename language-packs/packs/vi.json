@@ -30,7 +30,7 @@
     "title_display_label": "Hiển thị tiêu đề",
     "title_display_metadata": "Tiêu đề game (Mặc định)",
     "title_display_legacy": "Tên thư mục (Cũ)",
-    "display_codes_label": "Hiển thị mã sản phẩm (RJ/VJ)",
+    "display_codes_label": "Hiển thị mã sản phẩm",
     "setting_auto_allow_large_saves_label": "Tự động mở file save lớn (>64 MB)",
     "setting_auto_allow_large_saves_info": "File save quá lớn có thể mở chậm hơn và tốn nhiều RAM hơn khi chỉnh sửa.",
     "setting_max_depth_info": "Số tầng thư mục con tối đa mà YumeShelf tìm game. Tăng lên nếu bạn để game trong nhiều thư mục lồng nhau (số càng lớn quét càng chậm).",

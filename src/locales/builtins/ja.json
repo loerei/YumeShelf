@@ -26,7 +26,7 @@
     "title_display_label": "タイトル表示",
     "title_display_metadata": "ゲームタイトル（デフォルト）",
     "title_display_legacy": "フォルダ名（従来）",
-    "display_codes_label": "作品コード（RJ/VJ）の表示",
+    "display_codes_label": "作品コードの表示",
     "setting_auto_allow_large_saves_label": "大容量セーブ（64 MB超）を自動で開く",
     "setting_auto_allow_large_saves_info": "非常に大きいセーブファイルは読み込みに時間がかかり、編集時のメモリ使用量が増える場合があります。",
     "setting_max_depth_info": "ゲームを探すサブフォルダの階層の深さです。深い階層にゲームを置いている場合は増やしてください（数値が大きいほどスキャンに時間がかかります）。",

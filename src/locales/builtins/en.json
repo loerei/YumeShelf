@@ -26,7 +26,7 @@
     "title_display_label": "Title Display",
     "title_display_metadata": "Game Title (Default)",
     "title_display_legacy": "Folder Name (Legacy)",
-    "display_codes_label": "Display Product Codes (RJ/VJ)",
+    "display_codes_label": "Display Product Codes",
     "setting_auto_allow_large_saves_label": "Always Allow Large Saves (>64 MB)",
     "setting_auto_allow_large_saves_info": "Very large save files can take longer to open and use more memory while editing.",
     "setting_max_depth_info": "How many subfolder levels deep YumeShelf searches for games. Increase this if your games are inside nested folders (higher numbers take longer to scan).",

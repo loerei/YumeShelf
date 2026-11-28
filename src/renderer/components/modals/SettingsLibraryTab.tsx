@@ -3,6 +3,7 @@ import type { PlatformInput } from '../../../shared/path-subsumption';
 import type { FlattenedCategoryItem } from '../../domain/category-tree';
 import type { LocaleStrings } from '../../i18n/locale-strings';
 import { PathReorderList } from './PathReorderList';
+import { SettingInfoTooltip } from './SettingInfoTooltip';
 
 export type LibraryAsyncStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -429,22 +430,38 @@ export function SettingsLibraryTab({
       </div>
 
       <div className="setting-item">
-        <label htmlFor="max-depth-input">
-          {language === 'en'
-            ? 'Max Scan Depth'
-            : strings.max_depth_label || 'Max Scan Depth'}
-        </label>
+        <div className="setting-label-with-info">
+          <label htmlFor="max-depth-input">
+            {language === 'en'
+              ? 'Max Scan Depth'
+              : strings.max_depth_label || 'Max Scan Depth'}
+          </label>
+          <SettingInfoTooltip
+            text={
+              strings.setting_max_depth_info ||
+              'How many subfolder levels deep YumeShelf searches for games. Increase this if your games are inside nested folders (higher numbers take longer to scan).'
+            }
+          />
+        </div>
         <div className="setting-control-zone">
           <MaxDepthStepper value={maxDepth} onChange={onMaxDepthChange} />
         </div>
       </div>
 
       <div className="setting-item">
-        <label htmlFor="location-display-select">
-          {language === 'en'
-            ? 'Location Display'
-            : strings.location_display_label || 'Location Display'}
-        </label>
+        <div className="setting-label-with-info">
+          <label htmlFor="location-display-select">
+            {language === 'en'
+              ? 'Location Display'
+              : strings.location_display_label || 'Location Display'}
+          </label>
+          <SettingInfoTooltip
+            text={
+              strings.setting_location_display_info ||
+              'Choose whether game cards show only the enclosing folder name or the full folder path.'
+            }
+          />
+        </div>
         <div className="setting-control-zone">
           <select
             id="location-display-select"
@@ -468,9 +485,17 @@ export function SettingsLibraryTab({
       </div>
 
       <div className="setting-item">
-        <label htmlFor="title-display-select">
-          {strings.title_display_label || 'Title Display'}
-        </label>
+        <div className="setting-label-with-info">
+          <label htmlFor="title-display-select">
+            {strings.title_display_label || 'Title Display'}
+          </label>
+          <SettingInfoTooltip
+            text={
+              strings.setting_title_display_info ||
+              "Choose whether cards show the game's detected title or the exact folder name on your drive."
+            }
+          />
+        </div>
         <div className="setting-control-zone">
           <select
             id="title-display-select"
@@ -498,11 +523,19 @@ export function SettingsLibraryTab({
       </div>
 
       <div className="setting-item">
-        <label htmlFor="product-codes-select">
-          {language === 'en'
-            ? 'Product Codes'
-            : strings.display_codes_label || 'Product Codes'}
-        </label>
+        <div className="setting-label-with-info">
+          <label htmlFor="product-codes-select">
+            {language === 'en'
+              ? 'Product Codes'
+              : strings.display_codes_label || 'Product Codes'}
+          </label>
+          <SettingInfoTooltip
+            text={
+              strings.setting_product_codes_info ||
+              'Show store catalog codes (like RJ or VJ) on game cards when found in the folder name.'
+            }
+          />
+        </div>
         <div className="setting-control-zone">
           <select
             id="product-codes-select"

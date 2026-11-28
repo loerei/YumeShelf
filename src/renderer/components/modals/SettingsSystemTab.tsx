@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LocaleStrings } from '../../i18n/locale-strings';
+import { SettingInfoTooltip } from './SettingInfoTooltip';
 
 export interface MascotPreferences {
   show: boolean;
@@ -93,23 +94,12 @@ export function SettingsSystemTab({
             {strings.setting_auto_allow_large_saves_label ||
               'Always Allow Large Saves (>64 MB)'}
           </label>
-          <button
-            type="button"
-            className="setting-info-btn"
-            aria-label={
+          <SettingInfoTooltip
+            text={
               strings.setting_auto_allow_large_saves_info ||
               'Very large save files can take longer to open and use more memory while editing.'
             }
-            data-tooltip={
-              strings.setting_auto_allow_large_saves_info ||
-              'Very large save files can take longer to open and use more memory while editing.'
-            }
-            data-tooltip-compact="true"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.9.9 0 1 1 0 1.8A.9.9 0 0 1 8 4zm-.75 3h1.5v5h-1.5V7z" />
-            </svg>
-          </button>
+          />
         </div>
         <div className="setting-control-zone">
           <select
@@ -130,9 +120,17 @@ export function SettingsSystemTab({
       </div>
 
       <div className="setting-item">
-        <label htmlFor="expose-beta-select">
-          {strings.expose_beta_label || 'Expose Beta Options'}
-        </label>
+        <div className="setting-label-with-info">
+          <label htmlFor="expose-beta-select">
+            {strings.expose_beta_label || 'Expose Beta Options'}
+          </label>
+          <SettingInfoTooltip
+            text={
+              strings.setting_expose_beta_info ||
+              'Show experimental features that are still in development and may be incomplete or change later.'
+            }
+          />
+        </div>
         <div className="setting-control-zone">
           <select
             id="expose-beta-select"

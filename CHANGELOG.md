@@ -9,9 +9,11 @@ Versioning: YumeShelf follows Semantic Versioning (SemVer) from `2.3.0` onward.
 ## [2.3.1] - working
 
 ### What Changed
+- Fixed the YumeShelf app icon not appearing in the About & Credits dialog on packaged builds.
 - Hidden incomplete Categories management UI behind the `Expose Beta Options` setting (the Library tab displays `Library` by default).
 
 ### For the Nerds
+- [renderer] Bundled `src/assets/yumeshelf_icon.png` via ES module import in `AboutModal` instead of a static `./assets/yumeshelf_icon.png` string so Vite emits it into `dist/renderer/assets/`.
 - [settings] Gated the Categories section in `SettingsLibraryTab` and the `'Library & Categories'` tab label in `SettingsModal` behind `exposeBetaOptions` (PR #339).
 - [renderer] Unified modal ownership and `Escape` dismissal coordination inside `OverlayProvider` (`'delete-game'` payload, `registerDismissHandler`, `useOptionalOverlay`, IME composition guard), delegated `modalType` through `Modal` and all app dialogs, and removed `pendingDeleteGame` local modal state from `AppShell`.
 - [renderer] Decomposed `SettingsModal` into pure-presentational `SettingsGeneralTab`, `SettingsUpdatesTab`, and `SettingsSystemTab` components while keeping modal-lifetime storage and `MascotProvider` bindings in `SettingsModal`, and extracted `useLibraryActions` (`recalculateAfterGameDeletion`, `isDeletingGameRef` re-entrancy latch, `sanitizeUserPaths` diagnostics) out of `App.tsx`.

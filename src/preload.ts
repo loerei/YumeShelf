@@ -1,11 +1,18 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { LibraryConfig } from './shared/types/game';
-import type { ElectronAPI } from './shared/types/ipc';
+import type {
+    AppUpdateStatusPayload,
+    BootStatusPayload,
+    ElectronAPI,
+    GamePlaytimeUpdatedPayload,
+    GameStoppedPayload,
+    TranslationStatusPayload,
+} from './shared/types/ipc';
 
 const api: ElectronAPI = {
-    bootstrapApp: (options: any) => ipcRenderer.invoke('bootstrap-app', options),
+    bootstrapApp: (options?: Record<string, unknown>) => ipcRenderer.invoke('bootstrap-app', options),
     checkConfig: () => ipcRenderer.invoke('check-config'),
-    setupLibrary: (type: string) => ipcRenderer.invoke('setup-library', type),
+    setupLibrary: (type: 'default' | 'custom') => ipcRenderer.invoke('setup-library', type),
     updateLibraryConfig: (updates: Omit<Partial<LibraryConfig>, 'libraryPath'>) =>
         ipcRenderer.invoke('update-library-config', updates),
     setFolderAlias: (folderPath: string, alias: string) =>
@@ -15,13 +22,13 @@ const api: ElectronAPI = {
     changeLibraryPath: (oldPath: string) => ipcRenderer.invoke('library:change-path', oldPath),
     getGames: () => ipcRenderer.invoke('get-games'),
     getCategoryTree: () => ipcRenderer.invoke('get-category-tree'),
-    createCategory: (payload: any) => ipcRenderer.invoke('create-category', payload),
-    renameCategory: (payload: any) => ipcRenderer.invoke('rename-category', payload),
+    createCategory: (payload: Parameters<ElectronAPI['createCategory']>[0]) => ipcRenderer.invoke('create-category', payload),
+    renameCategory: (payload: Parameters<ElectronAPI['renameCategory']>[0]) => ipcRenderer.invoke('rename-category', payload),
     deleteCategory: (categoryId: string) => ipcRenderer.invoke('delete-category', categoryId),
-    assignGameCategories: (payload: any) => ipcRenderer.invoke('assign-game-categories', payload),
-    removeGameCategory: (payload: any) => ipcRenderer.invoke('remove-game-category', payload),
-    launchYume: (data: any) => ipcRenderer.send('launch-yume', data),
-    renameGame: (data: any) => ipcRenderer.invoke('rename-game', data),
+    assignGameCategories: (payload: Parameters<ElectronAPI['assignGameCategories']>[0]) => ipcRenderer.invoke('assign-game-categories', payload),
+    removeGameCategory: (payload: Parameters<ElectronAPI['removeGameCategory']>[0]) => ipcRenderer.invoke('remove-game-category', payload),
+    launchYume: (data: Parameters<ElectronAPI['launchYume']>[0]) => ipcRenderer.send('launch-yume', data),
+    renameGame: (data: Parameters<ElectronAPI['renameGame']>[0]) => ipcRenderer.invoke('rename-game', data),
     revealGame: (path: string) => ipcRenderer.send('reveal-game', path),
     openPath: (path: string) => ipcRenderer.send('open-path', path),
     deleteGame: (path: string) => ipcRenderer.invoke('delete-game', path),
@@ -53,22 +60,22 @@ const api: ElectronAPI = {
     getLanguageState: () => ipcRenderer.invoke('get-language-state'),
     getLanguagePackManifest: () => ipcRenderer.invoke('get-language-pack-manifest'),
     installLanguagePack: (code: string) => ipcRenderer.invoke('install-language-pack', code),
-    onBootStatus: (callback: (payload: any) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+    onBootStatus: (callback: (payload: BootStatusPayload) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: BootStatusPayload) => callback(payload);
         ipcRenderer.on('boot-status', handler);
         return () => {
             ipcRenderer.removeListener('boot-status', handler);
         };
     },
-    onAppUpdateStatus: (callback: (payload: any) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+    onAppUpdateStatus: (callback: (payload: AppUpdateStatusPayload) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: AppUpdateStatusPayload) => callback(payload);
         ipcRenderer.on('app-update-status', handler);
         return () => {
             ipcRenderer.removeListener('app-update-status', handler);
         };
     },
-    onGameStopped: (callback: (payload: any) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, payload: any) => {
+    onGameStopped: (callback: (payload: GameStoppedPayload) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: GameStoppedPayload) => {
             console.log(`[PRELOAD] Received game-stopped IPC for ${payload ? payload.gameKey : 'unknown'}`);
             callback(payload);
         };
@@ -77,15 +84,15 @@ const api: ElectronAPI = {
             ipcRenderer.removeListener('game-stopped', handler);
         };
     },
-    onGamePlaytimeUpdated: (callback: (payload: any) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+    onGamePlaytimeUpdated: (callback: (payload: GamePlaytimeUpdatedPayload) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: GamePlaytimeUpdatedPayload) => callback(payload);
         ipcRenderer.on('game-playtime-updated', handler);
         return () => {
             ipcRenderer.removeListener('game-playtime-updated', handler);
         };
     },
-    onTranslationStatus: (callback: (payload: any) => void) => {
-        const handler = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+    onTranslationStatus: (callback: (payload: TranslationStatusPayload) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, payload: TranslationStatusPayload) => callback(payload);
         ipcRenderer.on('translation-status', handler);
         return () => {
             ipcRenderer.removeListener('translation-status', handler);
@@ -96,15 +103,15 @@ const api: ElectronAPI = {
     loadSaveData: (data: Parameters<ElectronAPI['loadSaveData']>[0]) => ipcRenderer.invoke('save-editor:load-data', data),
     cancelLoadSaveData: (params: { gameKey: string; fileName: string }) => ipcRenderer.invoke('save-editor:cancel-load', params),
     onSaveLoadProgress: (callback: (payload: { gameKey: string; fileName: string; percent: number; current: number; total: number; unit: string; pos?: number; totalBytes?: number }) => void) => {
-        const handler = (_event: any, payload: any) => callback(payload);
+        const handler = (_event: Electron.IpcRendererEvent, payload: Parameters<Parameters<ElectronAPI['onSaveLoadProgress']>[0]>[0]) => callback(payload);
         ipcRenderer.on('save-editor:load-progress', handler);
         return () => {
             ipcRenderer.removeListener('save-editor:load-progress', handler);
         };
     },
     writeSaveData: (data: Parameters<ElectronAPI['writeSaveData']>[0]) => ipcRenderer.invoke('save-editor:write-data', data),
-    renameSaveFile: (data: any) => ipcRenderer.invoke('save-editor:rename-file', data),
-    deleteSaveFile: (data: any) => ipcRenderer.invoke('save-editor:delete-file', data),
+    renameSaveFile: (data: Parameters<ElectronAPI['renameSaveFile']>[0]) => ipcRenderer.invoke('save-editor:rename-file', data),
+    deleteSaveFile: (data: Parameters<ElectronAPI['deleteSaveFile']>[0]) => ipcRenderer.invoke('save-editor:delete-file', data),
     openSaveEditorWindow: async (gameKey: string): Promise<void> => {
         ipcRenderer.send('save-editor:open-window', gameKey);
     },
@@ -116,7 +123,7 @@ const api: ElectronAPI = {
     saveTranslations: (lang: string, translations: Record<string, string>) => ipcRenderer.invoke('save-editor:save-translations', { lang, translations }),
     // System Startup & Tray Settings
     isDev: () => ipcRenderer.invoke('is-dev'),
-    setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke('set-auto-launch', enabled),
+    setAutoLaunch: (enabled: boolean | 'off' | 'on' | 'minimized') => ipcRenderer.invoke('set-auto-launch', enabled),
     getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
     setMinimizeToTray: (enabled: boolean) => ipcRenderer.send('set-minimize-to-tray', enabled)
 };

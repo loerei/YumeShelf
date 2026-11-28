@@ -27,6 +27,7 @@ export interface SaveEditorSearchBarProps {
   targetLang?: string;
   storage?: UiStorageAdapter;
   electronAPI?: ElectronAPI;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -94,6 +95,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
   targetLang,
   storage,
   electronAPI,
+  searchInputRef,
 }) => {
   const gameKey = useSaveGameKey();
   const store = useSaveEditorStore();
@@ -647,6 +649,7 @@ export const SaveEditorSearchBar: React.FC<SaveEditorSearchBarProps> = ({
   return (
     <>
       <input
+        ref={searchInputRef}
         type="search"
         className="save-editor-search"
         placeholder={strings.save_editor_search_placeholder || 'Search variables, switches, items...'}

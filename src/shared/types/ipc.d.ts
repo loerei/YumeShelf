@@ -66,32 +66,149 @@ export interface InstallLanguagePackResult {
 export type UpdateLibraryConfigRequest = Omit<Partial<LibraryConfig>, 'libraryPath'>;
 export type UpdateLibraryConfigResponse = LibraryConfig;
 
+export interface IpcCategoryNode {
+    id: string;
+    name: string;
+    parentId?: string | null;
+    children?: IpcCategoryNode[];
+}
+
+export interface IpcIconPayload {
+    dataUrl?: string | null;
+    iconFit?: 'cover' | 'contain';
+    width?: number;
+    height?: number;
+    debug?: unknown;
+}
+
+export interface IpcBootstrapResult {
+    config?: LibraryConfig | null;
+    libraryConfig?: LibraryConfig | null;
+    games?: readonly GameEntry[];
+    categoryTree?: readonly IpcCategoryNode[];
+    appVersion?: string;
+    languageState?: LanguageState | null;
+    bootChecks?: Record<string, unknown>;
+    postUpdateNotice?: {
+        readonly version?: string;
+        readonly fromVersion?: string;
+        readonly installed?: boolean;
+    } | null;
+    deferredAppUpdateInstall?: {
+        readonly pending: boolean;
+        readonly update?: unknown;
+        readonly statusText?: string;
+    } | null;
+}
+
+export interface IpcOkResult {
+    ok: boolean;
+    error?: string;
+    reason?: string;
+}
+
+export interface IpcCategoryMutationResult extends IpcOkResult {
+    tree?: IpcCategoryNode[];
+    categoryTree?: IpcCategoryNode[];
+}
+
+export interface IpcLibraryPathMutationResult {
+    ok?: boolean;
+    canceled?: boolean;
+    config?: LibraryConfig;
+    games?: GameEntry[];
+    error?: string;
+    reason?: string;
+}
+
+export interface IpcTranslationSupportResult {
+    supported: boolean;
+    reason?: string;
+    engine?: string;
+}
+
+export interface IpcTranslationSyncResult {
+    ok: boolean;
+    error?: string;
+    reason?: string;
+}
+
+export interface SetAutoLaunchResult {
+    success: boolean;
+    devMode?: boolean;
+    state?: 'off' | 'on' | 'minimized';
+    error?: string;
+}
+
+export interface IpcAppUpdateResult {
+    ok?: boolean;
+    error?: string;
+    reason?: string;
+    [key: string]: unknown;
+}
+
+export interface BootStatusPayload {
+    status?: string;
+    step?: string;
+    progress?: number;
+    message?: string;
+    [key: string]: unknown;
+}
+
+export interface AppUpdateStatusPayload {
+    status?: string;
+    version?: string;
+    percent?: number;
+    message?: string;
+    [key: string]: unknown;
+}
+
+export interface GameStoppedPayload {
+    gameKey?: string;
+    exitCode?: number | null;
+    elapsedMs?: number;
+}
+
+export interface GamePlaytimeUpdatedPayload {
+    gameKey?: string;
+    accruedMs?: number;
+    playtime?: number;
+}
+
+export interface TranslationStatusPayload {
+    gameKey?: string;
+    status?: string;
+    progress?: number;
+    message?: string;
+    [key: string]: unknown;
+}
+
 export interface ElectronAPI {
     // App Bootstrap & Configuration
-    bootstrapApp: (options: any) => Promise<any>;
-    checkConfig: () => Promise<any>;
-    setupLibrary: (type: string) => Promise<any>;
+    bootstrapApp: (options?: Record<string, unknown>) => Promise<IpcBootstrapResult>;
+    checkConfig: () => Promise<LibraryConfig | null>;
+    setupLibrary: (type: 'default' | 'custom') => Promise<LibraryConfig | boolean | null>;
     updateLibraryConfig: (updates: UpdateLibraryConfigRequest) => Promise<UpdateLibraryConfigResponse>;
     setFolderAlias: (folderPath: string, alias: string) => Promise<{ ok: boolean; config?: LibraryConfig; error?: string }>;
-    addLibraryPath: () => Promise<any>;
-    removeLibraryPath: (path: string) => Promise<any>;
-    changeLibraryPath: (oldPath: string) => Promise<any>;
+    addLibraryPath: () => Promise<LibraryConfig | null>;
+    removeLibraryPath: (path: string) => Promise<LibraryConfig | null>;
+    changeLibraryPath: (oldPath: string) => Promise<LibraryConfig | null>;
     
     // Library & Games
     getGames: () => Promise<GameEntry[]>;
-    getCategoryTree: () => Promise<any>;
-    createCategory: (payload: any) => Promise<any>;
-    renameCategory: (payload: any) => Promise<any>;
-    deleteCategory: (categoryId: string) => Promise<any>;
-    assignGameCategories: (payload: any) => Promise<any>;
-    removeGameCategory: (payload: any) => Promise<any>;
+    getCategoryTree: () => Promise<IpcCategoryNode[]>;
+    createCategory: (payload: { name: string; parentId?: string | null }) => Promise<IpcCategoryMutationResult>;
+    renameCategory: (payload: { categoryId: string; name: string }) => Promise<IpcCategoryMutationResult>;
+    deleteCategory: (categoryId: string) => Promise<IpcCategoryMutationResult>;
+    assignGameCategories: (payload: { gameId: string; categoryIds: string[] }) => Promise<IpcCategoryMutationResult>;
+    removeGameCategory: (payload: { gameId: string; categoryId: string }) => Promise<IpcCategoryMutationResult>;
     
     // Game Actions
-    launchYume: (data: any) => void;
-    renameGame: (data: any) => Promise<any>;
+    launchYume: (data: { gameKey: string; exePath?: string; runInBackground?: boolean }) => void;
+    renameGame: (data: { gameKey: string; newName: string }) => Promise<IpcOkResult>;
     revealGame: (path: string) => void;
     openPath: (path: string) => void;
-    deleteGame: (path: string) => Promise<any>;
+    deleteGame: (path: string) => Promise<void | { ok: boolean; error?: string; reason?: string }>;
     addManualGame(data?: { folderPath?: string } | string): Promise<{ ok: boolean; game?: GameEntry; canceled?: boolean; error?: string }>;
     
     // Settings & Utils
@@ -101,25 +218,25 @@ export interface ElectronAPI {
     setSaveFolderOverride: (params: { gameKey: string; folderPath: string | null }) =>
         Promise<{ ok: boolean; saveFolderOverride?: string | null; error?: string }>;
     toggleFavorite: (gameKey: string, targetFavorite?: boolean) => Promise<boolean>;
-    toggleRunInBackground: (gameKey: string) => Promise<any>;
-    toggleAutoTranslate: (gameKey: string) => Promise<any>;
-    checkTranslationSupport: (gameKey: string) => Promise<any>;
-    startTranslationSync: (data: { gameKey: string, targetLang: string }) => Promise<any>;
-    cancelTranslationSync: (gameKey: string) => Promise<any>;
-    moveTranslationQueue: (data: { gameKey: string, direction: 'up' | 'down' }) => Promise<any>;
+    toggleRunInBackground: (gameKey: string) => Promise<boolean>;
+    toggleAutoTranslate: (gameKey: string) => Promise<boolean>;
+    checkTranslationSupport: (gameKey: string) => Promise<IpcTranslationSupportResult>;
+    startTranslationSync: (data: { gameKey: string; targetLang: string }) => Promise<IpcTranslationSyncResult | void>;
+    cancelTranslationSync: (gameKey: string) => Promise<IpcTranslationSyncResult | void>;
+    moveTranslationQueue: (data: { gameKey: string; direction: 'up' | 'down' }) => Promise<IpcTranslationSyncResult | void>;
     openFolder: () => void;
-    getDefaultPath: () => Promise<any>;
-    getIcon: (path: string) => Promise<any>;
-    getAppVersion: () => Promise<any>;
-    openExternalUrl: (url: string) => Promise<any>;
+    getDefaultPath: () => Promise<string>;
+    getIcon: (path: string) => Promise<IpcIconPayload | string | null>;
+    getAppVersion: () => Promise<string>;
+    openExternalUrl: (url: string) => Promise<{ ok: boolean; reason?: string } | void>;
     
     // App Updates
-    logAppUpdateDebug: (message: string) => Promise<any>;
-    startAppUpdateDownload: () => Promise<any>;
-    restartAndInstallAppUpdate: () => Promise<any>;
-    scheduleAppUpdateNextLaunch: () => Promise<any>;
-    beginDeferredAppUpdateInstall: () => Promise<any>;
-    openAppUpdateDownloadPage: () => Promise<any>;
+    logAppUpdateDebug: (message: string) => Promise<IpcOkResult | void>;
+    startAppUpdateDownload: () => Promise<IpcAppUpdateResult | void>;
+    restartAndInstallAppUpdate: () => Promise<IpcAppUpdateResult | void>;
+    scheduleAppUpdateNextLaunch: () => Promise<IpcAppUpdateResult | void>;
+    beginDeferredAppUpdateInstall: () => Promise<IpcAppUpdateResult | void>;
+    openAppUpdateDownloadPage: () => Promise<IpcAppUpdateResult | void>;
     
     // Internationalization (i18n)
     getLanguageState: () => Promise<LanguageState>;
@@ -142,16 +259,16 @@ export interface ElectronAPI {
     
     // System Startup & Tray Settings
     isDev: () => Promise<boolean>;
-    setAutoLaunch: (enabled: boolean) => Promise<any>;
-    getAutoLaunch: () => Promise<any>;
+    setAutoLaunch: (enabled: boolean | 'off' | 'on' | 'minimized') => Promise<SetAutoLaunchResult | boolean>;
+    getAutoLaunch: () => Promise<'off' | 'on' | 'minimized' | boolean>;
     setMinimizeToTray: (enabled: boolean) => void;
     
     // Event Listeners (Callbacks)
-    onBootStatus: (callback: (payload: any) => void) => () => void;
-    onAppUpdateStatus: (callback: (payload: any) => void) => () => void;
-    onGameStopped: (callback: (payload: any) => void) => () => void;
-    onGamePlaytimeUpdated: (callback: (payload: any) => void) => () => void;
-    onTranslationStatus: (callback: (payload: any) => void) => () => void;
+    onBootStatus: (callback: (payload: BootStatusPayload) => void) => () => void;
+    onAppUpdateStatus: (callback: (payload: AppUpdateStatusPayload) => void) => () => void;
+    onGameStopped: (callback: (payload: GameStoppedPayload) => void) => () => void;
+    onGamePlaytimeUpdated: (callback: (payload: GamePlaytimeUpdatedPayload) => void) => () => void;
+    onTranslationStatus: (callback: (payload: TranslationStatusPayload) => void) => () => void;
 }
 
 declare global {

@@ -697,6 +697,41 @@ describe('SettingsModal', () => {
       await Promise.resolve();
       expect(document.activeElement).not.toBe(document.body);
     });
+
+    it('renames category with { categoryId, name }, updates store categoryTree, and invokes onCategoryTreeUpdated', async () => {
+      const categories: CategoryNode[] = [
+        { id: 'cat-1', name: 'Action' },
+        { id: 'cat-2', name: 'RPG' },
+      ];
+      const updatedTree: CategoryNode[] = [
+        { id: 'cat-1', name: 'Adventure' },
+        { id: 'cat-2', name: 'RPG' },
+      ];
+      const electronAPI = createMockElectronAPI({
+        renameCategory: vi.fn().mockResolvedValue({
+          ok: true,
+          tree: updatedTree,
+        }),
+      });
+      const onCategoryTreeUpdated = vi.fn();
+
+      const { store } = renderSettingsModal({ electronAPI, onCategoryTreeUpdated }, { categories });
+      fireEvent.click(screen.getByRole('tab', { name: 'Library & Categories' }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Rename Action' }));
+      const renameInput = screen.getByLabelText('Rename category Action');
+      fireEvent.change(renameInput, { target: { value: '  Adventure  ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => {
+        expect(electronAPI.renameCategory).toHaveBeenCalledWith({
+          categoryId: 'cat-1',
+          name: 'Adventure',
+        });
+        expect(store.getSnapshot().categoryTree).toEqual(updatedTree);
+        expect(onCategoryTreeUpdated).toHaveBeenCalledWith(updatedTree);
+      });
+    });
   });
 
   it('System & Mascot tab renders no telemetry controls and syncs mascot preferences', () => {
@@ -879,6 +914,61 @@ describe('SettingsModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Fallback Target' }));
+  });
+
+  it('retains standalone mascot hide-and-seek selection across tab switches when storage.setItem throws', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = createMemoryStorage();
+    storage.setItem.mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    renderSettingsModal({ storage });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    const hideAndSeekSelect = screen.getByLabelText('Hide And Seek?') as HTMLSelectElement;
+    expect(hideAndSeekSelect.value).toBe('out');
+
+    fireEvent.change(hideAndSeekSelect, { target: { value: 'yeaaa' } });
+    expect((screen.getByLabelText('Hide And Seek?') as HTMLSelectElement).value).toBe('yeaaa');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[SettingsModal] Failed to persist mascot setting:',
+      expect.objectContaining({ key: 'yumeshelf_hide_and_seek' })
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'General' }));
+    expect(document.getElementById('settings-panel-general')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    expect((screen.getByLabelText('Hide And Seek?') as HTMLSelectElement).value).toBe('yeaaa');
+
+    warnSpy.mockRestore();
+  });
+
+  it('persists Updates tab preferences to storage and renders toast notifications', () => {
+    const { storage } = renderSettingsModal();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
+
+    const panel = document.getElementById('settings-panel-updates');
+    const appUpdatesSelect = document.getElementById('app-updates-select') as HTMLSelectElement | null;
+    const langPackUpdatesSelect = document.getElementById(
+      'lang-pack-updates-select'
+    ) as HTMLSelectElement | null;
+
+    expect(panel).toBeInTheDocument();
+    expect(appUpdatesSelect).toBeInTheDocument();
+    expect(langPackUpdatesSelect).toBeInTheDocument();
+    expect(appUpdatesSelect!.value).toBe('notify');
+    expect(langPackUpdatesSelect!.value).toBe('automatic');
+
+    fireEvent.change(appUpdatesSelect!, { target: { value: 'automatic' } });
+    expect(storage.getItem('yumeshelf_app_updates_pref')).toBe('automatic');
+    expect(screen.getByText('App update preference saved')).toBeInTheDocument();
+
+    fireEvent.change(langPackUpdatesSelect!, { target: { value: 'off' } });
+    expect(storage.getItem('yumeshelf_language_pack_updates_pref')).toBe('off');
+    expect(screen.getByText('Language pack update preference saved')).toBeInTheDocument();
   });
 
   it('enforces stylesheet contract in src/styles/settings.css', () => {

@@ -955,4 +955,131 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
     expect(responsiveCss).not.toContain('.stack-overlay');
     expect(responsiveCss).toContain('.setting-field-group');
   });
+
+  it('guards delete-game Escape dismissal while isDeletingGame is true, cancels on Escape when idle, and restores focus to triggering GameCard', async () => {
+    let resolveDelete!: (val: { ok: boolean }) => void;
+    const deleteGame = vi.fn(
+      () =>
+        new Promise<{ ok: boolean }>((resolve) => {
+          resolveDelete = resolve;
+        })
+    );
+    const game = makeGame({ gameKey: 'card-alpha', name: 'Alpha', folderPath: 'C:\\Games\\Alpha' });
+    const store = createUiRuntimeState();
+    const api = createMockElectronAPI({
+      bootstrapApp: vi.fn().mockResolvedValue({
+        games: [game],
+        libraryConfig: { libraryPaths: ['C:\\Games'], categoryTree: [] },
+        categoryTree: [],
+      }),
+      deleteGame,
+    });
+
+    render(<App store={store} electronAPI={api} storage={createMemoryStorage()} />);
+
+    const menuBtn = await screen.findByRole('button', { name: 'Game options' });
+    fireEvent.click(menuBtn);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Delete Game from Library' });
+    expect(dialog).toBeTruthy();
+
+    // Pressing Escape while idle cancels delete-game and restores focus to the triggering GameCard
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+      const cardEl = document.querySelector('[data-game-key="card-alpha"]');
+      expect(document.activeElement).toBe(cardEl);
+    });
+
+    // Reopen delete-game and start in-flight deletion
+    fireEvent.click(screen.getByRole('button', { name: 'Game options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Deleting...' })).toBeTruthy();
+    });
+
+    // Pressing Escape while isDeletingGame === true must NOT close delete-game
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByRole('dialog', { name: 'Delete Game from Library' })).toBeTruthy();
+
+    // Complete deletion -> modal closes
+    await act(async () => {
+      resolveDelete({ ok: true });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('replaces duplicate-stack in-place after deleting inst-1 from a 3-instance stack so a single Escape closes the modal', async () => {
+    const inst1 = makeGame({
+      gameId: 'stack-game',
+      gameKey: 'inst-1',
+      name: 'Stacked RPG',
+      relativePath: 'v1/Stacked RPG',
+      folderPath: 'C:\\Games\\v1',
+    });
+    const inst2 = makeGame({
+      gameId: 'stack-game',
+      gameKey: 'inst-2',
+      name: 'Stacked RPG',
+      relativePath: 'v2/Stacked RPG',
+      folderPath: 'C:\\Games\\v2',
+    });
+    const inst3 = makeGame({
+      gameId: 'stack-game',
+      gameKey: 'inst-3',
+      name: 'Stacked RPG',
+      relativePath: 'v3/Stacked RPG',
+      folderPath: 'C:\\Games\\v3',
+    });
+    const parentStack = makeGame({
+      gameId: 'stack-game',
+      gameKey: 'inst-1',
+      name: 'Stacked RPG',
+      instances: [inst1, inst2, inst3],
+      primaryInstance: inst1,
+      duplicateCount: 3,
+    });
+
+    const store = createUiRuntimeState();
+    const api = createMockElectronAPI({
+      bootstrapApp: vi.fn().mockResolvedValue({
+        games: [parentStack],
+        libraryConfig: { libraryPaths: ['C:\\Games'], categoryTree: [] },
+        categoryTree: [],
+      }),
+      deleteGame: vi.fn().mockResolvedValue({ ok: true }),
+    });
+
+    render(<App store={store} electronAPI={api} storage={createMemoryStorage()} />);
+
+    const stackCard = await screen.findByRole('region', { name: /Game stack: Stacked RPG/i });
+    fireEvent.click(stackCard);
+
+    const modalDialog = await screen.findByRole('dialog');
+    expect(within(modalDialog).getByText('3 versions installed')).toBeTruthy();
+
+    // Delete inst-1 via 'delete-game' (nextGroupKey !== prevGroupKey)
+    const instanceMenus = within(modalDialog).getAllByRole('button', { name: 'Game options' });
+    fireEvent.click(instanceMenus[0]);
+    fireEvent.click(within(modalDialog).getByRole('menuitem', { name: 'Delete' }));
+
+    const deleteBtn = await screen.findByRole('button', { name: 'Delete' });
+    await act(async () => {
+      fireEvent.click(deleteBtn);
+    });
+
+    await waitFor(() => {
+      expect(within(modalDialog).getByText('2 versions installed')).toBeTruthy();
+    });
+
+    // Pressing Escape ONCE must close DuplicateStackModal immediately (no duplicate stack entry)
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });

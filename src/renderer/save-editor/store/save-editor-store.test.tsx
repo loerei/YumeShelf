@@ -693,4 +693,96 @@ describe('SaveEditorStoreProvider & Granular Selectors', () => {
     store.expandAllSections();
     expect(store.getSnapshot().collapsedSections.size).toBe(0);
   });
+
+  it('logs sanitized diagnostic warning and invokes isolated onStorageError when writePinnedIds fails, without recreating provider store', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const storageError = new Error('QuotaExceededError at C:\\Users\\Alice\\AppData\\Local\\Temp\\pins.json');
+      const throwingStorage = {
+        getItem: vi.fn(() => null),
+        setItem: vi.fn(() => {
+          throw storageError;
+        }),
+        removeItem: vi.fn(),
+      };
+      const onStorageError = vi.fn();
+
+      const store = createSaveEditorStore(
+        'C:\\Users\\Alice\\Games\\MyGame',
+        throwingStorage,
+        { onStorageError }
+      );
+      store.setFileLoaded(createMockSaveDto());
+
+      const listener = vi.fn();
+      store.subscribe(listener);
+
+      store.togglePin('variables:1');
+
+      // (a) pinnedIds preserves the pin in memory
+      expect(store.getSnapshot().pinnedIds.has('variables:1')).toBe(true);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      // (b) console.warn logs sanitized diagnostic without leaking username
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toBe(
+        '[SaveEditorStore] Failed to persist pinned field IDs:'
+      );
+      const serialized = JSON.stringify(warnSpy.mock.calls[0][1]);
+      expect(serialized).toContain('<USER_DIR>');
+      expect(serialized).not.toContain('Alice');
+
+      // (c) onStorageError is invoked with the raw error
+      expect(onStorageError).toHaveBeenCalledTimes(1);
+      expect(onStorageError).toHaveBeenCalledWith(storageError);
+
+      // (d) throwing onStorageError does not abort togglePin or invalidateSnapshot
+      const throwingObserver = vi.fn(() => {
+        throw new Error('observer crash');
+      });
+      const isolatedStore = createSaveEditorStore(
+        'game-isolated',
+        throwingStorage,
+        { onStorageError: throwingObserver }
+      );
+      const isolatedListener = vi.fn();
+      isolatedStore.subscribe(isolatedListener);
+
+      expect(() => isolatedStore.togglePin('variables:2')).not.toThrow();
+      expect(isolatedStore.getSnapshot().pinnedIds.has('variables:2')).toBe(true);
+      expect(isolatedListener).toHaveBeenCalledTimes(1);
+      expect(throwingObserver).toHaveBeenCalledTimes(1);
+
+      // (e) changing onStorageError prop identity on SaveEditorStoreProvider does not recreate store
+      const firstHandler = vi.fn();
+      const secondHandler = vi.fn();
+      let currentHandler = firstHandler;
+
+      const { result, rerender } = renderHook(() => useSaveEditorStore(), {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <SaveEditorStoreProvider
+            gameKey="provider-stability"
+            storage={throwingStorage}
+            onStorageError={currentHandler}
+          >
+            {children}
+          </SaveEditorStoreProvider>
+        ),
+      });
+
+      const initialStore = result.current;
+      currentHandler = secondHandler;
+      rerender();
+      expect(result.current).toBe(initialStore);
+
+      act(() => {
+        result.current.togglePin('variables:1');
+      });
+      expect(firstHandler).not.toHaveBeenCalled();
+      expect(secondHandler).toHaveBeenCalledTimes(1);
+      expect(secondHandler).toHaveBeenCalledWith(storageError);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });

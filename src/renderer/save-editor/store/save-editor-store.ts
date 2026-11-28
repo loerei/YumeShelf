@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/with-selector';
 import type {
   NormalizedSaveDto,
@@ -7,6 +7,7 @@ import type {
   SaveUpdatesPayload,
 } from '@yumeshelf/engine/types';
 import type { ElectronAPI } from '../../../shared/types/ipc';
+import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
 import type { UiStorageAdapter } from '../../state/ui-runtime-state';
 import {
   DEFAULT_SAVE_EDITOR_FILTERS,
@@ -153,21 +154,32 @@ function readPinnedIds(gameKey: string, storage?: UiStorageAdapter): Set<string>
 function writePinnedIds(
   gameKey: string,
   pinnedIds: ReadonlySet<string>,
-  storage?: UiStorageAdapter
+  storage?: UiStorageAdapter,
+  onStorageError?: (error: unknown) => void
 ): void {
   if (!gameKey) return;
   try {
     const targetStorage =
       storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
     targetStorage?.setItem(`yumeshelf_pinned_${gameKey}`, JSON.stringify(Array.from(pinnedIds)));
-  } catch {
-    // Ignore storage write quota/security failures cleanly
+  } catch (err) {
+    console.warn('[SaveEditorStore] Failed to persist pinned field IDs:', {
+      gameKey: sanitizeUserPaths(gameKey),
+      error: sanitizeUserPaths(err instanceof Error ? err.message : String(err)),
+      stack: err instanceof Error && err.stack ? sanitizeUserPaths(err.stack) : undefined,
+    });
+    try {
+      onStorageError?.(err);
+    } catch {
+      /* isolate caller hook */
+    }
   }
 }
 
 class SaveEditorStore implements ObservableSaveEditorStore {
   private readonly gameKey: string;
   private readonly storage?: UiStorageAdapter;
+  private readonly onStorageError?: (error: unknown) => void;
   private fileStatus: SaveFileStatus = { state: 'idle' };
   private saveStatus: SaveOperationStatus = { state: 'idle' };
   private activeTabId = '';
@@ -185,9 +197,14 @@ class SaveEditorStore implements ObservableSaveEditorStore {
   private readonly listeners = new Set<() => void>();
   private currentSnapshot: SaveEditorStoreSnapshot;
 
-  constructor(gameKey: string, storage?: UiStorageAdapter) {
+  constructor(
+    gameKey: string,
+    storage?: UiStorageAdapter,
+    options?: { onStorageError?: (error: unknown) => void }
+  ) {
     this.gameKey = gameKey;
     this.storage = storage;
+    this.onStorageError = options?.onStorageError;
     this.pinnedIds = readPinnedIds(gameKey, storage);
     this.currentSnapshot = this.buildSnapshot();
     this.subscribe = this.subscribe.bind(this);
@@ -393,7 +410,7 @@ class SaveEditorStore implements ObservableSaveEditorStore {
       nextPins.add(fieldId);
     }
     this.pinnedIds = nextPins;
-    writePinnedIds(this.gameKey, nextPins, this.storage);
+    writePinnedIds(this.gameKey, nextPins, this.storage, this.onStorageError);
 
     if (this.activeTabId === 'pinned') {
       const hasRemaining =
@@ -578,9 +595,10 @@ class SaveEditorStore implements ObservableSaveEditorStore {
 
 export function createSaveEditorStore(
   gameKey: string,
-  storage?: UiStorageAdapter
+  storage?: UiStorageAdapter,
+  options?: { onStorageError?: (error: unknown) => void }
 ): ObservableSaveEditorStore {
-  return new SaveEditorStore(gameKey, storage);
+  return new SaveEditorStore(gameKey, storage, options);
 }
 
 export const SaveEditorStoreContext = createContext<ObservableSaveEditorStore | null>(null);
@@ -592,6 +610,7 @@ export interface SaveEditorStoreProviderProps {
   store?: ObservableSaveEditorStore;
   storage?: UiStorageAdapter;
   electronAPI?: ElectronAPI;
+  onStorageError?: (error: unknown) => void;
   children: React.ReactNode;
 }
 
@@ -600,10 +619,17 @@ export function SaveEditorStoreProvider({
   store,
   storage,
   electronAPI,
+  onStorageError,
   children,
 }: SaveEditorStoreProviderProps): React.JSX.Element {
+  const onStorageErrorRef = useRef(onStorageError);
+  onStorageErrorRef.current = onStorageError;
   const resolvedStore = useMemo(
-    () => store ?? createSaveEditorStore(gameKey ?? '', storage),
+    () =>
+      store ??
+      createSaveEditorStore(gameKey ?? '', storage, {
+        onStorageError: (error) => onStorageErrorRef.current?.(error),
+      }),
     [store, gameKey, storage]
   );
   const dispatchers: SaveEditorActionDispatchers = useMemo(

@@ -136,6 +136,14 @@
     margin-bottom: 6px;
 }
 
+.settings-section-block .setting-section {
+    margin-bottom: 20px;
+}
+
+.settings-section-block .setting-section:last-child {
+    margin-bottom: 0;
+}
+
 .settings-section-block .about-body {
     padding: 0;
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import type { ElectronAPI } from '../../../shared/types/ipc';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
 import {
@@ -15,6 +15,7 @@ import { useLocaleStrings } from '../../i18n/locale-strings';
 export interface SaveEditorFooterProps {
   electronAPI?: ElectronAPI;
   onClose?: () => void;
+  saveActionRef?: React.RefObject<(() => boolean) | null>;
 }
 
 /**
@@ -24,6 +25,7 @@ export interface SaveEditorFooterProps {
 export function SaveEditorFooter({
   electronAPI,
   onClose,
+  saveActionRef,
 }: SaveEditorFooterProps): React.JSX.Element {
   const store = useSaveEditorStore();
   const saveStatus = useSaveOperationStatus();
@@ -131,6 +133,18 @@ export function SaveEditorFooter({
   const isSaving = saveStatus.state === 'saving';
   const isActionDisabled =
     !isDirty || isSaving || isMutatingFile || fileStatus.state !== 'loaded';
+
+  useEffect(() => {
+    if (!saveActionRef) return;
+    saveActionRef.current = () => {
+      if (isActionDisabled) return false;
+      void handleSave();
+      return true;
+    };
+    return () => {
+      saveActionRef.current = null;
+    };
+  }, [saveActionRef, isActionDisabled, handleSave]);
 
   const handleCancel = () => {
     if (onClose) {

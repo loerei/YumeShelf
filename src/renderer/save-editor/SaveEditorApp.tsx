@@ -39,6 +39,8 @@ export function SaveEditorShell({
   const store = useSaveEditorStore();
   const retryCounterRef = useRef(0);
   const sidebarListFocusRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const saveActionRef = useRef<(() => boolean) | null>(null);
   const [retryRequest, setRetryRequest] = useState<{
     fileName: string;
     requestId: number;
@@ -46,7 +48,7 @@ export function SaveEditorShell({
   } | null>(null);
 
   useFindShortcut(
-    () => document.querySelector('input.save-editor-search') as HTMLInputElement | null,
+    () => searchInputRef.current,
     fileStatus.state === 'loaded'
   );
 
@@ -83,12 +85,8 @@ export function SaveEditorShell({
       if (isTextTypingTarget(e.target)) return;
 
       if (e.shiftKey && e.key === 'Enter') {
-        const saveBtn = document.querySelector(
-          '.save-editor-footer .save-btn'
-        ) as HTMLButtonElement | null;
-        if (saveBtn && saveBtn.getAttribute('aria-disabled') !== 'true') {
+        if (saveActionRef.current?.()) {
           e.preventDefault();
-          saveBtn.click();
         }
         return;
       }
@@ -143,7 +141,7 @@ export function SaveEditorShell({
               <SaveEditorTabs />
               <div className="save-editor-actions">
                 <div className="save-editor-search-row">
-                  <SaveEditorSearchBar />
+                  <SaveEditorSearchBar searchInputRef={searchInputRef} />
                 </div>
                 <SaveEditorFilterBar />
               </div>
@@ -153,7 +151,7 @@ export function SaveEditorShell({
             />
           </main>
         </div>
-        <SaveEditorFooter onClose={onClose} />
+        <SaveEditorFooter onClose={onClose} saveActionRef={saveActionRef} />
       </div>
     </div>
   );

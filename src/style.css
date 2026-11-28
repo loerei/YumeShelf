@@ -1,3 +1,22 @@
+/*
+ * Architectural Decision: Global Feature-Scoped CSS Deferral Guardrails
+ *
+ * Current Acceptance Rationale:
+ *   Global feature-scoped stylesheets (`src/styles/*.css`) are intentionally
+ *   retained today because they carry low build/tooling overhead, avoid visual
+ *   regression churn across existing components, and remain manageable via
+ *   feature-prefixed selectors and explicit cascade ordering below.
+ *
+ * CSS Modules Migration Triggers:
+ *   Revisit and migrate to CSS Modules (or scoped styles) only when one or
+ *   more of the following concrete conditions occur:
+ *   1. Recurring cross-feature selector or class-name collisions across panels.
+ *   2. Third-party or plugin UI injection (e.g. Epic 04 Marketplace & Tool
+ *      Manager) requiring strict style isolation between host and extensions.
+ *   3. Multi-theme or runtime-scoped component library extraction where global
+ *      cascade assumptions break encapsulation.
+ */
+
 @import "./styles/theme.css";
 @import "./styles/base.css";
 @import "./styles/header-search.css";

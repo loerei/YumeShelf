@@ -9,9 +9,8 @@ Versioning: YumeShelf follows Semantic Versioning (SemVer) from `2.3.0` onward.
 ## [2.3.1] - working
 
 ### What Changed
-- Redesigned Settings into a wider two-column layout with a left sidebar (`General`, `Library`, `System`, `Yume-chan`, `Updates`, `About`) and continuous scrolling across all sections, moving `Max Scan Depth` and card display options into `Library` and `Always Allow Large Saves (>64 MB)` into `System`.
-- Added plain-language info tooltips for `Max Scan Depth`, `Location Display`, `Title Display`, `Product Codes`, and `Expose Beta Options`, and linked the `YumeShelf` heading in `About` to the GitHub repository.
-- Cleaned up mistranslated and awkward UI copy across the English, Japanese, Simplified Chinese, and Vietnamese language packs.
+- New Settings UI.
+- Fixed some awkward UI translation.
 - Fixed the YumeShelf app icon not appearing in the About & Credits dialog on packaged builds.
 - Hidden incomplete Categories management UI behind the `Expose Beta Options` setting (the Library tab displays `Library` by default).
 

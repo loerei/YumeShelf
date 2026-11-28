@@ -916,6 +916,61 @@ describe('SettingsModal', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Fallback Target' }));
   });
 
+  it('retains standalone mascot hide-and-seek selection across tab switches when storage.setItem throws', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = createMemoryStorage();
+    storage.setItem.mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    renderSettingsModal({ storage });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    const hideAndSeekSelect = screen.getByLabelText('Hide And Seek?') as HTMLSelectElement;
+    expect(hideAndSeekSelect.value).toBe('out');
+
+    fireEvent.change(hideAndSeekSelect, { target: { value: 'yeaaa' } });
+    expect((screen.getByLabelText('Hide And Seek?') as HTMLSelectElement).value).toBe('yeaaa');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[SettingsModal] Failed to persist mascot setting:',
+      expect.objectContaining({ key: 'yumeshelf_hide_and_seek' })
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'General' }));
+    expect(document.getElementById('settings-panel-general')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'System & Mascot' }));
+    expect((screen.getByLabelText('Hide And Seek?') as HTMLSelectElement).value).toBe('yeaaa');
+
+    warnSpy.mockRestore();
+  });
+
+  it('persists Updates tab preferences to storage and renders toast notifications', () => {
+    const { storage } = renderSettingsModal();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
+
+    const panel = document.getElementById('settings-panel-updates');
+    const appUpdatesSelect = document.getElementById('app-updates-select') as HTMLSelectElement | null;
+    const langPackUpdatesSelect = document.getElementById(
+      'lang-pack-updates-select'
+    ) as HTMLSelectElement | null;
+
+    expect(panel).toBeInTheDocument();
+    expect(appUpdatesSelect).toBeInTheDocument();
+    expect(langPackUpdatesSelect).toBeInTheDocument();
+    expect(appUpdatesSelect!.value).toBe('notify');
+    expect(langPackUpdatesSelect!.value).toBe('automatic');
+
+    fireEvent.change(appUpdatesSelect!, { target: { value: 'automatic' } });
+    expect(storage.getItem('yumeshelf_app_updates_pref')).toBe('automatic');
+    expect(screen.getByText('App update preference saved')).toBeInTheDocument();
+
+    fireEvent.change(langPackUpdatesSelect!, { target: { value: 'off' } });
+    expect(storage.getItem('yumeshelf_language_pack_updates_pref')).toBe('off');
+    expect(screen.getByText('Language pack update preference saved')).toBeInTheDocument();
+  });
+
   it('enforces stylesheet contract in src/styles/settings.css', () => {
     const cssPath = path.resolve(process.cwd(), 'src/styles/settings.css');
     const css = fs.readFileSync(cssPath, 'utf8');

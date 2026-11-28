@@ -101,7 +101,7 @@ export function AppShell({
     }
   }, [bootstrapState.status]);
 
-  const [pendingDeleteGame, setPendingDeleteGame] = useState<GameEntry | null>(null);
+  const pendingDeleteGame = getModalPayload('delete-game')?.game ?? null;
   const [isDeletingGame, setIsDeletingGame] = useState(false);
   const [targetFocusGameKey, setTargetFocusGameKey] = useState<string | null>(null);
 
@@ -372,7 +372,7 @@ export function AppShell({
             break;
           }
           case 'delete': {
-            setPendingDeleteGame(game);
+            openModal('delete-game', { game });
             break;
           }
           default: {
@@ -387,7 +387,7 @@ export function AppShell({
         );
       }
     },
-    [api, store, storage, showToast]
+    [api, store, storage, showToast, openModal]
   );
 
   const handleConfirmDelete = useCallback(async () => {
@@ -508,6 +508,7 @@ export function AppShell({
                 nextGroupKey !== prevGroupKey &&
                 getModalPayload('duplicate-stack')?.groupKey === prevGroupKey
               ) {
+                closeModal('delete-game');
                 openModal('duplicate-stack', { groupKey: nextGroupKey });
               }
             }
@@ -525,7 +526,7 @@ export function AppShell({
       }
       store.setAllGames(nextGames);
       setTargetFocusGameKey(survivingFocusKey ?? '__GRID_CONTAINER__');
-      setPendingDeleteGame(null);
+      closeModal('delete-game');
     } catch (err) {
       console.error('[AppShell] Game deletion failed:', {
         gameKey: sanitizeUserPaths(pendingDeleteGame.gameKey || pendingDeleteGame.gameId),
@@ -546,17 +547,18 @@ export function AppShell({
     showToast,
     isModalOpen,
     getModalPayload,
+    closeModal,
     openModal,
   ]);
 
   const handleCloseDeleteModal = useCallback(() => {
     if (isDeletingGame) return;
     const cancelledKey = pendingDeleteGame?.gameKey || pendingDeleteGame?.gameId || null;
-    setPendingDeleteGame(null);
+    closeModal('delete-game');
     if (cancelledKey) {
       setTargetFocusGameKey(cancelledKey);
     }
-  }, [isDeletingGame, pendingDeleteGame]);
+  }, [isDeletingGame, pendingDeleteGame, closeModal]);
 
   if (bootstrapState.status === 'loading') {
     return (
@@ -729,6 +731,7 @@ export function AppShell({
       <Modal
         isOpen={Boolean(pendingDeleteGame)}
         onClose={handleCloseDeleteModal}
+        modalType="delete-game"
         title="Delete Game from Library"
         fallbackFocusRef={
           isModalOpen('duplicate-stack') ? duplicateStackContainerRef : gridContainerRef

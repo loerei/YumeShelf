@@ -8,20 +8,29 @@ import React, {
   useState,
 } from 'react';
 
-export type ModalType = 'settings' | 'about' | 'language-pack' | 'duplicate-stack';
+import type { GameEntry } from '../types/game';
+
+export type ModalType =
+  | 'settings'
+  | 'about'
+  | 'language-pack'
+  | 'duplicate-stack'
+  | 'delete-game';
 
 export interface ModalPayloadMap {
   settings: undefined;
   about: undefined;
   'language-pack': undefined;
   'duplicate-stack': { groupKey: string };
+  'delete-game': { game: GameEntry };
 }
 
 export type ActiveModalEntry =
   | { readonly type: 'settings'; readonly payload?: undefined }
   | { readonly type: 'about'; readonly payload?: undefined }
   | { readonly type: 'language-pack'; readonly payload?: undefined }
-  | { readonly type: 'duplicate-stack'; readonly payload: { groupKey: string } };
+  | { readonly type: 'duplicate-stack'; readonly payload: { groupKey: string } }
+  | { readonly type: 'delete-game'; readonly payload: { game: GameEntry } };
 
 export type ActiveModalState =
   | { readonly type: null; readonly payload?: undefined }
@@ -42,6 +51,7 @@ export interface OverlayContextValue {
   getModalPayload<T extends ModalType>(type: T): ModalPayloadMap[T] | undefined;
   openModal: OpenModalFn;
   closeModal(type?: ModalType): void;
+  registerDismissHandler(type: ModalType, handler: () => void): () => void;
 }
 
 const OverlayContext = createContext<OverlayContextValue | null>(null);
@@ -54,8 +64,9 @@ const EMPTY_MODAL_STATE: ActiveModalState = { type: null };
 
 export function OverlayProvider({ children }: OverlayProviderProps): React.ReactElement {
   const [modalStack, setModalStack] = useState<readonly ActiveModalEntry[]>([]);
-  const modalStackLengthRef = useRef(0);
-  modalStackLengthRef.current = modalStack.length;
+  const modalStackRef = useRef<readonly ActiveModalEntry[]>(modalStack);
+  modalStackRef.current = modalStack;
+  const dismissHandlersRef = useRef<Map<ModalType, () => void>>(new Map());
 
   const openModal: OpenModalFn = useCallback((...args) => {
     const [type, payload] = args as [ModalType, ModalPayloadMap[ModalType]];
@@ -84,12 +95,29 @@ export function OverlayProvider({ children }: OverlayProviderProps): React.React
     });
   }, []);
 
+  const registerDismissHandler = useCallback((type: ModalType, handler: () => void) => {
+    dismissHandlersRef.current.set(type, handler);
+    return () => {
+      if (dismissHandlersRef.current.get(type) === handler) {
+        dismissHandlersRef.current.delete(type);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (modalStackLengthRef.current === 0) return;
+      if (event.isComposing || event.keyCode === 229) return;
+      if (modalStackRef.current.length === 0) return;
       if (event.defaultPrevented) return;
-      closeModal();
+      const top = modalStackRef.current[modalStackRef.current.length - 1];
+      event.preventDefault();
+      const dismissHandler = dismissHandlersRef.current.get(top.type);
+      if (dismissHandler) {
+        dismissHandler();
+      } else {
+        closeModal(top.type);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -127,6 +155,7 @@ export function OverlayProvider({ children }: OverlayProviderProps): React.React
       getModalPayload,
       openModal,
       closeModal,
+      registerDismissHandler,
     }),
     [
       modalStack,
@@ -137,10 +166,15 @@ export function OverlayProvider({ children }: OverlayProviderProps): React.React
       getModalPayload,
       openModal,
       closeModal,
+      registerDismissHandler,
     ]
   );
 
   return <OverlayContext.Provider value={contextValue}>{children}</OverlayContext.Provider>;
+}
+
+export function useOptionalOverlay(): OverlayContextValue | null {
+  return useContext(OverlayContext);
 }
 
 export function useOverlay(): OverlayContextValue {

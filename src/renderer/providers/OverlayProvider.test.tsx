@@ -1,7 +1,12 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { OverlayProvider, useOverlay, type OverlayContextValue } from './OverlayProvider';
+import {
+  OverlayProvider,
+  useOverlay,
+  useOptionalOverlay,
+  type OverlayContextValue,
+} from './OverlayProvider';
 
 describe('OverlayProvider', () => {
   afterEach(() => {
@@ -129,5 +134,89 @@ describe('OverlayProvider', () => {
 
     unmount();
     expect(removeWinSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+  });
+
+  it('returns null from useOptionalOverlay outside OverlayProvider and context inside', () => {
+    let outsideValue: OverlayContextValue | null | undefined;
+    function OutsideConsumer() {
+      outsideValue = useOptionalOverlay();
+      return null;
+    }
+
+    render(<OutsideConsumer />);
+    expect(outsideValue).toBeNull();
+
+    let insideValue: OverlayContextValue | null | undefined;
+    function InsideConsumer() {
+      insideValue = useOptionalOverlay();
+      return null;
+    }
+
+    render(
+      <OverlayProvider>
+        <InsideConsumer />
+      </OverlayProvider>
+    );
+    expect(insideValue).not.toBeNull();
+    expect(typeof insideValue?.registerDismissHandler).toBe('function');
+  });
+
+  it('delegates Escape to registered dismiss handler for topmost modal, restores fallback on unregister, and guards cleanup by handler identity', () => {
+    const { getOverlay } = createHarness();
+
+    fireEvent.click(screen.getByText('Open Settings'));
+    expect(getOverlay().modalStack.length).toBe(1);
+
+    const handlerA = vi.fn();
+    const handlerB = vi.fn();
+
+    const cleanupA = getOverlay().registerDismissHandler('settings', handlerA);
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    });
+    expect(handlerA).toHaveBeenCalledTimes(1);
+    expect(getOverlay().modalStack.length).toBe(1);
+
+    // Overwrite handlerA with handlerB, then invoke stale cleanupA
+    const cleanupB = getOverlay().registerDismissHandler('settings', handlerB);
+    cleanupA();
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    });
+    expect(handlerB).toHaveBeenCalledTimes(1);
+    expect(getOverlay().modalStack.length).toBe(1);
+
+    // Unregister handlerB -> restores closeModal(top.type) fallback
+    cleanupB();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    });
+    expect(getOverlay().modalStack.length).toBe(0);
+  });
+
+  it('ignores Escape during IME composition (isComposing or keyCode 229)', () => {
+    const { getOverlay } = createHarness();
+
+    fireEvent.click(screen.getByText('Open Settings'));
+    expect(getOverlay().modalStack.length).toBe(1);
+
+    const composingEvent = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      isComposing: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(composingEvent);
+    expect(getOverlay().modalStack.length).toBe(1);
+    expect(composingEvent.defaultPrevented).toBe(false);
+
+    const imeKeyCodeEvent = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      keyCode: 229,
+      cancelable: true,
+    });
+    window.dispatchEvent(imeKeyCodeEvent);
+    expect(getOverlay().modalStack.length).toBe(1);
+    expect(imeKeyCodeEvent.defaultPrevented).toBe(false);
   });
 });

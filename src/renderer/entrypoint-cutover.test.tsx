@@ -418,19 +418,12 @@ describe('Renderer Entrypoint Cutover Integration (07.2.1)', () => {
       expect(document.activeElement).toBe(langTrigger);
     });
 
-    // 3. Open AboutModal from inside SettingsModal (General tab -> About & Credits)
-    const aboutTrigger = screen.getByRole('button', { name: 'About & Credits' });
-    aboutTrigger.focus();
-    fireEvent.click(aboutTrigger);
-
-    expect((await screen.findAllByRole('dialog')).length).toBe(2);
-    const closeBtnsAfterAbout = screen.getAllByRole('button', { name: 'Close dialog' });
-    fireEvent.click(closeBtnsAfterAbout[closeBtnsAfterAbout.length - 1]);
-
-    await waitFor(() => {
-      expect(screen.getAllByRole('dialog').length).toBe(1);
-      expect(document.activeElement).toBe(aboutTrigger);
-    });
+    // 3. Jump to inline About & Credits section inside SettingsModal
+    const aboutTab = screen.getByRole('tab', { name: 'About' });
+    fireEvent.click(aboutTab);
+    expect(aboutTab.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText('Acknowledgements & Credits')).toBeInTheDocument();
+    expect(screen.getAllByRole('dialog').length).toBe(1);
   });
 
   it('executes card context menu actions (rename true/false/reject, reveal, open/set/reset save folder with AC 23 path sanitization, toggle-live-tl, tl-sync BCP-47 fallback & rejection, toggle-bg, launch, save-editor)', async () => {

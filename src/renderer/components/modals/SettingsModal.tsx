@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ElectronAPI } from '../../../shared/types/ipc';
 import type { PlatformInput } from '../../../shared/path-subsumption';
 import { sanitizeUserPaths } from '../../../shared/path-sanitizer';
@@ -29,9 +29,11 @@ import {
 import type { UiStorageAdapter } from '../../state/ui-runtime-state';
 import type { LibraryConfig } from '../../types/game';
 import { applyTheme } from '../../utils/theme';
+import { AboutContent } from './AboutContent';
 import { Modal } from './Modal';
 import { SettingsGeneralTab } from './SettingsGeneralTab';
 import { SettingsLibraryTab } from './SettingsLibraryTab';
+import { SettingsMascotTab } from './SettingsMascotTab';
 import { SettingsSystemTab, type MascotPreferences } from './SettingsSystemTab';
 import { SettingsUpdatesTab } from './SettingsUpdatesTab';
 
@@ -58,14 +60,16 @@ export interface SettingsModalProps {
   onOpenAbout?: () => void;
 }
 
-type SettingsTabId = 'general' | 'library' | 'updates' | 'system';
+type SettingsTabId = 'general' | 'library' | 'system' | 'mascot' | 'updates' | 'about';
 type AsyncStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 const SETTINGS_TABS: readonly { id: SettingsTabId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'library', label: 'Library & Categories' },
+  { id: 'system', label: 'System' },
+  { id: 'mascot', label: 'Yume-chan' },
   { id: 'updates', label: 'Updates' },
-  { id: 'system', label: 'System & Mascot' },
+  { id: 'about', label: 'About' },
 ];
 
 function getDefaultStorage(): UiStorageAdapter | undefined {
@@ -164,6 +168,37 @@ export function SettingsModal({
   const rescanTokenRef = useRef(0);
   const reorderSeqRef = useRef(0);
   const isMountedRef = useRef(true);
+  const scrollBodyRef = useRef<HTMLDivElement | null>(null);
+  const sectionRefs = useRef<Record<SettingsTabId, HTMLElement | null>>({
+    general: null,
+    library: null,
+    updates: null,
+    system: null,
+    mascot: null,
+    about: null,
+  });
+
+  const jumpToSection = useCallback((id: SettingsTabId) => {
+    setActiveTab(id);
+    sectionRefs.current[id]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const handleSettingsScroll = useCallback(() => {
+    const container = scrollBodyRef.current;
+    if (!container) return;
+    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 8) {
+      setActiveTab('about');
+      return;
+    }
+    let current: SettingsTabId = 'general';
+    for (const tab of SETTINGS_TABS) {
+      const el = sectionRefs.current[tab.id];
+      if (el && el.offsetTop - container.offsetTop <= container.scrollTop + 32) {
+        current = tab.id;
+      }
+    }
+    setActiveTab(current);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -887,195 +922,266 @@ export function SettingsModal({
     >
       <Modal.Header title={strings.settings || 'Settings'} className="settings-header" />
 
-      <div className="settings-tabs-nav" role="tablist" aria-label="Settings sections">
-        {SETTINGS_TABS.map((tab) => {
-          const isSelected = activeTab === tab.id;
-          const tabLabel =
-            tab.id === 'general'
-              ? strings.settings_tab_general || tab.label
-              : tab.id === 'library'
-                ? exposeBetaOptions
-                  ? strings.settings_tab_library || tab.label
-                  : 'Library'
-                : tab.id === 'updates'
-                  ? strings.settings_tab_updates || tab.label
-                  : strings.settings_tab_system || tab.label;
-          return (
-            <button
-              key={tab.id}
-              id={`settings-tab-${tab.id}`}
-              type="button"
-              role="tab"
-              className={`settings-tab-btn${isSelected ? ' active' : ''}`}
-              aria-selected={isSelected}
-              aria-controls={`settings-panel-${tab.id}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tabLabel}
-            </button>
-          );
-        })}
-      </div>
-
-      <Modal.Body className="settings-body">
-        {activeTab === 'general' && (
-          <SettingsGeneralTab
-            language={language}
-            strings={strings}
-            theme={theme}
-            installedLanguages={installedLanguages}
-            locationDisplayMode={locationDisplayMode}
-            titleDisplayMode={titleDisplayMode}
-            displayProductCodes={displayProductCodes}
-            maxDepth={maxDepth}
-            autoAllowLargeSaves={autoAllowLargeSaves}
-            isUpdatingConfig={isUpdatingConfig}
-            onThemeChange={handleThemeChange}
-            onLanguageChange={handleLanguageChange}
-            onOpenLanguagePack={onOpenLanguagePack}
-            onLocationDisplayModeChange={handleLocationDisplayModeChange}
-            onUpdateDisplayConfig={(updates) => void handleUpdateDisplayConfig(updates)}
-            onMaxDepthChange={(nextDepth) => void handleMaxDepthChange(nextDepth)}
-          />
-        )}
-
-        {activeTab === 'library' && (
-          <SettingsLibraryTab
-            language={language}
-            strings={strings}
-            libraryPaths={libraryPaths}
-            folderAliases={config?.folderAliases}
-            targetPlatform={targetPlatform}
-            exposeBetaOptions={exposeBetaOptions}
-            isMutating={isMutating}
-            isScanning={isScanning}
-            isAddingGame={isAddingGame}
-            onAddLibraryPath={handleAddLibraryPath}
-            onAddManualGame={handleAddManualGame}
-            onOpenPath={(dirPath) => void api?.openPath?.(dirPath)}
-            onChangePath={(dirPath) => void handleChangePath(dirPath)}
-            onRemovePath={(dirPath) => void handleRemovePath(dirPath)}
-            onReorderPaths={handleReorderPaths}
-            onShowToast={showToast}
-            pathListContainerRef={pathListContainerRef}
-            pathItemRefs={pathItemRefs}
-            flattenedCategories={flattenedCategories}
-            isCreatingCategory={isCreatingCategory}
-            newCategoryName={newCategoryName}
-            categoryCreateStatus={categoryCreateStatus}
-            categoryCreateError={categoryCreateError}
-            newCategoryInputRef={newCategoryInputRef}
-            onStartCreateCategory={() => {
-              setIsCreatingCategory(true);
-              setCategoryCreateError(null);
-              setCategoryCreateStatus('idle');
-            }}
-            onCancelCreateCategory={() => {
-              setIsCreatingCategory(false);
-              setNewCategoryName('');
-              setCategoryCreateError(null);
-              setCategoryCreateStatus('idle');
-            }}
-            onNewCategoryNameChange={(name) => {
-              setNewCategoryName(name);
-              if (categoryCreateError) setCategoryCreateError(null);
-            }}
-            onCreateCategorySubmit={handleCreateCategorySubmit}
-            renamingCategoryId={renamingCategoryId}
-            renameCategoryDraft={renameCategoryDraft}
-            categoryRenameStatus={categoryRenameStatus}
-            categoryRenameError={categoryRenameError}
-            onStartRenameCategory={(categoryId, currentName) => {
-              setRenamingCategoryId(categoryId);
-              setRenameCategoryDraft(currentName);
-              setCategoryRenameError(null);
-              setCategoryRenameStatus('idle');
-            }}
-            onCancelRenameCategory={() => {
-              setRenamingCategoryId(null);
-              setRenameCategoryDraft('');
-              setCategoryRenameError(null);
-              setCategoryRenameStatus('idle');
-            }}
-            onRenameCategoryDraftChange={(draft) => {
-              setRenameCategoryDraft(draft);
-              if (categoryRenameError) setCategoryRenameError(null);
-            }}
-            onRenameCategorySubmit={handleRenameCategorySubmit}
-            pendingDeleteCategoryId={pendingDeleteCategoryId}
-            isDeletingCategory={isDeletingCategory}
-            categoryDeleteError={categoryDeleteError}
-            onRequestDeleteCategory={handleRequestDeleteCategory}
-            onCancelDeleteCategory={handleCancelDeleteCategory}
-            onConfirmDeleteCategory={handleConfirmDeleteCategory}
-            categoryListContainerRef={categoryListContainerRef}
-            categoryItemRefs={categoryItemRefs}
-            deleteTriggerRefs={deleteTriggerRefs}
-          />
-        )}
-
-        {activeTab === 'updates' && (
-          <SettingsUpdatesTab
-            language={language}
-            strings={strings}
-            appUpdateMode={appUpdateMode}
-            langPackUpdateMode={langPackUpdateMode}
-            onAppUpdateModeChange={handleAppUpdateModeChange}
-            onLangPackUpdateModeChange={handleLangPackUpdateModeChange}
-          />
-        )}
-
-        {activeTab === 'system' && (
-          <SettingsSystemTab
-            language={language}
-            strings={strings}
-            autoLaunchValue={autoLaunchValue}
-            minimizeToTray={minimizeToTray}
-            exposeBetaOptions={exposeBetaOptions}
-            mascotShow={mascotShow}
-            hideAndSeek={hideAndSeek}
-            mascotScale={mascotScale}
-            mascotSound={mascotSound}
-            mascotVolume={mascotVolume}
-            onAutoLaunchChange={(value) => void handleAutoLaunchChange(value)}
-            onMinimizeToTrayChange={(enabled) => void handleMinimizeToTrayChange(enabled)}
-            onExposeBetaChange={(enabled) => void handleExposeBetaChange(enabled)}
-            onUpdateMascotPreferences={updateMascotPreferences}
-          />
-        )}
-
-        <div className="settings-info">
-          <p id="ui-app-version">
-            {appVersion ? (
-              <a
-                className="settings-version-link"
-                href={`https://github.com/loerei/YumeShelf/releases/tag/v${appVersion}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void api?.openExternalUrl?.(
-                    `https://github.com/loerei/YumeShelf/releases/tag/v${appVersion}`
-                  );
-                }}
+      <div className="settings-shell">
+        <nav
+          className="settings-sidebar"
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label="Settings sections"
+        >
+          {SETTINGS_TABS.map((tab) => {
+            const isSelected = activeTab === tab.id;
+            const tabLabel =
+              tab.id === 'general'
+                ? strings.settings_tab_general || tab.label
+                : tab.id === 'library'
+                  ? exposeBetaOptions
+                    ? strings.settings_tab_library || tab.label
+                    : strings.settings_tab_library_only || 'Library'
+                  : tab.id === 'updates'
+                    ? strings.settings_tab_updates || tab.label
+                    : tab.id === 'system'
+                      ? strings.settings_tab_system_only || 'System'
+                      : tab.id === 'mascot'
+                        ? strings.settings_tab_mascot || 'Yume-chan'
+                        : strings.settings_tab_about || 'About';
+            return (
+              <button
+                key={tab.id}
+                id={`settings-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                className={`settings-nav-btn${isSelected ? ' active' : ''}`}
+                aria-selected={isSelected}
+                aria-controls={`settings-panel-${tab.id}`}
+                onClick={() => jumpToSection(tab.id)}
               >
-                {`${strings.title || 'YumeShelf'} v${appVersion}`}
-              </a>
-            ) : (
-              strings.title || 'YumeShelf'
-            )}
-          </p>
-          <p id="ui-footer-desc">{strings.footer_desc || 'Your dreams, organized perfectly.'}</p>
-          <div className="settings-about-row">
-            <button
-              type="button"
-              id="settings-about-btn"
-              className="settings-about-link"
-              onClick={() => onOpenAbout?.()}
+                {tabLabel}
+              </button>
+            );
+          })}
+        </nav>
+
+        <Modal.Body className="settings-body">
+          <div
+            ref={scrollBodyRef}
+            className="settings-scroll-body"
+            onScroll={handleSettingsScroll}
+          >
+            <section
+              ref={(el) => {
+                sectionRefs.current.general = el;
+              }}
+              className="settings-section-block"
             >
-              {strings.settings_about_credits || 'About & Credits'}
-            </button>
+              <h3 className="settings-section-heading">
+                {strings.settings_tab_general || 'General'}
+              </h3>
+              <SettingsGeneralTab
+                language={language}
+                strings={strings}
+                theme={theme}
+                installedLanguages={installedLanguages}
+                onThemeChange={handleThemeChange}
+                onLanguageChange={handleLanguageChange}
+                onOpenLanguagePack={onOpenLanguagePack}
+              />
+            </section>
+
+            <div className="favorites-separator-container settings-section-separator" aria-hidden="true">
+              <div className="favorites-separator" />
+            </div>
+
+            <section
+              ref={(el) => {
+                sectionRefs.current.library = el;
+              }}
+              className="settings-section-block"
+            >
+              <h3 className="settings-section-heading">
+                {exposeBetaOptions
+                  ? strings.settings_tab_library || 'Library & Categories'
+                  : strings.settings_tab_library_only || 'Library'}
+              </h3>
+              <SettingsLibraryTab
+                language={language}
+                strings={strings}
+                libraryPaths={libraryPaths}
+                folderAliases={config?.folderAliases}
+                targetPlatform={targetPlatform}
+                exposeBetaOptions={exposeBetaOptions}
+                locationDisplayMode={locationDisplayMode}
+                titleDisplayMode={titleDisplayMode}
+                displayProductCodes={displayProductCodes}
+                maxDepth={maxDepth}
+                isUpdatingConfig={isUpdatingConfig}
+                onLocationDisplayModeChange={handleLocationDisplayModeChange}
+                onUpdateDisplayConfig={(updates) => void handleUpdateDisplayConfig(updates)}
+                onMaxDepthChange={(nextDepth) => void handleMaxDepthChange(nextDepth)}
+                isMutating={isMutating}
+                isScanning={isScanning}
+                isAddingGame={isAddingGame}
+                onAddLibraryPath={handleAddLibraryPath}
+                onAddManualGame={handleAddManualGame}
+                onOpenPath={(dirPath) => void api?.openPath?.(dirPath)}
+                onChangePath={(dirPath) => void handleChangePath(dirPath)}
+                onRemovePath={(dirPath) => void handleRemovePath(dirPath)}
+                onReorderPaths={handleReorderPaths}
+                onShowToast={showToast}
+                pathListContainerRef={pathListContainerRef}
+                pathItemRefs={pathItemRefs}
+                flattenedCategories={flattenedCategories}
+                isCreatingCategory={isCreatingCategory}
+                newCategoryName={newCategoryName}
+                categoryCreateStatus={categoryCreateStatus}
+                categoryCreateError={categoryCreateError}
+                newCategoryInputRef={newCategoryInputRef}
+                onStartCreateCategory={() => {
+                  setIsCreatingCategory(true);
+                  setCategoryCreateError(null);
+                  setCategoryCreateStatus('idle');
+                }}
+                onCancelCreateCategory={() => {
+                  setIsCreatingCategory(false);
+                  setNewCategoryName('');
+                  setCategoryCreateError(null);
+                  setCategoryCreateStatus('idle');
+                }}
+                onNewCategoryNameChange={(name) => {
+                  setNewCategoryName(name);
+                  if (categoryCreateError) setCategoryCreateError(null);
+                }}
+                onCreateCategorySubmit={handleCreateCategorySubmit}
+                renamingCategoryId={renamingCategoryId}
+                renameCategoryDraft={renameCategoryDraft}
+                categoryRenameStatus={categoryRenameStatus}
+                categoryRenameError={categoryRenameError}
+                onStartRenameCategory={(categoryId, currentName) => {
+                  setRenamingCategoryId(categoryId);
+                  setRenameCategoryDraft(currentName);
+                  setCategoryRenameError(null);
+                  setCategoryRenameStatus('idle');
+                }}
+                onCancelRenameCategory={() => {
+                  setRenamingCategoryId(null);
+                  setRenameCategoryDraft('');
+                  setCategoryRenameError(null);
+                  setCategoryRenameStatus('idle');
+                }}
+                onRenameCategoryDraftChange={(draft) => {
+                  setRenameCategoryDraft(draft);
+                  if (categoryRenameError) setCategoryRenameError(null);
+                }}
+                onRenameCategorySubmit={handleRenameCategorySubmit}
+                pendingDeleteCategoryId={pendingDeleteCategoryId}
+                isDeletingCategory={isDeletingCategory}
+                categoryDeleteError={categoryDeleteError}
+                onRequestDeleteCategory={handleRequestDeleteCategory}
+                onCancelDeleteCategory={handleCancelDeleteCategory}
+                onConfirmDeleteCategory={handleConfirmDeleteCategory}
+                categoryListContainerRef={categoryListContainerRef}
+                categoryItemRefs={categoryItemRefs}
+                deleteTriggerRefs={deleteTriggerRefs}
+              />
+            </section>
+
+            <div className="favorites-separator-container settings-section-separator" aria-hidden="true">
+              <div className="favorites-separator" />
+            </div>
+
+            <section
+              ref={(el) => {
+                sectionRefs.current.system = el;
+              }}
+              className="settings-section-block"
+            >
+              <h3 className="settings-section-heading">
+                {strings.settings_tab_system_only || 'System'}
+              </h3>
+              <SettingsSystemTab
+                language={language}
+                strings={strings}
+                autoLaunchValue={autoLaunchValue}
+                minimizeToTray={minimizeToTray}
+                autoAllowLargeSaves={autoAllowLargeSaves}
+                isUpdatingConfig={isUpdatingConfig}
+                exposeBetaOptions={exposeBetaOptions}
+                onAutoLaunchChange={(value) => void handleAutoLaunchChange(value)}
+                onMinimizeToTrayChange={(enabled) => void handleMinimizeToTrayChange(enabled)}
+                onUpdateDisplayConfig={(updates) => void handleUpdateDisplayConfig(updates)}
+                onExposeBetaChange={(enabled) => void handleExposeBetaChange(enabled)}
+              />
+            </section>
+
+            <div className="favorites-separator-container settings-section-separator" aria-hidden="true">
+              <div className="favorites-separator" />
+            </div>
+
+            <section
+              ref={(el) => {
+                sectionRefs.current.mascot = el;
+              }}
+              className="settings-section-block"
+            >
+              <h3 className="settings-section-heading">
+                {strings.settings_tab_mascot || 'Yume-chan'}
+              </h3>
+              <SettingsMascotTab
+                language={language}
+                strings={strings}
+                mascotShow={mascotShow}
+                hideAndSeek={hideAndSeek}
+                mascotScale={mascotScale}
+                mascotSound={mascotSound}
+                mascotVolume={mascotVolume}
+                onUpdateMascotPreferences={updateMascotPreferences}
+              />
+            </section>
+
+            <div className="favorites-separator-container settings-section-separator" aria-hidden="true">
+              <div className="favorites-separator" />
+            </div>
+
+            <section
+              ref={(el) => {
+                sectionRefs.current.updates = el;
+              }}
+              className="settings-section-block"
+            >
+              <h3 className="settings-section-heading">
+                {strings.settings_tab_updates || 'Updates'}
+              </h3>
+              <SettingsUpdatesTab
+                language={language}
+                strings={strings}
+                appUpdateMode={appUpdateMode}
+                langPackUpdateMode={langPackUpdateMode}
+                onAppUpdateModeChange={handleAppUpdateModeChange}
+                onLangPackUpdateModeChange={handleLangPackUpdateModeChange}
+              />
+            </section>
+
+            <div className="favorites-separator-container settings-section-separator" aria-hidden="true">
+              <div className="favorites-separator" />
+            </div>
+
+            <section
+              ref={(el) => {
+                sectionRefs.current.about = el;
+              }}
+              id="settings-panel-about"
+              role="tabpanel"
+              aria-labelledby="settings-tab-about"
+              className="settings-section-block"
+            >
+              <h3 className="settings-section-heading">
+                {strings.about_modal_title || 'About & Credits'}
+              </h3>
+              <AboutContent electronAPI={api} version={appVersion} />
+            </section>
           </div>
-        </div>
-      </Modal.Body>
+        </Modal.Body>
+      </div>
     </Modal>
   );
 }

@@ -885,7 +885,7 @@ describe('Standalone Save Editor Window Cutover & Integration (Ticket 10.1)', ()
 
       await waitFor(() => {
         expect(screen.getByText('Thư mục lưu')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Chọn thư mục lưu' })).toHaveTextContent('Đổi...');
+        expect(screen.getByRole('button', { name: 'Chọn thư mục save' })).toHaveTextContent('Đổi...');
         expect(screen.getByRole('list', { name: 'Danh sách file save' })).toBeInTheDocument();
         expect(screen.getByRole('navigation', { name: 'Danh mục save' })).toBeInTheDocument();
         expect(screen.getByRole('group', { name: 'Bộ lọc biến save' })).toBeInTheDocument();

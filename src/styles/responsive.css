@@ -6,8 +6,26 @@
         max-height: calc(100vh - 24px);
     }
 
-    .settings-body {
-        padding: 24px;
+    .settings-shell {
+        flex-direction: column;
+    }
+
+    .settings-sidebar {
+        width: 100%;
+        flex-direction: row;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 8px 12px;
+        gap: 4px;
+    }
+
+    .settings-nav-btn {
+        white-space: nowrap;
+    }
+
+    .settings-scroll-body {
+        padding: 20px;
     }
 
     .setting-item {

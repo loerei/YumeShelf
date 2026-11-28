@@ -104,7 +104,17 @@ export const AboutContent: React.FC<AboutContentProps> = ({
           className="about-icon"
         />
         <div className="about-brand-text">
-          <h3>{strings.title || 'YumeShelf'}</h3>
+          <h3>
+            <a
+              href="https://github.com/loerei/YumeShelf"
+              className="about-title-link"
+              onClick={(e) => handleOpenLink(e, 'https://github.com/loerei/YumeShelf')}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {strings.title || 'YumeShelf'}
+            </a>
+          </h3>
           <p className="about-version">{appVersion ? `Version ${appVersion}` : 'Desktop Library'}</p>
           <p className="about-tagline">
             {strings.about_tagline ||

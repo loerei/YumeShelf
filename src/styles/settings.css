@@ -667,6 +667,23 @@
     color: var(--text-main);
 }
 
+.about-title-link {
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+}
+
+.about-title-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.about-title-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
 .about-version {
     margin: 2px 0 6px 0;
     font-size: 13px;

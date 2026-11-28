@@ -227,6 +227,12 @@
     justify-content: flex-end;
 }
 
+.setting-control-zone .volume-slider-container input[type="range"] {
+    width: 196px;
+    flex: 0 0 196px;
+    margin: 0;
+}
+
 .volume-slider-container {
     display: flex;
     align-items: center;
@@ -234,9 +240,7 @@
 }
 
 .volume-slider-container input[type="range"] {
-    width: 196px;
-    flex: 0 0 196px;
-    margin: 0;
+    flex: 1;
     -webkit-appearance: none;
     appearance: none;
     height: 6px;
